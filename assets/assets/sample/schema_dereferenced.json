@@ -1,0 +1,4340 @@
+{
+  "title": "Basic Schema",
+  "type": "object",
+  "properties": {
+    "cluster": {
+      "description": "Eindeutige Bezeichung des Traktes",
+      "required": [
+        "id",
+        "created_at",
+        "select_access_by",
+        "update_access_by",
+        "state_administration",
+        "sampling_strata"
+      ],
+      "properties": {
+        "id": {
+          "description": "Unique ID des Traktes\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Erstellungsdatum",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "select_access_by": {
+          "format": "text[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "update_access_by": {
+          "format": "text[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "supervisor_id": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "topographic_map_number": {
+          "description": "Nummer der topgraphischen Karte 1:25.000",
+          "format": "integer",
+          "type": "integer"
+        },
+        "state_administration": {
+          "description": "Aufnahme-Bundesland für Feldaufnahmen und ggf. Vorklärungsmerkmale\n\nNote:\nThis is a Foreign Key to `lookup_state.abbreviation`.<fk table='lookup_state' column='abbreviation'/>",
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        },
+        "state_location": {
+          "description": "Standard-Land für Ecken und Wege, meist wie Aufnahmeland \"AufnBl\", Ausnahmen bei Grenztrakten\n\nNote:\nThis is a Foreign Key to `lookup_state.abbreviation`.<fk table='lookup_state' column='abbreviation'/>",
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        },
+        "states": {
+          "description": "zugehörige Ländernummer(n), auch mehrere",
+          "format": "private_ci2027_001.enum_state[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sampling_strata": {
+          "description": "Zugehörigkeit zum Rasternetz",
+          "enum": [
+            "0",
+            "1",
+            "4",
+            "8",
+            "16",
+            "64",
+            "128",
+            "256",
+            "512"
+          ],
+          "format": "private_ci2027_001.enum_sampling_strata",
+          "type": "string"
+        },
+        "cluster_identifier": {
+          "description": "Traktkennung / Traktkennzeichen lt. Vorklärung durch vTI",
+          "enum": [
+            "12",
+            "2",
+            "10",
+            "7",
+            "3",
+            "5",
+            "13",
+            "9",
+            "11",
+            "8",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_cluster_identifier",
+          "type": "string"
+        },
+        "is_locked": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "plot": {
+          "required": [
+            "id",
+            "cluster_id",
+            "created_at",
+            "interval_name",
+            "plot_name",
+            "sampling_strata",
+            "state_administration",
+            "state_collect",
+            "coast",
+            "sandy",
+            "conservation_area",
+            "histwald",
+            "use_restriction_reasons",
+            "marking_state",
+            "harvesting_method"
+          ],
+          "properties": {
+            "id": {
+              "description": "Note:\nThis is a Primary Key.<pk/>",
+              "format": "integer",
+              "type": "integer"
+            },
+            "cluster_id": {
+              "description": "Note:\nThis is a Foreign Key to `cluster.id`.<fk table='cluster' column='id'/>",
+              "format": "integer",
+              "type": "integer"
+            },
+            "created_at": {
+              "default": "CURRENT_TIMESTAMP",
+              "format": "timestamp without time zone",
+              "type": "string"
+            },
+            "modified_at": {
+              "format": "timestamp without time zone",
+              "type": "string"
+            },
+            "modified_by": {
+              "default": "(CURRENT_USER)",
+              "format": "regrole",
+              "type": "string"
+            },
+            "interval_name": {
+              "default": "ci2027",
+              "enum": [
+                "ci2022",
+                "ci2027"
+              ],
+              "format": "private_ci2027_001.enum_interval_name",
+              "type": "string"
+            },
+            "plot_name": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "sampling_strata": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_sampling_strata.abbreviation`.<fk table='lookup_sampling_strata' column='abbreviation'/>",
+              "enum": [
+                "0",
+                "1",
+                "4",
+                "8",
+                "16",
+                "64",
+                "128",
+                "256",
+                "512"
+              ],
+              "format": "private_ci2027_001.enum_sampling_strata",
+              "type": "string"
+            },
+            "state_administration": {
+              "enum": [
+                "BW",
+                "BY",
+                "BE",
+                "BB",
+                "HB",
+                "HH",
+                "HE",
+                "MV",
+                "NI",
+                "NW",
+                "RP",
+                "SL",
+                "SN",
+                "ST",
+                "SH",
+                "TH"
+              ],
+              "format": "private_ci2027_001.enum_state",
+              "type": "string"
+            },
+            "state_collect": {
+              "enum": [
+                "BW",
+                "BY",
+                "BE",
+                "BB",
+                "HB",
+                "HH",
+                "HE",
+                "MV",
+                "NI",
+                "NW",
+                "RP",
+                "SL",
+                "SN",
+                "ST",
+                "SH",
+                "TH"
+              ],
+              "format": "private_ci2027_001.enum_state",
+              "type": "string"
+            },
+            "geometry": {
+              "format": "public.geometry(Point,4326)",
+              "type": "string"
+            },
+            "growth_district": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_growth_district.abbreviation`.<fk table='lookup_growth_district' column='abbreviation'/>",
+              "format": "integer",
+              "type": "integer"
+            },
+            "forest_decision": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_forest_decision.abbreviation`.<fk table='lookup_forest_decision' column='abbreviation'/>",
+              "enum": [
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "8",
+                "9",
+                "23",
+                "24",
+                "25"
+              ],
+              "format": "private_ci2027_001.enum_forest_decision",
+              "type": "string"
+            },
+            "accessibility": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "forestry_department": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_forestry_department.abbreviation`.<fk table='lookup_forestry_department' column='abbreviation'/>",
+              "format": "smallint",
+              "type": "integer"
+            },
+            "height_layer_class": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_height_layer_class.abbreviation`.<fk table='lookup_height_layer_class' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_height_layer_class",
+              "type": "string"
+            },
+            "property_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_property_type.abbreviation`.<fk table='lookup_property_type' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "21",
+                "35",
+                "34",
+                "42",
+                "31",
+                "30",
+                "41",
+                "45",
+                "3",
+                "5",
+                "40",
+                "33",
+                "43",
+                "44",
+                "1",
+                "4",
+                "32"
+              ],
+              "format": "private_ci2027_001.enum_property_type",
+              "type": "string"
+            },
+            "property_size_class": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_property_size_class.abbreviation`.<fk table='lookup_property_size_class' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "22",
+                "111",
+                "21",
+                "7",
+                "112",
+                "3",
+                "5",
+                "13",
+                "11",
+                "12",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_property_size_class",
+              "type": "string"
+            },
+            "forest_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_forest_type.abbreviation`.<fk table='lookup_forest_type' column='abbreviation'/>",
+              "enum": [
+                "21",
+                "35",
+                "31",
+                "38",
+                "27",
+                "29",
+                "12",
+                "8",
+                "20",
+                "16",
+                "4",
+                "23",
+                "7",
+                "39",
+                "34",
+                "36",
+                "30",
+                "19",
+                "161",
+                "40",
+                "17",
+                "28",
+                "2",
+                "22",
+                "18",
+                "5",
+                "13",
+                "11",
+                "6",
+                "1",
+                "162",
+                "33",
+                "15",
+                "10",
+                "37",
+                "3",
+                "24",
+                "14",
+                "9",
+                "26",
+                "25",
+                "32"
+              ],
+              "format": "private_ci2027_001.enum_forest_type",
+              "type": "string"
+            },
+            "habitat_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_habitat_type.abbreviation`.<fk table='lookup_habitat_type' column='abbreviation'/>",
+              "enum": [
+                "9220",
+                "9130",
+                "9140",
+                "9190",
+                "9212",
+                "9420",
+                "0",
+                "9191",
+                "9161",
+                "9192",
+                "9230",
+                "9150",
+                "9110",
+                "9213",
+                "9211",
+                "2180",
+                "9210",
+                "9999",
+                "9162",
+                "9410",
+                "9214",
+                "9160",
+                "1",
+                "9240",
+                "9180",
+                "9170"
+              ],
+              "format": "private_ci2027_001.enum_habitat_type",
+              "type": "string"
+            },
+            "habitat_type_source": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_habitat_type_source.abbreviation`.<fk table='lookup_habitat_type_source' column='abbreviation'/>",
+              "enum": [
+                "12",
+                "8",
+                "4",
+                "7",
+                "99",
+                "93",
+                "91",
+                "95",
+                "94",
+                "2",
+                "90",
+                "97",
+                "5",
+                "13",
+                "11",
+                "6",
+                "1",
+                "10",
+                "98",
+                "92",
+                "3",
+                "14",
+                "9",
+                "96"
+              ],
+              "format": "private_ci2027_001.enum_habitat_type_source",
+              "type": "string"
+            },
+            "use_restriction": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_use_restriction.abbreviation`.<fk table='lookup_use_restriction' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "0",
+                "3",
+                "5",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_use_restriction",
+              "type": "string"
+            },
+            "land_use": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_land_use.abbreviation`.<fk table='lookup_land_use' column='abbreviation'/>",
+              "enum": [
+                "22",
+                "90",
+                "21",
+                "23",
+                "99",
+                "92",
+                "93",
+                "3",
+                "13",
+                "14",
+                "11",
+                "12",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_land_use",
+              "type": "string"
+            },
+            "coast": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "sandy": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "conservation_area": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "histwald": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "use_restriction_reasons": {
+              "format": "private_ci2027_001.enum_use_restriction_reason[]",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "landmark_azimuth": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "landmark_distance": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "landmark_note": {
+              "format": "character varying",
+              "maxLength": 12,
+              "type": "string"
+            },
+            "marking_state": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_marking_state.abbreviation`.<fk table='lookup_marking_state' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "0",
+                "3",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_marking_state",
+              "type": "string"
+            },
+            "marking_azimuth": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "marking_distance": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "marking_profile": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_marking_profile.abbreviation`.<fk table='lookup_marking_profile' column='abbreviation'/>",
+              "enum": [
+                "22",
+                "21",
+                "10",
+                "23",
+                "34",
+                "99",
+                "30",
+                "38",
+                "41",
+                "24",
+                "13",
+                "28",
+                "11",
+                "26",
+                "25",
+                "29",
+                "20",
+                "33"
+              ],
+              "format": "private_ci2027_001.enum_marking_profile",
+              "type": "string"
+            },
+            "terrain_form": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_terrain_form.abbreviation`.<fk table='lookup_terrain_form' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "22",
+                "21",
+                "0",
+                "31",
+                "3",
+                "33",
+                "1",
+                "4",
+                "32"
+              ],
+              "format": "private_ci2027_001.enum_terrain_form",
+              "type": "string"
+            },
+            "terrain_slope": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "terrain_exposure": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "management_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_management_type.abbreviation`.<fk table='lookup_management_type' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_management_type",
+              "type": "string"
+            },
+            "harvesting_method": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_harvesting_method.abbreviation`.<fk table='lookup_harvesting_method' column='abbreviation'/>",
+              "enum": [
+                "0",
+                "1",
+                "2",
+                "3",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_harvesting_method",
+              "type": "string"
+            },
+            "biotope": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "layer_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_layer_type.abbreviation`.<fk table='lookup_layer_type' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_layer_type",
+              "type": "string"
+            },
+            "stand_age": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "stand_phase": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_stand_phase.abbreviation`.<fk table='lookup_stand_phase' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_stand_phase",
+              "type": "string"
+            },
+            "sablings_layer": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_stand_layer.abbreviation`.<fk table='lookup_stand_layer' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "0",
+                "3",
+                "9",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_stand_layer",
+              "type": "string"
+            },
+            "sablings_fence": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "trees_less_4meter_mirrored": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_mirrored.abbreviation`.<fk table='lookup_trees_less_4meter_mirrored' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "1",
+                "0"
+              ],
+              "format": "private_ci2027_001.enum_trees_less_4meter_mirrored",
+              "type": "string"
+            },
+            "trees_less_4meter_count_factor": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_count_factor.abbreviation`.<fk table='lookup_trees_less_4meter_count_factor' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "1"
+              ],
+              "format": "private_ci2027_001.enum_trees_less_4meter_count_factor",
+              "type": "string"
+            },
+            "trees_less_4meter_coverage": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "trees_less_4meter_layer": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_layer.abbreviation`.<fk table='lookup_trees_less_4meter_layer' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "1",
+                "9",
+                "3"
+              ],
+              "format": "private_ci2027_001.enum_trees_less_4meter_layer",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "definitions": {
+    "lookup_management_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_management_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_terrain": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "12",
+            "2",
+            "10",
+            "7",
+            "0",
+            "3",
+            "5",
+            "13",
+            "14",
+            "9",
+            "11",
+            "8",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_terrain",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_dead_wood_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "13",
+            "11",
+            "12",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_dead_wood_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "wzp_tree": {
+      "required": [
+        "id",
+        "plot_id",
+        "created_at",
+        "tree_number",
+        "tree_marked",
+        "azimuth",
+        "distance",
+        "bhd",
+        "bhd_height"
+      ],
+      "properties": {
+        "id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "Note:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "tree_number": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "tree_marked": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "tree_state": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_tree_state.abbreviation`.<fk table='lookup_tree_state' column='abbreviation'/>",
+          "enum": [
+            "0",
+            "2007",
+            "2012",
+            "12",
+            "8",
+            "4",
+            "2008",
+            "7",
+            "2002",
+            "2",
+            "5",
+            "2017",
+            "11",
+            "6",
+            "1",
+            "10",
+            "3",
+            "9",
+            "1111"
+          ],
+          "format": "private_ci2027_001.enum_tree_state",
+          "type": "string"
+        },
+        "azimuth": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "distance": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "geometry": {
+          "format": "public.geometry(Point,4326)",
+          "type": "string"
+        },
+        "tree_species": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_tree_species.abbreviation`.<fk table='lookup_tree_species' column='abbreviation'/>",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "bhd": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "bhd_height": {
+          "default": 130,
+          "format": "smallint",
+          "type": "integer"
+        },
+        "tree_height": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "stem_height": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "tree_height_azimuth": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "tree_height_distance": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "tree_age": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "stem_breakage": {
+          "default": "0",
+          "description": "Note:\nThis is a Foreign Key to `lookup_stem_breakage.abbreviation`.<fk table='lookup_stem_breakage' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1",
+            "0"
+          ],
+          "format": "private_ci2027_001.enum_stem_breakage",
+          "type": "string"
+        },
+        "stem_form": {
+          "default": "0",
+          "description": "Note:\nThis is a Foreign Key to `lookup_stem_form.abbreviation`.<fk table='lookup_stem_form' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stem_form",
+          "type": "string"
+        },
+        "pruning": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_pruning.abbreviation`.<fk table='lookup_pruning' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "5",
+            "9",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_pruning",
+          "type": "string"
+        },
+        "pruning_height": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "stand_affiliation": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "inventory_layer": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_stand_layer.abbreviation`.<fk table='lookup_stand_layer' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stand_layer",
+          "type": "string"
+        },
+        "damage_dead": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_peel_new": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_peel_old": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_logging": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_fungus": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_resin": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_beetle": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_other": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "cave_tree": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "crown_clear": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "crown_dry": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "damage_bark": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "biotope_marked": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "bark_condition": {
+          "format": "smallint",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_trees_less_4meter_layer": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1",
+            "9",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_layer",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_harvesting_method": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_harvesting_method",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "plot": {
+      "required": [
+        "id",
+        "cluster_id",
+        "created_at",
+        "interval_name",
+        "plot_name",
+        "sampling_strata",
+        "state_administration",
+        "state_collect",
+        "coast",
+        "sandy",
+        "conservation_area",
+        "histwald",
+        "use_restriction_reasons",
+        "marking_state",
+        "harvesting_method"
+      ],
+      "properties": {
+        "id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "cluster_id": {
+          "description": "Note:\nThis is a Foreign Key to `cluster.id`.<fk table='cluster' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "interval_name": {
+          "default": "ci2027",
+          "enum": [
+            "ci2022",
+            "ci2027"
+          ],
+          "format": "private_ci2027_001.enum_interval_name",
+          "type": "string"
+        },
+        "plot_name": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "sampling_strata": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_sampling_strata.abbreviation`.<fk table='lookup_sampling_strata' column='abbreviation'/>",
+          "enum": [
+            "0",
+            "1",
+            "4",
+            "8",
+            "16",
+            "64",
+            "128",
+            "256",
+            "512"
+          ],
+          "format": "private_ci2027_001.enum_sampling_strata",
+          "type": "string"
+        },
+        "state_administration": {
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        },
+        "state_collect": {
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        },
+        "geometry": {
+          "format": "public.geometry(Point,4326)",
+          "type": "string"
+        },
+        "growth_district": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_growth_district.abbreviation`.<fk table='lookup_growth_district' column='abbreviation'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "forest_decision": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_forest_decision.abbreviation`.<fk table='lookup_forest_decision' column='abbreviation'/>",
+          "enum": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "8",
+            "9",
+            "23",
+            "24",
+            "25"
+          ],
+          "format": "private_ci2027_001.enum_forest_decision",
+          "type": "string"
+        },
+        "accessibility": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "forestry_department": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_forestry_department.abbreviation`.<fk table='lookup_forestry_department' column='abbreviation'/>",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "height_layer_class": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_height_layer_class.abbreviation`.<fk table='lookup_height_layer_class' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_height_layer_class",
+          "type": "string"
+        },
+        "property_type": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_property_type.abbreviation`.<fk table='lookup_property_type' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "21",
+            "35",
+            "34",
+            "42",
+            "31",
+            "30",
+            "41",
+            "45",
+            "3",
+            "5",
+            "40",
+            "33",
+            "43",
+            "44",
+            "1",
+            "4",
+            "32"
+          ],
+          "format": "private_ci2027_001.enum_property_type",
+          "type": "string"
+        },
+        "property_size_class": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_property_size_class.abbreviation`.<fk table='lookup_property_size_class' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "22",
+            "111",
+            "21",
+            "7",
+            "112",
+            "3",
+            "5",
+            "13",
+            "11",
+            "12",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_property_size_class",
+          "type": "string"
+        },
+        "forest_type": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_forest_type.abbreviation`.<fk table='lookup_forest_type' column='abbreviation'/>",
+          "enum": [
+            "21",
+            "35",
+            "31",
+            "38",
+            "27",
+            "29",
+            "12",
+            "8",
+            "20",
+            "16",
+            "4",
+            "23",
+            "7",
+            "39",
+            "34",
+            "36",
+            "30",
+            "19",
+            "161",
+            "40",
+            "17",
+            "28",
+            "2",
+            "22",
+            "18",
+            "5",
+            "13",
+            "11",
+            "6",
+            "1",
+            "162",
+            "33",
+            "15",
+            "10",
+            "37",
+            "3",
+            "24",
+            "14",
+            "9",
+            "26",
+            "25",
+            "32"
+          ],
+          "format": "private_ci2027_001.enum_forest_type",
+          "type": "string"
+        },
+        "habitat_type": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_habitat_type.abbreviation`.<fk table='lookup_habitat_type' column='abbreviation'/>",
+          "enum": [
+            "9220",
+            "9130",
+            "9140",
+            "9190",
+            "9212",
+            "9420",
+            "0",
+            "9191",
+            "9161",
+            "9192",
+            "9230",
+            "9150",
+            "9110",
+            "9213",
+            "9211",
+            "2180",
+            "9210",
+            "9999",
+            "9162",
+            "9410",
+            "9214",
+            "9160",
+            "1",
+            "9240",
+            "9180",
+            "9170"
+          ],
+          "format": "private_ci2027_001.enum_habitat_type",
+          "type": "string"
+        },
+        "habitat_type_source": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_habitat_type_source.abbreviation`.<fk table='lookup_habitat_type_source' column='abbreviation'/>",
+          "enum": [
+            "12",
+            "8",
+            "4",
+            "7",
+            "99",
+            "93",
+            "91",
+            "95",
+            "94",
+            "2",
+            "90",
+            "97",
+            "5",
+            "13",
+            "11",
+            "6",
+            "1",
+            "10",
+            "98",
+            "92",
+            "3",
+            "14",
+            "9",
+            "96"
+          ],
+          "format": "private_ci2027_001.enum_habitat_type_source",
+          "type": "string"
+        },
+        "use_restriction": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_use_restriction.abbreviation`.<fk table='lookup_use_restriction' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_use_restriction",
+          "type": "string"
+        },
+        "land_use": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_land_use.abbreviation`.<fk table='lookup_land_use' column='abbreviation'/>",
+          "enum": [
+            "22",
+            "90",
+            "21",
+            "23",
+            "99",
+            "92",
+            "93",
+            "3",
+            "13",
+            "14",
+            "11",
+            "12",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_land_use",
+          "type": "string"
+        },
+        "coast": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "sandy": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "conservation_area": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "histwald": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "use_restriction_reasons": {
+          "format": "private_ci2027_001.enum_use_restriction_reason[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "landmark_azimuth": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "landmark_distance": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "landmark_note": {
+          "format": "character varying",
+          "maxLength": 12,
+          "type": "string"
+        },
+        "marking_state": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_marking_state.abbreviation`.<fk table='lookup_marking_state' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_marking_state",
+          "type": "string"
+        },
+        "marking_azimuth": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "marking_distance": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "marking_profile": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_marking_profile.abbreviation`.<fk table='lookup_marking_profile' column='abbreviation'/>",
+          "enum": [
+            "22",
+            "21",
+            "10",
+            "23",
+            "34",
+            "99",
+            "30",
+            "38",
+            "41",
+            "24",
+            "13",
+            "28",
+            "11",
+            "26",
+            "25",
+            "29",
+            "20",
+            "33"
+          ],
+          "format": "private_ci2027_001.enum_marking_profile",
+          "type": "string"
+        },
+        "terrain_form": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_terrain_form.abbreviation`.<fk table='lookup_terrain_form' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "22",
+            "21",
+            "0",
+            "31",
+            "3",
+            "33",
+            "1",
+            "4",
+            "32"
+          ],
+          "format": "private_ci2027_001.enum_terrain_form",
+          "type": "string"
+        },
+        "terrain_slope": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "terrain_exposure": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "management_type": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_management_type.abbreviation`.<fk table='lookup_management_type' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_management_type",
+          "type": "string"
+        },
+        "harvesting_method": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_harvesting_method.abbreviation`.<fk table='lookup_harvesting_method' column='abbreviation'/>",
+          "enum": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_harvesting_method",
+          "type": "string"
+        },
+        "biotope": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "layer_type": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_layer_type.abbreviation`.<fk table='lookup_layer_type' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_layer_type",
+          "type": "string"
+        },
+        "stand_age": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "stand_phase": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_stand_phase.abbreviation`.<fk table='lookup_stand_phase' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stand_phase",
+          "type": "string"
+        },
+        "sablings_layer": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_stand_layer.abbreviation`.<fk table='lookup_stand_layer' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stand_layer",
+          "type": "string"
+        },
+        "sablings_fence": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "trees_less_4meter_mirrored": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_mirrored.abbreviation`.<fk table='lookup_trees_less_4meter_mirrored' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1",
+            "0"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_mirrored",
+          "type": "string"
+        },
+        "trees_less_4meter_count_factor": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_count_factor.abbreviation`.<fk table='lookup_trees_less_4meter_count_factor' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_count_factor",
+          "type": "string"
+        },
+        "trees_less_4meter_coverage": {
+          "format": "smallint",
+          "type": "integer"
+        },
+        "trees_less_4meter_layer": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_layer.abbreviation`.<fk table='lookup_trees_less_4meter_layer' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1",
+            "9",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_layer",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_stand_layer": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stand_layer",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_tree_species": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "format": "smallint",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_layer_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_layer_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_marking_state": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_marking_state",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_tree_size_class": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "5",
+            "9",
+            "6",
+            "1"
+          ],
+          "format": "private_ci2027_001.enum_tree_size_class",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_bitten": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_bitten",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_height_layer_class": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_height_layer_class",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_forest_decision": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "8",
+            "9",
+            "23",
+            "24",
+            "25"
+          ],
+          "format": "private_ci2027_001.enum_forest_decision",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_trees_less_4meter_mirrored": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1",
+            "0"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_mirrored",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_marking_profile": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "22",
+            "21",
+            "10",
+            "23",
+            "34",
+            "99",
+            "30",
+            "38",
+            "41",
+            "24",
+            "13",
+            "28",
+            "11",
+            "26",
+            "25",
+            "29",
+            "20",
+            "33"
+          ],
+          "format": "private_ci2027_001.enum_marking_profile",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_growth_district": {
+      "required": [
+        "abbreviation",
+        "district_area"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "states": {
+          "format": "private_ci2027_001.enum_state[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "district_area": {
+          "description": "Note:\nThis is a Foreign Key to `lookup_growth_area.abbreviation`.<fk table='lookup_growth_area' column='abbreviation'/>",
+          "format": "integer",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_edge_state": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2008",
+            "10",
+            "0",
+            "2007",
+            "2002",
+            "5",
+            "2012",
+            "2017",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_edge_state",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_stem_form": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stem_form",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_state": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_tree_state": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "0",
+            "2007",
+            "2012",
+            "12",
+            "8",
+            "4",
+            "2008",
+            "7",
+            "2002",
+            "2",
+            "5",
+            "2017",
+            "11",
+            "6",
+            "1",
+            "10",
+            "3",
+            "9",
+            "1111"
+          ],
+          "format": "private_ci2027_001.enum_tree_state",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_habitat_type_source": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "12",
+            "8",
+            "4",
+            "7",
+            "99",
+            "93",
+            "91",
+            "95",
+            "94",
+            "2",
+            "90",
+            "97",
+            "5",
+            "13",
+            "11",
+            "6",
+            "1",
+            "10",
+            "98",
+            "92",
+            "3",
+            "14",
+            "9",
+            "96"
+          ],
+          "format": "private_ci2027_001.enum_habitat_type_source",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_stand_phase": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_stand_phase",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_property_size_class": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "22",
+            "111",
+            "21",
+            "7",
+            "112",
+            "3",
+            "5",
+            "13",
+            "11",
+            "12",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_property_size_class",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "sapling_2m": {
+      "description": "Sub Plot Saplings",
+      "required": [
+        "id",
+        "plot_id",
+        "created_at",
+        "bitten",
+        "quantity"
+      ],
+      "properties": {
+        "id": {
+          "description": "Primary Key\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "Foreign Key to Plot.id\n\nNote:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_location_id": {
+          "description": "Note:\nThis is a Foreign Key to `plot_location.id`.<fk table='plot_location' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "stand_affiliation": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "tree_species": {
+          "description": "Baumart\n\nNote:\nThis is a Foreign Key to `lookup_tree_species.abbreviation`.<fk table='lookup_tree_species' column='abbreviation'/>",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "bitten": {
+          "description": "Einfacher oder mehrfacher Verbiss der Terminalknospe\n\nNote:\nThis is a Foreign Key to `lookup_bitten.abbreviation`.<fk table='lookup_bitten' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_bitten",
+          "type": "string"
+        },
+        "tree_size_class": {
+          "description": "Größenklasse\n\nNote:\nThis is a Foreign Key to `lookup_tree_size_class.abbreviation`.<fk table='lookup_tree_size_class' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "5",
+            "9",
+            "6",
+            "1"
+          ],
+          "format": "private_ci2027_001.enum_tree_size_class",
+          "type": "string"
+        },
+        "damage_peel": {
+          "description": "Schälschaden",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "protection_individual": {
+          "description": "Einzelschutz der Bäume",
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "quantity": {
+          "description": "Anzahl gleichartiger Bäume",
+          "format": "smallint",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_growth_area": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "states": {
+          "format": "private_ci2027_001.enum_state[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_forestry_department": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "phone": {
+          "format": "character varying",
+          "maxLength": 20,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_habitat_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "9220",
+            "9130",
+            "9140",
+            "9190",
+            "9212",
+            "9420",
+            "0",
+            "9191",
+            "9161",
+            "9192",
+            "9230",
+            "9150",
+            "9110",
+            "9213",
+            "9211",
+            "2180",
+            "9210",
+            "9999",
+            "9162",
+            "9410",
+            "9214",
+            "9160",
+            "1",
+            "9240",
+            "9180",
+            "9170"
+          ],
+          "format": "private_ci2027_001.enum_habitat_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_terrain_form": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "22",
+            "21",
+            "0",
+            "31",
+            "3",
+            "33",
+            "1",
+            "4",
+            "32"
+          ],
+          "format": "private_ci2027_001.enum_terrain_form",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "deadwood": {
+      "description": "Deadwood",
+      "required": [
+        "id",
+        "plot_id",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "description": "Primary Key\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "Foreign Key to plot\n\nNote:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "tree_species_group": {
+          "description": "Baumartengruppe für Totholz\n\nNote:\nThis is a Foreign Key to `lookup_tree_species_group.abbreviation`.<fk table='lookup_tree_species_group' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_tree_species_group",
+          "type": "string"
+        },
+        "dead_wood_type": {
+          "description": "Todholztyp\n\nNote:\nThis is a Foreign Key to `lookup_dead_wood_type.abbreviation`.<fk table='lookup_dead_wood_type' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "13",
+            "11",
+            "12",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_dead_wood_type",
+          "type": "string"
+        },
+        "decomposition": {
+          "description": "Zersetzungsgrad\n\nNote:\nThis is a Foreign Key to `lookup_decomposition.abbreviation`.<fk table='lookup_decomposition' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1",
+            "4",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_decomposition",
+          "type": "string"
+        },
+        "length_height": {
+          "description": "Länge / Höhe Totholz [dm]",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "diameter_butt": {
+          "description": "Durchmesser am dicken Ende [cm] (liegende Bruchstücke); Schnittflächen- (Stöcke), Bhd (mit Wurzel, >=130 cm Länge)",
+          "format": "integer",
+          "type": "integer"
+        },
+        "diameter_top": {
+          "description": "Durchmesser am dünnen Ende [cm] (nur bei liegenden Totholz OHNE Wurzelanlauf)",
+          "format": "integer",
+          "type": "integer"
+        },
+        "count": {
+          "description": "Anzahl gleichartiger Totholzstücke",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "bark_pocket": {
+          "description": "Rindentaschen > 500 cm² mit einer Mindestbreite von 10 cm (nur für stehendes Totholz)",
+          "format": "smallint",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "cluster": {
+      "description": "Eindeutige Bezeichung des Traktes",
+      "required": [
+        "id",
+        "created_at",
+        "select_access_by",
+        "update_access_by",
+        "state_administration",
+        "sampling_strata"
+      ],
+      "properties": {
+        "id": {
+          "description": "Unique ID des Traktes\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Erstellungsdatum",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "select_access_by": {
+          "format": "text[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "update_access_by": {
+          "format": "text[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "supervisor_id": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "topographic_map_number": {
+          "description": "Nummer der topgraphischen Karte 1:25.000",
+          "format": "integer",
+          "type": "integer"
+        },
+        "state_administration": {
+          "description": "Aufnahme-Bundesland für Feldaufnahmen und ggf. Vorklärungsmerkmale\n\nNote:\nThis is a Foreign Key to `lookup_state.abbreviation`.<fk table='lookup_state' column='abbreviation'/>",
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        },
+        "state_location": {
+          "description": "Standard-Land für Ecken und Wege, meist wie Aufnahmeland \"AufnBl\", Ausnahmen bei Grenztrakten\n\nNote:\nThis is a Foreign Key to `lookup_state.abbreviation`.<fk table='lookup_state' column='abbreviation'/>",
+          "enum": [
+            "BW",
+            "BY",
+            "BE",
+            "BB",
+            "HB",
+            "HH",
+            "HE",
+            "MV",
+            "NI",
+            "NW",
+            "RP",
+            "SL",
+            "SN",
+            "ST",
+            "SH",
+            "TH"
+          ],
+          "format": "private_ci2027_001.enum_state",
+          "type": "string"
+        },
+        "states": {
+          "description": "zugehörige Ländernummer(n), auch mehrere",
+          "format": "private_ci2027_001.enum_state[]",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sampling_strata": {
+          "description": "Zugehörigkeit zum Rasternetz",
+          "enum": [
+            "0",
+            "1",
+            "4",
+            "8",
+            "16",
+            "64",
+            "128",
+            "256",
+            "512"
+          ],
+          "format": "private_ci2027_001.enum_sampling_strata",
+          "type": "string"
+        },
+        "cluster_identifier": {
+          "description": "Traktkennung / Traktkennzeichen lt. Vorklärung durch vTI",
+          "enum": [
+            "12",
+            "2",
+            "10",
+            "7",
+            "3",
+            "5",
+            "13",
+            "9",
+            "11",
+            "8",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_cluster_identifier",
+          "type": "string"
+        },
+        "is_locked": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "plot": {
+          "required": [
+            "id",
+            "cluster_id",
+            "created_at",
+            "interval_name",
+            "plot_name",
+            "sampling_strata",
+            "state_administration",
+            "state_collect",
+            "coast",
+            "sandy",
+            "conservation_area",
+            "histwald",
+            "use_restriction_reasons",
+            "marking_state",
+            "harvesting_method"
+          ],
+          "properties": {
+            "id": {
+              "description": "Note:\nThis is a Primary Key.<pk/>",
+              "format": "integer",
+              "type": "integer"
+            },
+            "cluster_id": {
+              "description": "Note:\nThis is a Foreign Key to `cluster.id`.<fk table='cluster' column='id'/>",
+              "format": "integer",
+              "type": "integer"
+            },
+            "created_at": {
+              "default": "CURRENT_TIMESTAMP",
+              "format": "timestamp without time zone",
+              "type": "string"
+            },
+            "modified_at": {
+              "format": "timestamp without time zone",
+              "type": "string"
+            },
+            "modified_by": {
+              "default": "(CURRENT_USER)",
+              "format": "regrole",
+              "type": "string"
+            },
+            "interval_name": {
+              "default": "ci2027",
+              "enum": [
+                "ci2022",
+                "ci2027"
+              ],
+              "format": "private_ci2027_001.enum_interval_name",
+              "type": "string"
+            },
+            "plot_name": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "sampling_strata": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_sampling_strata.abbreviation`.<fk table='lookup_sampling_strata' column='abbreviation'/>",
+              "enum": [
+                "0",
+                "1",
+                "4",
+                "8",
+                "16",
+                "64",
+                "128",
+                "256",
+                "512"
+              ],
+              "format": "private_ci2027_001.enum_sampling_strata",
+              "type": "string"
+            },
+            "state_administration": {
+              "enum": [
+                "BW",
+                "BY",
+                "BE",
+                "BB",
+                "HB",
+                "HH",
+                "HE",
+                "MV",
+                "NI",
+                "NW",
+                "RP",
+                "SL",
+                "SN",
+                "ST",
+                "SH",
+                "TH"
+              ],
+              "format": "private_ci2027_001.enum_state",
+              "type": "string"
+            },
+            "state_collect": {
+              "enum": [
+                "BW",
+                "BY",
+                "BE",
+                "BB",
+                "HB",
+                "HH",
+                "HE",
+                "MV",
+                "NI",
+                "NW",
+                "RP",
+                "SL",
+                "SN",
+                "ST",
+                "SH",
+                "TH"
+              ],
+              "format": "private_ci2027_001.enum_state",
+              "type": "string"
+            },
+            "geometry": {
+              "format": "public.geometry(Point,4326)",
+              "type": "string"
+            },
+            "growth_district": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_growth_district.abbreviation`.<fk table='lookup_growth_district' column='abbreviation'/>",
+              "format": "integer",
+              "type": "integer"
+            },
+            "forest_decision": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_forest_decision.abbreviation`.<fk table='lookup_forest_decision' column='abbreviation'/>",
+              "enum": [
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "8",
+                "9",
+                "23",
+                "24",
+                "25"
+              ],
+              "format": "private_ci2027_001.enum_forest_decision",
+              "type": "string"
+            },
+            "accessibility": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "forestry_department": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_forestry_department.abbreviation`.<fk table='lookup_forestry_department' column='abbreviation'/>",
+              "format": "smallint",
+              "type": "integer"
+            },
+            "height_layer_class": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_height_layer_class.abbreviation`.<fk table='lookup_height_layer_class' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_height_layer_class",
+              "type": "string"
+            },
+            "property_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_property_type.abbreviation`.<fk table='lookup_property_type' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "21",
+                "35",
+                "34",
+                "42",
+                "31",
+                "30",
+                "41",
+                "45",
+                "3",
+                "5",
+                "40",
+                "33",
+                "43",
+                "44",
+                "1",
+                "4",
+                "32"
+              ],
+              "format": "private_ci2027_001.enum_property_type",
+              "type": "string"
+            },
+            "property_size_class": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_property_size_class.abbreviation`.<fk table='lookup_property_size_class' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "22",
+                "111",
+                "21",
+                "7",
+                "112",
+                "3",
+                "5",
+                "13",
+                "11",
+                "12",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_property_size_class",
+              "type": "string"
+            },
+            "forest_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_forest_type.abbreviation`.<fk table='lookup_forest_type' column='abbreviation'/>",
+              "enum": [
+                "21",
+                "35",
+                "31",
+                "38",
+                "27",
+                "29",
+                "12",
+                "8",
+                "20",
+                "16",
+                "4",
+                "23",
+                "7",
+                "39",
+                "34",
+                "36",
+                "30",
+                "19",
+                "161",
+                "40",
+                "17",
+                "28",
+                "2",
+                "22",
+                "18",
+                "5",
+                "13",
+                "11",
+                "6",
+                "1",
+                "162",
+                "33",
+                "15",
+                "10",
+                "37",
+                "3",
+                "24",
+                "14",
+                "9",
+                "26",
+                "25",
+                "32"
+              ],
+              "format": "private_ci2027_001.enum_forest_type",
+              "type": "string"
+            },
+            "habitat_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_habitat_type.abbreviation`.<fk table='lookup_habitat_type' column='abbreviation'/>",
+              "enum": [
+                "9220",
+                "9130",
+                "9140",
+                "9190",
+                "9212",
+                "9420",
+                "0",
+                "9191",
+                "9161",
+                "9192",
+                "9230",
+                "9150",
+                "9110",
+                "9213",
+                "9211",
+                "2180",
+                "9210",
+                "9999",
+                "9162",
+                "9410",
+                "9214",
+                "9160",
+                "1",
+                "9240",
+                "9180",
+                "9170"
+              ],
+              "format": "private_ci2027_001.enum_habitat_type",
+              "type": "string"
+            },
+            "habitat_type_source": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_habitat_type_source.abbreviation`.<fk table='lookup_habitat_type_source' column='abbreviation'/>",
+              "enum": [
+                "12",
+                "8",
+                "4",
+                "7",
+                "99",
+                "93",
+                "91",
+                "95",
+                "94",
+                "2",
+                "90",
+                "97",
+                "5",
+                "13",
+                "11",
+                "6",
+                "1",
+                "10",
+                "98",
+                "92",
+                "3",
+                "14",
+                "9",
+                "96"
+              ],
+              "format": "private_ci2027_001.enum_habitat_type_source",
+              "type": "string"
+            },
+            "use_restriction": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_use_restriction.abbreviation`.<fk table='lookup_use_restriction' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "0",
+                "3",
+                "5",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_use_restriction",
+              "type": "string"
+            },
+            "land_use": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_land_use.abbreviation`.<fk table='lookup_land_use' column='abbreviation'/>",
+              "enum": [
+                "22",
+                "90",
+                "21",
+                "23",
+                "99",
+                "92",
+                "93",
+                "3",
+                "13",
+                "14",
+                "11",
+                "12",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_land_use",
+              "type": "string"
+            },
+            "coast": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "sandy": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "conservation_area": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "histwald": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "use_restriction_reasons": {
+              "format": "private_ci2027_001.enum_use_restriction_reason[]",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "landmark_azimuth": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "landmark_distance": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "landmark_note": {
+              "format": "character varying",
+              "maxLength": 12,
+              "type": "string"
+            },
+            "marking_state": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_marking_state.abbreviation`.<fk table='lookup_marking_state' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "0",
+                "3",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_marking_state",
+              "type": "string"
+            },
+            "marking_azimuth": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "marking_distance": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "marking_profile": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_marking_profile.abbreviation`.<fk table='lookup_marking_profile' column='abbreviation'/>",
+              "enum": [
+                "22",
+                "21",
+                "10",
+                "23",
+                "34",
+                "99",
+                "30",
+                "38",
+                "41",
+                "24",
+                "13",
+                "28",
+                "11",
+                "26",
+                "25",
+                "29",
+                "20",
+                "33"
+              ],
+              "format": "private_ci2027_001.enum_marking_profile",
+              "type": "string"
+            },
+            "terrain_form": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_terrain_form.abbreviation`.<fk table='lookup_terrain_form' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "22",
+                "21",
+                "0",
+                "31",
+                "3",
+                "33",
+                "1",
+                "4",
+                "32"
+              ],
+              "format": "private_ci2027_001.enum_terrain_form",
+              "type": "string"
+            },
+            "terrain_slope": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "terrain_exposure": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "management_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_management_type.abbreviation`.<fk table='lookup_management_type' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_management_type",
+              "type": "string"
+            },
+            "harvesting_method": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_harvesting_method.abbreviation`.<fk table='lookup_harvesting_method' column='abbreviation'/>",
+              "enum": [
+                "0",
+                "1",
+                "2",
+                "3",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_harvesting_method",
+              "type": "string"
+            },
+            "biotope": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "layer_type": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_layer_type.abbreviation`.<fk table='lookup_layer_type' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "6",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_layer_type",
+              "type": "string"
+            },
+            "stand_age": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "stand_phase": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_stand_phase.abbreviation`.<fk table='lookup_stand_phase' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "3",
+                "5",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_stand_phase",
+              "type": "string"
+            },
+            "sablings_layer": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_stand_layer.abbreviation`.<fk table='lookup_stand_layer' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "0",
+                "3",
+                "9",
+                "1",
+                "4"
+              ],
+              "format": "private_ci2027_001.enum_stand_layer",
+              "type": "string"
+            },
+            "sablings_fence": {
+              "default": false,
+              "format": "boolean",
+              "type": "boolean"
+            },
+            "trees_less_4meter_mirrored": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_mirrored.abbreviation`.<fk table='lookup_trees_less_4meter_mirrored' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "1",
+                "0"
+              ],
+              "format": "private_ci2027_001.enum_trees_less_4meter_mirrored",
+              "type": "string"
+            },
+            "trees_less_4meter_count_factor": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_count_factor.abbreviation`.<fk table='lookup_trees_less_4meter_count_factor' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "1"
+              ],
+              "format": "private_ci2027_001.enum_trees_less_4meter_count_factor",
+              "type": "string"
+            },
+            "trees_less_4meter_coverage": {
+              "format": "smallint",
+              "type": "integer"
+            },
+            "trees_less_4meter_layer": {
+              "description": "Note:\nThis is a Foreign Key to `lookup_trees_less_4meter_layer.abbreviation`.<fk table='lookup_trees_less_4meter_layer' column='abbreviation'/>",
+              "enum": [
+                "2",
+                "1",
+                "9",
+                "3"
+              ],
+              "format": "private_ci2027_001.enum_trees_less_4meter_layer",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_use_restriction": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "5",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_use_restriction",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_edge_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1",
+            "4",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_edge_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_property_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "21",
+            "35",
+            "34",
+            "42",
+            "31",
+            "30",
+            "41",
+            "45",
+            "3",
+            "5",
+            "40",
+            "33",
+            "43",
+            "44",
+            "1",
+            "4",
+            "32"
+          ],
+          "format": "private_ci2027_001.enum_property_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_pruning": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "5",
+            "9",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_pruning",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_trees_less_4meter_count_factor": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_count_factor",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_tree_species_group": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_tree_species_group",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "sapling_1m": {
+      "description": "Sub Plot Saplings",
+      "required": [
+        "id",
+        "plot_id",
+        "created_at",
+        "bitten",
+        "quantity"
+      ],
+      "properties": {
+        "id": {
+          "description": "Primary Key\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "Foreign Key to Plot.id\n\nNote:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_location_id": {
+          "description": "Note:\nThis is a Foreign Key to `plot_location.id`.<fk table='plot_location' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "stand_affiliation": {
+          "default": false,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "tree_species": {
+          "description": "Baumart\n\nNote:\nThis is a Foreign Key to `lookup_tree_species.abbreviation`.<fk table='lookup_tree_species' column='abbreviation'/>",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "bitten": {
+          "description": "Einfacher oder mehrfacher Verbiss der Terminalknospe\n\nNote:\nThis is a Foreign Key to `lookup_bitten.abbreviation`.<fk table='lookup_bitten' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "0",
+            "3",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_bitten",
+          "type": "string"
+        },
+        "protection_individual": {
+          "description": "Einzelschutz der Bäume",
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "quantity": {
+          "description": "Anzahl gleichartiger Bäume",
+          "format": "smallint",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_forest_type": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "21",
+            "35",
+            "31",
+            "38",
+            "27",
+            "29",
+            "12",
+            "8",
+            "20",
+            "16",
+            "4",
+            "23",
+            "7",
+            "39",
+            "34",
+            "36",
+            "30",
+            "19",
+            "161",
+            "40",
+            "17",
+            "28",
+            "2",
+            "22",
+            "18",
+            "5",
+            "13",
+            "11",
+            "6",
+            "1",
+            "162",
+            "33",
+            "15",
+            "10",
+            "37",
+            "3",
+            "24",
+            "14",
+            "9",
+            "26",
+            "25",
+            "32"
+          ],
+          "format": "private_ci2027_001.enum_forest_type",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_land_use": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "22",
+            "90",
+            "21",
+            "23",
+            "99",
+            "92",
+            "93",
+            "3",
+            "13",
+            "14",
+            "11",
+            "12",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_land_use",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_sampling_strata": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "0",
+            "1",
+            "4",
+            "8",
+            "16",
+            "64",
+            "128",
+            "256",
+            "512"
+          ],
+          "format": "private_ci2027_001.enum_sampling_strata",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_trees_less_4meter_origin": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "3",
+            "5",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_trees_less_4meter_origin",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "position": {
+      "description": "Position der Probenfläche",
+      "required": [
+        "id",
+        "plot_id",
+        "created_at",
+        "position_median",
+        "position_mean"
+      ],
+      "properties": {
+        "id": {
+          "description": "Unique ID der Probenfläche\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "ID der Probenfläche\n\nNote:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_location_id": {
+          "description": "Note:\nThis is a Foreign Key to `plot_location.id`.<fk table='plot_location' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Erstellungszeitpunkt",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "position_median": {
+          "format": "public.geometry(Point,4326)",
+          "type": "string"
+        },
+        "position_mean": {
+          "format": "public.geometry(Point,4326)",
+          "type": "string"
+        },
+        "hdop_mean": {
+          "description": "HDOP Mean",
+          "format": "double precision",
+          "type": "number"
+        },
+        "pdop_mean": {
+          "description": "PDOP Mean",
+          "format": "double precision",
+          "type": "number"
+        },
+        "satellites_count_mean": {
+          "description": "Satellites Count Mean",
+          "format": "double precision",
+          "type": "number"
+        },
+        "measurement_count": {
+          "description": "Measurement Count",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "rtcm_age": {
+          "description": "RTCM Age",
+          "format": "double precision",
+          "type": "number"
+        },
+        "start_measurement": {
+          "description": "Start Measurement",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "stop_measurement": {
+          "description": "Stop Measurement",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "device_gps": {
+          "description": "Device GPS",
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "quality": {
+          "description": "Quality of GNSS\n\nNote:\nThis is a Foreign Key to `lookup_gnss_quality.abbreviation`.<fk table='lookup_gnss_quality' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "5",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_gnss_quality",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "edges": {
+      "description": "Tabelle für die Kanten",
+      "required": [
+        "id",
+        "plot_id",
+        "created_at",
+        "edge_state",
+        "edge_type",
+        "terrain"
+      ],
+      "properties": {
+        "id": {
+          "description": "Primärschlüssel\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "Fremdschlüssel auf Plot\n\nNote:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Erstellungszeitpunkt",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "edge_state": {
+          "description": "Kennziffer des Wald-/Bestandesrandes\n\nNote:\nThis is a Foreign Key to `lookup_edge_state.abbreviation`.<fk table='lookup_edge_state' column='abbreviation'/>",
+          "enum": [
+            "2008",
+            "10",
+            "0",
+            "2007",
+            "2002",
+            "5",
+            "2012",
+            "2017",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_edge_state",
+          "type": "string"
+        },
+        "edge_type": {
+          "description": "Art des Wald- /Bestandesrandes\n\nNote:\nThis is a Foreign Key to `lookup_edge_type.abbreviation`.<fk table='lookup_edge_type' column='abbreviation'/>",
+          "enum": [
+            "2",
+            "1",
+            "4",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_edge_type",
+          "type": "string"
+        },
+        "terrain": {
+          "description": "Vorgelagertes Terrain\n\nNote:\nThis is a Foreign Key to `lookup_terrain.abbreviation`.<fk table='lookup_terrain' column='abbreviation'/>",
+          "enum": [
+            "12",
+            "2",
+            "10",
+            "7",
+            "0",
+            "3",
+            "5",
+            "13",
+            "14",
+            "9",
+            "11",
+            "8",
+            "6",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_terrain",
+          "type": "string"
+        },
+        "geometry": {
+          "description": "Geometrie der Kante",
+          "format": "public.geometry(LineString,4326)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_decomposition": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1",
+            "4",
+            "3"
+          ],
+          "format": "private_ci2027_001.enum_decomposition",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "plot_location": {
+      "description": "Sub Plots",
+      "required": [
+        "id",
+        "plot_id",
+        "parent_table",
+        "created_at",
+        "azimuth",
+        "distance",
+        "radius"
+      ],
+      "properties": {
+        "id": {
+          "description": "Primary Key\n\nNote:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "plot_id": {
+          "description": "Note:\nThis is a Foreign Key to `plot.id`.<fk table='plot' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "parent_table": {
+          "enum": [
+            "wzp_tree",
+            "deadwood",
+            "edges",
+            "position",
+            "sapling_1m",
+            "sapling_2m"
+          ],
+          "format": "private_ci2027_001.enum_plot_location_parent_table",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "CURRENT_TIMESTAMP",
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "timestamp without time zone",
+          "type": "string"
+        },
+        "modified_by": {
+          "default": "(CURRENT_USER)",
+          "format": "regrole",
+          "type": "string"
+        },
+        "azimuth": {
+          "description": "Azimuth (Gon)",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "distance": {
+          "default": 500,
+          "description": "Distance (cm)",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "radius": {
+          "default": 100,
+          "description": "Radius (cm)",
+          "format": "smallint",
+          "type": "integer"
+        },
+        "geometry": {
+          "description": "Geometry (Polygon)",
+          "format": "public.geometry(Point,4326)",
+          "type": "string"
+        },
+        "no_entities": {
+          "default": false,
+          "description": "Sub Plot is marked as \"has no entities\".",
+          "format": "boolean",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_gnss_quality": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "5",
+            "9",
+            "1",
+            "4"
+          ],
+          "format": "private_ci2027_001.enum_gnss_quality",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "lookup_stem_breakage": {
+      "required": [
+        "abbreviation"
+      ],
+      "properties": {
+        "name_de": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "name_en": {
+          "format": "character varying",
+          "maxLength": 150,
+          "type": "string"
+        },
+        "sort": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "abbreviation": {
+          "enum": [
+            "2",
+            "1",
+            "0"
+          ],
+          "format": "private_ci2027_001.enum_stem_breakage",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  }
+}
