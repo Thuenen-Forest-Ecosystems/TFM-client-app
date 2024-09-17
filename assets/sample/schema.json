@@ -1,0 +1,50 @@
+{
+    "title": "Cluster",
+    "description": "Cluster schema",
+    "type": "object",
+    "!thuenen": {
+        "widgetType": "DynamicTabBar"
+    },
+    "properties": {
+        "plot": {
+            "title": "Plots",
+            "description": "4 plots",
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+                "title": "Plot",
+                "type": "object",
+                "!thuenen": {
+                    "widgetType": "DynamicTabBar"
+                },
+                "properties": {
+                    "id": {
+                        "title": "Plot ID",
+                        "description": "The unique identifier for a plot",
+                        "type": "number",
+                        "minimum": 0,
+                        "readOnly": true
+                    },
+                    "coast": {
+                        "title": "Coastal",
+                        "description": "The coastal area of the plot",
+                        "type": "boolean",
+                        "default": false
+                    }
+                }
+            }
+        },
+        "id": {
+            "title": "Cluster ID",
+            "description": "The unique identifier for a cluster",
+            "type": "number",
+            "minimum": 0
+        },
+        "state_administration": {
+            "title": "State Administration",
+            "description": "The state administration of the cluster",
+            "type": "string"
+        }
+    }
+}

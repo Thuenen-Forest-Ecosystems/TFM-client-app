@@ -1,0 +1,26 @@
+{
+    "helloWorld": "Hello World!",
+    "@helloWorld": {
+      "description": "The conventional newborn programmer greeting"
+    },
+    "language": "Language",
+    "@language": {
+      "description": "The language of the app"
+    },
+    "settings": "Settings",
+    "@settings": {
+      "description": "The settings of the app"
+    },
+    "energySaving": "Energy Saving",
+    "@energySaving": {
+      "description": "The energy saving mode of the app"
+    },
+    "energySavingDescription": "Reduce the brightness of the screen",
+    "@energySavingDescription": {
+      "description": "The description of the energy saving mode"
+    },
+    "authenticationLogin": "LOGIN",
+    "@authenticationLogin": {
+      "description": "The login button"
+    }
+}

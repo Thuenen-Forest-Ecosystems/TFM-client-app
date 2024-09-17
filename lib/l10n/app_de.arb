@@ -1,0 +1,8 @@
+{
+    "helloWorld": "Hallo Welt!",
+    "language": "Sprache",
+    "settings": "Einstellungen",
+    "energySaving": "Energiesparen",
+    "energySavingDescription": "Reduziere die Helligkeit des Bildschirms",
+    "authenticationLogin": "ANMELDEN"
+} 
