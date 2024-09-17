@@ -61,7 +61,7 @@ void main() async {
   if (kDebugMode) {
     await dotenv.load(fileName: ".env");
   } else {
-    await dotenv.load(fileName: ".env.production");
+    await dotenv.load(fileName: ".env");
   }
 
   await Hive.initFlutter();
