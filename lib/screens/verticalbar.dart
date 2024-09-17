@@ -2,9 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/map-navigation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-class VertialBar extends StatelessWidget {
+class VertialBar extends StatefulWidget {
   const VertialBar({super.key});
+
+  @override
+  State<VertialBar> createState() => _VertialBarState();
+}
+
+class _VertialBarState extends State<VertialBar> {
+  PackageInfo? packageInfo;
+  String version = '';
+  String buildNumber = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initPackageInfo();
+  }
+
+  Future _initPackageInfo() async {
+    packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      version = packageInfo!.version;
+      buildNumber = packageInfo!.buildNumber;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +67,10 @@ class VertialBar extends StatelessWidget {
           IconButton(
             onPressed: () => showDialog<String>(
               context: context,
-              builder: (BuildContext context) => AlertDialog(title: const Text('Thünen Institute'), content: const Text('AlertDialog description')),
+              builder: (BuildContext context) => AlertDialog(
+                title: const Text('Thünen Institute'),
+                content: Text('Version: ${'$version+$buildNumber'}'),
+              ),
             ),
             icon: const Icon(
               Icons.contact_support,
