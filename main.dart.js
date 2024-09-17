@@ -30299,7 +30299,7 @@ $.c9.toString
 q=$.bb()
 o=q.c.d===B.an?B.kh:B.IM
 s=2
-return A.N($.ru().E1(0,".env.production"),$async$BB)
+return A.N($.ru().E1(0,".env"),$async$BB)
 case 2:s=3
 return A.N(A.aX6($.b8M()),$async$BB)
 case 3:if($.an==null)A.a1p()
