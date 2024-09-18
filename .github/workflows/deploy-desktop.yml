@@ -19,18 +19,33 @@ jobs:
         with:
           channel: 'stable'
           flutter-version: '3.24.2'
+
+      - name: Install Packager
+        run: apt install rpm patchelf
+
       - name: Install dependencies
         run: sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
       - name: Install project dependencies
         run: flutter pub get
+
       - name: Generate intermediates
         run: flutter pub run build_runner build --delete-conflicting-outputs
+
       - name: Enable linux build
         run: flutter config --enable-linux-desktop
+
       - name: Create env file
         run: touch .env
+
       - name: Build artifacts
         run: flutter build linux --release
+
+      # https://medium.com/@fluttergems/packaging-and-distributing-flutter-desktop-apps-the-missing-guide-part-3-linux-24ef8d30a5b4
+
       - name: Archive Release
         uses: thedoctor0/zip-release@master
         with:
@@ -44,39 +59,39 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: build/linux/x64/release/bundle/MacRecoveryX-${{github.ref_name}}-linux.zip
-#
-  #build-and-release-windows:
-  #  runs-on: windows-latest
-#
-  #  steps:
-  #    - uses: actions/checkout@v2
-  #    - uses: subosito/flutter-action@v1
-  #      with:
-  #        channel: 'stable'
-  #        flutter-version: '3.24.2'
-  #    - name: Install project dependencies
-  #      run: flutter pub get
-  #    - name: Generate intermediates
-  #      run: flutter pub run build_runner build --delete-conflicting-outputs
-  #    - name: Enable windows build
-  #      run: flutter config --enable-windows-desktop
-  #    - name: 'Create env file'
-  #      run: touch .env
-  #    - name: Build artifacts
-  #      run: flutter build windows --release
-  #    - name: Archive Release
-  #      uses: thedoctor0/zip-release@master
-  #      with:
-  #        type: 'zip'
-  #        filename: MacRecoveryX-${{github.ref_name}}-windows.zip
-  #        directory: build/windows/runner/release
-  #    - name: Windows Release
-  #      uses: softprops/action-gh-release@v1
-  #      if: startsWith(github.ref, 'refs/tags/v')
-  #      env:
-  #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #      with:
-  #        files: build/windows/runner/release/MacRecoveryX-${{github.ref_name}}-windows.zip
+
+  build-and-release-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: 'stable'
+          flutter-version: '3.24.2'
+      - name: Install project dependencies
+        run: flutter pub get
+      - name: Generate intermediates
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+      - name: Enable windows build
+        run: flutter config --enable-windows-desktop
+      - name: 'Create env file'
+        run: touch .env
+      - name: Build artifacts
+        run: flutter build windows --release
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          filename: MacRecoveryX-${{github.ref_name}}-windows.zip
+          directory: build/windows/runner/release
+      - name: Windows Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: build/windows/runner/release/MacRecoveryX-${{github.ref_name}}-windows.zip
 
   #build-and-release-macos:
   #  runs-on: macos-latest
