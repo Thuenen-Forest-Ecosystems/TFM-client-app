@@ -4,7 +4,7 @@ name: Flutter Desktop CI
 on:
   push:
     tags:        
-      - '*'
+      - 'v*'
 
 jobs:
   build-and-release-linux:
@@ -15,6 +15,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
+      - name: Exit if not on main branch
+        if: endsWith(github.ref, 'main') == false
+        run: exit -1
+
       - uses: subosito/flutter-action@v1
         with:
           channel: 'stable'
@@ -44,13 +49,11 @@ jobs:
       - name: Build artifacts
         run: flutter build linux --release
 
-      # https://medium.com/@fluttergems/packaging-and-distributing-flutter-desktop-apps-the-missing-guide-part-3-linux-24ef8d30a5b4
-
       - name: Archive Release
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          filename: MacRecoveryX-${{github.ref_name}}-linux.zip
+          filename: TFM-${{github.ref_name}}-linux.zip
           directory: build/linux/x64/release/bundle
       - name: Linux Release
         uses: softprops/action-gh-release@v1
@@ -58,7 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: build/linux/x64/release/bundle/MacRecoveryX-${{github.ref_name}}-linux.zip
+          files: build/linux/x64/release/bundle/TFM-${{github.ref_name}}-linux.zip
 
   build-and-release-windows:
     runs-on: windows-latest
@@ -68,6 +71,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
+      - name: Exit if not on main branch
+        if: endsWith(github.ref, 'main') == false
+        run: exit -1
+
       - uses: subosito/flutter-action@v1
         with:
           channel: 'stable'
@@ -92,7 +100,7 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          filename: MacRecoveryX-${{github.ref_name}}-windows.zip
+          filename: TFM-${{github.ref_name}}-windows.zip
           directory: build/windows/x64/runner/release
 
       - name: Windows Release
@@ -101,7 +109,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: build/windows/x64/runner/release/MacRecoveryX-${{github.ref_name}}-windows.zip
+          files: build/windows/x64/runner/release/TFM-${{github.ref_name}}-windows.zip
 
   #build-and-release-macos:
   #  runs-on: macos-latest
@@ -126,7 +134,7 @@ jobs:
   #      uses: thedoctor0/zip-release@master
   #      with:
   #        type: 'zip'
-  #        filename: MacRecoveryX-${{github.ref_name}}-macos.zip
+  #        filename: TFM-${{github.ref_name}}-macos.zip
   #        directory: build/macos/Build/Products/Release
   #    - name: macOS Release
   #      uses: softprops/action-gh-release@v1
@@ -134,4 +142,4 @@ jobs:
   #      env:
   #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   #      with:
-  #        files: build/macos/Build/Products/Release/MacRecoveryX-${{github.ref_name}}-macos.zip
+  #        files: build/macos/Build/Products/Release/TFM-${{github.ref_name}}-macos.zip
