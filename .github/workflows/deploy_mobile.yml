@@ -47,6 +47,9 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=keystore.jks" >> android/key.properties
+
+      - name: 'Create env file'
+        run: touch .env
         
        #6 Building APK
       - name: Build APK
