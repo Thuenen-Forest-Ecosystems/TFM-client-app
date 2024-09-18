@@ -85,9 +85,6 @@ jobs:
       - name: 'Create env file'
         run: touch .env
 
-      - name: Install Inno Setup
-        run: flutter_distributor package --platform windows --targets exe
-
       - name: Build artifacts
         run: flutter build windows --release
 
@@ -96,7 +93,7 @@ jobs:
         with:
           type: 'zip'
           filename: MacRecoveryX-${{github.ref_name}}-windows.zip
-          directory: build/windows/runner/release
+          directory: build/windows/x64/runner/release
 
       - name: Windows Release
         uses: softprops/action-gh-release@v1
@@ -104,7 +101,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: build/windows/runner/release/MacRecoveryX-${{github.ref_name}}-windows.zip
+          files: build/windows/x64/runner/release/MacRecoveryX-${{github.ref_name}}-windows.zip
 
   #build-and-release-macos:
   #  runs-on: macos-latest
