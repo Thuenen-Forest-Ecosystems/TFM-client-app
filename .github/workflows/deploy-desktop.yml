@@ -4,7 +4,7 @@ name: Flutter Desktop CI
 on:
   push:
     tags:        
-      - 'v*'
+      - '*'
 
 jobs:
   build-and-release-linux:
@@ -15,10 +15,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-
-      - name: Exit if not on main branch
-        if: endsWith(github.ref, 'main') == false
-        run: exit -1 
 
       - uses: subosito/flutter-action@v1
         with:
@@ -71,10 +67,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-
-      - name: Exit if not on main branch
-        if: endsWith(github.ref, 'main') == false
-        run: exit -1
 
       - uses: subosito/flutter-action@v1
         with:
