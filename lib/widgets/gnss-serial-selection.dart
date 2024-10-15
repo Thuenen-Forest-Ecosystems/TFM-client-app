@@ -2,6 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:flutter_libserialport/flutter_libserialport.dart';
 //import 'package:flutter_libserialport/flutter_libserialport.dart';
 
+extension IntToString on int {
+  String toHex() => '0x${toRadixString(16)}';
+  String toPadded([int width = 3]) => toString().padLeft(width, '0');
+  String toTransport() {
+    switch (this) {
+      case SerialPortTransport.usb:
+        return 'USB';
+      case SerialPortTransport.bluetooth:
+        return 'Bluetooth';
+      case SerialPortTransport.native:
+        return 'Native';
+      default:
+        return 'Unknown';
+    }
+  }
+}
+
 class GnssSerialSelection extends StatefulWidget {
   const GnssSerialSelection({super.key});
 
@@ -14,7 +31,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
   List baudeRates = [9600, 19200, 38400, 57600, 115200];
   int? baudeRate;
   List availablePorts = [];
-  late String selectedPort;
+  String selectedPort = '';
   bool tested = false;
   bool testing = false;
   var serialPort;
@@ -39,8 +56,19 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
   }
 
   _getAvailablePorts() {
-    setState(() {
+    try {
       availablePorts = SerialPort.availablePorts;
+    } catch (e) {
+      if (e is SerialPortError) {
+        // TODO: Show error
+        print('${e}');
+        // Handle the error, e.g., show a dialog or a snackbar
+      } else {
+        print('Error: $e');
+      }
+    }
+    setState(() {
+      print(availablePorts);
       if (availablePorts.isNotEmpty) {
         selectedPort = availablePorts[0].toString();
       }
@@ -60,8 +88,24 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     });
   }
 
+  void parseReceiveData(String nmeaData) {
+    double latitude;
+    double longitude;
+
+    var nmeaDataArray = nmeaData.split(",");
+
+    if (nmeaDataArray[0].startsWith('\$GNRMC') && nmeaDataArray[3].isNotEmpty && nmeaDataArray[5].isNotEmpty) {
+      print('parse');
+      //latitude = parseToDecimal(nmeaDataArray[3], nmeaDataArray[4]);
+      //longitude = parseToDecimal(nmeaDataArray[5], nmeaDataArray[6]);
+    }
+  }
+
   Future<void> _testConnection() async {
     _closePort();
+    if (selectedPort.isEmpty) {
+      return;
+    }
 
     setState(() {
       testing = true;
@@ -76,6 +120,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
 
     try {
       var config = serialPort!.config;
+      print(baudeRate);
       config.baudRate = baudeRate!;
       serialPort!.config = config;
 
@@ -86,9 +131,10 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
         print('Port not opened');
       }
       var reader = SerialPortReader(serialPort!);
-
-      reader.stream.listen((data) {
-        print('Data: $data');
+      reader!.stream.listen((data) {
+        //print('Data: $data');
+        String utfDAta = String.fromCharCodes(data);
+        if (utfDAta.startsWith('\$GNRMC')) parseReceiveData(utfDAta);
       }, onDone: () {
         print('Done');
         setState(() {
@@ -97,6 +143,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
       }, onError: (e) {
         print('Error: $e');
       });
+      print('read start');
     } catch (e) {
       print(e);
     }

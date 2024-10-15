@@ -6,6 +6,7 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:provider/provider.dart';
+import 'package:terrestrial_forest_monitor/widgets/gnss-bluetooth.dart';
 import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
 
 class Settings extends StatefulWidget {
@@ -51,6 +52,17 @@ class _SettingsState extends State<Settings> {
               Card(
                 margin: EdgeInsets.all(10.0),
                 child: GnssSettings(),
+              ),
+              Container(
+                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                child: Text(
+                  'Bluetooth',
+                  style: TextStyle(fontSize: 15),
+                ),
+              ),
+              Card(
+                margin: EdgeInsets.all(10.0),
+                child: GNSSBluetooth(),
               ),
               Container(
                 margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
