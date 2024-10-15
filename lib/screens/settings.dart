@@ -53,7 +53,7 @@ class _SettingsState extends State<Settings> {
                 margin: EdgeInsets.all(10.0),
                 child: GnssSettings(),
               ),
-              Container(
+              /*Container(
                 margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
                 child: Text(
                   'Bluetooth',
@@ -63,7 +63,7 @@ class _SettingsState extends State<Settings> {
               Card(
                 margin: EdgeInsets.all(10.0),
                 child: GNSSBluetooth(),
-              ),
+              ),*/
               Container(
                 margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
                 child: Text(

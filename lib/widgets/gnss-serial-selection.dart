@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:flutter_libserialport/flutter_libserialport.dart';
 //import 'package:flutter_libserialport/flutter_libserialport.dart';
 
@@ -34,6 +35,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
   String selectedPort = '';
   bool tested = false;
   bool testing = false;
+  List<String> nmeaSentences = [];
   var serialPort;
 
   @override
@@ -51,20 +53,30 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
 
   _closePort() {
     if (serialPort != null && serialPort!.isOpen) {
-      serialPort?.close();
+      serialPort.close();
+      serialPort.dispose();
+      print('CLOSE');
     }
   }
 
   _getAvailablePorts() {
     try {
       availablePorts = SerialPort.availablePorts;
+      setState(() {
+        // make unique
+        availablePorts = availablePorts.toSet().toList();
+        // Make sure to set the selected port to the first available port
+        if (availablePorts.isNotEmpty) {
+          selectedPort = availablePorts[0].toString();
+        }
+      });
     } catch (e) {
       if (e is SerialPortError) {
         // TODO: Show error
-        print('${e}');
+        print('availablePorts: ${e}');
         // Handle the error, e.g., show a dialog or a snackbar
       } else {
-        print('Error: $e');
+        print('Error Get Ports: $e');
       }
     }
     setState(() {
@@ -83,33 +95,45 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
 
   _cancelTesting() {
     _closePort();
+
     setState(() {
       testing = false;
     });
   }
 
-  void parseReceiveData(String nmeaData) {
-    double latitude;
-    double longitude;
+  void _getLatLonFromGNRMC(String line) {
+    // Step 5: Split the line by commas
+    List<String> parts = line.split(',');
 
-    var nmeaDataArray = nmeaData.split(",");
-
-    if (nmeaDataArray[0].startsWith('\$GNRMC') && nmeaDataArray[3].isNotEmpty && nmeaDataArray[5].isNotEmpty) {
-      print('parse');
-      //latitude = parseToDecimal(nmeaDataArray[3], nmeaDataArray[4]);
-      //longitude = parseToDecimal(nmeaDataArray[5], nmeaDataArray[6]);
-    }
-  }
-
-  Future<void> _testConnection() async {
-    _closePort();
-    if (selectedPort.isEmpty) {
+    // Step 6: Check if the line has enough parts
+    if (parts.length < 7) {
       return;
     }
 
-    setState(() {
-      testing = true;
-    });
+    // Step 7: Get the latitude and longitude
+    String lat = parts[3];
+    String lon = parts[5];
+
+    // Lat and Lon to double
+    //double latD = double.parse(lat);
+    //double lonD = double.parse(lon);
+
+    // Step 8: Print the latitude and longitude
+    print('Latitude: $lat, Longitude: $lon');
+    /*return Position(
+      latitude: double.parse(lat),
+      longitude: double.parse(lon),
+    );*/
+  }
+
+  Future<void> _testConnection() async {
+
+    _closePort();
+    nmeaSentences = [];
+
+    if (selectedPort.isEmpty) {
+      return;
+    }
 
     serialPort = SerialPort(selectedPort);
 
@@ -118,30 +142,60 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
       return;
     }
 
+    setState(() {
+      testing = true;
+    });
+
     try {
       var config = serialPort!.config;
       print(baudeRate);
       config.baudRate = baudeRate!;
       serialPort!.config = config;
 
-      if (serialPort!.openRead()) {
+      if (serialPort.openRead()) {
         print('Port opened');
         tested = true;
       } else {
         print('Port not opened');
+        setState(() {
+          testing = false;
+        });
+        return;
       }
       var reader = SerialPortReader(serialPort!);
       reader!.stream.listen((data) {
-        //print('Data: $data');
-        String utfDAta = String.fromCharCodes(data);
-        if (utfDAta.startsWith('\$GNRMC')) parseReceiveData(utfDAta);
+       
+        String nmeaSentence = String.fromCharCodes(data);
+        
+        // split nmeaSentances in Lines
+        List<String> lines = nmeaSentence.split('\$');
+
+        // Clear empty lines
+        lines.removeWhere((element) => element.isEmpty);
+
+        setState(() {
+          nmeaSentences.addAll(lines);
+        });
+        
+        // Step 2: Iterate through each line
+        for (String line in lines) {
+          
+          // Step 3: Check if the line starts with "GNRMC"
+          if (line.startsWith('GNRMC')) {
+            print(line);
+            // Step 4: Parse the line
+            _getLatLonFromGNRMC(line);
+          }
+        }
+       
       }, onDone: () {
         print('Done');
-        setState(() {
-          tested = true;
-        });
+        
       }, onError: (e) {
-        print('Error: $e');
+        print('$e');
+        setState(() {
+          testing = false;
+        });
       });
       print('read start');
     } catch (e) {
@@ -162,7 +216,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
                 DropdownButton<String>(
                   value: selectedPort,
                   onChanged: (String? value) {
-                    if (value == null) return;
+                    if (value == null || testing) return;
                     setState(() {
                       selectedPort = value;
                     });
@@ -216,7 +270,21 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
               child: Text('SAVE'),
             )
           ],
-        )
+        ),
+        Divider(),
+        // nmeaSentences
+        if (nmeaSentences.isNotEmpty)
+          Container(
+            height: 200,
+            child: ListView.builder(
+              itemCount: nmeaSentences.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(nmeaSentences[index].toString()),
+                );
+              },
+            ),
+          )
       ],
     );
   }
