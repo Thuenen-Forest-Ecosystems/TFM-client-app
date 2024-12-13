@@ -1,8 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:terrestrial_forest_monitor/providers/json-schema.dart';
 import 'package:terrestrial_forest_monitor/widgets/form/boolfield.dart';
 import 'package:terrestrial_forest_monitor/widgets/form/tabbar.dart';
 import 'package:terrestrial_forest_monitor/widgets/form/textfield.dart';
@@ -78,7 +74,7 @@ class _DynamicFormState extends State<DynamicForm> {
       );
     }
 
-    return Text("Unknown type ${currentschema}");
+    return Text("Unknown type $currentschema");
   }
 
   @override

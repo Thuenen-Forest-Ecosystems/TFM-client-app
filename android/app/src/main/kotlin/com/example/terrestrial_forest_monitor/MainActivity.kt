@@ -1,4 +1,4 @@
-package com.example.terrestrial_forest_monitor
+package de.thuenen.terrestrial_forest_monitor
 
 import io.flutter.embedding.android.FlutterActivity
 

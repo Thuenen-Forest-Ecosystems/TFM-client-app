@@ -1,9 +1,6 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'dart:convert'; // Import for UTF-8 decoding
 import 'package:flutter_libserialport/flutter_libserialport.dart';
-import 'package:nmea/nmea.dart' as nmea;
 
 class LibSerial extends StatefulWidget {
   @override
@@ -67,12 +64,12 @@ class _LibSerialState extends State<LibSerial> {
       reader.stream.listen((data) {
         final decodedData = utf8.decode(data);
         List<String> lines = decodedData.split("\n");
-        lines.forEach((line) {
+        for (var line in lines) {
           if (line.startsWith('\$GNRMC')) {
             List<String> decodedDataArray = line.split(',');
             if (decodedDataArray.length < 6) {
               print(line);
-              return;
+              continue;
             }
             String latitude = decodedDataArray[3]; // latl
             //String quadrant = decodedDataArray[4]; // quadrant
@@ -95,7 +92,7 @@ class _LibSerialState extends State<LibSerial> {
             double longDec = ConvertDegreeAngleToDouble(hoursLong, minutesLong, 0);
             print('Long: $longDec');
           }
-        });
+        }
       });
     } catch (e) {
       print('Error: $e');

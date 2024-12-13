@@ -9,10 +9,12 @@ class TfmDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const VertialBar(),
+        VertialBar(
+          isDrawer: true,
+        ),
         Container(
           color: Color.fromRGBO(150, 150, 150, 1),
-          width: 250,
+          width: MediaQuery.of(context).size.width - 100,
           child: const TFMMap(),
         )
       ],

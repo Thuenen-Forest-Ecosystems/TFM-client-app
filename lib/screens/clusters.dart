@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:powersync/sqlite3_common.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
-import 'package:terrestrial_forest_monitor/widgets/breadcrumb.dart';
-import 'package:terrestrial_forest_monitor/widgets/schema-valid.dart';
-import 'package:terrestrial_forest_monitor/widgets/table-from-json.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'package:terrestrial_forest_monitor/widgets/ci2027/cluster_preview.dart';
+
+import 'package:beamer/beamer.dart';
 
 class Clusters extends StatefulWidget {
   final String schemaId;
@@ -15,123 +19,113 @@ class Clusters extends StatefulWidget {
 class _ClustersState extends State<Clusters> {
   String _viewType = 'table';
   double _tuneHeight = 0;
+  bool _fullTextSearch = false;
+  String _sqlWhere = '';
 
   @override
   initState() {
     super.initState();
+    db.get('SELECT * FROM settings WHERE user_id = ?', [getUserId()]).then((value) {
+      print(value);
+    }).catchError((error) {
+      print('Error: $error');
+    });
   }
 
-  Future _refreshClusters() async {
+  /*Future _refreshClusters() async {
     return await ApiService().getAllClusters();
+  }*/
+
+  Future<List> _orderBY() async {
+    ResultSet plots = await db.getAll('SELECT * FROM plot WHERE center_location_json IS NOT NULL group by center_location_json');
+    List<Map> plot = await orderPlotByDistance(plots, 'center_location_json', LatLng(10, 10));
+    print(plot.length);
+    return plot;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        BreadCrumb(),
-        AppBar(
-          backgroundColor: Colors.transparent,
-          automaticallyImplyLeading: false,
-          title: SizedBox(
-            height: 35,
-            child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Search... (ToDo: Fulltext search)',
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10.0),
-                prefixIcon: Icon(Icons.search),
-                // Hide borders
-                border: OutlineInputBorder(
-                  borderSide: BorderSide.none,
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                fillColor: Color.fromARGB(100, 27, 27, 27),
-                filled: true,
-              ),
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.tune),
-              onPressed: () {
-                setState(() {
-                  _tuneHeight = _tuneHeight == 0 ? 100 : 0;
-                });
-              },
-            ),
-            if (_viewType == 'list')
-              IconButton(
-                icon: Icon(Icons.list),
-                onPressed: () {
-                  setState(() {
-                    _viewType = 'table';
-                  });
-                },
-              ),
-            if (_viewType == 'table')
-              IconButton(
-                icon: Icon(Icons.apps),
-                onPressed: () {
-                  setState(() {
-                    _viewType = 'list';
-                  });
-                },
-              ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            context.beamToNamed('/');
+          },
         ),
-        AnimatedContainer(
-          duration: Duration(
-            milliseconds: 200,
+        title: ListTile(
+          contentPadding: EdgeInsets.all(0),
+          leading: Icon(Icons.apps),
+          title: Text(
+            'Clusters',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
-          width: double.infinity,
-          height: _tuneHeight,
-          padding: EdgeInsets.all(10),
-          color: Color.fromARGB(100, 100, 100, 100),
-          child: const Text('TODO: Filters & Sort'),
+          //subtitle: Text('${widget.schemaId}', overflow: TextOverflow.ellipsis, maxLines: 1),
         ),
-        Expanded(
-          child: FutureBuilder(
-            future: _refreshClusters(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: CircularProgressIndicator(),
-                );
-              } else if (snapshot.hasError) {
-                return Center(
-                  child: Text('Error: ${snapshot.error}'),
-                );
-              } else if (!snapshot.hasData || snapshot.data == null) {
-                return Center(
-                  child: Text('No data'),
-                );
-              }
-
-              return SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: Builder(builder: (BuildContext context) {
-                  if (_viewType == 'table') {
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Container(
-                        padding: EdgeInsets.all(10),
-                        child: TableFromJson(
-                          data: snapshot.data,
-                        ),
-                      ),
-                    );
-                  } else {
-                    return Center(
-                      child: Text('TODO: Card view'),
-                    );
-                  }
-                }),
-              );
+        actions: [
+          IconButton(
+            icon: Icon(Icons.search),
+            onPressed: () {
+              setState(() {
+                _fullTextSearch = !_fullTextSearch;
+              });
             },
           ),
-        )
-      ],
+          IconButton(
+            icon: Icon(Icons.tune),
+            onPressed: () {
+              setState(() {
+                _tuneHeight = _tuneHeight == 0 ? 100 : 0;
+              });
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: StreamBuilder(
+              stream: db.watch('SELECT * FROM cluster ORDER BY cluster_name $_sqlWhere'),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ...snapshot.data!.map(
+                          (cluster) {
+                            return GestureDetector(
+                              child: ClusterPreview(
+                                clusterId: cluster['id'],
+                                clusterRow: cluster,
+                              ),
+                              onTap: () {
+                                Beamer.of(context).beamToNamed('/cluster/${widget.schemaId}/${cluster['cluster_name']}');
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                } else if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                } else {
+                  return Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+              },
+            ),
+          )
+        ],
+      ),
     );
   }
 }

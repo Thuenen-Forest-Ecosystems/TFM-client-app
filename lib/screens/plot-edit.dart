@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/widgets/dynamic-form.dart';
-import 'package:terrestrial_forest_monitor/widgets/table-from-json2.dart';
 import 'dart:convert';
 
 class PlotEdit extends StatefulWidget {

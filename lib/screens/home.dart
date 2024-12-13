@@ -1,5 +1,5 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/providers/api-log.dart';
@@ -7,12 +7,13 @@ import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/clusters.dart';
 import 'package:terrestrial_forest_monitor/screens/plot-edit.dart';
+import 'package:terrestrial_forest_monitor/screens/plot.dart';
 
 //import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:terrestrial_forest_monitor/screens/libserial.dart';
 
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
 import 'package:terrestrial_forest_monitor/screens/drawer.dart';
-import 'package:terrestrial_forest_monitor/services/api.dart';
+import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/login-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/map.dart';
@@ -23,7 +24,6 @@ import 'package:provider/provider.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/login-button.dart';
 
-import 'package:terrestrial_forest_monitor/widgets/alert-icon.dart';
 import 'package:beamer/beamer.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
@@ -31,6 +31,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/online-status.dart';
 import 'package:terrestrial_forest_monitor/widgets/painter.dart';
+import 'package:terrestrial_forest_monitor/widgets/sign-in-btn.dart';
 
 ///StateLess
 class Home extends StatefulWidget {
@@ -54,7 +55,7 @@ class _HomeState extends State<Home> {
     guards: [
       BeamGuard(
         pathPatterns: ['/schema/*'],
-        check: (context, state) => Provider.of<ApiLog>(context, listen: false).token != null,
+        check: (context, state) => true, //Provider.of<ApiLog>(context, listen: false).token != null,
         beamToNamed: (_, __) => '/',
         /*showPage: BeamPage(
           key: ValueKey('forbidden'),
@@ -83,17 +84,28 @@ class _HomeState extends State<Home> {
           final schemaId = state.pathParameters['schemaId']!;
           return Clusters(schemaId: schemaId);
         },
-        'schema/:schemaId/:clusterId': (context, state, data) {
-          //final schemaId = state.pathParameters['schemaId']!;
+        'cluster/:schemaId/:clusterId': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
           final clusterId = state.pathParameters['clusterId']!;
-          return Plots(clusterId: clusterId);
+          return Plots(clusterId: clusterId, schemaId: schemaId);
+        },
+        'plot/:schemaId/:clusterId/:plot': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
+          final clusterId = state.pathParameters['clusterId']!;
+          final plotId = state.pathParameters['plot']!;
+          return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+        },
+        /*'schema/:schemaId/:clusterId': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
+          final clusterId = state.pathParameters['clusterId']!;
+          return Plots(clusterId: clusterId, schemaId: schemaId);
         },
         'schema/:schemaId/:clusterId/:plot': (context, state, data) {
           final schemaId = state.pathParameters['schemaId']!;
           final clusterId = state.pathParameters['clusterId']!;
           final plotId = state.pathParameters['plot']!;
-          return PlotEdit(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
-        },
+          return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+        },*/
       },
     ).call,
   );
@@ -110,40 +122,49 @@ class _HomeState extends State<Home> {
   void _handleDragUpdate(DragUpdateDetails details) {
     // get relative dx
     final int deltaX = details.delta.dx.toInt();
-    if (_draggedValue + deltaX >= 100 && _draggedValue + deltaX < screenWidth2 / 2) {
-      setState(() {
-        _draggedValue += deltaX;
-      });
+    if (_draggedValue + deltaX < screenWidth2 / 2) {
+      if (_draggedValue + deltaX >= 50) {
+        setState(() {
+          _draggedValue += deltaX;
+        });
+      } else {
+        Provider.of<MapState>(context, listen: false).closeMap();
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    /*FlutterView view = WidgetsBinding.instance.platformDispatcher.views.first;
+    FlutterView view = WidgetsBinding.instance.platformDispatcher.views.first;
     screenWidth = view.physicalSize.width;
 
-    screenWidth2 = screenWidth; //MediaQuery.sizeOf(context).width;
+    /*screenWidth2 = screenWidth; //MediaQuery.sizeOf(context).width;
     print(screenWidth2);*/
     screenWidth2 = MediaQuery.sizeOf(context).width;
     // https://pub.dev/packages/get_storage
 
     return Scaffold(
       key: _navigatorKey,
-      bottomNavigationBar: screenWidth2 >= 600
+      /*bottomNavigationBar: screenWidth2 >= 600
           ? null
           : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
               items: const <BottomNavigationBarItem>[
                 BottomNavigationBarItem(
                   icon: Icon(Icons.map),
-                  label: 'Map',
+                  label: 'Karte',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.inventory),
-                  label: 'Inventory',
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.settings),
+                  label: 'Einstellungen',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.account_circle),
-                  label: 'Settings',
+                  label: 'Login',
                 ),
               ],
               onTap: (index) {
@@ -151,8 +172,11 @@ class _HomeState extends State<Home> {
                   _navigatorKey.currentState?.openDrawer();
                   //context.read<MapState>().toggleMap();
                 } else if (index == 1) {
+                  context.beamToNamed('/');
                   //_navigatorKey.currentState?.pushNamed('thuenen/inventory', arguments: ThuenenArguments('inventory'));
                   //_navigatorKey.currentState?.popUntil(ModalRoute.withName('/'));
+                } else if (index == 2) {
+                  context.beamToNamed('/settings');
                 } else {
                   showDialog<String>(
                     context: context,
@@ -161,121 +185,123 @@ class _HomeState extends State<Home> {
                       content: LoginDialog(),
                     ),
                   );
-                  // Navigator.pushNamed(context, '/settings');
                 }
               },
-            ),
-      appBar: screenWidth2 < 600
-          ? null
-          : AppBar(
-              centerTitle: false,
-              automaticallyImplyLeading: false,
-              leading: screenWidth2 >= 600
-                  ? null
-                  : Builder(
-                      builder: (context) => IconButton(
-                        icon: Icon(Icons.map),
-                        onPressed: () {
-                          Scaffold.of(context).openDrawer();
-                        },
-                      ),
-                    ),
-              title: Row(
-                children: [
-                  InkWell(
-                    onTap: () {
-                      Beamer.of(context).beamToNamed('/');
-                    },
-                    child: SvgPicture.asset(
-                      'assets/logo/THUENEN_SCREEN_Black.svg',
-                      height: 50,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                //if (!kIsWeb && (Platform.isAndroid || Platform.isLinux || Platform.isWindows || Platform.isIOS || Platform.isMacOS))
-
-                SystemMessageIcon(),
-                OnlineStatus(),
-                LoginButton(),
-                IconButton(
+            ),*/
+      appBar: AppBar(
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        leading: screenWidth2 >= 600
+            ? null
+            : Builder(
+                builder: (context) => IconButton(
+                  icon: Icon(Icons.map),
                   onPressed: () {
-                    //Beamer.of(context).beamToNamed('/settings');
-                    context.beamToNamed('/settings');
-                    //_navigatorKey.currentState?.pushNamed('monitor/sdfgsdfg', arguments: ThuenenArguments('inventory'));
-                    //Navigator.pushNamed(context, '/settings');
+                    Scaffold.of(context).openDrawer();
                   },
-                  icon: Icon(Icons.settings),
                 ),
-              ],
+              ),
+        title: Row(
+          children: [
+            InkWell(
+              onTap: () {
+                Beamer.of(context).beamToNamed('/');
+              },
+              child: SvgPicture.asset(
+                'assets/logo/THUENEN_SCREEN_Black.svg',
+                height: 50,
+              ),
             ),
-      drawer: SafeArea(
-        child: Drawer(
-          child: const TfmDrawer(),
+          ],
         ),
+        actions: [
+          //if (!kIsWeb && (Platform.isAndroid || Platform.isLinux || Platform.isWindows || Platform.isIOS || Platform.isMacOS))
+
+          //SystemMessageIcon(),
+          OnlineStatus(),
+          LoginButton(),
+          const AdminButton(),
+          //SignInBtn(),
+          IconButton(
+            onPressed: () {
+              //Beamer.of(context).beamToNamed('/settings');
+              context.beamToNamed('/settings');
+              //_navigatorKey.currentState?.pushNamed('monitor/sdfgsdfg', arguments: ThuenenArguments('inventory'));
+              //Navigator.pushNamed(context, '/settings');
+            },
+            icon: Icon(Icons.settings),
+          ),
+        ],
       ),
+      drawer: const TfmDrawer(),
       body: Stack(
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (screenWidth2 >= 600) const VertialBar(),
-              Stack(
-                children: [
-                  AnimatedContainer(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        const BoxShadow(
-                          color: Color.fromARGB(255, 255, 22, 224),
-                        ),
-                        BoxShadow(
-                          color: const Color.fromARGB(255, 255, 22, 224).withOpacity(0.5),
-                          spreadRadius: -5,
-                          blurRadius: 7,
-                          offset: const Offset(0, 3), // changes position of shadow
-                        ),
-                      ],
-                      color: Color.fromRGBO(150, 150, 150, 1),
+              if (screenWidth2 >= 600)
+                VertialBar(
+                  isDrawer: false,
+                ),
+              if (screenWidth2 >= 600)
+                Stack(
+                  children: [
+                    AnimatedContainer(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          const BoxShadow(
+                            color: Color.fromARGB(255, 255, 22, 224),
+                          ),
+                          BoxShadow(
+                            color: const Color.fromARGB(255, 255, 22, 224).withOpacity(0.5),
+                            spreadRadius: -5,
+                            blurRadius: 7,
+                            offset: const Offset(0, 3), // changes position of shadow
+                          ),
+                        ],
+                        color: Color.fromRGBO(150, 150, 150, 1),
+                      ),
+                      duration: Duration(milliseconds: _dragging ? 0 : 200),
+                      width: context.watch<MapState>().mapOpen ? max(_draggedValue, 100) : 0,
+                      child: TFMMap(),
                     ),
-                    duration: Duration(milliseconds: _dragging ? 0 : 200),
-                    width: context.watch<MapState>().mapOpen ? _draggedValue : 0,
-                    child: TFMMap(),
-                  ),
-                  Positioned(
-                    bottom: 10,
-                    right: 0,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.resizeLeftRight,
-                      child: GestureDetector(
-                        // https://stackoverflow.com/questions/51216747/constraining-draggable-area
-                        //Draggable
-                        onHorizontalDragStart: _handleDragInit,
-                        onHorizontalDragUpdate: _handleDragUpdate,
-                        onHorizontalDragEnd: (details) {
-                          setState(() {
-                            _dragging = false;
-                          });
-                        },
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.resizeLeftRight,
+                        child: GestureDetector(
+                          // https://stackoverflow.com/questions/51216747/constraining-draggable-area
+                          //Draggable
+                          onHorizontalDragStart: _handleDragInit,
+                          onHorizontalDragUpdate: _handleDragUpdate,
+                          onHorizontalDragEnd: (details) {
+                            setState(() {
+                              _dragging = false;
+                            });
+                          },
 
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Color.fromRGBO(69, 69, 69, 1),
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(5),
-                              bottomLeft: Radius.circular(5),
+                          child: Container(
+                            width: 15,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Color.fromRGBO(108, 108, 108, 1),
+                            ),
+                            child: RotatedBox(
+                              quarterTurns: 1,
+                              child: const Icon(
+                                Icons.drag_handle,
+                                size: 15,
+                              ),
                             ),
                           ),
-                          child: const Icon(Icons.swap_horiz),
                         ),
                       ),
                     ),
-                  )
-                ],
-              ),
+                  ],
+                ),
               Expanded(
                 child: Beamer(
                   routerDelegate: routerDelegate,

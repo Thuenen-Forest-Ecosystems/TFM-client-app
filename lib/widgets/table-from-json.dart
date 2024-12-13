@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:beamer/beamer.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:terrestrial_forest_monitor/widgets/schema-valid.dart';
 
 // https://pub.dev/packages/data_table_2

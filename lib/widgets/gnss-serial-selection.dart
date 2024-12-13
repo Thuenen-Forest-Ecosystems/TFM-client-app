@@ -164,9 +164,8 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
       }
       var reader = SerialPortReader(serialPort!);
       reader!.stream.listen((data) {
-       
         String nmeaSentence = String.fromCharCodes(data);
-        
+
         // split nmeaSentances in Lines
         List<String> lines = nmeaSentence.split('\$');
 
@@ -179,7 +178,6 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
         
         // Step 2: Iterate through each line
         for (String line in lines) {
-          
           // Step 3: Check if the line starts with "GNRMC"
           if (line.startsWith('GNRMC')) {
             print(line);
@@ -187,6 +185,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
             _getLatLonFromGNRMC(line);
           }
         }
+
        
       }, onDone: () {
         print('Done');
