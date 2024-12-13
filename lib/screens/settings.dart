@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
@@ -127,7 +124,7 @@ class _SettingsState extends State<Settings> {
                     ListTile(
                       title: Text('Host'),
                       leading: const Icon(Icons.bug_report),
-                      trailing: Container(
+                      trailing: SizedBox(
                         width: 200,
                         child: DropdownButtonFormField(
                           items: [

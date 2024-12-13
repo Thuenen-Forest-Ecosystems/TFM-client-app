@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class DynamicBoolField extends StatefulWidget {
   final Map<dynamic, dynamic> schema;

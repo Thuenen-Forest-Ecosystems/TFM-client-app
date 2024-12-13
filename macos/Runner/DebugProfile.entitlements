@@ -16,5 +16,10 @@
 	<true/>
 	<key>com.apple.security.device.serial</key>
 	<true/>
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+
 </dict>
 </plist>

@@ -3,9 +3,12 @@ import 'package:flutter/scheduler.dart'; // Add this line
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:get_storage/get_storage.dart';
 
 import 'package:terrestrial_forest_monitor/providers/json-schema.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
+import 'package:terrestrial_forest_monitor/screens/admin.dart';
 import 'package:terrestrial_forest_monitor/screens/home.dart';
 import 'package:terrestrial_forest_monitor/screens/settings.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -14,18 +17,19 @@ import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
-import 'package:terrestrial_forest_monitor/providers/api-log.dart';
+
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
+import 'package:terrestrial_forest_monitor/services/api.dart';
 
-import 'package:get_storage/get_storage.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
 
-import 'package:terrestrial_forest_monitor/services/api.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:terrestrial_forest_monitor/providers/api-log.dart';
+//import 'package:hive_flutter/hive_flutter.dart';
 
 //import 'package:terrestrial_forest_monitor/no-animation.dart';
 
@@ -45,6 +49,11 @@ final routerDelegate = BeamerDelegate(
             title: AppLocalizations.of(context)!.settings,
             child: Settings(),
           ),
+      '/admin': (context, state, data) => BeamPage(
+            key: ValueKey('admin-${DateTime.now()}'),
+            title: AppLocalizations.of(context)!.settings,
+            child: AdminScreen(),
+          ),
     },
   ).call,
 );
@@ -52,6 +61,7 @@ final routerDelegate = BeamerDelegate(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
+
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
 
@@ -64,31 +74,44 @@ void main() async {
     await dotenv.load(fileName: ".env");
   }
 
-  await Hive.initFlutter();
-  await GetStorage.init();
+  // Save Map offline
+  if (!kIsWeb) {
+    await FMTCObjectBoxBackend().initialise();
+    await FMTCStore('wms_dtk25__').manage.create();
+    await FMTCStore('wms_dop__').manage.create();
+  }
 
-  print('${dotenv.env['HOST']}:${dotenv.env['PORT']}');
+  //await Hive.initFlutter();
+  //await GetStorage.init();
 
-  String? token = await ApiService().init('${dotenv.env['HOST']}:${dotenv.env['PORT']}');
+  try {
+    await openDatabase();
+    print('Database opened');
+  } catch (e) {
+    print('Error opening database: $e');
+  }
+
+  //String? token = await ApiService().init('${dotenv.env['HOST']}:${dotenv.env['PORT']}');
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => MapState()),
         ChangeNotifierProvider(create: (_) => Language(Locale(defaultLocale))),
         ChangeNotifierProvider(create: (_) => ThemeModeProvider(initialThemeMode)),
-        ChangeNotifierProvider(create: (_) => ApiLog(token)),
-        ChangeNotifierProvider(create: (_) => JsonSchemaProvider()),
+        //ChangeNotifierProvider(create: (_) => ApiLog(token)),
+        //ChangeNotifierProvider(create: (_) => JsonSchemaProvider()),
+
+        ChangeNotifierProvider(create: (_) => MapState()),
         ChangeNotifierProvider(create: (_) => GpsPositionProvider())
       ],
-      child: MyApp(),
+      child: Layout(),
     ),
   );
   //context.read<Language>().setLocale(Locale(defaultLocale));
 }
 
-class MyApp extends StatelessWidget {
-  MyApp({super.key});
+class Layout extends StatelessWidget {
+  Layout({super.key});
 
   // This widget is the root of your application.
   @override
@@ -110,6 +133,7 @@ class MyApp extends StatelessWidget {
 
       // THEME
       theme: ThemeData(
+        scaffoldBackgroundColor: Color(0xFFeeeeee),
         // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
         pageTransitionsTheme: PageTransitionsTheme(
           builders: kIsWeb
@@ -131,7 +155,9 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+
       darkTheme: ThemeData(
+        scaffoldBackgroundColor: Color(0xFF333333),
         colorScheme: ColorScheme.fromSwatch(
           primarySwatch: Colors.green,
           brightness: Brightness.dark,

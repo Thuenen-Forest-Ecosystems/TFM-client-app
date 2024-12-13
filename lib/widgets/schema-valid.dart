@@ -21,15 +21,15 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
   }
 
   Future _loadSchema() async {
-    String _schema = await DefaultAssetBundle.of(context).loadString("assets/sample/schema_dereferenced.json");
-    Map _schemaMap = jsonDecode(_schema);
-    _jsonSchema = JsonSchema.create(_schemaMap);
+    String schema = await DefaultAssetBundle.of(context).loadString("assets/sample/schema_dereferenced.json");
+    Map schemaMap = jsonDecode(schema);
+    _jsonSchema = JsonSchema.create(schemaMap);
   }
 
   ValidationResults _checkIfValidJson(data) {
     ValidationResults validationResult = _jsonSchema.validate(data);
     // Get the errors
-    for (var error in validationResult!.errors) {
+    for (var error in validationResult.errors) {
       print(error.instancePath);
       print(error.runtimeType);
       print(error.schemaPath);
@@ -85,7 +85,7 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
                 },
               );
             } else {
-              return Text(validationResult!.errors.length.toString());
+              return Text(validationResult.errors.length.toString());
             }
           } else {
             return Text('Loading...');

@@ -61,7 +61,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     } catch (e) {
       if (e is SerialPortError) {
         // TODO: Show error
-        print('${e}');
+        print('$e');
         // Handle the error, e.g., show a dialog or a snackbar
       } else {
         print('Error: $e');

@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "terrestrial_forest_monitor" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "terrestrial_forest_monitor" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2024 de.thuenen. All rights reserved." "\0"
             VALUE "OriginalFilename", "terrestrial_forest_monitor.exe" "\0"
             VALUE "ProductName", "terrestrial_forest_monitor" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
