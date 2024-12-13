@@ -127,6 +127,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
   }
 
   Future<void> _testConnection() async {
+
     _closePort();
     nmeaSentences = [];
 
@@ -174,7 +175,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
         setState(() {
           nmeaSentences.addAll(lines);
         });
-
+        
         // Step 2: Iterate through each line
         for (String line in lines) {
           // Step 3: Check if the line starts with "GNRMC"
@@ -184,8 +185,11 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
             _getLatLonFromGNRMC(line);
           }
         }
+
+       
       }, onDone: () {
         print('Done');
+        
       }, onError: (e) {
         print('$e');
         setState(() {
