@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'package:terrestrial_forest_monitor/widgets/timestamp-to-timeago.dart';
 
 class Navigation extends StatefulWidget {
   Map target;
@@ -42,8 +43,6 @@ class _NavigationState extends State<Navigation> {
       }
     }
 
-    print(context.read<GpsPositionProvider>().listeningPosition);
-
     return Stack(
       children: [
         Positioned(
@@ -52,6 +51,21 @@ class _NavigationState extends State<Navigation> {
           child: Text(
             'NAVIGATION',
             style: TextStyle(fontSize: 11),
+          ),
+        ),
+        Positioned(
+          bottom: 5,
+          left: 0,
+          right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TimestampToTimeago(
+                timestamp: lastPosition?.timestamp.toIso8601String(),
+                style: TextStyle(fontSize: 10),
+              ),
+              //Text(lastPosition?.timestamp != null ? '${lastPosition?.timestamp.toIso8601String()}' : 'No GPS signal', style: TextStyle(fontSize: 10)),
+            ],
           ),
         ),
         if (context.read<GpsPositionProvider>().listeningPosition)

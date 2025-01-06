@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:terrestrial_forest_monitor/brick/models/schemas.model.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/admin/storage-list.dart';
 import 'package:terrestrial_forest_monitor/widgets/admin/database-list.dart';
@@ -37,10 +39,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
                 Card(
                   margin: EdgeInsets.all(10.0),
-                  child: StorageList(
-                    bucket: 'validation',
-                    folder: 'schema',
-                  ),
+                  child: StorageList(),
                 ),
                 Container(
                   margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),

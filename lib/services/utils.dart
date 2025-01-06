@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:powersync/sqlite3_common.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 String degreeToGon(double degree) {
@@ -16,6 +17,14 @@ void launchStringExternal(String url) async {
   )) {
     throw Exception('Could not launch $url');
   }
+}
+
+Future<Map> plotAsJson(String plotId) async {
+  Map plotRecord = Map.from(await db.get('SELECT * FROM plot WHERE id = ?', [plotId]) as Map);
+  plotRecord['tree'] = await db.getAll('SELECT * FROM tree WHERE plot_id=?', [plotId]);
+  plotRecord['deadwood'] = await db.getAll('SELECT * FROM deadwood WHERE plot_id=?', [plotId]);
+
+  return plotRecord;
 }
 
 String prettyDistance(double distance) {

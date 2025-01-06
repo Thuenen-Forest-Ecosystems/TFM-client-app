@@ -122,6 +122,8 @@ Future<void> openDatabase() async {
   }
 
   try {
+    print(dotenv.env['SUPABASE_URL']);
+    print(dotenv.env['SUPABASE_ANON_KEY']);
     await Supabase.initialize(
       url: dotenv.env['SUPABASE_URL'] ?? '',
       anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
@@ -226,6 +228,11 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     // userId and expiresAt are for debugging purposes only
     final userId = session.user.id;
     final expiresAt = session.expiresAt == null ? null : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
+
+    print(dotenv.env['POWERSYNC_URL']);
+    print(token);
+    print(userId);
+
     return PowerSyncCredentials(
       endpoint: dotenv.env['POWERSYNC_URL'] ?? '',
       token: token,

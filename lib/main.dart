@@ -5,10 +5,13 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:terrestrial_forest_monitor/brick/models/cluster.model.dart';
+import 'package:terrestrial_forest_monitor/brick/models/schemas.model.dart';
 
 import 'package:terrestrial_forest_monitor/providers/json-schema.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/screens/admin.dart';
+import 'package:terrestrial_forest_monitor/screens/headless.dart';
 import 'package:terrestrial_forest_monitor/screens/home.dart';
 import 'package:terrestrial_forest_monitor/screens/settings.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -33,6 +36,10 @@ import 'package:terrestrial_forest_monitor/providers/api-log.dart';
 
 //import 'package:terrestrial_forest_monitor/no-animation.dart';
 
+import 'package:terrestrial_forest_monitor/brick/repository.dart';
+import 'package:sqflite/sqflite.dart' show databaseFactory;
+import 'package:brick_core/query.dart';
+
 final routerDelegate = BeamerDelegate(
   notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
   transitionDelegate: const NoAnimationTransitionDelegate(),
@@ -53,6 +60,11 @@ final routerDelegate = BeamerDelegate(
             key: ValueKey('admin-${DateTime.now()}'),
             title: AppLocalizations.of(context)!.settings,
             child: AdminScreen(),
+          ),
+      '/headless': (context, state, data) => BeamPage(
+            key: ValueKey('headless-${DateTime.now()}'),
+            title: AppLocalizations.of(context)!.settings,
+            child: StatelessTest(),
           ),
     },
   ).call,

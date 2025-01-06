@@ -11,12 +11,69 @@ class AdminButton extends StatefulWidget {
 }
 
 class _AdminButtonState extends State<AdminButton> {
-  User? user = getCurrentUser();
+  User? user = null; //getCurrentUser();
+
+  /*@override
+  void initState() {
+    super.initState();
+
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      print('STATE CHANGE');
+      setState(() {
+        user = getCurrentUser();
+      });
+    });
+
+    print('USER: $user');
+    print(user?.id);
+    db.get('SELECT * FROM users_profile WHERE id = ?', [user?.id]).then((value) {
+      print(value);
+    }).catchError((error) {
+      print('Error: $error');
+    });
+  }*/
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          User? user = getCurrentUser();
+          print('USER: $user.id');
+          if (user == null) {
+            return SizedBox();
+          }
+          print(user.id);
+          return FutureBuilder(
+            future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                final data = snapshot.data as Map<String, dynamic>;
+
+                if (data['is_admin'] == null || data.isEmpty) {
+                  return SizedBox();
+                }
+
+                if (data['is_admin'] == 1) {
+                  return IconButton(
+                    onPressed: () {
+                      context.beamToNamed('/admin');
+                    },
+                    icon: Icon(Icons.admin_panel_settings),
+                  );
+                }
+              }
+              return SizedBox();
+            },
+          );
+        } else {
+          return SizedBox();
+        }
+      },
+    );
     return FutureBuilder(
-        future: db.get('SELECT * FROM users_profile WHERE user_id = ?', [user?.id]),
+        future: db.get('SELECT * FROM users_profile WHERE id = ?', [user?.id]),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return SizedBox(
@@ -26,7 +83,7 @@ class _AdminButtonState extends State<AdminButton> {
             );
           }
           if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}');
+            return SizedBox();
           }
           if (snapshot.hasData) {
             final data = snapshot.data as Map<String, dynamic>;
@@ -44,7 +101,7 @@ class _AdminButtonState extends State<AdminButton> {
               );
             }
           }
-          return SizedBox();
+          return Icon(Icons.admin_panel_settings);
         });
   }
 }

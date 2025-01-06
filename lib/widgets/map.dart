@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:provider/provider.dart';
 
 import 'package:beamer/beamer.dart';
@@ -21,6 +22,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/widgets/ci2027/plot-dialog.dart';
+import 'package:turf/destination.dart';
+import 'package:turf/helpers.dart';
 
 // https://docs.fleaflet.dev/layers/tile-layer#url-template
 // offline Map: https://docs.fleaflet.dev/tile-servers/offline-mapping
@@ -177,6 +180,48 @@ class _TFMMapState extends State<TFMMap> {
         });
   }
 
+  // Tree Layer
+  Widget _treeLayer() {
+    Map? targetPlot = context.read<GpsPositionProvider>().navigationTarget;
+
+    if (targetPlot == null) return Container();
+
+    return FutureBuilder(
+      future: db.getAll('SELECT * FROM tree WHERE plot_id=?', [targetPlot['target']['id']]),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          Map<String, dynamic> jsonCoordinates = jsonDecode(targetPlot['target']['center_location_json']);
+
+          return CircleLayer(
+            circles: snapshot.data!.map<CircleMarker<Object>>(
+              (tree) {
+                double dbh = 1000;
+                Color color = Colors.black;
+                double distance = double.parse(tree['distance']);
+                double azimuth = double.parse(tree['azimuth']);
+                if (tree['dbh'] != null) {
+                  dbh = double.parse(tree['dbh']);
+                  color = Colors.red;
+                }
+
+                Point dest = destination(Point.fromJson(jsonCoordinates), distance, azimuth, Unit.centimeters);
+
+                return CircleMarker<Object>(
+                  point: LatLng(dest.coordinates.lat.toDouble(), dest.coordinates.lng.toDouble()),
+                  radius: dbh / 1000 / 2,
+                  useRadiusInMeter: true,
+                  color: color,
+                  //hitValue: plot,
+                );
+              },
+            ).toList(),
+          );
+        }
+        return Container();
+      },
+    );
+  }
+
   Widget _plotClusterLayer(data) {
     // https://github.com/lpongetti/flutter_map_marker_cluster/tree/master
     List<Marker> markers = [];
@@ -216,11 +261,11 @@ class _TFMMapState extends State<TFMMap> {
     }
     return MarkerClusterLayerWidget(
       options: MarkerClusterLayerOptions(
-        maxClusterRadius: 3,
-        size: const Size(40, 40),
+        maxClusterRadius: 1,
+        size: const Size(15, 15),
         alignment: Alignment.center,
         padding: const EdgeInsets.all(50),
-        maxZoom: 16,
+        maxZoom: 15,
         markers: markers,
         builder: (context, markers) {
           // Get first Marker key as String
@@ -231,12 +276,12 @@ class _TFMMapState extends State<TFMMap> {
               borderRadius: BorderRadius.circular(20),
               color: Color(0xFF008CD2),
             ),
-            child: Center(
+            /*child: Center(
               child: Text(
                 clusterName, //markers.length.toString(),
                 style: const TextStyle(color: Colors.white),
               ),
-            ),
+            ),*/
           );
         },
       ),
@@ -392,6 +437,7 @@ class _TFMMapState extends State<TFMMap> {
     );
   }
 
+  var _inited = false;
   @override
   Widget build(BuildContext context) {
     bool isMapOpen = context.watch<MapState>().mapOpen;
@@ -419,6 +465,16 @@ class _TFMMapState extends State<TFMMap> {
               Visibility(child: _wmsDtk25Layer(), visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY')),
               Visibility(child: _gdzLayer(), visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY') && context.read<MapState>().isDop),
               if (!dotenv.env.containsKey('DMZ_KEY')) _osmLayer(),
+              _plotLayer(),
+              FutureBuilder(
+                future: _plots,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return _plotClusterLayer(snapshot.data);
+                  }
+                  return Container();
+                },
+              ),
               Consumer<GpsPositionProvider>(
                 builder: (context, gpsPositionProvider, child) {
                   if (!gpsPositionProvider.listeningPosition) return Container();
@@ -439,15 +495,11 @@ class _TFMMapState extends State<TFMMap> {
                   );
                 },
               ),
-              _plotLayer(),
-              FutureBuilder(
-                  future: _plots,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return _plotClusterLayer(snapshot.data);
-                    }
-                    return Container();
-                  }),
+              _treeLayer(),
+              Scalebar(
+                padding: EdgeInsets.all(5),
+                alignment: Alignment.bottomLeft,
+              ),
             ],
           ),
         ),

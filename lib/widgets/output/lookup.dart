@@ -22,7 +22,6 @@ class _LookupOutputState extends State<LookupOutput> {
     } else {
       _pgValue = [widget.value];
     }
-    print(widget.value);
 
     return Container(
       margin: EdgeInsets.all(10),

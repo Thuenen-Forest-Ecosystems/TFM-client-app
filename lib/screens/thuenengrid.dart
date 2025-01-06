@@ -28,11 +28,18 @@ class _ThuenenGridState extends State<ThuenenGrid> {
   List schemata = [];
   List _filteredSchemata = [];
 
+  void _getTest() async {
+    var testdata = await db.getAll('SELECT * FROM Test');
+    print('TEST');
+    print(testdata);
+  }
+
   @override
   void initState() {
     super.initState();
     //GetStorage users = GetStorage('Users');
     dbSubscription = db.watch('SELECT * FROM schemas').listen((results) {
+      print('schemadata');
       print(results);
       schemata = results;
       _loading = false;
@@ -40,6 +47,7 @@ class _ThuenenGridState extends State<ThuenenGrid> {
       print('Query failed: $e');
       _errorText = e.toString();
     });
+    _getTest();
   }
 
   @override

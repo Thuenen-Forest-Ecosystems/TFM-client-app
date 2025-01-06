@@ -95,6 +95,12 @@ class _HomeState extends State<Home> {
           final plotId = state.pathParameters['plot']!;
           return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
         },
+        'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
+          final clusterId = state.pathParameters['clusterId']!;
+          final plotId = state.pathParameters['plot']!;
+          return PlotEdit(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+        },
         /*'schema/:schemaId/:clusterId': (context, state, data) {
           final schemaId = state.pathParameters['schemaId']!;
           final clusterId = state.pathParameters['clusterId']!;
@@ -138,8 +144,6 @@ class _HomeState extends State<Home> {
     FlutterView view = WidgetsBinding.instance.platformDispatcher.views.first;
     screenWidth = view.physicalSize.width;
 
-    /*screenWidth2 = screenWidth; //MediaQuery.sizeOf(context).width;
-    print(screenWidth2);*/
     screenWidth2 = MediaQuery.sizeOf(context).width;
     // https://pub.dev/packages/get_storage
 
@@ -221,15 +225,18 @@ class _HomeState extends State<Home> {
           OnlineStatus(),
           LoginButton(),
           const AdminButton(),
-          //SignInBtn(),
+          SignInBtn(),
           IconButton(
             onPressed: () {
-              //Beamer.of(context).beamToNamed('/settings');
               context.beamToNamed('/settings');
-              //_navigatorKey.currentState?.pushNamed('monitor/sdfgsdfg', arguments: ThuenenArguments('inventory'));
-              //Navigator.pushNamed(context, '/settings');
             },
             icon: Icon(Icons.settings),
+          ),
+          IconButton(
+            onPressed: () {
+              context.beamToNamed('/headless');
+            },
+            icon: Icon(Icons.car_crash),
           ),
         ],
       ),

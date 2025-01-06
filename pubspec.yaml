@@ -69,12 +69,18 @@ dependencies:
   flutter_map_marker_cluster: ^1.4.0
   timeago: ^3.7.0
   url_launcher: ^6.3.1
+  brick_offline_first_with_supabase_build: ^1.0.0
+  brick_sqlite: ^3.1.1+1
+  uuid: ^4.5.1
+  sqflite: ^2.4.1
+  flutter_inappwebview: ^6.1.5
   
 
   #flutter_gen: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  brick_offline_first_with_supabase_build: ^1.0.0
   build_runner: ^2.4.12
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -103,6 +109,7 @@ flutter:
     - .env
     - assets/logo/
     - assets/sample/
+    - assets/html/
     
 
   # An image asset can refer to one or more resolution-specific "variants", see

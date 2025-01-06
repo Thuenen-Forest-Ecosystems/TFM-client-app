@@ -72,7 +72,15 @@ class _PlotState extends State<Plot> {
             Beamer.of(context).beamToNamed('/cluster/${widget.schemaId}/${widget.clusterId}');
           },
         ),
-        actions: [],
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () {
+              Beamer.of(context).beamToNamed('/plot/edit/${widget.schemaId}/${widget.clusterId}/${widget.plotId}');
+            },
+            label: Text('Bearbeiten'),
+            icon: Icon(Icons.edit),
+          )
+        ],
       ),
       body: FutureBuilder(
           future: _plotFuture, //db.get('SELECT * FROM PLOT WHERE id = ?', [widget.plotId]),

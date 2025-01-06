@@ -55,6 +55,9 @@ const lookupTemplate = [
 ];
 
 Schema schema = Schema(([
+  const Table('Test', [
+    Column.text('created_at'),
+  ]),
   const Table.localOnly('settings', [
     Column.text('sortGeneral'),
     Column.text('user_id'),
@@ -90,6 +93,29 @@ Schema schema = Schema(([
     Column.text('center_location_json'),
     Column.text('created_at'),
     Column.text('modified_local'),
+  ]),
+  const Table('tree', [
+    Column.text('intkey'),
+    Column.text('plot_id'),
+    Column.text('tree_number'),
+    Column.text('azimuth'),
+    Column.text('distance'),
+    Column.text('tree_species'),
+    Column.text('dbh'),
+    Column.text('dbh_height'),
+    Column.text('tree_status'),
+    Column.text('tree_height'),
+    Column.text('stem_crown'),
+    Column.text('tree_height_azimuth'),
+    Column.text('tree_height_distance'),
+    Column.text('tree_age'),
+  ]),
+  const Table('deadwood', [
+    Column.text('intkey'),
+    Column.text('plot_id'),
+    Column.text('created_at'),
+    Column.text('modified_at'),
+    Column.text('modified_by'),
   ]),
   ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),

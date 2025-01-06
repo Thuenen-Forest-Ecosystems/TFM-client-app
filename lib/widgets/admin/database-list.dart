@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite3;
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/widgets/form/datatable-from-sqlite-table.dart';
 
 class DatabaseList extends StatefulWidget {
   const DatabaseList({super.key});
@@ -28,6 +29,19 @@ class _DatabaseListState extends State<DatabaseList> {
         ListTile(
           title: Text(table['tbl_name']),
           subtitle: Text(table['sql']),
+          onTap: () {
+            // Open Dialog
+            showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                      title: Text('Table: ${table['tbl_name']}'),
+                      content: Container(
+                        width: 300,
+                        child: DatatableFromSqliteTable(tableName: table['tbl_name']),
+                      ));
+                });
+          },
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

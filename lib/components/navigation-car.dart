@@ -42,8 +42,6 @@ class _NavigationCarState extends State<NavigationCar> {
       }
     }
 
-    print(context.read<GpsPositionProvider>().listeningPosition);
-
     return Stack(
       children: [
         Positioned(
