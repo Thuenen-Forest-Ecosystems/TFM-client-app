@@ -12,6 +12,7 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'package:terrestrial_forest_monitor/widgets/ci2027/tree/overview.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class Plot extends StatefulWidget {
@@ -123,6 +124,11 @@ class _PlotState extends State<Plot> {
                           child: ListTile(
                             title: Text('Ecke: ${plot['plot_name']}'),
                             subtitle: Text('Erstellt: ${plot['created_at']}'),
+                          ),
+                        ),
+                        Card(
+                          child: TreeOverview(
+                            plotId: widget.plotId,
                           ),
                         ),
                       ],

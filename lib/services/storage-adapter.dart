@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:powersync_attachments_helper/powersync_attachments_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image/image.dart' as img;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:terrestrial_forest_monitor/config.dart';
 
 class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
   @override
@@ -11,7 +11,7 @@ class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
     _checkSupabaseBucketIsConfigured();
 
     try {
-      final bucket = dotenv.env['SUPABASE_STORAGE_BUCKET'];
+      final bucket = AppConfig.servers[0]['supabaseStorageBucket'];
       if (bucket == null) {
         throw Exception('Supabase storage bucket is not configured in .env file');
       }
@@ -25,7 +25,7 @@ class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
   Future<Uint8List> downloadFile(String filePath) async {
     _checkSupabaseBucketIsConfigured();
     try {
-      final bucket = dotenv.env['SUPABASE_STORAGE_BUCKET'];
+      final bucket = AppConfig.servers[0]['supabaseStorageBucket'];
       if (bucket == null) {
         throw Exception('Supabase storage bucket is not configured in .env file');
       }
@@ -43,7 +43,7 @@ class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
     _checkSupabaseBucketIsConfigured();
 
     try {
-      final bucket = dotenv.env['SUPABASE_STORAGE_BUCKET'];
+      final bucket = AppConfig.servers[0]['supabaseStorageBucket'];
       if (bucket == null) {
         throw Exception('Supabase storage bucket is not configured in .env file');
       }
@@ -54,7 +54,7 @@ class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
   }
 
   void _checkSupabaseBucketIsConfigured() {
-    if (dotenv.env['SUPABASE_STORAGE_BUCKET']?.isEmpty ?? true) {
+    if (AppConfig.servers[0]['supabaseStorageBucket']?.isEmpty ?? true) {
       throw Exception('Supabase storage bucket is not configured in app_config.dart');
     }
   }

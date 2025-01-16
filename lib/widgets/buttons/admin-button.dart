@@ -40,14 +40,15 @@ class _AdminButtonState extends State<AdminButton> {
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           User? user = getCurrentUser();
-          print('USER: $user.id');
+
           if (user == null) {
             return SizedBox();
           }
-          print(user.id);
+
           return FutureBuilder(
             future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
             builder: (context, snapshot) {
+              print('snapshot: $snapshot : ${user.id}');
               if (snapshot.hasData) {
                 final data = snapshot.data as Map<String, dynamic>;
 
@@ -62,6 +63,8 @@ class _AdminButtonState extends State<AdminButton> {
                     },
                     icon: Icon(Icons.admin_panel_settings),
                   );
+                } else {
+                  return SizedBox();
                 }
               }
               return SizedBox();

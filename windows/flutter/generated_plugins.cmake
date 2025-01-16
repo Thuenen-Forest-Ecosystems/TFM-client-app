@@ -6,7 +6,9 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   connectivity_plus
   flutter_inappwebview_windows
+  flutter_js
   flutter_libserialport
+  flutter_tts
   geolocator_windows
   objectbox_flutter_libs
   permission_handler_windows

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class StatelessTest extends StatefulWidget {
@@ -14,11 +15,13 @@ class _StatelessTestState extends State<StatelessTest> {
   HeadlessInAppWebView? headlessWebView;
   String url = "";
 
-  @override
-  void initState() {
-    super.initState();
+  Future _initHeadless() async {
+    String htmlString = await rootBundle.loadString('assets/html/index.html');
+    //String htmlString = '<html></html>';
+
     headlessWebView = HeadlessInAppWebView(
-      initialUrlRequest: URLRequest(url: WebUri("https://github.com/flutter")),
+      initialFile: htmlString,
+      //initialUrlRequest: URLRequest(url: WebUri("https://github.com/flutter")),
       initialSettings: InAppWebViewSettings(isInspectable: kDebugMode),
       onWebViewCreated: (controller) {
         const snackBar = SnackBar(
@@ -61,6 +64,12 @@ class _StatelessTestState extends State<StatelessTest> {
         });
       },
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initHeadless();
   }
 
   @override
@@ -115,7 +124,7 @@ class _StatelessTestState extends State<StatelessTest> {
                       ScaffoldMessenger.of(context).showSnackBar(snackBar);
                     }
                   },
-                  child: const Text("Send console.log message")),
+                  child: const Text("Send TESTFN message")),
             ),
             Center(
               child: ElevatedButton(

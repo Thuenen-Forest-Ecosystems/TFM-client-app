@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-//import './app_config.dart';
+import 'package:terrestrial_forest_monitor/config.dart';
+import 'package:terrestrial_forest_monitor/services/utils.dart';
+
 import '../models/schema.dart';
 import 'package:logging/logging.dart';
-
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final log = Logger('powersync-supabase');
 
@@ -26,7 +27,9 @@ final List<RegExp> fatalResponseCodes = [
 late final PowerSyncDatabase db;
 
 Future<String> getDatabasePath() async {
-  const dbFilename = 'tfm-local-DB.db';
+  var config = await getServerConfig();
+
+  final dbFilename = '${config['database']}.db';
   // getApplicationSupportDirectory is not supported on Web
   if (kIsWeb) {
     return dbFilename;
@@ -62,7 +65,8 @@ Future<User> signUp(String email, String password) async {
     AuthResponse response = await Supabase.instance.client.auth.signUp(email: email, password: password);
     return response.user!;
   } catch (e) {
-    print('Error logging in: $e');
+    print('$email : $password');
+    print('Error signUp: $e -> $email : $password');
     rethrow;
   }
 }
@@ -77,6 +81,12 @@ Future<User> login(String email, String password) async {
     print('Error logging in: ${e}');
     rethrow;
   }
+}
+
+/// Explicit sign out - clear database and log out.
+Future<void> changeServer() async {
+  await openDatabase();
+  await logout();
 }
 
 /// Explicit sign out - clear database and log out.
@@ -122,13 +132,15 @@ Future<void> openDatabase() async {
   }
 
   try {
-    print(dotenv.env['SUPABASE_URL']);
-    print(dotenv.env['SUPABASE_ANON_KEY']);
+    var config = await getServerConfig();
+    print('config');
+    print(config['supabaseUrl']);
+    print(config['anonKey']);
+
     await Supabase.initialize(
-      url: dotenv.env['SUPABASE_URL'] ?? '',
-      anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+      url: config['supabaseUrl'] ?? '',
+      anonKey: config['anonKey'] ?? '',
     );
-    print('Supabase initialized');
   } catch (e) {
     print('Error initializing Supabase: $e');
     rethrow;
@@ -229,12 +241,13 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     final userId = session.user.id;
     final expiresAt = session.expiresAt == null ? null : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
 
-    print(dotenv.env['POWERSYNC_URL']);
-    print(token);
-    print(userId);
+    //var config = AppConfig.servers[0];
+    var config = await getServerConfig();
+    print('powersyncUrl');
+    print(config);
 
     return PowerSyncCredentials(
-      endpoint: dotenv.env['POWERSYNC_URL'] ?? '',
+      endpoint: config['powersyncUrl'] ?? '',
       token: token,
       userId: userId,
       expiresAt: expiresAt,

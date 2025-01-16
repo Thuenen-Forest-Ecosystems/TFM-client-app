@@ -223,9 +223,11 @@ class _HomeState extends State<Home> {
 
           //SystemMessageIcon(),
           OnlineStatus(),
+
+          SignInBtn(),
+          SizedBox(width: 10),
           LoginButton(),
           const AdminButton(),
-          SignInBtn(),
           IconButton(
             onPressed: () {
               context.beamToNamed('/settings');

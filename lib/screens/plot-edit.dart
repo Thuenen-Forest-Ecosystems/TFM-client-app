@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:powersync/sqlite3.dart' as sqlite;
+import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/widgets/dynamic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/deadwood.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/edges.dart';
+import 'package:terrestrial_forest_monitor/widgets/forms/plot.dart';
 import 'dart:convert';
 
 import 'package:terrestrial_forest_monitor/widgets/forms/position.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/regeneration.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/structure.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/wzp.dart';
+
+import 'package:flutter_js/flutter_js.dart';
+import 'dart:math';
 
 class PlotEdit extends StatefulWidget {
   final String schemaId;
@@ -27,23 +33,101 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TabController _tabController;
 
+  final JavascriptRuntime javascriptRuntime = getJavascriptRuntime(forceJavascriptCoreOnAndroid: false);
+
   String? _plotId;
   String? _clusterId;
   String? _schemaId;
 
-  List<Map> tabs = [
-    {'title': 'Position', 'icon': Icons.blur_circular, 'screen': TIPosition()},
-    {'title': 'Ecken', 'icon': Icons.blur_circular, 'screen': TIEdges()},
-    {'title': 'Totholz', 'icon': Icons.blur_circular, 'screen': TIDeadwood()},
-    {'title': 'Winkelzählprobe', 'icon': Icons.blur_circular, 'screen': TIWzp()},
-    {'title': 'Regeneration', 'icon': Icons.blur_circular, 'screen': TIRegeneration()},
-    {'title': 'Struktur', 'icon': Icons.blur_circular, 'screen': TIStructure()},
-  ];
+  Map values = {};
+
+  List<Map> tabs = [];
+
+  void _onUpdate() {
+    print('VALIDATE: ${values}');
+  }
+
+  void _initTabs(Map plotJson) {
+    tabs = [
+      {'title': 'Position', 'icon': Icons.blur_circular, 'screen': TIPosition()},
+      {
+        'title': 'Plot',
+        'icon': Icons.blur_circular,
+        'screen': TiPlot(
+          plotId: widget.plotId,
+          data: plotJson,
+          onUpdate: _onUpdate,
+        ),
+      },
+      {
+        'title': 'Ränder',
+        'icon': Icons.blur_circular,
+        'screen': TIEdges(
+          plotId: widget.plotId,
+          data: [],
+          previousData: [],
+        ),
+      },
+      {
+        'title': 'Totholz',
+        'icon': Icons.blur_circular,
+        'screen': TIDeadwood(
+          plotId: widget.plotId,
+          data: plotJson['deadwood'],
+        )
+      },
+      {
+        'title': 'Winkelzählprobe',
+        'icon': Icons.blur_circular,
+        'screen': TIWzp(
+          plotId: widget.plotId,
+          data: plotJson['tree'],
+          onUpdate: _onUpdate,
+        )
+      },
+      {'title': 'Regeneration', 'icon': Icons.blur_circular, 'screen': TIRegeneration()},
+      {'title': 'Struktur', 'icon': Icons.blur_circular, 'screen': TIStructure()},
+    ];
+    _tabController = TabController(length: tabs.length, vsync: this);
+    setState(() {});
+  }
 
   Future<void> _createPlotJson() async {
-    Map plotJson = await plotAsJson(_plotId!);
+    values = await plotAsJson(_plotId!);
+    _initTabs(values);
+
     print('-----plotJson------');
-    print(plotJson);
+    print(values);
+  }
+
+  void testJs() async {
+    String ajvJS = await rootBundle.loadString("assets/js/ajv.js");
+
+    javascriptRuntime.evaluate("""var window = global = globalThis;""");
+
+    javascriptRuntime.evaluate(ajvJS + "");
+
+    javascriptRuntime.executePendingJob();
+    JsEvalResult asyncResult = await javascriptRuntime.handlePromise(jsResult);
+    print(asyncResult.stringResult);
+  }
+
+  void _initJSRunntime() {
+    javascriptRuntime.setInspectable(true);
+    javascriptRuntime.onMessage('getDataAsync', (args) async {
+      await Future.delayed(const Duration(seconds: 1));
+      final int count = args['count'];
+      Random rnd = Random();
+      final result = <Map<String, int>>[];
+      for (int i = 0; i < count; i++) {
+        result.add({'key$i': rnd.nextInt(100)});
+      }
+      return result;
+    });
+    javascriptRuntime.onMessage('asyncWithError', (_) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return Future.error('Some error');
+    });
   }
 
   @override
@@ -52,9 +136,10 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
     _plotId = widget.plotId;
     _clusterId = widget.clusterId;
     _schemaId = widget.schemaId;
-    _tabController = TabController(length: tabs.length, vsync: this);
 
     _createPlotJson();
+    _initJSRunntime();
+    testJs();
   }
 
   @override
@@ -79,7 +164,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
       appBar: AppBar(
         leading: IconButton(
           onPressed: () {
-            print('CLOSE');
+            Beamer.of(context).beamToNamed('/plot/${widget.schemaId}/${widget.clusterId}/${widget.plotId}');
           },
           icon: Icon(Icons.close),
         ),
@@ -118,7 +203,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
                     width: 20,
                     height: 20,
                     child: Text(
-                      '2',
+                      'static',
                       style: TextStyle(fontSize: 10, color: Colors.white),
                     ),
                   ),
@@ -130,55 +215,16 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
           SizedBox(width: 10),
         ],
       ),
-      body: TabBarView(
-        physics: const NeverScrollableScrollPhysics(),
-        controller: _tabController,
-        children: tabs.map<Widget>((tab) {
-          return tab['screen'] as Widget;
-        }).toList(),
+      body: Form(
+        key: _formKey,
+        child: TabBarView(
+          physics: const NeverScrollableScrollPhysics(),
+          controller: _tabController,
+          children: tabs.map<Widget>((tab) {
+            return tab['screen'] as Widget;
+          }).toList(),
+        ),
       ),
-    );
-    return FutureBuilder(
-      future: Future.wait([
-        _loadSampleData(),
-        _loadSampleSchema(),
-      ]),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: Text('No data available'),
-          );
-        }
-
-        // Assuming you want to use the data in DynamicForm
-        return Form(
-          key: _formKey,
-          onChanged: () {
-            print('Form changed');
-
-            Future.delayed(Duration(milliseconds: 1), () {
-              print(snapshot.data?[0]['id']);
-            });
-          },
-          child: DynamicForm(
-            schema: snapshot.data![1]['properties']['plot']['items'],
-            values: {
-              'initialValues': snapshot.data?[0]['plot'][0],
-            },
-            elementKey: 'initialValues',
-          ),
-        );
-      },
     );
   }
 }

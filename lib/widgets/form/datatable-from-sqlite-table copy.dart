@@ -5,7 +5,9 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 class DatatableFromSqliteTable extends StatefulWidget {
   final String tableName;
   final bool editable;
-  DatatableFromSqliteTable({super.key, required this.tableName, this.editable = false});
+  final String where;
+  final List<String?> queryParameters;
+  DatatableFromSqliteTable({super.key, required this.tableName, this.editable = false, this.where = '', this.queryParameters = const []});
 
   @override
   State<DatatableFromSqliteTable> createState() => _DatatableFromSqliteTableState();
@@ -17,10 +19,10 @@ class _DatatableFromSqliteTableState extends State<DatatableFromSqliteTable> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: db.getAll('SELECT * FROM ${widget.tableName}'),
+        future: db.getAll('SELECT * FROM ${widget.tableName} ${widget.where}', widget.queryParameters),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            if (snapshot.hasData) {
+            if (snapshot.hasData && snapshot.data!.length > 0) {
               return DataTable2(
                 scrollController: _scrollController,
                 isHorizontalScrollBarVisible: true,
@@ -44,7 +46,13 @@ class _DatatableFromSqliteTableState extends State<DatatableFromSqliteTable> {
                         cells: row.values
                             .map(
                               (cell) => DataCell(
-                                Text(cell.toString(), overflow: TextOverflow.ellipsis),
+                                TextField(
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                  ),
+                                  controller: TextEditingController(text: cell.toString()),
+                                ),
+                                //Text(cell.toString(), overflow: TextOverflow.ellipsis),
                               ),
                             )
                             .toList(),

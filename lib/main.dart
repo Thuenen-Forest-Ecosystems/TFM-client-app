@@ -4,11 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:terrestrial_forest_monitor/brick/models/cluster.model.dart';
-import 'package:terrestrial_forest_monitor/brick/models/schemas.model.dart';
 
-import 'package:terrestrial_forest_monitor/providers/json-schema.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/screens/admin.dart';
 import 'package:terrestrial_forest_monitor/screens/headless.dart';
@@ -25,20 +21,13 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
-import 'package:terrestrial_forest_monitor/services/api.dart';
 
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
-
-import 'package:terrestrial_forest_monitor/providers/api-log.dart';
 //import 'package:hive_flutter/hive_flutter.dart';
 
 //import 'package:terrestrial_forest_monitor/no-animation.dart';
-
-import 'package:terrestrial_forest_monitor/brick/repository.dart';
-import 'package:sqflite/sqflite.dart' show databaseFactory;
-import 'package:brick_core/query.dart';
 
 final routerDelegate = BeamerDelegate(
   notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
@@ -80,11 +69,7 @@ void main() async {
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
   final ThemeMode initialThemeMode = brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
 
-  if (kDebugMode) {
-    await dotenv.load(fileName: ".env");
-  } else {
-    await dotenv.load(fileName: ".env");
-  }
+  await dotenv.load(fileName: ".env");
 
   // Save Map offline
   if (!kIsWeb) {
@@ -102,8 +87,6 @@ void main() async {
   } catch (e) {
     print('Error opening database: $e');
   }
-
-  //String? token = await ApiService().init('${dotenv.env['HOST']}:${dotenv.env['PORT']}');
 
   runApp(
     MultiProvider(

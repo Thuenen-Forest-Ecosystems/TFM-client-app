@@ -39,7 +39,7 @@ class _SignInBtnState extends State<SignInBtn> {
     showDialog<String>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text('Sign In'),
+        title: const Text('Sign Up'),
         content: SignInDialog(),
       ),
     );
@@ -58,7 +58,7 @@ class _SignInBtnState extends State<SignInBtn> {
     } else {
       return ElevatedButton(
         onPressed: _openSignInDialog,
-        child: Text('Sign In'),
+        child: Text('Sign Up'),
       );
     }
   }

@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
-import 'package:powersync/sqlite3_common.dart';
 import 'package:terrestrial_forest_monitor/libraries/globals.dart' as globals;
-import 'package:get_storage/get_storage.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'dart:math';
 
@@ -28,12 +26,6 @@ class _ThuenenGridState extends State<ThuenenGrid> {
   List schemata = [];
   List _filteredSchemata = [];
 
-  void _getTest() async {
-    var testdata = await db.getAll('SELECT * FROM Test');
-    print('TEST');
-    print(testdata);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -47,7 +39,6 @@ class _ThuenenGridState extends State<ThuenenGrid> {
       print('Query failed: $e');
       _errorText = e.toString();
     });
-    _getTest();
   }
 
   @override

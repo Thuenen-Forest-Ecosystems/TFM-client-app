@@ -55,9 +55,6 @@ const lookupTemplate = [
 ];
 
 Schema schema = Schema(([
-  const Table('Test', [
-    Column.text('created_at'),
-  ]),
   const Table.localOnly('settings', [
     Column.text('sortGeneral'),
     Column.text('user_id'),
