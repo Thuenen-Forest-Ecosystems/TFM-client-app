@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:terrestrial_forest_monitor/providers/api-log.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/clusters.dart';
@@ -14,8 +13,8 @@ import 'package:terrestrial_forest_monitor/screens/plot.dart';
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
 import 'package:terrestrial_forest_monitor/screens/drawer.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
+import 'package:terrestrial_forest_monitor/widgets/buttons/permissions-admin-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
-import 'package:terrestrial_forest_monitor/widgets/login-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/map.dart';
 import 'package:terrestrial_forest_monitor/screens/thuenengrid.dart';
 import 'package:terrestrial_forest_monitor/screens/verticalbar.dart';
@@ -228,6 +227,7 @@ class _HomeState extends State<Home> {
           SizedBox(width: 10),
           LoginButton(),
           const AdminButton(),
+          const PermissionsAdminButton(),
           IconButton(
             onPressed: () {
               context.beamToNamed('/settings');
@@ -240,6 +240,12 @@ class _HomeState extends State<Home> {
             },
             icon: Icon(Icons.car_crash),
           ),
+          /*IconButton(
+            onPressed: () {
+              context.beamToNamed('/FlutterJsHomeScreen');
+            },
+            icon: Icon(Icons.car_crash_outlined),
+          ),*/
         ],
       ),
       drawer: const TfmDrawer(),

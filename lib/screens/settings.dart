@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:terrestrial_forest_monitor/config.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:provider/provider.dart';
-import 'package:terrestrial_forest_monitor/widgets/gnss-bluetooth.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
 
 class Settings extends StatefulWidget {
@@ -16,6 +18,53 @@ class Settings extends StatefulWidget {
 class _SettingsState extends State<Settings> {
   late bool _lights;
   late String _selectedLanguage;
+
+  List<bool> _selectedServer = <bool>[];
+  List<Widget> _servers = <Widget>[]; // Add
+
+  @override
+  void initState() {
+    super.initState();
+
+    _updateServerSelection();
+  }
+
+  _updateServerSelection() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? serverName = prefs.getString('selectedServer');
+
+    _selectedServer.clear();
+    _servers.clear();
+    // Add Servers
+    for (int i = 0; i < AppConfig.servers.length; i++) {
+      if (AppConfig.servers[i]['supabaseUrl'] == serverName) {
+        _selectedServer.add(true);
+      } else {
+        _selectedServer.add(false);
+      }
+
+      _servers.add(
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(AppConfig.servers[i]['name']!),
+        ),
+      );
+    }
+    setState(() {});
+    changeServer();
+  }
+
+  _updateServer(index) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // The button that is tapped is set to true, and the others to false.
+    for (int i = 0; i < AppConfig.servers.length; i++) {
+      if (i == index) {
+        await prefs.setString('selectedServer', AppConfig.servers[i]['supabaseUrl']!);
+      }
+    }
+    _updateServerSelection();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +173,17 @@ class _SettingsState extends State<Settings> {
                     ListTile(
                       title: Text('Host'),
                       leading: const Icon(Icons.bug_report),
-                      trailing: SizedBox(
+                      trailing: ToggleButtons(
+                        onPressed: _updateServer,
+                        isSelected: _selectedServer,
+                        borderRadius: const BorderRadius.all(Radius.circular(8)),
+                        constraints: const BoxConstraints(
+                          minHeight: 40.0,
+                          minWidth: 80.0,
+                        ),
+                        children: _servers,
+                      ),
+                      /*trailing: SizedBox(
                         width: 200,
                         child: DropdownButtonFormField(
                           items: [
@@ -141,7 +200,7 @@ class _SettingsState extends State<Settings> {
                             print('Clicked $value');
                           },
                         ),
-                      ),
+                      ),*/
                     ),
                   ],
                 ),

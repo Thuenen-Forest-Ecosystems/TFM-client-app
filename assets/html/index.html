@@ -1,15 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
+<html>
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/8.1.0/ajv7.bundle.js"></script>
     <script>
-        window.TEST = () => {
-            console.log('Hello from the index.html file');
+      window.isAjvLoaded = false;
+      document.addEventListener("DOMContentLoaded", () => {
+        
+        const Ajv = window.ajv7
+        if (typeof Ajv !== "undefined") {
+          window.isAjvLoaded = true;
         }
+      });
     </script>
-</body>
+  </head>
+  <body></body>
 </html>

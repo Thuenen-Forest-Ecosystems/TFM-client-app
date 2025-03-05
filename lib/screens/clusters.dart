@@ -38,7 +38,7 @@ class _ClustersState extends State<Clusters> {
 
   Future<List> _orderBY() async {
     ResultSet plots = await db.getAll('SELECT * FROM plot WHERE center_location_json IS NOT NULL group by center_location_json');
-    List<Map> plot = await orderPlotByDistance(plots, 'center_location_json', LatLng(10, 10));
+    List<Map> plot = orderPlotByDistance(plots, 'center_location_json', LatLng(10, 10));
     return plot;
   }
 

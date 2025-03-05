@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite3;
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/widgets/form/datatable-from-sqlite-table%20copy.dart';
-import 'package:terrestrial_forest_monitor/widgets/form/ediable-datatable-from-sqlite-table.dart';
+import 'package:terrestrial_forest_monitor/widgets/form/datagrid-from-sqlite-table.dart';
+//import 'package:terrestrial_forest_monitor/widgets/form/datatable-from-sqlite-table%20copy.dart';
+//import 'package:terrestrial_forest_monitor/widgets/form/ediable-datatable-from-sqlite-table.dart';
 
 class DatabaseList extends StatefulWidget {
   const DatabaseList({super.key});
@@ -33,15 +34,18 @@ class _DatabaseListState extends State<DatabaseList> {
           onTap: () {
             // Open Dialog
             showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                      title: Text('Table: ${table['tbl_name']}'),
-                      content: Container(
-                        width: 300,
-                        child: DatatableFromSqliteTable(tableName: table['tbl_name']),
-                      ));
-                });
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: Text('Table: ${table['tbl_name']}'),
+                  content: SizedBox(
+                    width: 300,
+                    //child: DatatableFromSqliteTable(tableName: table['tbl_name']),
+                    child: DataGridFromSqlTable(tableName: table['tbl_name']),
+                  ),
+                );
+              },
+            );
           },
           trailing: Row(
             mainAxisSize: MainAxisSize.min,

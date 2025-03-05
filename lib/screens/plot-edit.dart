@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:powersync/sqlite3.dart' as sqlite;
+import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -16,7 +16,6 @@ import 'package:terrestrial_forest_monitor/widgets/forms/regeneration.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/structure.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/wzp.dart';
 
-import 'package:flutter_js/flutter_js.dart';
 import 'dart:math';
 
 class PlotEdit extends StatefulWidget {
@@ -33,8 +32,6 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TabController _tabController;
 
-  final JavascriptRuntime javascriptRuntime = getJavascriptRuntime(forceJavascriptCoreOnAndroid: false);
-
   String? _plotId;
   String? _clusterId;
   String? _schemaId;
@@ -44,7 +41,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
   List<Map> tabs = [];
 
   void _onUpdate() {
-    print('VALIDATE: ${values}');
+    print('VALIDATE: $values');
   }
 
   void _initTabs(Map plotJson) {
@@ -100,36 +97,6 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
     print(values);
   }
 
-  void testJs() async {
-    String ajvJS = await rootBundle.loadString("assets/js/ajv.js");
-
-    javascriptRuntime.evaluate("""var window = global = globalThis;""");
-
-    javascriptRuntime.evaluate(ajvJS + "");
-
-    javascriptRuntime.executePendingJob();
-    JsEvalResult asyncResult = await javascriptRuntime.handlePromise(jsResult);
-    print(asyncResult.stringResult);
-  }
-
-  void _initJSRunntime() {
-    javascriptRuntime.setInspectable(true);
-    javascriptRuntime.onMessage('getDataAsync', (args) async {
-      await Future.delayed(const Duration(seconds: 1));
-      final int count = args['count'];
-      Random rnd = Random();
-      final result = <Map<String, int>>[];
-      for (int i = 0; i < count; i++) {
-        result.add({'key$i': rnd.nextInt(100)});
-      }
-      return result;
-    });
-    javascriptRuntime.onMessage('asyncWithError', (_) async {
-      await Future.delayed(const Duration(milliseconds: 100));
-      return Future.error('Some error');
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -138,8 +105,6 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
     _schemaId = widget.schemaId;
 
     _createPlotJson();
-    _initJSRunntime();
-    testJs();
   }
 
   @override

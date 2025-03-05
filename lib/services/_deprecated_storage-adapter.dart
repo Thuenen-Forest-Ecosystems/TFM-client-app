@@ -29,11 +29,14 @@ class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
       if (bucket == null) {
         throw Exception('Supabase storage bucket is not configured in .env file');
       }
+      print('downloadFile $filePath $bucket');
       Uint8List fileBlob = await Supabase.instance.client.storage.from(bucket).download(filePath);
+      return fileBlob;
       final image = img.decodeImage(fileBlob);
       Uint8List blob = img.JpegEncoder().encode(image!);
       return blob;
     } catch (error) {
+      print('downloadFile error $error');
       throw Exception(error);
     }
   }

@@ -15,9 +15,9 @@ class TimestampToTimeago extends StatelessWidget {
       return Text('...', style: style);
     } else {
       // Timestamp to Flutter dateTime
-      DateTime _dataTime = DateTime.parse(timestamp!);
+      DateTime dataTime = DateTime.parse(timestamp!);
       return GestureDetector(
-        child: agoStyle ? Text(timeago.format(_dataTime, locale: 'de'), style: style) : Text(_dataTime.toIso8601String(), style: style),
+        child: agoStyle ? Text(timeago.format(dataTime, locale: 'de'), style: style) : Text(dataTime.toIso8601String(), style: style),
         onTap: () {
           print(!agoStyle);
           agoStyle = !agoStyle;

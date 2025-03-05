@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/widgets/form/ediable-datatable-from-sqlite-table.dart';
+//import 'package:terrestrial_forest_monitor/widgets/form/ediable-datatable-from-sqlite-table.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 
 class TIWzp extends StatefulWidget {
@@ -44,7 +44,8 @@ class _TIWzpState extends State<TIWzp> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Text('WZP');
+    /*return Card(
       child: EditableDatatableFromSqliteTable(
         data: widget.data,
         tableSettings: _filterData(),
@@ -54,6 +55,6 @@ class _TIWzpState extends State<TIWzp> {
           }
         },
       ),
-    );
+    );*/
   }
 }

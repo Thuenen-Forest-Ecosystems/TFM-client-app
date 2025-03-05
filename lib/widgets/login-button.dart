@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sqlite3/src/result_set.dart' as sqlite;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/widgets/login-dialog.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'package:terrestrial_forest_monitor/services/powersync.dart';

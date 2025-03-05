@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:powersync/powersync.dart';
 
 import 'package:terrestrial_forest_monitor/route/404.dart';
+import 'package:terrestrial_forest_monitor/screens/admin-permissions.dart';
 import 'package:terrestrial_forest_monitor/screens/admin.dart';
+//import 'package:terrestrial_forest_monitor/screens/flutter_js.dart';
 import 'package:terrestrial_forest_monitor/screens/headless.dart';
 import 'package:terrestrial_forest_monitor/screens/home.dart';
 import 'package:terrestrial_forest_monitor/screens/settings.dart';
@@ -21,6 +24,7 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
+import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
@@ -50,11 +54,21 @@ final routerDelegate = BeamerDelegate(
             title: AppLocalizations.of(context)!.settings,
             child: AdminScreen(),
           ),
+      '/admin-permissions': (context, state, data) => BeamPage(
+            key: ValueKey('admin-${DateTime.now()}'),
+            title: AppLocalizations.of(context)!.settings,
+            child: AdminPermissionsScreen(),
+          ),
       '/headless': (context, state, data) => BeamPage(
             key: ValueKey('headless-${DateTime.now()}'),
             title: AppLocalizations.of(context)!.settings,
             child: StatelessTest(),
           ),
+      /*'/FlutterJsHomeScreen': (context, state, data) => BeamPage(
+            key: ValueKey('flutterJs-${DateTime.now()}'),
+            title: AppLocalizations.of(context)!.settings,
+            child: FlutterJsHomeScreen(),
+          ),*/
     },
   ).call,
 );
@@ -69,7 +83,11 @@ void main() async {
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
   final ThemeMode initialThemeMode = brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
 
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    print('Error loading .env file: $e');
+  }
 
   // Save Map offline
   if (!kIsWeb) {
@@ -83,7 +101,9 @@ void main() async {
 
   try {
     await openDatabase();
-    print('Database opened');
+    print('PowerSyncDatabase initialize');
+    await initializeAttachmentQueue(db);
+    print('Attachment initialize');
   } catch (e) {
     print('Error opening database: $e');
   }

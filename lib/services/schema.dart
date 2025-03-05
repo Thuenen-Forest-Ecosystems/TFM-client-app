@@ -51,7 +51,7 @@ const lookupTemplate = [
   Column.text('name_en'),
   Column.text('interval'),
   Column.integer('sort'),
-  Column.text('abbreviation'),
+  Column.text('code'),
 ];
 
 Schema schema = Schema(([
@@ -60,30 +60,36 @@ Schema schema = Schema(([
     Column.text('user_id'),
   ]),
   const Table('users_profile', [
-    Column.text('email'),
-    Column.text('users_name'),
-    Column.text('users_company'),
-    Column.text('user_id'),
-    Column.text('phone'),
     Column.integer('is_admin'),
+    Column.integer('state_responsible'),
   ]),
   const Table('schemas', [
+    Column.text('created_at'),
     Column.text('interval_name'),
+    Column.integer('is_visible'),
     Column.text('title'),
     Column.text('description'),
-    Column.text('created_at'),
-    Column.integer('is_visible'),
+    Column.text('bucket_schema_file_name'),
+    Column.text('bucket_plausability_file_name'),
+    Column.text('schema')
+  ]),
+  const Table('plots', [
+    Column.text('plot_name'),
+    Column.text('data'),
+    Column.text('schema'),
   ]),
   const Table('cluster', [
     Column.text('intkey'),
     Column.text('cluster_name'),
-    Column.text('created_at'),
-    Column.text('select_access_by'),
-    Column.text('update_access_by'),
     Column.text('state_responsible'),
+    Column.text('topo_map_sheet'),
     Column.text('states_affected'),
+    Column.text('grid_density'),
+    Column.text('cluster_status'),
+    Column.text('cluster_situation'),
+    Column.text('inspire_grid_cell'),
   ]),
-  const Table('plot', [
+  /*const Table('plot', [
     Column.text('intkey'),
     Column.text('plot_name'),
     Column.text('cluster_id'),
@@ -113,7 +119,7 @@ Schema schema = Schema(([
     Column.text('created_at'),
     Column.text('modified_at'),
     Column.text('modified_by'),
-  ]),
+  ]),*/
   ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),
 ]));

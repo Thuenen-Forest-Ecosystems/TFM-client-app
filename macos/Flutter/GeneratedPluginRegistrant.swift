@@ -7,7 +7,7 @@ import Foundation
 
 import app_links
 import connectivity_plus
-import flutter_blue_plus
+import flutter_blue_plus_darwin
 import flutter_inappwebview_macos
 import flutter_js
 import flutter_libserialport

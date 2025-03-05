@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/config.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:path_provider/path_provider.dart';
 
 bool isNumeric(String? s) {
   if (s == null) {
@@ -21,7 +22,7 @@ String degreeToGon(double degree) {
 
 Future<Map<String, String>> getServerConfig() async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? serverName = await prefs.getString('selectedServer');
+  String? serverName = prefs.getString('selectedServer');
   if (serverName != null) {
     return AppConfig.servers.firstWhere((element) => serverName == element['supabaseUrl'], orElse: () => AppConfig.servers[0]);
   }
@@ -120,4 +121,19 @@ LatLng getCenterLocation(ResultSet plots, String locationAttribute) {
   }
 
   return LatLng(lat / count, lon / count);
+}
+
+Future<String> getUserStorageDirectory() async {
+  final directory = await getApplicationDocumentsDirectory();
+  return directory.path;
+}
+
+Future<String> getStorageDirectory() async {
+  String userStorageDirectory = await getUserStorageDirectory();
+  return '$userStorageDirectory/TFM';
+}
+
+Future<String> getLocalUri(String filePath) async {
+  String storageDirectory = await getStorageDirectory();
+  return '$storageDirectory/$filePath';
 }

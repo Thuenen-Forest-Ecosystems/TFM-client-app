@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:beamer/beamer.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:powersync/sqlite3.dart' as sqlite;
+import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/components/navigation-car.dart';
 import 'package:terrestrial_forest_monitor/components/navigation.dart';
@@ -11,9 +11,7 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/widgets/ci2027/tree/overview.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class Plot extends StatefulWidget {
   final String schemaId;

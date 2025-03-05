@@ -7,8 +7,8 @@ import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/widgets/breadcrumb.dart';
-import 'package:terrestrial_forest_monitor/widgets/table-from-json2.dart';
+//import 'package:terrestrial_forest_monitor/widgets/breadcrumb.dart';
+//import 'package:terrestrial_forest_monitor/widgets/table-from-json2.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 
 class Plots extends StatefulWidget {
@@ -40,7 +40,7 @@ class _PlotsState extends State<Plots> {
   }
 
   Future<sqlite.ResultSet> _getPlots() async {
-    sqlite.ResultSet plots = await db.getAll('SELECT * FROM plot WHERE cluster_id=${_clusterName} ORDER BY plot_name ASC');
+    sqlite.ResultSet plots = await db.getAll('SELECT * FROM plot WHERE cluster_id=$_clusterName ORDER BY plot_name ASC');
 
     return plots;
   }

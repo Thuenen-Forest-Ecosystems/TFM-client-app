@@ -26,7 +26,7 @@ class _StorageListState extends State<StorageList> {
     // https://supabase.com/docs/reference/self-hosting-storage/gets-all-buckets
     try {
       final List<Bucket> buckets = await Supabase.instance.client.storage.listBuckets();
-      print('Buckets: ${buckets}');
+      print('Buckets: $buckets');
 
       //final Bucket bucket = await Supabase.instance.client.storage.getBucket('TFM');
       //print('Bucket: $bucket');
@@ -55,12 +55,12 @@ class _StorageListState extends State<StorageList> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ListTile(
-                      title: Text('Name: ' + bucket.name),
-                      subtitle: Text('Id: ' + bucket.id),
+                      title: Text('Name: ${bucket.name}'),
+                      subtitle: Text('Id: ${bucket.id}'),
                     ),
                     Divider(),
                     FutureBuilder(
-                        future: Supabase.instance.client.storage.from('${bucket.id}').list(),
+                        future: Supabase.instance.client.storage.from(bucket.id).list(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return const Center(child: CircularProgressIndicator());
@@ -73,7 +73,7 @@ class _StorageListState extends State<StorageList> {
                             return Column(
                               children: objects.map((object) {
                                 return ListTile(
-                                  title: Text('Name: ' + object.name),
+                                  title: Text('Name: ${object.name}'),
                                   subtitle: Text(object.metadata.toString()),
                                 );
                               }).toList(),

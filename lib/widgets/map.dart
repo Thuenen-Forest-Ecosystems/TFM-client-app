@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:provider/provider.dart';
 
 import 'package:beamer/beamer.dart';
@@ -10,7 +9,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -21,7 +19,6 @@ import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/widgets/ci2027/plot-dialog.dart';
 import 'package:turf/destination.dart';
 import 'package:turf/helpers.dart';
 
@@ -53,7 +50,10 @@ class _TFMMapState extends State<TFMMap> {
 
   Future<sqlite.ResultSet> _getPlots() async {
     sqlite.ResultSet plots = await db.getAll('SELECT * FROM plot');
-    setState(() {});
+    print('UPDATE STATE MAP');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {});
+    });
     return plots;
   }
 

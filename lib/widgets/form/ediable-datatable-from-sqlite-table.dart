@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:data_table_2/data_table_2.dart';
-import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:terrestrial_forest_monitor/components/stt-button.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 

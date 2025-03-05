@@ -18,7 +18,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   _updateServerSelection() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? serverName = await prefs.getString('selectedServer');
+    String? serverName = prefs.getString('selectedServer');
 
     _selectedServer.clear();
     _servers.clear();
@@ -100,7 +100,6 @@ class _AdminScreenState extends State<AdminScreen> {
                     title: Text('Selected Server'),
                     subtitle: Text(_getServerName()),
                     trailing: ToggleButtons(
-                      children: _servers,
                       onPressed: _updateServer,
                       isSelected: _selectedServer,
                       borderRadius: const BorderRadius.all(Radius.circular(8)),
@@ -108,6 +107,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         minHeight: 40.0,
                         minWidth: 80.0,
                       ),
+                      children: _servers,
                     ),
                   ),
                 ),

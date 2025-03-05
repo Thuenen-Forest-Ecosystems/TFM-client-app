@@ -11,7 +11,7 @@ class AdminButton extends StatefulWidget {
 }
 
 class _AdminButtonState extends State<AdminButton> {
-  User? user = null; //getCurrentUser();
+  User? user; //getCurrentUser();
 
   /*@override
   void initState() {
@@ -48,7 +48,6 @@ class _AdminButtonState extends State<AdminButton> {
           return FutureBuilder(
             future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
             builder: (context, snapshot) {
-              print('snapshot: $snapshot : ${user.id}');
               if (snapshot.hasData) {
                 final data = snapshot.data as Map<String, dynamic>;
 
@@ -66,6 +65,8 @@ class _AdminButtonState extends State<AdminButton> {
                 } else {
                   return SizedBox();
                 }
+              } else {
+                print('snapshot: ${snapshot.error} ${user.id}');
               }
               return SizedBox();
             },
@@ -75,36 +76,5 @@ class _AdminButtonState extends State<AdminButton> {
         }
       },
     );
-    return FutureBuilder(
-        future: db.get('SELECT * FROM users_profile WHERE id = ?', [user?.id]),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return SizedBox(
-              width: 24,
-              height: 24,
-              child: const CircularProgressIndicator(),
-            );
-          }
-          if (snapshot.hasError) {
-            return SizedBox();
-          }
-          if (snapshot.hasData) {
-            final data = snapshot.data as Map<String, dynamic>;
-
-            if (data['is_admin'] == null || data.isEmpty) {
-              return SizedBox();
-            }
-
-            if (data['is_admin'] == 1) {
-              return IconButton(
-                onPressed: () {
-                  context.beamToNamed('/admin');
-                },
-                icon: Icon(Icons.admin_panel_settings),
-              );
-            }
-          }
-          return Icon(Icons.admin_panel_settings);
-        });
   }
 }

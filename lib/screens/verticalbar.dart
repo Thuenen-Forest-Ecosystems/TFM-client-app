@@ -58,10 +58,11 @@ class _VertialBarState extends State<VertialBar> {
           if (!context.watch<MapState>().mapOpen && !widget.isDrawer)
             IconButton(
               onPressed: () {
-                if (!widget.isDrawer)
+                if (!widget.isDrawer) {
                   context.read<MapState>().openMap();
-                else
+                } else {
                   Scaffold.of(context).closeDrawer();
+                }
               },
               icon: Icon(
                 widget.isDrawer ? Icons.close : Icons.map,
@@ -116,10 +117,11 @@ class _VertialBarState extends State<VertialBar> {
                       ),
                     IconButton(
                       onPressed: () {
-                        if (!widget.isDrawer)
+                        if (!widget.isDrawer) {
                           context.read<MapState>().toggleMap();
-                        else
+                        } else {
                           Scaffold.of(context).closeDrawer();
+                        }
                       },
                       icon: Icon(
                         widget.isDrawer ? Icons.close : Icons.map,

@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:terrestrial_forest_monitor/providers/api-log.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-
-import 'package:sqlite3/src/result_set.dart' as sqlite;
 
 class LoginDialog extends StatefulWidget {
   const LoginDialog({super.key});

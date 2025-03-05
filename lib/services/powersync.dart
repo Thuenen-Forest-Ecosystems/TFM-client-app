@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,8 +8,9 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:terrestrial_forest_monitor/config.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 
-import '../models/schema.dart';
+import 'schema.dart';
 import 'package:logging/logging.dart';
 
 final log = Logger('powersync-supabase');
@@ -24,7 +27,7 @@ final List<RegExp> fatalResponseCodes = [
   RegExp(r'^42501$'),
 ];
 
-late final PowerSyncDatabase db;
+late PowerSyncDatabase db;
 
 Future<String> getDatabasePath() async {
   var config = await getServerConfig();
@@ -78,7 +81,7 @@ Future<User> login(String email, String password) async {
     AuthResponse response = await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
     return response.user!;
   } catch (e) {
-    print('Error logging in: ${e}');
+    print('Error logging in: $e');
     rethrow;
   }
 }
@@ -105,7 +108,27 @@ Future<List> listTables() async {
   return tables;
 }
 
-Future<void> openDatabase() async {
+Future downloadFile(fileName, {force = false}) async {
+  try {
+    final directory = await getApplicationDocumentsDirectory();
+    String applicationDirectory = directory.path + '/TFM';
+
+    // get Files in Directory
+    //final files = Directory(applicationDirectory).listSync();
+    File path = File(applicationDirectory + '/' + fileName);
+
+    if (path.existsSync() && !force) {
+      return path;
+    }
+    final Uint8List file = await Supabase.instance.client.storage.from('tfm').download(fileName);
+    await path.writeAsBytes(file);
+    return path;
+  } catch (e) {
+    print('Error downloading file: $e');
+  }
+}
+
+Future<PowerSyncDatabase> openDatabase() async {
   bool isSyncMode = true;
 
   final dbPath = await getDatabasePath();
@@ -179,6 +202,7 @@ Future<void> openDatabase() async {
   // Demo using SQLite Full-Text Search with PowerSync.
   // See https://docs.powersync.com/usage-examples/full-text-search for more details
   //await configureFts(db);
+  return db;
 }
 
 class SupabaseConnector extends PowerSyncBackendConnector {
@@ -243,8 +267,11 @@ class SupabaseConnector extends PowerSyncBackendConnector {
 
     //var config = AppConfig.servers[0];
     var config = await getServerConfig();
-    print('powersyncUrl');
-    print(config);
+    print('powersyncUrl INIT');
+    print(config['powersyncUrl']);
+    print(token);
+    print(userId);
+    print(expiresAt);
 
     return PowerSyncCredentials(
       endpoint: config['powersyncUrl'] ?? '',

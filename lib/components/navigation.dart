@@ -74,7 +74,7 @@ class _NavigationState extends State<Navigation> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Text('Richtungswinkel', style: TextStyle(fontSize: 15)),
-                Text(bearing != null ? '${degreeToGon(bearing)}' : 'No GPS signal', style: TextStyle(fontSize: 20)),
+                Text(bearing != null ? degreeToGon(bearing) : 'No GPS signal', style: TextStyle(fontSize: 20)),
                 SizedBox(
                   width: 20,
                   child: Divider(

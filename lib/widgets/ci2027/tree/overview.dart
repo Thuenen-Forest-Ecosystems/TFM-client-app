@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:powersync/sqlite3.dart' as sqlite;
+import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class TreeOverview extends StatefulWidget {

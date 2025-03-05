@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   Position? _lastPosition;
