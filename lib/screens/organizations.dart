@@ -105,7 +105,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                                               await showDialog(
                                                 context: context,
                                                 builder: (context) {
-                                                  return AddEditTroopDialog(parentOrganizationId: rootOrganizationId);
+                                                  return AddEditTroopDialog(parentOrganizationId: organization['id']);
                                                 },
                                               );
                                               setState(() {});
@@ -130,12 +130,12 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                                               return ListTile(
                                                 title: Text(troop['name'] ?? ''),
                                                 subtitle: Text(troop['plot_ids'] ?? ''),
-                                                trailing: IconButton(
+                                                /*trailing: IconButton(
                                                   icon: const Icon(Icons.edit),
                                                   onPressed: () {
                                                     // Handle edit action
                                                   },
-                                                ),
+                                                ),*/
                                               );
                                             },
                                           );

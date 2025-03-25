@@ -323,32 +323,70 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return fields;
   }
 
-  Widget _buildField(String fieldName, Map<String, dynamic> fieldSchema, bool isRequired) {
-    final fieldType = fieldSchema['type'] as String? ?? 'string';
-    final fieldTitle = fieldSchema['title'] as String? ?? fieldName;
+  // Add this helper method to safely extract string values
+  String? _safeStringValue(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    return value.toString();
+  }
 
-    // Get UI options for this field
+  Widget _buildField(String fieldName, Map<String, dynamic> fieldSchema, bool isRequired) {
+    // Get field type safely
+    final dynamic typeValue = fieldSchema['type'];
+    final String fieldType = typeValue is String ? typeValue : 'string';
+
+    // Get field title safely
+    final dynamic titleValue = fieldSchema['title'];
+    final String fieldTitle = titleValue is String ? titleValue : fieldName;
+
+    // Get description safely
+    final dynamic descriptionValue = fieldSchema['description'];
+    final String? description = descriptionValue is String ? descriptionValue : null;
+
+    // Get UI options
     final fieldUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[fieldName]) ?? {};
     final widgetType = fieldUiOptions['ui:widget'] as String?;
 
-    // Check if this is an object that should be rendered as tabs
+    // Check for enum fields first - this takes priority over other field types
+    if (fieldSchema['enum'] != null) {
+      final dynamic enumValues = fieldSchema['enum'];
+      if (enumValues is List<dynamic>) {
+        // Get enum names if available
+        List<String>? enumNames;
+        // Check standard JSON Schema enumNames
+        if (fieldSchema['enumNames'] is List) {
+          enumNames = List<String>.from(fieldSchema['enumNames'] as List);
+        }
+        // Check TFM-specific extension for enum names
+        else if (fieldSchema['\$tfm'] != null && fieldSchema['\$tfm'] is Map && fieldSchema['\$tfm']['name_de'] is List) {
+          final tempList = List<String?>.from(fieldSchema['\$tfm']['name_de'] as List);
+          // if all values are null add "kein wert"
+          enumNames = tempList.every((element) => element == null) ? ['kein wert'] : tempList.map((e) => e ?? 'kein wert').toList();
+        }
+
+        // Use the dedicated enum field builder
+        return _buildEnumField(fieldName, fieldTitle, description, enumValues, enumNames, fieldSchema);
+      }
+    }
+
+    // Handle tabs object
     if (fieldType == 'object' && widgetType == 'tabs') {
       return _buildTabsObjectField(fieldName, fieldTitle, fieldSchema, isRequired);
     }
 
-    // Rest of your existing _buildField implementation...
+    // Rest of your field type handling
     switch (fieldType) {
       case 'string':
-        return _buildTextField(fieldName, fieldTitle, fieldSchema['description'], fieldSchema, isRequired, fieldUiOptions);
+        return _buildTextField(fieldName, fieldTitle, description, fieldSchema, isRequired, fieldUiOptions);
       case 'integer':
       case 'number':
-        return _buildNumberField(fieldName, fieldTitle, fieldSchema['description'], fieldSchema, isRequired);
+        return _buildNumberField(fieldName, fieldTitle, description, fieldSchema, isRequired);
       case 'boolean':
-        return _buildBooleanField(fieldName, fieldTitle, fieldSchema['description'], fieldSchema);
+        return _buildBooleanField(fieldName, fieldTitle, description, fieldSchema);
       case 'array':
-        return _buildArrayField(fieldName, fieldTitle, fieldSchema['description'], fieldSchema, isRequired);
+        return _buildArrayField(fieldName, fieldTitle, description, fieldSchema, isRequired);
       case 'object':
-        return _buildObjectField(fieldName, fieldTitle, fieldSchema['description'], fieldSchema, isRequired);
+        return _buildObjectField(fieldName, fieldTitle, description, fieldSchema, isRequired);
       default:
         return Text('Unsupported field type: $fieldType');
     }
@@ -643,6 +681,89 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
               }).toList(),
           onChanged: (String? newValue) {
             _updateField(name, newValue);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEnumField(String name, String title, String? description, List<dynamic> enumValues, List<String>? enumNames, Map<String, dynamic> fieldSchema) {
+    // Determine if this field should use integer values
+    // Get the field type, checking if it's an array and extracting the first non-null value
+    dynamic fieldType;
+    if (fieldSchema['type'] is List) {
+      // If type is an array, find the first non-null type
+      fieldType = (fieldSchema['type'] as List).firstWhere(
+        (type) => type != null,
+        orElse: () => 'string', // Default to string if all null
+      );
+    } else {
+      fieldType = fieldSchema['type'] ?? 'string'; // Default to string if not specified
+    }
+
+    // Determine if this field should use integer values
+    final bool isIntegerEnum = fieldType == 'integer';
+
+    // Store original enum values alongside string representations
+    final List<dynamic> originalValues = enumValues;
+    final List<String> stringOptions = enumValues.map((value) => value.toString()).toList();
+
+    // Get current value
+    final currentValue = _getFieldValue(name);
+    String? currentStringValue = currentValue?.toString();
+
+    // IMPORTANT: Validate that current value is in the list of options
+    if (currentStringValue != null && !stringOptions.contains(currentStringValue)) {
+      // If the current value is invalid, don't use it
+      print('Warning: Value "$currentStringValue" for field "$name" is not in the allowed options: $stringOptions');
+      currentStringValue = null;
+    }
+
+    // Get existing error for this field
+    final fieldError = _getFieldError(name);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (description != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(description, style: Theme.of(context).textTheme.bodySmall)),
+        DropdownButtonFormField<String>(
+          decoration: InputDecoration(labelText: title, border: const OutlineInputBorder(), errorText: fieldError, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+          value: currentStringValue,
+          isExpanded: true,
+          menuMaxHeight: 300,
+          hint: Text('Select $title'),
+          selectedItemBuilder: (BuildContext context) {
+            return stringOptions.map<Widget>((String value) {
+              final idx = stringOptions.indexOf(value);
+              String displayName = enumNames != null && idx < enumNames.length ? enumNames[idx] : value;
+              // add value to dispay name
+              displayName = '$value | $displayName';
+              return Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 1);
+            }).toList();
+          },
+          items:
+              stringOptions.asMap().entries.map((entry) {
+                final int idx = entry.key;
+                final String value = entry.value;
+                final String displayName = enumNames != null && idx < enumNames.length ? enumNames[idx] : value;
+
+                return DropdownMenuItem<String>(value: value, child: Container(constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8), child: Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 2)));
+              }).toList(),
+          onChanged: (String? newValue) {
+            if (newValue != null && isIntegerEnum) {
+              // Convert back to integer when needed
+              final idx = stringOptions.indexOf(newValue);
+              if (idx >= 0) {
+                // Use the original value to maintain the correct type
+                _updateField(name, originalValues[idx]);
+              } else {
+                // Fallback to trying to parse as int
+                _updateField(name, int.tryParse(newValue));
+              }
+            } else {
+              // Otherwise use as-is
+              _updateField(name, newValue);
+            }
           },
         ),
       ],

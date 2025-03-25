@@ -272,6 +272,10 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     } on PostgrestException catch (e) {
       if (e.code != null && fatalResponseCodes.any((re) => re.hasMatch(e.code!))) {
         print('PS: Fatal error: ${e.code} ${e.message}');
+        // print values for debugging
+        print('PS: ${transaction.crud}');
+        // print table name
+        print('PS: ${transaction.crud[0].table}');
         await transaction.complete();
       } else {
         print('Error uploading data: $e');

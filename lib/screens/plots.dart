@@ -78,20 +78,7 @@ class _PlotsState extends State<Plots> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: ListTile(
-          contentPadding: EdgeInsets.all(0),
-          leading: Icon(Icons.crop_square),
-          title: Text(
-            'Ecken',
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-          subtitle: Text(
-            'Trakt: $_clusterId',
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-        ),
+        title: ListTile(contentPadding: EdgeInsets.all(0), leading: Icon(Icons.crop_square), title: Text('Ecken', overflow: TextOverflow.ellipsis, maxLines: 1), subtitle: Text('Trakt: $_clusterId', overflow: TextOverflow.ellipsis, maxLines: 1)),
         backgroundColor: Colors.transparent,
         iconTheme: IconThemeData(color: Colors.white),
         leading: IconButton(
@@ -106,39 +93,32 @@ class _PlotsState extends State<Plots> {
           future: _plotFuture, //
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(),
-              );
+              return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
-              return Center(
-                child: Text('Error: Plot $_clusterName does not exist.'),
-              );
+              return Center(child: Text('Error: Plot $_clusterName does not exist.'));
             } else if (!snapshot.hasData || snapshot.data == null) {
-              return Center(
-                child: Text('No data'),
-              );
+              return Center(child: Text('No data'));
             }
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ...snapshot.data!.map(
-                  (plot) {
-                    return GestureDetector(
-                      onTap: () {
-                        //Navigator.pushNamed(context, '/schema/private_ci2027_001/$_clusterId/${plot['id']}');
-                        Beamer.of(context).beamToNamed('/plot/${widget.schemaId}/$_clusterId/${plot['id']}');
-                      },
-                      child: Card(
-                        child: Padding(
-                            padding: EdgeInsets.all(10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ListTile(
-                                  title: Text(plot['plot_name']),
-                                  subtitle: Text(plot['id']),
-                                  /*trailing: IconButton(
+                ...snapshot.data!.map((plot) {
+                  return GestureDetector(
+                    onTap: () {
+                      //Navigator.pushNamed(context, '/schema/private_ci2027_001/$_clusterId/${plot['id']}');
+                      Beamer.of(context).beamToNamed('/plot/${widget.schemaId}/$_clusterId/${plot['id']}');
+                    },
+                    child: Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ListTile(
+                              title: Text(plot['plot_name']),
+                              subtitle: Text(plot['id']),
+                              /*trailing: IconButton(
                                         onPressed: () {
                                           showDialog<String>(
                                             context: context,
@@ -150,13 +130,13 @@ class _PlotsState extends State<Plots> {
                                         },
                                         icon: Icon(Icons.info),
                                       ),*/
-                                ),
-                              ],
-                            )),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  },
-                )
+                    ),
+                  );
+                }),
               ],
             );
           },

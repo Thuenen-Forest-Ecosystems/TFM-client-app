@@ -85,7 +85,7 @@ Schema schema = Schema(([
     Column.text('inspire_grid_cell'),
   ]),
   const Table('organizations', [Column.text('apex_domain'), Column.text('created_at'), Column.text('created_by'), Column.text('name'), Column.text('state_responsible'), Column.text('parent_organization_id')]),
-  const Table('troop', [Column.text('plot_ids'), Column.text('name'), Column.text('supervisor_id'), Column.text('users_id'), Column.text('organization_id')]),
+  const Table('troop', [Column.text('plot_ids'), Column.text('name'), Column.text('supervisor_id'), Column.text('user_ids'), Column.text('organization_id')]),
   const Table('plot', [Column.text('intkey'), Column.text('plot_name'), Column.text('cluster_id'), Column.text('center_location_json'), Column.text('created_at'), Column.text('modified_local')]),
   /*const Table('tree', [
     Column.text('intkey'),

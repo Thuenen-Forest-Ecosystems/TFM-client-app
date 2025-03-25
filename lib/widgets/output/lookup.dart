@@ -31,23 +31,7 @@ class _LookupOutputState extends State<LookupOutput> {
           if (snapshot.connectionState == ConnectionState.done) {
             if (snapshot.hasData) {
               List<Map> data = snapshot.data;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var item in data)
-                    Text(
-                      item['name_de'],
-                    ),
-                  Divider(
-                    thickness: 2,
-                    height: 2,
-                  ),
-                  Text(
-                    widget.comment ?? '',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ],
-              );
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [for (var item in data) Text(item['name_de']), Divider(thickness: 2, height: 2), Text(widget.comment ?? '', style: TextStyle(fontSize: 13))]);
             } else if (snapshot.hasError) {
               return Text('Error: ${snapshot.error}');
             } else {

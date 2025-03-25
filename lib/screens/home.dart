@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/clusters.dart';
-import 'package:terrestrial_forest_monitor/screens/my-form-screen.dart';
+import 'package:terrestrial_forest_monitor/components/json-schema-form-wrapper.dart';
+import 'package:terrestrial_forest_monitor/screens/dynamic-form-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/organizations.dart';
 import 'package:terrestrial_forest_monitor/screens/plot-edit-by-schema.dart';
 import 'package:terrestrial_forest_monitor/screens/plot-edit.dart';
@@ -87,30 +88,33 @@ class _HomeState extends State<Home> {
               final clusterId = state.pathParameters['clusterId']!;
               return Plots(clusterId: clusterId, schemaId: schemaId);
             },
-            'plot/:schemaId/:clusterId/:plot': (context, state, data) {
+            /*'plot/:schemaId/:clusterId/:plot': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               final clusterId = state.pathParameters['clusterId']!;
               final plotId = state.pathParameters['plot']!;
               return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
-            },
+            },*/
             'organizations': (context, state, data) {
               return OrganizationsScreen();
             },
-            'myform': (context, state, data) {
-              return MyFormScreen();
+            'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              final clusterId = state.pathParameters['clusterId']!;
+              final plotId = state.pathParameters['plot']!;
+              return DynamicFormScreen(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
             },
             /*'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               final clusterId = state.pathParameters['clusterId']!;
               final plotId = state.pathParameters['plot']!;
               return PlotEdit(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
-            },*/
+            },
             'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               final clusterId = state.pathParameters['clusterId']!;
               final plotId = state.pathParameters['plot']!;
               return PlotEditBySchema(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
-            },
+            },*/
             /*'schema/:schemaId/:clusterId': (context, state, data) {
           final schemaId = state.pathParameters['schemaId']!;
           final clusterId = state.pathParameters['clusterId']!;
@@ -246,12 +250,6 @@ class _HomeState extends State<Home> {
           IconButton(
             onPressed: () {
               context.beamToNamed('/organizations');
-            },
-            icon: Icon(Icons.store),
-          ),
-          IconButton(
-            onPressed: () {
-              context.beamToNamed('/myform');
             },
             icon: Icon(Icons.store),
           ),
