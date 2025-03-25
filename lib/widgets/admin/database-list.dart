@@ -36,14 +36,7 @@ class _DatabaseListState extends State<DatabaseList> {
             showDialog(
               context: context,
               builder: (context) {
-                return AlertDialog(
-                  title: Text('Table: ${table['tbl_name']}'),
-                  content: SizedBox(
-                    width: 300,
-                    //child: DatatableFromSqliteTable(tableName: table['tbl_name']),
-                    child: DataGridFromSqlTable(tableName: table['tbl_name']),
-                  ),
-                );
+                return Dialog(child: DataGridFromSqlTable(tableName: table['tbl_name']));
               },
             );
           },
@@ -63,11 +56,7 @@ class _DatabaseListState extends State<DatabaseList> {
                   if (snapshot.connectionState == ConnectionState.done) {
                     return Text(snapshot.data.toString());
                   } else {
-                    return SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(),
-                    );
+                    return SizedBox(height: 20, width: 20, child: CircularProgressIndicator());
                   }
                 },
               ),
@@ -87,27 +76,18 @@ class _DatabaseListState extends State<DatabaseList> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: _getLocalTables(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            if (snapshot.hasData) {
-              return Column(
-                children: snapshot.data as List<Widget>,
-              );
-            } else {
-              return Center(
-                child: Text('No tables found'),
-              );
-            }
+      future: _getLocalTables(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData) {
+            return Column(children: snapshot.data as List<Widget>);
           } else {
-            return Center(
-              child: SizedBox(
-                height: 50,
-                width: 50,
-                child: CircularProgressIndicator(),
-              ),
-            );
+            return Center(child: Text('No tables found'));
           }
-        });
+        } else {
+          return Center(child: SizedBox(height: 50, width: 50, child: CircularProgressIndicator()));
+        }
+      },
+    );
   }
 }

@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:powersync_attachments_helper/powersync_attachments_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class StorageList extends StatefulWidget {
   const StorageList({super.key});
@@ -40,26 +36,24 @@ class _StorageListState extends State<StorageList> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: Supabase.instance.client.storage.listBuckets(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else {
-            final List<Bucket> buckets = snapshot.data as List<Bucket>;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: buckets.map((bucket) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      title: Text('Name: ${bucket.name}'),
-                      subtitle: Text('Id: ${bucket.id}'),
-                    ),
-                    Divider(),
-                    FutureBuilder(
+      future: Supabase.instance.client.storage.listBuckets(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else {
+          final List<Bucket> buckets = snapshot.data as List<Bucket>;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children:
+                buckets.map((bucket) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(title: Text('Name: ${bucket.name}'), subtitle: Text('Id: ${bucket.id}')),
+                      Divider(),
+                      FutureBuilder(
                         future: Supabase.instance.client.storage.from(bucket.id).list(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -71,22 +65,22 @@ class _StorageListState extends State<StorageList> {
                             final List<FileObject> objects = snapshot.data as List<FileObject>;
 
                             return Column(
-                              children: objects.map((object) {
-                                return ListTile(
-                                  title: Text('Name: ${object.name}'),
-                                  subtitle: Text(object.metadata.toString()),
-                                );
-                              }).toList(),
+                              children:
+                                  objects.map((object) {
+                                    return ListTile(title: Text('Name: ${object.name}'), subtitle: Text(object.metadata.toString()));
+                                  }).toList(),
                             );
                           } else {
                             return const Text('No data');
                           }
-                        }),
-                  ],
-                );
-              }).toList(),
-            );
-          }
-        });
+                        },
+                      ),
+                    ],
+                  );
+                }).toList(),
+          );
+        }
+      },
+    );
   }
 }

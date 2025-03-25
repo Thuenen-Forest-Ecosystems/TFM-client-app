@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:terrestrial_forest_monitor/screens/storage.dart';
 
 class StatelessTest extends StatefulWidget {
   const StatelessTest({super.key});
@@ -54,20 +51,14 @@ class _StatelessTestState extends State<StatelessTest> {
           },
         );*/
 
-        const snackBar = SnackBar(
-          content: Text('HeadlessInAppWebView created!'),
-          duration: Duration(seconds: 1),
-        );
+        const snackBar = SnackBar(content: Text('HeadlessInAppWebView created!'), duration: Duration(seconds: 1));
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
       },
       onConsoleMessage: (controller, consoleMessage) {
         print("Console: ${consoleMessage.message}");
       },
       onLoadStart: (controller, url) async {
-        final snackBar = SnackBar(
-          content: Text('onLoadStart $url'),
-          duration: const Duration(seconds: 1),
-        );
+        final snackBar = SnackBar(content: Text('onLoadStart $url'), duration: const Duration(seconds: 1));
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
 
         setState(() {
@@ -76,10 +67,7 @@ class _StatelessTestState extends State<StatelessTest> {
       },
       onLoadStop: (controller, url) async {
         print('inited onLoadStart');
-        final snackBar = SnackBar(
-          content: Text('onLoadStop $url'),
-          duration: const Duration(seconds: 1),
-        );
+        final snackBar = SnackBar(content: Text('onLoadStop $url'), duration: const Duration(seconds: 1));
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
 
         setState(() {
@@ -130,7 +118,7 @@ class _StatelessTestState extends State<StatelessTest> {
         "name": {"type": "string"},
         "age": {"type": "integer"},
       },
-      "required": ["name", "age"]
+      "required": ["name", "age"],
     };
 
     // JSON Data
@@ -203,80 +191,71 @@ class _StatelessTestState extends State<StatelessTest> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Stateless Test'),
-      ),
+      appBar: AppBar(title: Text('Stateless Test')),
       body: SafeArea(
         child: Column(
           children: <Widget>[
             Text('URL: $url'),
             Center(
               child: ElevatedButton(
-                  onPressed: () async {
-                    await headlessWebView?.dispose();
-                    await headlessWebView?.run();
-                  },
-                  child: const Text("Run HeadlessInAppWebView")),
+                onPressed: () async {
+                  await headlessWebView?.dispose();
+                  await headlessWebView?.run();
+                },
+                child: const Text("Run HeadlessInAppWebView"),
+              ),
             ),
             Center(
               child: ElevatedButton(
-                  onPressed: () async {
-                    if (headlessWebView?.isRunning() ?? false) {
-                      await headlessWebView?.webViewController?.evaluateJavascript(source: "console.log('Here is the message!');");
-                    } else {
-                      const snackBar = SnackBar(
-                        content: Text('HeadlessInAppWebView is not running. Click on "Run HeadlessInAppWebView"!'),
-                        duration: Duration(milliseconds: 1500),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    }
-                  },
-                  child: const Text("Send console.log message")),
+                onPressed: () async {
+                  if (headlessWebView?.isRunning() ?? false) {
+                    await headlessWebView?.webViewController?.evaluateJavascript(source: "console.log('Here is the message!');");
+                  } else {
+                    const snackBar = SnackBar(content: Text('HeadlessInAppWebView is not running. Click on "Run HeadlessInAppWebView"!'), duration: Duration(milliseconds: 1500));
+                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                  }
+                },
+                child: const Text("Send console.log message"),
+              ),
             ),
             Center(
               child: ElevatedButton(
-                  onPressed: () async {
-                    if (headlessWebView?.isRunning() ?? false) {
-                      await headlessWebView?.webViewController?.evaluateJavascript(source: "TESTFN('Msg from Flutter');");
-                    } else {
-                      const snackBar = SnackBar(
-                        content: Text('HeadlessInAppWebView is not running. Click on "Run HeadlessInAppWebView"!'),
-                        duration: Duration(milliseconds: 1500),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    }
-                  },
-                  child: const Text("Send TESTFN message")),
+                onPressed: () async {
+                  if (headlessWebView?.isRunning() ?? false) {
+                    await headlessWebView?.webViewController?.evaluateJavascript(source: "TESTFN('Msg from Flutter');");
+                  } else {
+                    const snackBar = SnackBar(content: Text('HeadlessInAppWebView is not running. Click on "Run HeadlessInAppWebView"!'), duration: Duration(milliseconds: 1500));
+                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                  }
+                },
+                child: const Text("Send TESTFN message"),
+              ),
             ),
             Center(
               child: ElevatedButton(
-                  onPressed: () async {
-                    if (headlessWebView?.isRunning() ?? false) {
-                      await headlessWebView?.webViewController?.evaluateJavascript(source: "fetchDatabaseData();");
-                    } else {
-                      const snackBar = SnackBar(
-                        content: Text('HeadlessInAppWebView is not running. Click on "Run HeadlessInAppWebView"!'),
-                        duration: Duration(milliseconds: 1500),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    }
-                  },
-                  child: const Text("Send TESTFN message")),
+                onPressed: () async {
+                  if (headlessWebView?.isRunning() ?? false) {
+                    await headlessWebView?.webViewController?.evaluateJavascript(source: "fetchDatabaseData();");
+                  } else {
+                    const snackBar = SnackBar(content: Text('HeadlessInAppWebView is not running. Click on "Run HeadlessInAppWebView"!'), duration: Duration(milliseconds: 1500));
+                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                  }
+                },
+                child: const Text("Send TESTFN message"),
+              ),
             ),
             Center(
               child: ElevatedButton(
-                  onPressed: () async {
-                    await headlessWebView?.dispose();
-                    setState(() {
-                      url = '';
-                    });
-                  },
-                  child: const Text("Dispose HeadlessInAppWebView")),
+                onPressed: () async {
+                  await headlessWebView?.dispose();
+                  setState(() {
+                    url = '';
+                  });
+                },
+                child: const Text("Dispose HeadlessInAppWebView"),
+              ),
             ),
-            ElevatedButton(
-              onPressed: validateJSON,
-              child: Text("Validate JSON"),
-            ),
+            ElevatedButton(onPressed: validateJSON, child: Text("Validate JSON")),
           ],
         ),
       ),

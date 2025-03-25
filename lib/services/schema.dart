@@ -11,8 +11,8 @@ const listOfLookupTables = [
   'lookup_edge_type',
   'lookup_elevation_level',
   'lookup_exploration_instruction',
-  'lookup_ffh_forest_type_field',
-  'lookup_forest_community_field',
+  'lookup_ffh_forest_type',
+  'lookup_forest_community',
   'lookup_forest_office',
   'lookup_forest_status',
   'lookup_gnss_quality',
@@ -27,7 +27,7 @@ const listOfLookupTables = [
   'lookup_property_type',
   'lookup_pruning',
   'lookup_sampling_stratum',
-  'lookup_stand_dev_phase',
+  'lookup_stand_development_phase',
   'lookup_stand_layer',
   'lookup_stand_structure',
   'lookup_state',
@@ -39,30 +39,29 @@ const listOfLookupTables = [
   'lookup_tree_species',
   'lookup_tree_species_group',
   'lookup_tree_status',
-  'lookup_trees_less_4meter_count_factor',
   'lookup_trees_less_4meter_layer',
   'lookup_trees_less_4meter_mirrored',
   'lookup_trees_less_4meter_origin',
-  'lookup_use_restriction',
+  'lookup_usage_type',
+  'lookup_natur_schutzgebiet',
+  'lookup_vogel_schutzgebiet',
+  'lookup_natur_park',
+  'lookup_national_park',
+  'lookup_ffh',
+  'lookup_biosphaere',
+  'lookup_biogeographische_region',
+  'lookup_basal_area_factor',
+  'lookup_biotope',
+  'lookup_harvest_restriction',
+  'lookup_accessibility',
 ];
 
-const lookupTemplate = [
-  Column.text('name_de'),
-  Column.text('name_en'),
-  Column.text('interval'),
-  Column.integer('sort'),
-  Column.text('code'),
-];
+const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.text('interval'), Column.integer('sort'), Column.text('code')];
 
 Schema schema = Schema(([
-  const Table.localOnly('settings', [
-    Column.text('sortGeneral'),
-    Column.text('user_id'),
-  ]),
-  const Table('users_profile', [
-    Column.integer('is_admin'),
-    Column.integer('state_responsible'),
-  ]),
+  const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id')]),
+  const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
+  const Table('users_profile', [Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id')]),
   const Table('schemas', [
     Column.text('created_at'),
     Column.text('interval_name'),
@@ -71,13 +70,9 @@ Schema schema = Schema(([
     Column.text('description'),
     Column.text('bucket_schema_file_name'),
     Column.text('bucket_plausability_file_name'),
-    Column.text('schema')
-  ]),
-  const Table('plots', [
-    Column.text('plot_name'),
-    Column.text('data'),
     Column.text('schema'),
   ]),
+  const Table('records', [Column.text('data'), Column.text('schema')]),
   const Table('cluster', [
     Column.text('intkey'),
     Column.text('cluster_name'),
@@ -89,15 +84,10 @@ Schema schema = Schema(([
     Column.text('cluster_situation'),
     Column.text('inspire_grid_cell'),
   ]),
-  /*const Table('plot', [
-    Column.text('intkey'),
-    Column.text('plot_name'),
-    Column.text('cluster_id'),
-    Column.text('center_location_json'),
-    Column.text('created_at'),
-    Column.text('modified_local'),
-  ]),
-  const Table('tree', [
+  const Table('organizations', [Column.text('apex_domain'), Column.text('created_at'), Column.text('created_by'), Column.text('name'), Column.text('state_responsible'), Column.text('parent_organization_id')]),
+  const Table('troop', [Column.text('plot_ids'), Column.text('name'), Column.text('supervisor_id'), Column.text('users_id'), Column.text('organization_id')]),
+  const Table('plot', [Column.text('intkey'), Column.text('plot_name'), Column.text('cluster_id'), Column.text('center_location_json'), Column.text('created_at'), Column.text('modified_local')]),
+  /*const Table('tree', [
     Column.text('intkey'),
     Column.text('plot_id'),
     Column.text('tree_number'),

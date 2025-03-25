@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:powersync/powersync.dart';
+import 'package:powersync/sqlite3_common.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
@@ -61,6 +64,40 @@ User? getCurrentUser() {
   return Supabase.instance.client.auth.currentUser;
 }
 
+Future getPlotsByPermissions(String schemaId) async {
+  String jwToken = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+  if (jwToken.isEmpty) {
+    return [];
+  }
+  Map<String, dynamic> decodedToken = JwtDecoder.decode(jwToken);
+  String troopId = decodedToken['troop_id'];
+
+  Row data = await db.get('SELECT * FROM troop WHERE id = ?', [troopId]);
+
+  try {
+    return jsonDecode(data['plot_ids']);
+  } catch (e) {
+    return [];
+  }
+}
+
+Future getPlotsNestedJson() async {
+  List<Map> rows = await Supabase.instance.client.from('plot_nested_json').select();
+
+  for (var row in rows) {
+    db
+        .get('SELECT id FROM plot_nested_json WHERE id = ?', [row['id']])
+        .then((value) {
+          db.execute('UPDATE plot_nested_json SET plot = ?, cluster_id = ? WHERE id = ?', [jsonEncode(row['plot'] ?? []), row['cluster_id'], row['id']]);
+        })
+        .catchError((e) {
+          db.execute('INSERT INTO plot_nested_json (id, plot, cluster_id) VALUES (?, ?, ?);', [row['id'], jsonEncode(row['plot'] ?? []), row['cluster_id']]);
+        });
+  }
+
+  return rows;
+}
+
 /// Sign up with email and password.
 /// Returns the user if successful, otherwise throws an error.
 Future<User> signUp(String email, String password) async {
@@ -68,8 +105,6 @@ Future<User> signUp(String email, String password) async {
     AuthResponse response = await Supabase.instance.client.auth.signUp(email: email, password: password);
     return response.user!;
   } catch (e) {
-    print('$email : $password');
-    print('Error signUp: $e -> $email : $password');
     rethrow;
   }
 }
@@ -88,8 +123,8 @@ Future<User> login(String email, String password) async {
 
 /// Explicit sign out - clear database and log out.
 Future<void> changeServer() async {
-  await openDatabase();
-  await logout();
+  //await openDatabase();
+  //await logout();
 }
 
 /// Explicit sign out - clear database and log out.
@@ -111,11 +146,11 @@ Future<List> listTables() async {
 Future downloadFile(fileName, {force = false}) async {
   try {
     final directory = await getApplicationDocumentsDirectory();
-    String applicationDirectory = directory.path + '/TFM';
+    String applicationDirectory = '${directory.path}/TFM';
 
     // get Files in Directory
     //final files = Directory(applicationDirectory).listSync();
-    File path = File(applicationDirectory + '/' + fileName);
+    File path = File('$applicationDirectory/' + fileName);
 
     if (path.existsSync() && !force) {
       return path;
@@ -133,11 +168,7 @@ Future<PowerSyncDatabase> openDatabase() async {
 
   final dbPath = await getDatabasePath();
 
-  db = PowerSyncDatabase(
-    schema: schema,
-    path: dbPath,
-    logger: attachedLogger,
-  );
+  db = PowerSyncDatabase(schema: schema, path: dbPath, logger: attachedLogger);
 
   /**
    * https://pub.dev/packages/sqlite_async
@@ -156,14 +187,8 @@ Future<PowerSyncDatabase> openDatabase() async {
 
   try {
     var config = await getServerConfig();
-    print('config');
-    print(config['supabaseUrl']);
-    print(config['anonKey']);
 
-    await Supabase.initialize(
-      url: config['supabaseUrl'] ?? '',
-      anonKey: config['anonKey'] ?? '',
-    );
+    await Supabase.initialize(url: config['supabaseUrl'] ?? '', anonKey: config['anonKey'] ?? '');
   } catch (e) {
     print('Error initializing Supabase: $e');
     rethrow;
@@ -214,7 +239,9 @@ class SupabaseConnector extends PowerSyncBackendConnector {
   Future<void> uploadData(PowerSyncDatabase database) async {
     log.info('uploading data...');
     final transaction = await database.getNextCrudTransaction();
+
     if (transaction == null) {
+      log.info('No data to upload');
       return;
     }
 
@@ -234,9 +261,17 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         }
       }
 
-      await transaction.complete();
+      await transaction
+          .complete()
+          .then((value) {
+            print('Data uploaded successfully');
+          })
+          .catchError((e) {
+            print('Error completing transaction: $e');
+          });
     } on PostgrestException catch (e) {
       if (e.code != null && fatalResponseCodes.any((re) => re.hasMatch(e.code!))) {
+        print('PS: Fatal error: ${e.code} ${e.message}');
         await transaction.complete();
       } else {
         print('Error uploading data: $e');
@@ -273,12 +308,7 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     print(userId);
     print(expiresAt);
 
-    return PowerSyncCredentials(
-      endpoint: config['powersyncUrl'] ?? '',
-      token: token,
-      userId: userId,
-      expiresAt: expiresAt,
-    );
+    return PowerSyncCredentials(endpoint: config['powersyncUrl'] ?? '', token: token, userId: userId, expiresAt: expiresAt);
   }
 
   @override
@@ -294,9 +324,6 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     //
     // Timeout the refresh call to avoid waiting for long retries,
     // and ignore any errors. Errors will surface as expired tokens.
-    _refreshFuture = Supabase.instance.client.auth.refreshSession().timeout(const Duration(seconds: 5)).then(
-          (response) => null,
-          onError: (error) => null,
-        );
+    _refreshFuture = Supabase.instance.client.auth.refreshSession().timeout(const Duration(seconds: 5)).then((response) => null, onError: (error) => null);
   }
 }

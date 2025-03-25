@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
-import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/widgets/dynamic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/deadwood.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/edges.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/plot.dart';
@@ -15,8 +11,6 @@ import 'package:terrestrial_forest_monitor/widgets/forms/position.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/regeneration.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/structure.dart';
 import 'package:terrestrial_forest_monitor/widgets/forms/wzp.dart';
-
-import 'dart:math';
 
 class PlotEdit extends StatefulWidget {
   final String schemaId;
@@ -47,41 +41,10 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
   void _initTabs(Map plotJson) {
     tabs = [
       {'title': 'Position', 'icon': Icons.blur_circular, 'screen': TIPosition()},
-      {
-        'title': 'Plot',
-        'icon': Icons.blur_circular,
-        'screen': TiPlot(
-          plotId: widget.plotId,
-          data: plotJson,
-          onUpdate: _onUpdate,
-        ),
-      },
-      {
-        'title': 'Ränder',
-        'icon': Icons.blur_circular,
-        'screen': TIEdges(
-          plotId: widget.plotId,
-          data: [],
-          previousData: [],
-        ),
-      },
-      {
-        'title': 'Totholz',
-        'icon': Icons.blur_circular,
-        'screen': TIDeadwood(
-          plotId: widget.plotId,
-          data: plotJson['deadwood'],
-        )
-      },
-      {
-        'title': 'Winkelzählprobe',
-        'icon': Icons.blur_circular,
-        'screen': TIWzp(
-          plotId: widget.plotId,
-          data: plotJson['tree'],
-          onUpdate: _onUpdate,
-        )
-      },
+      {'title': 'Plot', 'icon': Icons.blur_circular, 'screen': TiPlot(plotId: widget.plotId, data: plotJson, onUpdate: _onUpdate)},
+      {'title': 'Ränder', 'icon': Icons.blur_circular, 'screen': TIEdges(plotId: widget.plotId, data: [], previousData: [])},
+      {'title': 'Totholz', 'icon': Icons.blur_circular, 'screen': TIDeadwood(plotId: widget.plotId, data: plotJson['deadwood'])},
+      {'title': 'Winkelzählprobe', 'icon': Icons.blur_circular, 'screen': TIWzp(plotId: widget.plotId, data: plotJson['tree'], onUpdate: _onUpdate)},
       {'title': 'Regeneration', 'icon': Icons.blur_circular, 'screen': TIRegeneration()},
       {'title': 'Struktur', 'icon': Icons.blur_circular, 'screen': TIStructure()},
     ];
@@ -136,10 +99,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
         title: ListTile(
           dense: true,
           contentPadding: EdgeInsets.all(0),
-          leading: Icon(
-            Icons.blur_circular,
-            size: 40,
-          ),
+          leading: Icon(Icons.blur_circular, size: 40),
           title: Text('Ecke ${widget.plotId}', overflow: TextOverflow.ellipsis, maxLines: 1),
           subtitle: Text('Trakt: ${widget.clusterId}', overflow: TextOverflow.ellipsis, maxLines: 1),
         ),
@@ -147,34 +107,15 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
         iconTheme: IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
-          tabs: tabs.map((tab) {
-            return Tab(
-              text: tab['title'],
-            );
-          }).toList(),
+          tabs:
+              tabs.map((tab) {
+                return Tab(text: tab['title']);
+              }).toList(),
         ),
         actions: [
           OutlinedButton.icon(
             label: Text('FERTIG'),
-            icon: Stack(
-              children: [
-                Icon(Icons.circle),
-                Positioned(
-                  right: 0,
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Text(
-                      'static',
-                      style: TextStyle(fontSize: 10, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            icon: Stack(children: [Icon(Icons.circle), Positioned(right: 0, left: 0, top: 0, bottom: 0, child: SizedBox(width: 20, height: 20, child: Text('static', style: TextStyle(fontSize: 10, color: Colors.white))))]),
             onPressed: () {},
           ),
           SizedBox(width: 10),
@@ -185,9 +126,10 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
         child: TabBarView(
           physics: const NeverScrollableScrollPhysics(),
           controller: _tabController,
-          children: tabs.map<Widget>((tab) {
-            return tab['screen'] as Widget;
-          }).toList(),
+          children:
+              tabs.map<Widget>((tab) {
+                return tab['screen'] as Widget;
+              }).toList(),
         ),
       ),
     );

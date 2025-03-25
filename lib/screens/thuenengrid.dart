@@ -16,60 +16,24 @@ class ThuenenGrid extends StatefulWidget {
 }
 
 class _ThuenenGridState extends State<ThuenenGrid> {
-  StreamSubscription? dbSubscription;
-
-  bool _loading = true;
-  String? _errorText;
-
-  Map<String, dynamic>? activeUser;
-
-  List schemata = [];
-  List _filteredSchemata = [];
-
   @override
   void initState() {
     super.initState();
-    //GetStorage users = GetStorage('Users');
-    dbSubscription = db.watch('SELECT * FROM schemas').listen((results) {
-      print('schemadata');
-      print(results);
-      schemata = results;
-      _loading = false;
-    }, onError: (e) {
-      print('Query failed: $e');
-      _errorText = e.toString();
-    });
   }
 
   @override
   void dispose() {
     super.dispose();
-    dbSubscription?.cancel();
-  }
-
-  void _getSchemata() async {
-    var user = await ApiService().getLoggedInUser();
-    setState(() {
-      activeUser = user;
-      if (activeUser != null && activeUser!.containsKey('schemata')) {
-        schemata = activeUser!['schemata'];
-        _filteredSchemata = schemata.where((schema) => schema['schema_name'].startsWith('private_')).toList();
-      }
-    });
   }
 
   Widget _buildGrid(rawdata, width) {
-    // filter rawdata by is_visible attribute
     List data = rawdata.where((element) => element['is_visible'] == 1).toList();
-    print(rawdata);
     return GridView.builder(
       reverse: true,
       primary: false,
       padding: EdgeInsets.only(left: width > 800 ? 100 : 10),
       itemCount: data.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: width > 800 ? min(3, 2) : (width > 400 ? 2 : 1),
-      ),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: width > 800 ? min(3, 2) : (width > 400 ? 2 : 1)),
       itemBuilder: (BuildContext context, int index) {
         return InkWell(
           child: Container(
@@ -79,23 +43,8 @@ class _ThuenenGridState extends State<ThuenenGrid> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  data[index]['title'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                Text(
-                  data[index]['description'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                Text(data[index]['title'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center),
+                Text(data[index]['description'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.white), textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -110,20 +59,15 @@ class _ThuenenGridState extends State<ThuenenGrid> {
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.sizeOf(context).width;
-
     return StreamBuilder(
       stream: db.watch('SELECT * FROM schemas'),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return _buildGrid(snapshot.data, width);
         } else if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
+          return Center(child: Text('Error: ${snapshot.error}'));
         } else {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
+          return Center(child: CircularProgressIndicator());
         }
       },
     );

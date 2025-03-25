@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_js/flutter_js.dart';
 //import 'package:flutter_js_example/ajv_example.dart';
@@ -20,8 +17,7 @@ class _FlutterJsHomeScreenState extends State<FlutterJsHomeScreen> {
   String? _quickjsVersion;
 
   Future<String> evalJS() async {
-    JsEvalResult jsResult = await javascriptRuntime.evaluateAsync(
-      """
+    JsEvalResult jsResult = await javascriptRuntime.evaluateAsync("""
             if (typeof MyClass == 'undefined') {
               var MyClass = class  {
                 constructor(id) {
@@ -47,9 +43,7 @@ class _FlutterJsHomeScreenState extends State<FlutterJsHomeScreen> {
               return {"object": jsonStringified, "expression": value, "asyncResult": asyncResult, "expectedError": err};
             }
             test();
-            """,
-      sourceUrl: 'script.js',
-    );
+            """, sourceUrl: 'script.js');
     javascriptRuntime.executePendingJob();
     JsEvalResult asyncResult = await javascriptRuntime.handlePromise(jsResult);
     return asyncResult.stringResult;
@@ -109,10 +103,6 @@ class _FlutterJsHomeScreenState extends State<FlutterJsHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          title: const Text('FlutterJS Example'),
-        ),
-        body: ElevatedButton(onPressed: _validate, child: Text('PRESS')));
+    return Scaffold(appBar: AppBar(title: const Text('FlutterJS Example')), body: ElevatedButton(onPressed: _validate, child: Text('PRESS')));
   }
 }

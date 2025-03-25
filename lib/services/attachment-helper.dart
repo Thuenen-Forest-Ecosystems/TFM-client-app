@@ -22,13 +22,7 @@ Future<bool> onDownloadError(Attachment attachment, Object exception) async {
 }
 
 class AttachmentQueue extends AbstractAttachmentQueue {
-  AttachmentQueue(db, remoteStorage, attachmentDirectoryName)
-      : super(
-          db: db,
-          remoteStorage: remoteStorage,
-          attachmentDirectoryName: attachmentDirectoryName,
-          onDownloadError: onDownloadError,
-        );
+  AttachmentQueue(db, remoteStorage, attachmentDirectoryName) : super(db: db, remoteStorage: remoteStorage, attachmentDirectoryName: attachmentDirectoryName, onDownloadError: onDownloadError);
 
   @override
   init() async {
@@ -38,22 +32,15 @@ class AttachmentQueue extends AbstractAttachmentQueue {
   @override
   Future<Attachment> saveFile(String fileId, int size, {mediaType = 'image/jpeg'}) async {
     print('SAVE: $fileId');
-    String filename = '$fileId';
-    Attachment photoAttachment = Attachment(
-      id: fileId,
-      filename: filename,
-      state: AttachmentState.queuedUpload.index,
-      mediaType: mediaType,
-      localUri: getLocalFilePathSuffix(filename),
-      size: size,
-    );
+    String filename = fileId;
+    Attachment photoAttachment = Attachment(id: fileId, filename: filename, state: AttachmentState.queuedUpload.index, mediaType: mediaType, localUri: getLocalFilePathSuffix(filename), size: size);
 
     return attachmentsService.saveAttachment(photoAttachment);
   }
 
   @override
   Future<Attachment> deleteFile(String fileId) async {
-    String filename = '$fileId';
+    String filename = fileId;
     Attachment photoAttachment = Attachment(id: fileId, filename: filename, state: AttachmentState.queuedDelete.index);
 
     return attachmentsService.saveAttachment(photoAttachment);
@@ -61,26 +48,29 @@ class AttachmentQueue extends AbstractAttachmentQueue {
 
   @override
   StreamSubscription<void> watchIds({String fileExtension = 'json'}) {
-    return db.watch('''
+    return db
+        .watch('''
       SELECT bucket_schema_file_name, bucket_plausability_file_name FROM schemas WHERE bucket_schema_file_name IS NOT NULL
-    ''').map((results) {
-      List<String> idsList = [];
-      for (var row in results) {
-        idsList.add(row['bucket_schema_file_name'] as String);
-        idsList.add(row['bucket_plausability_file_name'] as String);
-      }
-      return idsList;
-      return results.map((row) => row['bucket_schema_file_name'] as String).toList();
-    }).listen((ids) async {
-      List<String> idsInQueue = await attachmentsService.getAttachmentIds();
-      List<String> relevantIds = ids.where((element) => !idsInQueue.contains(element)).toList();
-      print('watchIds');
-      print(relevantIds);
-      print(idsInQueue);
-      relevantIds = idsInQueue;
+    ''')
+        .map((results) {
+          List<String> idsList = [];
+          for (var row in results) {
+            idsList.add(row['bucket_schema_file_name'] as String);
+            idsList.add(row['bucket_plausability_file_name'] as String);
+          }
+          return idsList;
+          return results.map((row) => row['bucket_schema_file_name'] as String).toList();
+        })
+        .listen((ids) async {
+          List<String> idsInQueue = await attachmentsService.getAttachmentIds();
+          List<String> relevantIds = ids.where((element) => !idsInQueue.contains(element)).toList();
+          print('watchIds');
+          print(relevantIds);
+          print(idsInQueue);
+          relevantIds = idsInQueue;
 
-      syncingService.processIds(ids, fileExtension);
-    });
+          syncingService.processIds(ids, fileExtension);
+        });
   }
 }
 

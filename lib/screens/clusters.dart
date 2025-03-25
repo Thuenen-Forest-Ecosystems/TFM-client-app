@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:powersync/sqlite3_common.dart';
-import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/widgets/ci2027/cluster_preview.dart';
@@ -25,11 +24,14 @@ class _ClustersState extends State<Clusters> {
   @override
   initState() {
     super.initState();
-    db.get('SELECT * FROM settings WHERE user_id = ?', [getUserId()]).then((value) {
-      print(value);
-    }).catchError((error) {
-      print('Error: $error');
-    });
+    db
+        .get('SELECT * FROM settings WHERE user_id = ?', [getUserId()])
+        .then((value) {
+          print(value);
+        })
+        .catchError((error) {
+          print('Error: $error');
+        });
   }
 
   /*Future _refreshClusters() async {
@@ -57,11 +59,7 @@ class _ClustersState extends State<Clusters> {
         title: ListTile(
           contentPadding: EdgeInsets.all(0),
           leading: Icon(Icons.apps),
-          title: Text(
-            'Clusters',
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
+          title: Text('Clusters', overflow: TextOverflow.ellipsis, maxLines: 1),
           //subtitle: Text('${widget.schemaId}', overflow: TextOverflow.ellipsis, maxLines: 1),
         ),
         actions: [
@@ -95,34 +93,25 @@ class _ClustersState extends State<Clusters> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ...snapshot.data!.map(
-                          (cluster) {
-                            return GestureDetector(
-                              child: ClusterPreview(
-                                clusterId: cluster['id'],
-                                clusterRow: cluster,
-                              ),
-                              onTap: () {
-                                Beamer.of(context).beamToNamed('/cluster/${widget.schemaId}/${cluster['cluster_name']}');
-                              },
-                            );
-                          },
-                        ),
+                        ...snapshot.data!.map((cluster) {
+                          return GestureDetector(
+                            child: ClusterPreview(clusterId: cluster['id'], clusterRow: cluster),
+                            onTap: () {
+                              Beamer.of(context).beamToNamed('/cluster/${widget.schemaId}/${cluster['cluster_name']}');
+                            },
+                          );
+                        }),
                       ],
                     ),
                   );
                 } else if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 } else {
-                  return Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return Center(child: CircularProgressIndicator());
                 }
               },
             ),
-          )
+          ),
         ],
       ),
     );

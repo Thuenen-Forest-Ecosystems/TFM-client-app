@@ -13,26 +13,6 @@ class AdminButton extends StatefulWidget {
 class _AdminButtonState extends State<AdminButton> {
   User? user; //getCurrentUser();
 
-  /*@override
-  void initState() {
-    super.initState();
-
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-      print('STATE CHANGE');
-      setState(() {
-        user = getCurrentUser();
-      });
-    });
-
-    print('USER: $user');
-    print(user?.id);
-    db.get('SELECT * FROM users_profile WHERE id = ?', [user?.id]).then((value) {
-      print(value);
-    }).catchError((error) {
-      print('Error: $error');
-    });
-  }*/
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
@@ -50,6 +30,9 @@ class _AdminButtonState extends State<AdminButton> {
             builder: (context, snapshot) {
               if (snapshot.hasData) {
                 final data = snapshot.data as Map<String, dynamic>;
+
+                print('ADMIN');
+                print(data);
 
                 if (data['is_admin'] == null || data.isEmpty) {
                   return SizedBox();

@@ -17,6 +17,22 @@ class DataGridFromSqlTable extends StatefulWidget {
 
 class _DataGridFromSqlTableState extends State<DataGridFromSqlTable> {
   late final PlutoGridStateManager stateManager;
+  final int rowsPerPage = 50;
+
+  List hideColumns = [
+    'intkey',
+  ];
+  List frozenColumns = [
+    'cluster_name',
+  ];
+
+  bool _ishidden(key) {
+    return hideColumns.contains(key);
+  }
+
+  PlutoColumnFrozen _isFrozen(key) {
+    return frozenColumns.contains(key) ? PlutoColumnFrozen.start : PlutoColumnFrozen.none;
+  }
 
   List<PlutoColumn> _getColumns(List<Map<String, dynamic>> values) {
     List<PlutoColumn> columns = [];
@@ -30,8 +46,11 @@ class _DataGridFromSqlTableState extends State<DataGridFromSqlTable> {
             title: key,
             field: key,
             type: PlutoColumnType.text(),
-            width: 200,
-            enableAutoEditing: false,
+            //width: 200,
+            enableEditingMode: false,
+            hide: _ishidden(key),
+            frozen: _isFrozen(key),
+            enableContextMenu: false,
           ),
         );
       }
@@ -66,15 +85,28 @@ class _DataGridFromSqlTableState extends State<DataGridFromSqlTable> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
           return PlutoGrid(
-            // Dark theme
-            configuration: PlutoGridConfiguration.dark(),
-            columns: _getColumns(snapshot.data!),
-            rows: _getRows(snapshot.data!),
-            onLoaded: (PlutoGridOnLoadedEvent event) {
-              stateManager = event.stateManager;
-              stateManager.setSelectingMode(PlutoGridSelectingMode.row);
-            },
-          );
+              // Dark theme
+
+              onLoaded: (PlutoGridOnLoadedEvent event) {
+                final stateManager = event.stateManager;
+                // Enable filtering functionality
+                stateManager.setShowColumnFilter(true);
+                stateManager.setSelectingMode(PlutoGridSelectingMode.row);
+                stateManager.setPageSize(rowsPerPage);
+              },
+              configuration: PlutoGridConfiguration(
+                style: PlutoGridStyleConfig(
+                  gridBorderColor: Colors.grey[800]!,
+                  rowHeight: 45,
+                  columnHeight: 45,
+                ),
+              ),
+              createFooter: (stateManager) {
+                stateManager.setPageSize(100, notify: false); // default 40
+                return PlutoPagination(stateManager);
+              },
+              columns: _getColumns(snapshot.data!),
+              rows: _getRows(snapshot.data!));
         }
         return CircularProgressIndicator();
       },

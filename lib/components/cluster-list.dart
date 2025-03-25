@@ -29,24 +29,27 @@ class _ClusterListState extends State<ClusterList> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return CircularProgressIndicator();
         } else if (snapshot.hasData) {
-          return Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Filter by Cluster'),
-            ...snapshot.data!.map<Widget>((dynamic cluster) {
-              return CheckboxListTile(
-                title: Text(cluster['cluster_name'].toString()),
-                subtitle: Text(checked.contains(cluster['id']) ? 'Checked' : 'Unchecked'),
-                value: checked.contains(cluster['id']),
-                onChanged: (bool? value) {
-                  if (value == true) {
-                    checked.add(cluster['id']);
-                  } else {
-                    checked.remove(cluster['id']);
-                  }
-                  setState(() {});
-                },
-              );
-            }).toList(),
-          ]);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Filter by Cluster'),
+              ...snapshot.data!.map<Widget>((dynamic cluster) {
+                return CheckboxListTile(
+                  title: Text(cluster['cluster_name'].toString()),
+                  subtitle: Text(checked.contains(cluster['id']) ? 'Checked' : 'Unchecked'),
+                  value: checked.contains(cluster['id']),
+                  onChanged: (bool? value) {
+                    if (value == true) {
+                      checked.add(cluster['id']);
+                    } else {
+                      checked.remove(cluster['id']);
+                    }
+                    setState(() {});
+                  },
+                );
+              }),
+            ],
+          );
         } else {
           return Text('Loading...');
         }

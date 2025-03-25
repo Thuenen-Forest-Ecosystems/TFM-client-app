@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 

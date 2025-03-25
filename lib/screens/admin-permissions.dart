@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/components/cluster-list.dart';
-import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/widgets/admin/storage-list.dart';
-import 'package:terrestrial_forest_monitor/widgets/admin/database-list.dart';
-import 'package:terrestrial_forest_monitor/config.dart';
 
 class AdminPermissionsScreen extends StatefulWidget {
   const AdminPermissionsScreen({super.key});
@@ -22,32 +17,17 @@ class _AdminPermissionsScreenState extends State<AdminPermissionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          automaticallyImplyLeading: true,
-          title: Text('Admin Permissions'),
-        ),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 800,
-              minWidth: 300,
-            ),
-            child: ListView(
-              children: <Widget>[
-                Card(
-                    child: Container(
-                  padding: EdgeInsets.all(10),
-                  child: Column(
-                    children: <Widget>[
-                      Text('List of Clusters'),
-                      ClusterList(),
-                    ],
-                  ),
-                ))
-              ],
-            ),
+      appBar: AppBar(centerTitle: false, automaticallyImplyLeading: true, title: Text('Admin Permissions')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
+          child: ListView(
+            children: <Widget>[
+              Card(child: Container(padding: EdgeInsets.all(10), child: Column(children: <Widget>[Text('List of Clusters'), ClusterList()]))),
+            ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 }

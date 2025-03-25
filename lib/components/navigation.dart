@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -26,18 +24,8 @@ class _NavigationState extends State<Navigation> {
     Position? lastPosition = context.watch<GpsPositionProvider>().lastPosition;
 
     if (lastPosition != null) {
-      distance = Geolocator.distanceBetween(
-        lastPosition.latitude,
-        lastPosition.longitude,
-        widget.position.latitude,
-        widget.position.longitude,
-      );
-      bearing = Geolocator.bearingBetween(
-        lastPosition.latitude,
-        lastPosition.longitude,
-        widget.position.latitude,
-        widget.position.longitude,
-      );
+      distance = Geolocator.distanceBetween(lastPosition.latitude, lastPosition.longitude, widget.position.latitude, widget.position.longitude);
+      bearing = Geolocator.bearingBetween(lastPosition.latitude, lastPosition.longitude, widget.position.latitude, widget.position.longitude);
       if (bearing < 0) {
         bearing += 360;
       }
@@ -45,14 +33,7 @@ class _NavigationState extends State<Navigation> {
 
     return Stack(
       children: [
-        Positioned(
-          top: 5,
-          left: 5,
-          child: Text(
-            'NAVIGATION',
-            style: TextStyle(fontSize: 11),
-          ),
-        ),
+        Positioned(top: 5, left: 5, child: Text('NAVIGATION', style: TextStyle(fontSize: 11))),
         Positioned(
           bottom: 5,
           left: 0,
@@ -60,10 +41,7 @@ class _NavigationState extends State<Navigation> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TimestampToTimeago(
-                timestamp: lastPosition?.timestamp.toIso8601String(),
-                style: TextStyle(fontSize: 10),
-              ),
+              TimestampToTimeago(timestamp: lastPosition?.timestamp.toIso8601String(), style: TextStyle(fontSize: 10)),
               //Text(lastPosition?.timestamp != null ? '${lastPosition?.timestamp.toIso8601String()}' : 'No GPS signal', style: TextStyle(fontSize: 10)),
             ],
           ),
@@ -75,13 +53,7 @@ class _NavigationState extends State<Navigation> {
               children: <Widget>[
                 Text('Richtungswinkel', style: TextStyle(fontSize: 15)),
                 Text(bearing != null ? degreeToGon(bearing) : 'No GPS signal', style: TextStyle(fontSize: 20)),
-                SizedBox(
-                  width: 20,
-                  child: Divider(
-                    height: 20,
-                    thickness: 1,
-                  ),
-                ),
+                SizedBox(width: 20, child: Divider(height: 20, thickness: 1)),
                 Text('Entfernung', style: TextStyle(fontSize: 15)),
                 Text(distance != null ? prettyDistance(distance) : 'No GPS signal', style: TextStyle(fontSize: 20)),
               ],
@@ -100,14 +72,7 @@ class _NavigationState extends State<Navigation> {
                       onTap: () {
                         context.read<GpsPositionProvider>().navigateToTarget(widget.position, widget.target);
                       },
-                      child: SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: Icon(
-                          Icons.navigation,
-                          color: Colors.black26,
-                        ),
-                      ),
+                      child: SizedBox(width: 56, height: 56, child: Icon(Icons.navigation, color: Colors.black26)),
                     ),
                   ),
                 ),
