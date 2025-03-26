@@ -15,12 +15,64 @@ class DynamicFormScreen extends StatefulWidget {
 }
 
 class _DynamicFormScreenState extends State<DynamicFormScreen> {
-  Map<String, dynamic>? _uiSchema = {
-    'plot': {},
-    'tree': {
-      'ui:layout': {'type': 'grid'},
+  // Example UI schema for tree array
+  Map<String, dynamic> _uiSchema = {
+    "ui:layout": {"type": "grid"},
+    "intkey": {"ui:widget": "hidden"},
+    "cluster_name": {"ui:widget": "hidden"},
+    "federal_state": {
+      "ui:layout": {"maxWidth": 300.0, "autocomplete": true},
     },
-    'id': {},
+    "growth_district": {
+      "ui:layout": {"maxWidth": 300.0, "autocomplete": true},
+    },
+    "forest_office": {
+      "ui:layout": {"maxWidth": 300.0, "autocomplete": true},
+    },
+
+    "tree": {
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
+    "deadwood": {
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
+    "position": {
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
+    "edges": {
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
+    "subplots_relative_position": {
+      "ui:widget": "hidden",
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
+    "regeneration": {
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
+    "structure_lt4m": {
+      "ui:layout": {"fullWidth": true, "clearFloat": true},
+      "items": {
+        "ui:layout": {"type": "grid"},
+      },
+    },
   };
 
   @override

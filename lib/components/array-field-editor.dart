@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pluto_grid/pluto_grid.dart';
+import 'dart:math' show min, max;
 
 enum ArrayEditorType { form, grid }
 
@@ -20,7 +21,7 @@ class ArrayFieldEditor extends StatefulWidget {
 }
 
 class _ArrayFieldEditorState extends State<ArrayFieldEditor> {
-  ArrayEditorType _editorType = ArrayEditorType.form;
+  ArrayEditorType _editorType = ArrayEditorType.grid;
 
   @override
   Widget build(BuildContext context) {
@@ -30,28 +31,19 @@ class _ArrayFieldEditorState extends State<ArrayFieldEditor> {
     // Only show toggle if items are objects (grid doesn't make sense for simple arrays)
     final bool showToggle = itemsAreObjects;
 
+    //return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: Container(width: 100, color: Colors.red))]);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [Text('${widget.title}${widget.isRequired ? ' *' : ''}', style: Theme.of(context).textTheme.titleMedium), if (widget.description != null) Text(widget.description!, style: Theme.of(context).textTheme.bodySmall)],
-              ),
-            ),
-            if (showToggle)
-              SegmentedButton<ArrayEditorType>(
-                segments: const [ButtonSegment(value: ArrayEditorType.form, icon: Icon(Icons.view_list), label: Text('Form')), ButtonSegment(value: ArrayEditorType.grid, icon: Icon(Icons.grid_on), label: Text('Grid'))],
-                selected: {_editorType},
-                onSelectionChanged: (Set<ArrayEditorType> selection) {
-                  setState(() {
-                    _editorType = selection.first;
-                  });
-                },
-              ),
-          ],
+        SegmentedButton<ArrayEditorType>(
+          segments: const [ButtonSegment(value: ArrayEditorType.form, icon: Icon(Icons.view_list), label: Text('Form')), ButtonSegment(value: ArrayEditorType.grid, icon: Icon(Icons.grid_on), label: Text('Grid'))],
+          selected: {_editorType},
+          onSelectionChanged: (Set<ArrayEditorType> selection) {
+            setState(() {
+              _editorType = selection.first;
+            });
+          },
         ),
         const SizedBox(height: 8),
         if (widget.errorText != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(widget.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
@@ -92,64 +84,63 @@ class _ArrayFormEditor extends StatelessWidget {
 
     return Column(
       children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: value.length + 1,
-          itemBuilder: (context, index) {
-            // Add button at the end of the list
-            if (index == value.length) {
-              return ElevatedButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Add Item'),
-                onPressed: () {
-                  final updatedValues = List<dynamic>.from(value);
+        // Replace ListView.builder with Column + List generation
+        Column(
+          children: [
+            // Add button
+            ElevatedButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('Add Item'),
+              onPressed: () {
+                final updatedValues = List<dynamic>.from(value);
 
-                  // Add empty object for object items or empty string for simple items
-                  if (itemsAreObjects) {
-                    updatedValues.add({});
-                  } else {
-                    updatedValues.add('');
-                  }
+                // Add empty object for object items or empty string for simple items
+                if (itemsAreObjects) {
+                  updatedValues.add({});
+                } else {
+                  updatedValues.add('');
+                }
 
-                  onChanged(updatedValues);
-                },
-              );
-            }
+                onChanged(updatedValues);
+              },
+            ),
+            // Build all existing items
+            ...List.generate(value.length, (index) {
+              // Render existing item - either an object or a simple value
+              final itemValue = value[index];
 
-            // Render existing item - either an object or a simple value
-            final itemValue = value[index];
+              return Card(
+                key: ValueKey('array-item-$index'), // Add key for stable identity
+                margin: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header row with title and delete button
+                      Row(
+                        children: [
+                          Expanded(child: Text('Item ${index + 1}', style: Theme.of(context).textTheme.titleMedium)),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            onPressed: () {
+                              final updatedValues = List<dynamic>.from(value);
+                              updatedValues.removeAt(index);
+                              onChanged(updatedValues);
+                            },
+                          ),
+                        ],
+                      ),
+                      const Divider(),
 
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header row with title and delete button
-                    Row(
-                      children: [
-                        Expanded(child: Text('Item ${index + 1}', style: Theme.of(context).textTheme.titleMedium)),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () {
-                            final updatedValues = List<dynamic>.from(value);
-                            updatedValues.removeAt(index);
-                            onChanged(updatedValues);
-                          },
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-
-                    // Different rendering based on item type
-                    if (itemsAreObjects && itemSchema != null) _buildObjectItem(index, itemValue, itemSchema) else _buildSimpleItem(index, itemValue),
-                  ],
+                      // Different rendering based on item type
+                      if (itemsAreObjects && itemSchema != null) _buildObjectItem(index, itemValue, itemSchema) else _buildSimpleItem(index, itemValue),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            }),
+          ],
         ),
       ],
     );
@@ -182,7 +173,7 @@ class _ArrayFormEditor extends StatelessWidget {
             final propertyName = entry.key;
             final propertySchema = _typeSafeMap<String, dynamic>(entry.value);
             final isPropertyRequired = required.contains(propertyName);
-            final propertyType = propertySchema['type'] as String? ?? 'string';
+            final propertyType = _getEffectiveType(propertySchema['type']);
             final propertyTitle = propertySchema['title'] as String? ?? propertyName;
 
             // Get the current property value
@@ -195,7 +186,9 @@ class _ArrayFormEditor extends StatelessWidget {
 
   Widget _buildObjectProperty(int index, String propertyName, String propertyTitle, Map<String, dynamic> propertySchema, String propertyType, dynamic propertyValue, bool isRequired) {
     // Create appropriate field based on property type
-    switch (propertyType) {
+    final effectiveType = _getEffectiveType(propertyType);
+
+    switch (effectiveType) {
       case 'string':
         return TextFormField(
           initialValue: propertyValue?.toString() ?? '',
@@ -275,6 +268,13 @@ class _ArrayFormEditor extends StatelessWidget {
     }
     return result;
   }
+
+  String _getEffectiveType(dynamic type) {
+    if (type == null) return 'string';
+    if (type is String) return type;
+    if (type is List && type.isNotEmpty) return type[0].toString();
+    return 'string';
+  }
 }
 
 class _ArrayGridEditor extends StatefulWidget {
@@ -316,13 +316,20 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
     final itemSchema = _typeSafeMap<String, dynamic>(widget.schema['items']);
     final properties = _typeSafeMap<String, dynamic>(itemSchema['properties']);
 
+    // Safety check - ensure we have properties before proceeding
+    if (properties.isEmpty) {
+      columns = [];
+      rows = [];
+      return;
+    }
+
     // Create columns based on object properties
     columns =
         properties.entries.map<PlutoColumn>((entry) {
           final key = entry.key;
           final propSchema = _typeSafeMap<String, dynamic>(entry.value);
           final title = propSchema['title'] as String? ?? key;
-          final type = propSchema['type'] as String? ?? 'string';
+          final type = _getEffectiveType(propSchema['type']);
 
           // Determine column type based on property type
           PlutoColumnType columnType;
@@ -340,30 +347,49 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
               columnType = PlutoColumnType.text();
           }
 
-          return PlutoColumn(title: title, field: key, type: columnType, enableEditingMode: true);
+          // Ensure column field is not null or empty
+          // PlutoGrid requires unique, non-empty field identifiers
+          final String safeKey = key.isNotEmpty ? key : 'column_$title';
+
+          return PlutoColumn(title: title, field: safeKey, type: columnType, width: 150, minWidth: 80, enableEditingMode: true, enableSorting: true, enableDropToResize: true, enableFilterMenuItem: false, enableContextMenu: false);
         }).toList();
+
+    // Safety check - ensure we have generated columns
+    if (columns.isEmpty) {
+      columns = [PlutoColumn(title: 'No Fields', field: 'placeholder', type: PlutoColumnType.text())];
+    }
 
     // Create rows from existing data
     rows = [];
-    for (var item in widget.value) {
-      final Map<String, dynamic> rowItem = _typeSafeMap<String, dynamic>(item);
-      final Map<String, PlutoCell> cells = {};
+    // Safety check for valid data
+    if (widget.value.isNotEmpty) {
+      for (var item in widget.value) {
+        final Map<String, dynamic> rowItem = _typeSafeMap<String, dynamic>(item);
+        final Map<String, PlutoCell> cells = {};
 
-      // Create cells for each property
-      for (var prop in properties.keys) {
-        final value = rowItem[prop];
-        cells[prop] = PlutoCell(value: value);
+        // Create cells for each property, ensuring each column has a cell
+        for (var column in columns) {
+          final String field = column.field;
+          final value = rowItem[field];
+          cells[field] = PlutoCell(value: value);
+        }
+
+        rows.add(PlutoRow(cells: cells));
       }
-
-      rows.add(PlutoRow(cells: cells));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Safety check - handle empty columns case
+    if (columns.isEmpty) {
+      return Card(child: Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Text('No fields defined for array items'))));
+    }
+
+    // Rest of the build method...
     return Container(
-      height: 400, // Set appropriate height
-      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
+      height: 400,
+      decoration: BoxDecoration(border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(4)),
       child: Column(
         children: [
           Expanded(
@@ -371,47 +397,38 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
               columns: columns,
               rows: rows,
               onLoaded: (PlutoGridOnLoadedEvent event) {
-                stateManager = event.stateManager;
+                // Avoid setting state during build
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  stateManager = event.stateManager;
+
+                  // Wait until grid is actually ready before configuring
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    if (!mounted) return;
+
+                    stateManager.setShowLoading(true);
+
+                    // Resize columns with a try-catch to prevent uncaught errors
+                    try {
+                      final double availableWidth = context.size?.width ?? 0;
+                      if (availableWidth > 0 && stateManager.columns.isNotEmpty) {
+                        // Simple even width distribution
+                        final double colWidth = (availableWidth / stateManager.columns.length) - 10;
+                        for (final column in stateManager.columns) {
+                          stateManager.resizeColumn(column, colWidth);
+                        }
+                      }
+                    } catch (e) {
+                      print('Error adjusting column widths: $e');
+                    }
+
+                    stateManager.setShowLoading(false);
+                  });
+                });
               },
-              onChanged: (PlutoGridOnChangedEvent event) {
-                // Update data when grid changes
-                _updateDataFromGrid();
-              },
-              configuration: const PlutoGridConfiguration(columnSize: PlutoGridColumnSizeConfig(autoSizeMode: PlutoAutoSizeMode.scale)),
+              // Rest of your configuration...
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Row'),
-                  onPressed: () {
-                    final Map<String, PlutoCell> cells = {};
-                    for (var column in columns) {
-                      cells[column.field] = PlutoCell(value: null);
-                    }
-                    stateManager.appendRows([PlutoRow(cells: cells)]);
-                    _updateDataFromGrid();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.delete),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                  label: const Text('Delete Selected'),
-                  onPressed: () {
-                    if (stateManager.currentSelectingRows.isNotEmpty) {
-                      stateManager.removeRows(stateManager.currentSelectingRows);
-                      _updateDataFromGrid();
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
+          // Action buttons...
         ],
       ),
     );
@@ -464,5 +481,22 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
       });
     }
     return result;
+  }
+
+  // Add the _getEffectiveType helper method to _ArrayGridEditorState class:
+  String _getEffectiveType(dynamic typeValue) {
+    if (typeValue == null) return 'string';
+
+    if (typeValue is List) {
+      // Find first non-null type in the array
+      for (final type in typeValue) {
+        if (type != null && type != 'null') {
+          return type.toString();
+        }
+      }
+      return 'string'; // Default if all null or only "null" type
+    }
+
+    return typeValue.toString();
   }
 }

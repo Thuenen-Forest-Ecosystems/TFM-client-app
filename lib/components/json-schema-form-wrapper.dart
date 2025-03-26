@@ -51,7 +51,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
     });
 
     // Create tab names list - first tab for simple fields, then each complex field
-    final List<String> tabNames = ['Basic Info'];
+    final List<String> tabNames = ['Plot'];
     complexProperties.keys.forEach((propName) {
       // Use title if available, otherwise capitalize the property name
       final title = complexProperties[propName]!['title'] as String? ?? propName[0].toUpperCase() + propName.substring(1);
@@ -63,23 +63,28 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.schema['title'] as String? ?? 'Form'),
-          bottom: TabBar(
-            isScrollable: true,
-            tabs:
-                tabNames
-                    .map(
-                      (name) => Tab(
-                        text: name,
-                        icon:
-                            name != 'Basic Info'
-                                ?
-                                // Show different icons for arrays vs objects
-                                (complexProperties[tabNames.indexOf(name) > 0 ? complexProperties.keys.elementAt(tabNames.indexOf(name) - 1) : '']?['type'] == 'array' ? Icon(Icons.list) : Icon(Icons.layers))
-                                : null,
-                      ),
-                    )
-                    .toList(),
-          ),
+          actions: [
+            if (formErrors.isNotEmpty)
+              ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please correct the errors in the form'), backgroundColor: Colors.red));
+                },
+                child: Text('Fehler'),
+              ),
+            if (formErrors.isEmpty)
+              ElevatedButton(
+                onPressed: () {
+                  if (_validateFormData(_formData)) {
+                    print('Form data is valid: $_formData');
+                  } else {
+                    print('Form data is invalid: $_formData');
+                  }
+                },
+
+                child: Text('Fertig'),
+              ),
+          ],
+          bottom: TabBar(isScrollable: true, tabs: tabNames.map((name) => Tab(text: name)).toList()),
         ),
         body: TabBarView(
           children: [
@@ -182,18 +187,17 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
     };
 
     // Extract UI schema for this property
-    final sectionUiSchema = {propName: widget.uiSchema?[propName] ?? {}};
+    final Map<String, dynamic> sectionUiSchema = widget.uiSchema != null ? {propName: widget.uiSchema![propName] ?? {}} : {};
+
+    // Add special UI layout for arrays if needed
+    if (isArray && !sectionUiSchema.containsKey('ui:layout')) {
+      sectionUiSchema['ui:layout'] = {"fullWidth": true, "type": "grid"};
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Show a label for arrays to make it clear what they are
-        if (isArray)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(children: [Icon(Icons.format_list_bulleted, color: Theme.of(context).colorScheme.primary), SizedBox(width: 8), Text((propSchema['title'] as String?) ?? propName, style: Theme.of(context).textTheme.titleLarge)]),
-          ),
-
+        // Fix: Remove the "data" debug text in _ArrayFormEditor
         JsonSchemaForm(
           schema: sectionSchema,
           formData: propData,

@@ -161,39 +161,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.schema['title'] != null) Text(widget.schema['title'], style: Theme.of(context).textTheme.titleLarge),
-          if (widget.schema['description'] != null) Text(widget.schema['description'], style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 16),
-          ..._buildFormFields(),
-          const SizedBox(height: 16),
-          _buildActionButtons(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (widget.onCancel != null) TextButton(onPressed: widget.onCancel, child: const Text('Cancel')),
-        if (widget.onReset != null)
-          TextButton(
-            onPressed: () {
-              _formKey.currentState?.reset();
-              widget.onReset?.call();
-            },
-            child: const Text('Reset'),
-          ),
-        const SizedBox(width: 8),
-        ElevatedButton(onPressed: _submitForm, child: const Text('Submit')),
-      ],
-    );
+    return Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const SizedBox(height: 16), ..._buildFormFields(), const SizedBox(height: 16)]));
   }
 
   List<Widget> _buildFormFields() {
@@ -252,7 +220,11 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           Padding(
             padding: EdgeInsets.only(right: fieldSpacing, bottom: rowSpacing),
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isFullWidth ? double.infinity : maxWidth, minWidth: isFullWidth ? MediaQuery.of(context).size.width - fieldSpacing : 200.0),
+              constraints: BoxConstraints(
+                // Fix: Properly handle numeric values in maxWidth
+                maxWidth: isFullWidth ? double.infinity : (fieldLayoutOptions['maxWidth'] is num ? (fieldLayoutOptions['maxWidth'] as num).toDouble() : maxWidth),
+                minWidth: isFullWidth ? MediaQuery.of(context).size.width - fieldSpacing : 200.0,
+              ),
               child: _buildField(fieldName, fieldSchema, isRequired),
             ),
           ),
@@ -286,13 +258,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
                       // only if it's not the first widget
                       if (fieldIndex > 0 && shouldClearFloat) {
                         return SizedBox(
-                          width: constraints.maxWidth,
-                          child: Column(
-                            children: [
-                              SizedBox(height: 0), // Force new line with zero height
-                              SizedBox(width: isFullWidth ? constraints.maxWidth : itemWidth, child: fieldWidget),
-                            ],
-                          ),
+                          // Fix: Respect the original maxWidth setting when provided
+                          width: isFullWidth ? constraints.maxWidth : (fieldLayoutOptions.containsKey('maxWidth') ? (fieldLayoutOptions['maxWidth'] is num ? (fieldLayoutOptions['maxWidth'] as num).toDouble() : defaultFieldWidth) : itemWidth),
+                          child: fieldWidget,
                         );
                       }
                       return SizedBox(width: isFullWidth ? constraints.maxWidth : itemWidth, child: fieldWidget);
@@ -330,10 +298,26 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return value.toString();
   }
 
+  // Add this helper method to determine the effective type from schema
+  String _getEffectiveType(dynamic typeValue) {
+    if (typeValue == null) return 'string';
+
+    if (typeValue is List) {
+      // Find first non-null type in the array
+      for (final type in typeValue) {
+        if (type != null && type != 'null') {
+          return type.toString();
+        }
+      }
+      return 'string'; // Default if all null or only "null" type
+    }
+
+    return typeValue.toString();
+  }
+
   Widget _buildField(String fieldName, Map<String, dynamic> fieldSchema, bool isRequired) {
     // Get field type safely
-    final dynamic typeValue = fieldSchema['type'];
-    final String fieldType = typeValue is String ? typeValue : 'string';
+    final String fieldType = _getEffectiveType(fieldSchema['type']);
 
     // Get field title safely
     final dynamic titleValue = fieldSchema['title'];
@@ -458,7 +442,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   Widget _buildPropertyField(String path, String propName, Map<String, dynamic> propSchema, bool isRequired, dynamic value) {
     // Similar to your existing field building logic but adapted for nested properties
-    final propType = propSchema['type'] as String? ?? 'string';
+    final propType = _getEffectiveType(propSchema['type']);
     final propTitle = propSchema['title'] as String? ?? propName;
 
     // Get potential UI options for this nested field
@@ -592,13 +576,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$title${isRequired ? ' *' : ''}'),
-        if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 8),
+        //Text('$title${isRequired ? ' *' : ''}'),
+        // if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
+        //const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError),
+          decoration: InputDecoration(helperText: description != null ? description : '', labelText: '$title${isRequired ? ' *' : ''}', border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError),
           validator: (value) {
             if (isRequired && (value == null || value.isEmpty)) {
               return '$title is required';
@@ -640,22 +624,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     // Get existing error for this field
     final fieldError = _getFieldError(name);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Checkbox(
-              value: isChecked,
-              onChanged: (bool? value) {
-                _updateField(name, value ?? false);
-              },
-            ),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title), if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall)])),
-          ],
-        ),
-        if (fieldError != null) Padding(padding: const EdgeInsets.only(left: 12.0), child: Text(fieldError, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12))),
-      ],
+    return CheckboxListTile(
+      title: Text(title),
+      subtitle: description != null ? Text(description, style: Theme.of(context).textTheme.bodySmall) : null,
+      value: isChecked,
+      onChanged: (bool? value) {
+        _updateField(name, value ?? false);
+      },
     );
   }
 
@@ -672,7 +647,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         DropdownButtonFormField<String>(
           decoration: InputDecoration(border: const OutlineInputBorder(), errorText: fieldError),
           value: currentValue,
-          hint: Text('Select $title'),
+          hint: Text('$title'),
           isExpanded: true,
           validator: isRequired ? (value) => value == null || value.isEmpty ? '$title is required' : null : null,
           items:
@@ -688,86 +663,170 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
   }
 
   Widget _buildEnumField(String name, String title, String? description, List<dynamic> enumValues, List<String>? enumNames, Map<String, dynamic> fieldSchema) {
-    // Determine if this field should use integer values
-    // Get the field type, checking if it's an array and extracting the first non-null value
-    dynamic fieldType;
-    if (fieldSchema['type'] is List) {
-      // If type is an array, find the first non-null type
-      fieldType = (fieldSchema['type'] as List).firstWhere(
-        (type) => type != null,
-        orElse: () => 'string', // Default to string if all null
-      );
-    } else {
-      fieldType = fieldSchema['type'] ?? 'string'; // Default to string if not specified
-    }
+    // Get UI options for this field
+    final fieldUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[name]) ?? {};
+    final fieldLayoutOptions = _typeSafeMap<String, dynamic>(fieldUiOptions['ui:layout']) ?? {};
 
-    // Determine if this field should use integer values
+    // Check if autocomplete should be used
+    final bool useDropdown = fieldLayoutOptions['dropdown'] == true;
+
+    // Get the field type from schema
+    final fieldType = _getEffectiveType(fieldSchema['type']);
+
+    // Rest of your existing code...
     final bool isIntegerEnum = fieldType == 'integer';
-
-    // Store original enum values alongside string representations
     final List<dynamic> originalValues = enumValues;
     final List<String> stringOptions = enumValues.map((value) => value.toString()).toList();
-
-    // Get current value
     final currentValue = _getFieldValue(name);
     String? currentStringValue = currentValue?.toString();
-
-    // IMPORTANT: Validate that current value is in the list of options
-    if (currentStringValue != null && !stringOptions.contains(currentStringValue)) {
-      // If the current value is invalid, don't use it
-      print('Warning: Value "$currentStringValue" for field "$name" is not in the allowed options: $stringOptions');
-      currentStringValue = null;
-    }
-
-    // Get existing error for this field
     final fieldError = _getFieldError(name);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (description != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(description, style: Theme.of(context).textTheme.bodySmall)),
-        DropdownButtonFormField<String>(
-          decoration: InputDecoration(labelText: title, border: const OutlineInputBorder(), errorText: fieldError, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-          value: currentStringValue,
-          isExpanded: true,
-          menuMaxHeight: 300,
-          hint: Text('Select $title'),
-          selectedItemBuilder: (BuildContext context) {
-            return stringOptions.map<Widget>((String value) {
-              final idx = stringOptions.indexOf(value);
-              String displayName = enumNames != null && idx < enumNames.length ? enumNames[idx] : value;
-              // add value to dispay name
-              displayName = '$value | $displayName';
-              return Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 1);
-            }).toList();
-          },
-          items:
-              stringOptions.asMap().entries.map((entry) {
-                final int idx = entry.key;
-                final String value = entry.value;
-                final String displayName = enumNames != null && idx < enumNames.length ? enumNames[idx] : value;
-
-                return DropdownMenuItem<String>(value: value, child: Container(constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8), child: Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 2)));
-              }).toList(),
-          onChanged: (String? newValue) {
-            if (newValue != null && isIntegerEnum) {
-              // Convert back to integer when needed
-              final idx = stringOptions.indexOf(newValue);
-              if (idx >= 0) {
-                // Use the original value to maintain the correct type
-                _updateField(name, originalValues[idx]);
-              } else {
-                // Fallback to trying to parse as int
-                _updateField(name, int.tryParse(newValue));
+    // Build the display names list
+    final List<String> displayNames =
+        stringOptions.asMap().entries.map((entry) {
+          final int idx = entry.key;
+          final String value = entry.value;
+          return enumNames != null && idx < enumNames.length ? '$value | ${enumNames[idx]}' : value;
+        }).toList();
+    // Use autocomplete if specified, otherwise use dropdown
+    if (!useDropdown) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Autocomplete<String>(
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              if (textEditingValue.text == '') {
+                return displayNames;
               }
-            } else {
-              // Otherwise use as-is
-              _updateField(name, newValue);
-            }
-          },
-        ),
-      ],
-    );
+              return displayNames.where((option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase())).toList();
+            },
+            fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+              // Set initial text if value exists
+              if (currentStringValue != null && textEditingController.text.isEmpty) {
+                final idx = stringOptions.indexOf(currentStringValue);
+                textEditingController.text = displayNames[idx];
+              }
+              return TextFormField(
+                controller: textEditingController,
+                focusNode: focusNode,
+                decoration: InputDecoration(
+                  labelText: title,
+                  helperText: description,
+                  errorText: fieldError,
+                  border: OutlineInputBorder(),
+                  suffixIcon:
+                      textEditingController.text.isNotEmpty
+                          ? IconButton(
+                            icon: Icon(Icons.clear),
+                            onPressed: () {
+                              // Clear the text field
+                              textEditingController.clear();
+                              // Reset the form value
+                              _updateField(name, null);
+                              // Unfocus to dismiss keyboard
+                              focusNode.unfocus();
+                            },
+                          )
+                          : Icon(Icons.arrow_drop_down),
+                ),
+                onFieldSubmitted: (String value) {
+                  onFieldSubmitted();
+                },
+              );
+            },
+            onSelected: (String selection) {
+              // Find the original value from the selection
+              int selectedIdx = -1;
+              for (int i = 0; i < displayNames.length; i++) {
+                if (displayNames[i] == selection) {
+                  selectedIdx = i;
+                  break;
+                }
+              }
+
+              if (selectedIdx >= 0) {
+                if (isIntegerEnum) {
+                  _updateField(name, originalValues[selectedIdx]);
+                } else {
+                  _updateField(name, stringOptions[selectedIdx]);
+                }
+              }
+            },
+            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  elevation: 4.0,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.9), // maxHeight: 200,
+                    child: ListView.builder(
+                      padding: EdgeInsets.all(8.0),
+                      itemCount: options.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        final String option = options.elementAt(index);
+                        return ListTile(
+                          title: Text(option),
+                          onTap: () {
+                            onSelected(option);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          //if (description != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(description, style: Theme.of(context).textTheme.bodySmall)),
+          DropdownButtonFormField<String>(
+            decoration: InputDecoration(labelText: title, border: const OutlineInputBorder(), errorText: fieldError, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), helperText: description),
+            value: currentStringValue,
+            isExpanded: true,
+            menuMaxHeight: 300,
+            //hint: Text('Select $title'),
+            selectedItemBuilder: (BuildContext context) {
+              return stringOptions.map<Widget>((String value) {
+                final idx = stringOptions.indexOf(value);
+                String displayName = enumNames != null && idx < enumNames.length ? enumNames[idx] : value;
+                // add value to dispay name
+                displayName = '$value | $displayName';
+                return Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 1);
+              }).toList();
+            },
+            items:
+                stringOptions.asMap().entries.map((entry) {
+                  final int idx = entry.key;
+                  final String value = entry.value;
+                  final String displayName = enumNames != null && idx < enumNames.length ? value + ' | ' + enumNames[idx] : value;
+
+                  return DropdownMenuItem<String>(value: value, child: Container(constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8), child: Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 2)));
+                }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null && isIntegerEnum) {
+                // Convert back to integer when needed
+                final idx = stringOptions.indexOf(newValue);
+                if (idx >= 0) {
+                  // Use the original value to maintain the correct type
+                  _updateField(name, originalValues[idx]);
+                } else {
+                  // Fallback to trying to parse as int
+                  _updateField(name, int.tryParse(newValue));
+                }
+              } else {
+                // Otherwise use as-is
+                _updateField(name, newValue);
+              }
+            },
+          ),
+        ],
+      );
+    }
   }
 
   Widget _buildArrayField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired) {
@@ -776,6 +835,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
     // Get existing error for this field
     final fieldError = _getFieldError(name);
+
+    // Choose which implementation to use
+    // Uncomment the below line and comment out the ArrayFieldEditor if you want to use the placeholder
 
     return ArrayFieldEditor(
       name: name,
@@ -793,7 +855,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   Widget _buildObjectField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired) {
     // For nested objects, get the current data
-    final nestedData = _getFieldValue(name) as Map<String, dynamic>? ?? {};
+    //final nestedData = _getFieldValue(name) as Map<String, dynamic>? ?? {};
 
     // Get existing error for this field
     final fieldError = _getFieldError(name);
@@ -840,16 +902,6 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         return TextInputType.visiblePassword;
       default:
         return TextInputType.text;
-    }
-  }
-
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // Use widget.formData if available, otherwise use local data
-      final Map<String, dynamic> dataToSubmit = widget.formData != null ? _typeSafeMap<String, dynamic>(widget.formData) : _typeSafeMap<String, dynamic>(_localFormData);
-
-      // Submit the data without schema validation
-      widget.onSubmit(dataToSubmit);
     }
   }
 
