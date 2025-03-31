@@ -78,7 +78,7 @@ dependencies:
   shared_preferences: ^2.3.5
   flutter_tts: ^4.2.1
   speech_to_text: ^7.0.0
-  flutter_js: ^0.8.1
+  #flutter_js: ^0.8.1
   localstorage: ^5.0.0
   powersync: ^1.11.1
   powersync_attachments_helper: ^0.6.17

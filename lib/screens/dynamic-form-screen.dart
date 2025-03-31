@@ -6,9 +6,10 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class DynamicFormScreen extends StatefulWidget {
   final String schemaId;
-  final String plotId;
+  //final String plotId;
+  final String recordsId;
   final String clusterId;
-  const DynamicFormScreen({super.key, required this.schemaId, required this.plotId, required this.clusterId});
+  const DynamicFormScreen({super.key, required this.schemaId, required this.recordsId, required this.clusterId});
 
   @override
   State<DynamicFormScreen> createState() => _DynamicFormScreenState();
@@ -17,6 +18,7 @@ class DynamicFormScreen extends StatefulWidget {
 class _DynamicFormScreenState extends State<DynamicFormScreen> {
   // Example UI schema for tree array
   Map<String, dynamic> _uiSchema = {
+    // MAKE deprecated
     "ui:layout": {"type": "grid"},
     "intkey": {"ui:widget": "hidden"},
     "cluster_name": {"ui:widget": "hidden"},
@@ -90,7 +92,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               Map<String, dynamic> plotSchemaData = clusterSchemaData['items']['properties']['plot']['items'];
 
               // Make sure it's a valid map
-              return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, uiSchema: _uiSchema);
+              return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, uiSchema: {}, recordsId: widget.recordsId);
             } else {
               // No schema found with the given ID
               return Center(
@@ -99,7 +101,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   children: [
                     Icon(Icons.search_off, size: 48, color: Colors.orange),
                     SizedBox(height: 16),
-                    Text('No schema found with ID: ${widget.schemaId}'),
+                    Text('No schema-json found with ID: ${widget.schemaId}'),
                     SizedBox(height: 8),
                     ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: Text('Go Back')),
                   ],

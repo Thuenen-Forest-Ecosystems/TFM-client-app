@@ -252,9 +252,23 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         final table = rest.from(op.table);
         if (op.op == UpdateType.put) {
           var data = Map<String, dynamic>.of(op.opData!);
+
+          // Check if the table is records table
+          print(op.table + ' PUT');
+          if (op.table == 'records' && data['properties'] != null) {
+            data['properties'] = jsonDecode(data['properties']);
+            print('PS: properties: ${data['properties']}');
+          }
+
           data['id'] = op.id;
           await table.upsert(data);
         } else if (op.op == UpdateType.patch) {
+          // Check if the table is records table
+          print(op.table + ' PATCH');
+          if (op.table == 'records' && op.opData!['properties'] != null) {
+            op.opData!['properties'] = jsonDecode(op.opData!['properties']);
+            print('PS: properties: ${op.opData!['properties']}');
+          }
           await table.update(op.opData!).eq('id', op.id);
         } else if (op.op == UpdateType.delete) {
           await table.delete().eq('id', op.id);
@@ -279,6 +293,8 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         await transaction.complete();
       } else {
         print('Error uploading data: $e');
+        print('PS: ${transaction.crud}');
+        print('PS: ${transaction.crud[0].table}');
         rethrow;
       }
     }

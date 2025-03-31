@@ -3,7 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  flutter_js
   flutter_libserialport
   gtk
   objectbox_flutter_libs

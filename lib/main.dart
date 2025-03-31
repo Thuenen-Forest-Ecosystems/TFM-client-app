@@ -8,7 +8,6 @@ import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/screens/admin-permissions.dart';
 import 'package:terrestrial_forest_monitor/screens/admin.dart';
 import 'package:terrestrial_forest_monitor/screens/brick.dart';
-//import 'package:terrestrial_forest_monitor/screens/flutter_js.dart';
 import 'package:terrestrial_forest_monitor/screens/headless.dart';
 import 'package:terrestrial_forest_monitor/screens/home.dart';
 import 'package:terrestrial_forest_monitor/screens/settings.dart';

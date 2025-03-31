@@ -72,7 +72,9 @@ Schema schema = Schema(([
     Column.text('bucket_plausability_file_name'),
     Column.text('schema'),
   ]),
-  const Table('records', [Column.text('data'), Column.text('schema')]),
+  const Table('records', [Column.text('properties'), Column.text('schema_name'), Column.text('schema_id'), Column.text('plot_id'), Column.text('supervisor_id'), Column.text('troop_id'), Column.text('previous_properties')]),
+  const Table('records_test', [Column.text('plot_id'), Column.text('created_at')]),
+
   const Table('cluster', [
     Column.text('intkey'),
     Column.text('cluster_name'),

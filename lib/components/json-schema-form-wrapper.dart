@@ -1,13 +1,17 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:terrestrial_forest_monitor/components/json-schema-form.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class JsonSchemaFormWrapper extends StatefulWidget {
+  final String recordsId;
   final Map<String, dynamic> schema;
   final Map<String, dynamic> formData;
   final Map<String, dynamic>? uiSchema;
 
-  const JsonSchemaFormWrapper({Key? key, required this.schema, required this.formData, this.uiSchema}) : super(key: key);
+  const JsonSchemaFormWrapper({Key? key, required this.recordsId, required this.schema, required this.formData, this.uiSchema}) : super(key: key);
 
   @override
   State<JsonSchemaFormWrapper> createState() => _JsonSchemaFormWrapperState();
@@ -18,12 +22,34 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
   Map<String, dynamic> formErrors = {};
   late JsonSchema _jsonSchema;
 
+  Future _getFormData() async {
+    try {
+      // Get the form data from the database
+      final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
+      if (record.isNotEmpty) {
+        print('FOUND RECORD');
+        print(record['properties']);
+        _formData = jsonDecode(record['properties']);
+        print(record['properties']);
+      } else {
+        _formData = widget.formData;
+      }
+    } catch (e) {
+      print('Error fetching form data: $e');
+    }
+
+    _validateFormData(_formData);
+  }
+
   @override
   void initState() {
     super.initState();
     // Create schema validator when the widget initializes
     _jsonSchema = JsonSchema.create(widget.schema);
     _formData = widget.formData;
+    _getFormData();
+
+    //_validateFormData(_formData);
   }
 
   @override
@@ -58,6 +84,28 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
       tabNames.add(title);
     });
 
+    Future _save() async {
+      // Save the form data to the database or perform any other action
+      print('Saving form data: $_formData');
+      print(widget.recordsId);
+      // Check if exists
+      try {
+        final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
+        if (record[0] != null) {
+          print('Record exists, updating...');
+          print(_formData);
+          // Update the record
+          await db.execute('UPDATE records SET properties = ? WHERE id = ?', [_formData, widget.recordsId]);
+        } else {
+          print('Record does not exist, inserting...');
+          // Insert a new record
+          await db.execute('INSERT INTO records (properties, schema_id) VALUES (?, ?)', [_formData, widget.schema['id']]);
+        }
+      } catch (e) {
+        print('Error saving form data: $e');
+      }
+    }
+
     return DefaultTabController(
       length: tabNames.length,
       child: Scaffold(
@@ -68,6 +116,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
               ElevatedButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please correct the errors in the form'), backgroundColor: Colors.red));
+                  _save();
                 },
                 child: Text('Fehler'),
               ),
@@ -238,7 +287,8 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
     try {
       // Validate the data against the schema
       final result = _jsonSchema.validate(data);
-
+      print('validateFormData: ${data}');
+      print('validateFormData: ${widget.schema['required']}');
       if (result.isValid) {
         // Clear errors if valid
         setState(() {
@@ -252,6 +302,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
         for (var error in result.errors) {
           // Parse the error path to identify the field
           String path = error.instancePath;
+          print('validateFormData: ${error.message}');
 
           // Handle empty path (top-level errors)
           if (path.isEmpty) {
@@ -287,8 +338,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
         return false;
       }
     } catch (e) {
-      print('Error validating form data: $e');
-
       setState(() {
         formErrors = {'_form': 'Validation error: ${e.toString()}'};
       });

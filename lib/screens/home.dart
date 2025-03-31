@@ -101,7 +101,7 @@ class _HomeState extends State<Home> {
               final schemaId = state.pathParameters['schemaId']!;
               final clusterId = state.pathParameters['clusterId']!;
               final plotId = state.pathParameters['plot']!;
-              return DynamicFormScreen(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+              return DynamicFormScreen(schemaId: schemaId, recordsId: plotId, clusterId: clusterId);
             },
             /*'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
