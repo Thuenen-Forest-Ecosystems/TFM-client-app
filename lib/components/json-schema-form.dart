@@ -7,14 +7,14 @@ class JsonSchemaForm extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final Map<String, dynamic>? uiSchema;
   final Map<String, dynamic>? formData;
-  final Map<String, dynamic>? formErrors;
+  final List<ValidationError> validationErrors;
   final void Function(Map<String, dynamic>)? onChanged;
   final void Function(Map<String, dynamic>)? onError;
   final void Function()? onReset;
   final void Function()? onCancel;
   final void Function(Map<String, dynamic>) onSubmit;
 
-  const JsonSchemaForm({Key? key, required this.schema, this.initialData, this.uiSchema, this.formData, this.formErrors, this.onChanged, this.onError, this.onReset, this.onCancel, required this.onSubmit}) : super(key: key);
+  const JsonSchemaForm({Key? key, required this.schema, required this.validationErrors, this.initialData, this.uiSchema, this.formData, this.onChanged, this.onError, this.onReset, this.onCancel, required this.onSubmit}) : super(key: key);
 
   @override
   State<JsonSchemaForm> createState() => _JsonSchemaFormState();
@@ -34,6 +34,8 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     // Create a schema validator from the provided schema
     _jsonSchema = JsonSchema.create(widget.schema);
     _initializeForm();
+    // Convert validation errors to field errors
+    _updateErrorsFromValidation();
   }
 
   @override
@@ -45,12 +47,40 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       _updateControllersFromFormData();
     }
 
-    // If external errors changed, refresh the UI
-    if (widget.formErrors != oldWidget.formErrors) {
-      setState(() {
-        _localFormErrors = _typeSafeMap<String, dynamic>(widget.formErrors) ?? {};
-      });
+    // If validation errors changed, update local errors
+    if (widget.validationErrors != oldWidget.validationErrors) {
+      _updateErrorsFromValidation();
     }
+  }
+
+  // Convert ValidationError list to field error map
+  void _updateErrorsFromValidation() {
+    Map<String, dynamic> newErrors = {};
+
+    for (ValidationError error in widget.validationErrors) {
+      // Extract field path from error - using property path or instance path
+      String path = error.schemaPath ?? '';
+
+      // Remove schema path prefix if present (like #/properties/)
+      if (path.contains('/properties/')) {
+        path = path.split('/properties/').last;
+        // Handle nested paths
+        if (path.contains('/')) {
+          path = path.replaceAll('/', '.');
+        }
+      } else if (error.instancePath != null && error.instancePath!.isNotEmpty) {
+        // Use instance path as fallback
+        path = error.instancePath!.substring(1).replaceAll('/', '.');
+      }
+
+      if (path.isNotEmpty) {
+        newErrors[path] = error.message;
+      }
+    }
+
+    setState(() {
+      _localFormErrors = newErrors;
+    });
   }
 
   // Helper method to ensure maps have String keys
@@ -68,8 +98,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   void _initializeForm() {
     // Initialize with formData if provided, otherwise use initialData or empty map
-    _localFormData = _typeSafeMap<String, dynamic>(widget.formData) ?? _typeSafeMap<String, dynamic>(widget.initialData) ?? {};
-    _localFormErrors = _typeSafeMap<String, dynamic>(widget.formErrors) ?? {};
+    _localFormData = _typeSafeMap<String, dynamic>(widget.formData);
+    _localFormErrors = {};
+
     _initializeControllers();
     _formInitialized = true;
   }
@@ -120,22 +151,58 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       return widget.formData![fieldName];
     }
 
-    return _localFormData[fieldName];
+    // Get value from localFormData
+    final value = _localFormData[fieldName];
+
+    // If both are null, look for a default in the schema
+    if (value == null && widget.schema['properties'] != null) {
+      // Handle nested field paths (e.g., "address.street")
+      final pathParts = fieldName.split('.');
+      if (pathParts.length == 1) {
+        // For top-level fields
+        final properties = widget.schema['properties'] as Map<String, dynamic>?;
+        if (properties != null && properties.containsKey(fieldName)) {
+          final fieldSchema = properties[fieldName] as Map<String, dynamic>?;
+          if (fieldSchema != null && fieldSchema.containsKey('default')) {
+            return fieldSchema['default'];
+          }
+        }
+      } else {
+        // For nested fields (basic support)
+        // This could be extended for deeper nesting
+        final topField = pathParts[0];
+        final nestedField = pathParts[1];
+
+        final properties = widget.schema['properties'] as Map<String, dynamic>?;
+        if (properties != null && properties.containsKey(topField)) {
+          final topFieldSchema = properties[topField] as Map<String, dynamic>?;
+          if (topFieldSchema != null && topFieldSchema['properties'] != null && topFieldSchema['properties'][nestedField] != null) {
+            final nestedFieldSchema = topFieldSchema['properties'][nestedField] as Map<String, dynamic>?;
+            if (nestedFieldSchema != null && nestedFieldSchema.containsKey('default')) {
+              return nestedFieldSchema['default'];
+            }
+          }
+        }
+      }
+    }
+
+    return value;
   }
 
   void _updateField(String name, dynamic value) {
-    // Update the field value without validation
+    final parts = name.split('.');
+
     if (widget.formData != null) {
       // Use provided external formData if available
-      final updatedData = _typeSafeMap<String, dynamic>(widget.formData);
-      updatedData[name] = value;
+      Map<String, dynamic> updatedData = _typeSafeMap<String, dynamic>(widget.formData);
+      _updateNestedValue(updatedData, parts, value);
 
       // Call onChanged callback if available
       widget.onChanged?.call(updatedData);
     } else {
       // Otherwise update internal state
       setState(() {
-        _localFormData[name] = value;
+        _updateNestedValue(_localFormData, parts, value);
       });
 
       // Call onChanged with updated data
@@ -143,10 +210,33 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     }
   }
 
+  void _updateNestedValue(Map<String, dynamic> data, List<String> parts, dynamic value) {
+    Map<String, dynamic> current = data;
+    for (int i = 0; i < parts.length - 1; i++) {
+      final part = parts[i];
+      if (!current.containsKey(part) || current[part] == null || current[part] is! Map<String, dynamic>) {
+        current[part] = <String, dynamic>{};
+      }
+      current = current[part] as Map<String, dynamic>;
+    }
+    current[parts.last] = value;
+  }
+
   String? _getFieldError(String name) {
-    // Only use errors passed from parent component
-    if (widget.formErrors != null && widget.formErrors!.containsKey(name)) {
-      return widget.formErrors![name]?.toString();
+    // search for errors in widget.validationErrors
+    for (final error in widget.validationErrors) {
+      // Check if the error instancePath contains the field name
+      // trim the leading / from instancePath
+      if (error.instancePath.isEmpty) {
+        continue;
+      }
+      final trimmedPath = error.instancePath.substring(1) ?? '';
+      // replace all / with .
+      final instancePath = trimmedPath.replaceAll('/', '.');
+
+      if (instancePath == name) {
+        return error.message;
+      }
     }
     return null;
   }
@@ -161,7 +251,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const SizedBox(height: 16), ..._buildFormFields(), const SizedBox(height: 16)]));
+    return Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [..._buildFormFields()]));
   }
 
   List<Widget> _buildFormFields() {
@@ -177,7 +267,8 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     final String layoutType = (layoutOptions['type'] as String?) ?? 'column';
 
     // If layout type is responsive or grid, use Wrap layout
-    if (layoutType == 'responsive' || layoutType == 'grid') {
+    if (false) {
+      //layoutType == 'responsive' || layoutType == 'grid'
       final List<Widget> fieldWidgets = [];
 
       for (final entry in properties.entries) {
@@ -284,7 +375,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           continue;
         }
 
-        fields.add(Padding(padding: const EdgeInsets.only(bottom: 16), child: _buildField(fieldName, fieldSchema, isRequired)));
+        fields.add(_buildField(fieldName, fieldSchema, isRequired));
       }
     }
 
@@ -328,8 +419,14 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     final String? description = descriptionValue is String ? descriptionValue : null;
 
     // Get UI options
-    final fieldUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[fieldName]) ?? {};
+    final fieldUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[fieldName]);
     final widgetType = fieldUiOptions['ui:widget'] as String?;
+
+    // Check for and apply default value if current value is null
+    final currentValue = _getFieldValue(fieldName);
+    if (currentValue == null && fieldSchema.containsKey('default')) {
+      _updateField(fieldName, fieldSchema['default']);
+    }
 
     // Check for enum fields first - this takes priority over other field types
     if (fieldSchema['enum'] != null) {
@@ -449,16 +546,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     final pathParts = path.split('.');
     final objectName = pathParts[0];
     final propertyName = pathParts[1];
-    final propUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[objectName]?[propertyName]) ?? {};
+    final propUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[objectName]?[propertyName]);
 
-    // Instead of creating a basic TextField, use the appropriate field builder based on type
     // This ensures consistent field generation between regular and tabbed views
     Widget field;
     switch (propType) {
       case 'string':
         // Create a controller for this nested field
-        final controller = TextEditingController(text: value?.toString() ?? '');
-
         field = _buildTextField(path, propTitle, propSchema['description'], propSchema, isRequired, propUiOptions);
         break;
       case 'integer':
@@ -470,11 +564,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         break;
       default:
         // Fallback to simple text field for unsupported types in tabs
-        field = TextField(
+        field = Text('Unsupported field type: $propType');
+      /*field = TextField(
           decoration: InputDecoration(labelText: propTitle + (isRequired ? ' *' : '')),
           controller: TextEditingController(text: value?.toString() ?? ''),
           onChanged: (newValue) => _updateNestedField(path, newValue.isEmpty ? null : newValue),
-        );
+        );*/
     }
 
     return field;
@@ -513,7 +608,6 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     // Get additional styling options
     final options = _typeSafeMap<String, dynamic>(uiOptions['ui:options']) ?? {};
     final inputStyle = _typeSafeMap<String, dynamic>(options['inputStyle']) ?? {};
-    final width = inputStyle['width']; // Could be '100%' or specific width
 
     // Determine if this field should take full width
     final layoutOptions = _typeSafeMap<String, dynamic>(uiOptions['ui:layout']) ?? {};
@@ -522,9 +616,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$title${isRequired ? ' *' : ''}'),
-        if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 8),
+        //Text('$title${isRequired ? ' *' : ''}'),
+        //if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
+        //const SizedBox(height: 8),
         if (schema['enum'] != null)
           _buildDropdown(name, title, schema['enum'] as List<dynamic>, isRequired)
         else
@@ -535,8 +629,8 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
               keyboardType: keyboardType,
               maxLines: isMultiline ? options['rows'] ?? 5 : 1,
               obscureText: isObscure,
-              decoration: InputDecoration(border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError, helperText: uiOptions['ui:help']),
-              validator: (value) {
+              decoration: InputDecoration(labelText: '$title${isRequired ? ' *' : ''}', border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError, helperText: description),
+              /*validator: (value) {
                 if (isRequired && (value == null || value.isEmpty)) {
                   return '$title is required';
                 }
@@ -555,7 +649,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
                   }
                 }
                 return null;
-              },
+              },*/
               onChanged: (value) {
                 // Set to null if empty, otherwise keep the string value
                 _updateField(name, value.isEmpty ? null : value);
@@ -576,14 +670,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        //Text('$title${isRequired ? ' *' : ''}'),
         // if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
-        //const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(helperText: description != null ? description : '', labelText: '$title${isRequired ? ' *' : ''}', border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError),
-          validator: (value) {
+          decoration: InputDecoration(helperText: description ?? '', labelText: '$title${isRequired ? ' *' : ''}', border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError),
+          /*validator: (value) {
             if (isRequired && (value == null || value.isEmpty)) {
               return '$title is required';
             }
@@ -600,13 +692,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
               }
             }
             return null;
-          },
+          },*/
           onChanged: (value) {
             if (value.isNotEmpty) {
               if (schema['type'] == 'integer') {
-                _updateField(name, int.tryParse(value) ?? 0);
+                _updateField(name, int.tryParse(value) ?? null);
               } else {
-                _updateField(name, double.tryParse(value) ?? 0.0);
+                _updateField(name, double.tryParse(value) ?? null);
               }
             } else {
               _updateField(name, null);
@@ -836,17 +928,16 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     // Get existing error for this field
     final fieldError = _getFieldError(name);
 
-    // Choose which implementation to use
-    // Uncomment the below line and comment out the ArrayFieldEditor if you want to use the placeholder
-
     return ArrayFieldEditor(
       name: name,
       title: title,
       description: description,
       schema: schema,
       value: values,
+      formData: widget.formData,
       isRequired: isRequired,
       errorText: fieldError,
+      validationErrors: widget.validationErrors,
       onChanged: (updatedValues) {
         _updateField(name, updatedValues);
       },
@@ -854,8 +945,14 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
   }
 
   Widget _buildObjectField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired) {
+    // Initialize the field with an empty map if it's null in localFormData
+    if (_localFormData[name] == null) {
+      _localFormData[name] = {};
+    }
+
     // For nested objects, get the current data
-    //final nestedData = _getFieldValue(name) as Map<String, dynamic>? ?? {};
+    final dynamic fieldValue = _getFieldValue(name);
+    final nestedData = fieldValue is Map ? fieldValue.cast<String, dynamic>() : <String, dynamic>{};
 
     // Get existing error for this field
     final fieldError = _getFieldError(name);
@@ -864,26 +961,18 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (fieldError != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(fieldError, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-        ExpansionTile(
-          title: Text('$title${isRequired ? ' *' : ''}'),
-          subtitle: description != null ? Text(description) : null,
-          children: [
-            if (schema['properties'] != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  children:
-                      (schema['properties'] as Map<String, dynamic>).entries.map((entry) {
-                        final fieldName = entry.key;
-                        final fieldSchema = entry.value as Map<String, dynamic>;
-                        final isFieldRequired = (schema['required'] as List<dynamic>? ?? []).contains(fieldName);
+        if (schema['properties'] != null)
+          Column(
+            children:
+                (schema['properties'] as Map<String, dynamic>).entries.map((entry) {
+                  final fieldName = entry.key;
+                  final fieldSchema = entry.value as Map<String, dynamic>;
+                  final isFieldRequired = (schema['required'] as List<dynamic>? ?? []).contains(fieldName);
 
-                        return _buildField('$name.$fieldName', fieldSchema, isFieldRequired);
-                      }).toList(),
-                ),
-              ),
-          ],
-        ),
+                  // Pass nested data to _buildField
+                  return _buildField('$name.$fieldName', fieldSchema, isFieldRequired);
+                }).toList(),
+          ),
       ],
     );
   }

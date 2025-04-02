@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:json_schema/json_schema.dart';
+import 'package:terrestrial_forest_monitor/components/form-errors-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/json-schema-form.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
@@ -9,28 +11,40 @@ class JsonSchemaFormWrapper extends StatefulWidget {
   final String recordsId;
   final Map<String, dynamic> schema;
   final Map<String, dynamic> formData;
-  final Map<String, dynamic>? uiSchema;
 
-  const JsonSchemaFormWrapper({Key? key, required this.recordsId, required this.schema, required this.formData, this.uiSchema}) : super(key: key);
+  const JsonSchemaFormWrapper({Key? key, required this.recordsId, required this.schema, required this.formData}) : super(key: key);
 
   @override
   State<JsonSchemaFormWrapper> createState() => _JsonSchemaFormWrapperState();
 }
 
-class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
+class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with SingleTickerProviderStateMixin {
   Map<String, dynamic> _formData = {};
   Map<String, dynamic> formErrors = {};
+  List<ValidationError> validationErrors = [];
   late JsonSchema _jsonSchema;
+  late TabController _tabController;
+  Map<String, Map<String, String>> _tabs = {};
+
+  // Helper method to safely access nested maps
+  Map<String, dynamic>? _typeSafeMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    return null;
+  }
+
+  // Helper method to get the UI schema from schema.$tfm if it exists
+  Map<String, dynamic>? _getUiSchema() {
+    return _typeSafeMap(widget.schema['\$tfm'])?['ui:schema'];
+  }
 
   Future _getFormData() async {
     try {
       // Get the form data from the database
       final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
       if (record.isNotEmpty) {
-        print('FOUND RECORD');
-        print(record['properties']);
         _formData = jsonDecode(record['properties']);
-        print(record['properties']);
       } else {
         _formData = widget.formData;
       }
@@ -44,12 +58,52 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
   @override
   void initState() {
     super.initState();
+    int tabsCount = 9;
+    //widget.schema['properties'].keys.toList().length + 1;
+    _tabController = TabController(length: tabsCount, vsync: this);
     // Create schema validator when the widget initializes
     _jsonSchema = JsonSchema.create(widget.schema);
     _formData = widget.formData;
     _getFormData();
 
     //_validateFormData(_formData);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  int? _getTabIndexByName(String instancePath) {
+    // trim /
+    if (instancePath.startsWith('/')) {
+      instancePath = instancePath.substring(1);
+    }
+    for (int i = 0; i < _tabs.keys.length; i++) {
+      if (_tabs.values.elementAt(i)['path'] == instancePath) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  void _selectTabByFormError(ValidationError error) {
+    // Find the tab index based on the error path
+    final tabIndex = _getTabIndexByName(error.instancePath);
+    if (tabIndex == null) {
+      // If no tab index is found, return early
+      return;
+    }
+
+    if (tabIndex != null && tabIndex >= 0) {
+      // Safely access the TabController
+
+      //final tabController = DefaultTabController.of(context);
+      if (mounted) {
+        _tabController.animateTo(tabIndex);
+      }
+    }
   }
 
   @override
@@ -77,11 +131,11 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
     });
 
     // Create tab names list - first tab for simple fields, then each complex field
-    final List<String> tabNames = ['Plot'];
+    _tabs['Plot'] = {"name": 'Plot', "path": ""};
     complexProperties.keys.forEach((propName) {
       // Use title if available, otherwise capitalize the property name
-      final title = complexProperties[propName]!['title'] as String? ?? propName[0].toUpperCase() + propName.substring(1);
-      tabNames.add(title);
+      String title = complexProperties[propName]!['title'] as String? ?? propName[0].toUpperCase() + propName.substring(1);
+      _tabs[propName] = {"name": title, "path": propName};
     });
 
     Future _save() async {
@@ -91,7 +145,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
       // Check if exists
       try {
         final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
-        if (record[0] != null) {
+        if (record.isNotEmpty) {
           print('Record exists, updating...');
           print(_formData);
           // Update the record
@@ -106,49 +160,110 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
       }
     }
 
-    return DefaultTabController(
-      length: tabNames.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.schema['title'] as String? ?? 'Form'),
-          actions: [
-            if (formErrors.isNotEmpty)
-              ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please correct the errors in the form'), backgroundColor: Colors.red));
-                  _save();
-                },
-                child: Text('Fehler'),
-              ),
-            if (formErrors.isEmpty)
-              ElevatedButton(
-                onPressed: () {
-                  if (_validateFormData(_formData)) {
-                    print('Form data is valid: $_formData');
-                  } else {
-                    print('Form data is invalid: $_formData');
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Beamer.of(context).beamToNamed('/');
+          },
+        ),
+        title: ListTile(
+          title: Text(widget.schema['title'] as String? ?? 'Form', style: TextStyle(color: Colors.black)),
+          subtitle: Text(widget.schema['description'] as String? ?? 'Cluster:', style: TextStyle(color: Colors.black)),
+          leading: Icon(Icons.blur_circular, size: 40, color: Colors.black),
+          minLeadingWidth: 0,
+        ),
+        backgroundColor: Color.fromARGB(255, 224, 241, 203),
+        actions: [
+          SizedBox(width: 16),
+          if (validationErrors.isNotEmpty)
+            ElevatedButton.icon(
+              icon: Icon(Icons.error),
+              onPressed: () async {
+                // show errors Dialog
+                final focusError = await showDialog<ValidationError>(
+                  context: context,
+                  builder: (context) {
+                    return FormErrorsDialog(validationErrors: validationErrors);
+                  },
+                );
+
+                if (focusError != null && mounted) {
+                  // Make sure the widget is still mounted before accessing the controller
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _selectTabByFormError(focusError);
+                  });
+                }
+              },
+              label: Text('Fehler'),
+            ),
+          SizedBox(width: 16),
+          ElevatedButton.icon(
+            onPressed:
+                formErrors.isEmpty
+                    ? () {
+                      if (formErrors.isEmpty) {
+                        _save();
+                      } else {
+                        print('Form data is invalid: $_formData');
+                      }
+                    }
+                    : null,
+            icon: Icon(Icons.check),
+            label: Text('FERTIG'),
+          ),
+          SizedBox(width: 16),
+        ],
+        bottom: TabBar(
+          isScrollable: true,
+          controller: _tabController,
+          tabs:
+              _tabs.entries.map((tab) {
+                int errorCount = 0;
+
+                String tabName = tab.value['name'] ?? 'Unknown';
+                String? path = tab.value['path'];
+
+                if (tabName == 'Plot') {
+                  errorCount = simpleProperties.keys.where((key) => formErrors.containsKey(key)).length;
+                } else {
+                  final propName = complexProperties.keys.firstWhere((key) => complexProperties[key]!['title'] == tabName || key[0].toUpperCase() + key.substring(1) == tabName, orElse: () => '');
+                  if (propName.isNotEmpty) {
+                    errorCount = formErrors.keys.where((key) => key.startsWith(propName)).length;
                   }
-                },
+                }
 
-                child: Text('Fertig'),
-              ),
-          ],
-          bottom: TabBar(isScrollable: true, tabs: tabNames.map((name) => Tab(text: name)).toList()),
+                return Tab(
+                  child: Row(
+                    children: [
+                      Text(
+                        tabName,
+                        style: TextStyle(color: Colors.black), // Set the text color to black
+                      ),
+                      if (errorCount > 0) Padding(padding: const EdgeInsets.only(left: 4.0), child: CircleAvatar(backgroundColor: Colors.red, radius: 10, child: Text(errorCount.toString(), style: TextStyle(color: Colors.white, fontSize: 12)))),
+                    ],
+                  ),
+                );
+              }).toList(),
         ),
-        body: TabBarView(
-          children: [
-            // First tab: Simple properties
-            SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildFormSection(simpleProperties, widget.schema['title'] as String? ?? 'Basic Information')),
+      ),
+      body: TabBarView(
+        physics: const NeverScrollableScrollPhysics(),
+        controller: _tabController,
+        children: [
+          // First tab: Simple properties
+          SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildFormSection(simpleProperties, widget.schema['title'] as String? ?? 'Basic Information')),
 
-            // Additional tabs: One per complex property (object or array)
-            ...complexProperties.entries.map((entry) {
-              final propName = entry.key;
-              final propSchema = entry.value;
+          // Additional tabs: One per complex property (object or array)
+          ...complexProperties.entries.map((entry) {
+            final propName = entry.key;
+            final propSchema = entry.value;
+            final isArray = propSchema['type'] == 'array' || (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
 
-              return SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildComplexSection(propName, propSchema));
-            }).toList(),
-          ],
-        ),
+            return isArray ? _buildComplexSection(propName, propSchema, false) : SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildComplexSection(propName, propSchema, true));
+          }).toList(),
+        ],
       ),
     );
   }
@@ -184,35 +299,29 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
     // Create UI schema for this section
     final sectionUiSchema = _extractUiSchemaForSection(properties.keys.toList());
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // This JsonSchemaForm only handles the fields for this section
-        JsonSchemaForm(
-          schema: sectionSchema,
-          formData: sectionData,
-          formErrors: sectionErrors,
-          uiSchema: sectionUiSchema,
-          onChanged: (data) {
-            // Merge the changed data back into the main form data
-            setState(() {
-              data.forEach((key, value) {
-                _formData[key] = value;
-              });
-            });
-            _validateFormData(_formData);
-          },
-          onSubmit: (data) {
-            // This shouldn't be triggered from a sub-form, but just in case
-            _validateFormData(_formData);
-          },
-        ),
-      ],
+    return JsonSchemaForm(
+      schema: sectionSchema,
+      formData: sectionData,
+      uiSchema: sectionUiSchema,
+      validationErrors: validationErrors,
+      onChanged: (data) {
+        // Merge the changed data back into the main form data
+        setState(() {
+          data.forEach((key, value) {
+            _formData[key] = value;
+          });
+        });
+        _validateFormData(_formData);
+      },
+      onSubmit: (data) {
+        // This shouldn't be triggered from a sub-form, but just in case
+        _validateFormData(_formData);
+      },
     );
   }
 
   // Helper method to build a complex property section (object or array)
-  Widget _buildComplexSection(String propName, Map<String, dynamic> propSchema) {
+  Widget _buildComplexSection(String propName, Map<String, dynamic> propSchema, bool isInScrollView) {
     // Handle both objects and arrays
     final isArray = propSchema['type'] == 'array' || (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
 
@@ -236,46 +345,50 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
     };
 
     // Extract UI schema for this property
-    final Map<String, dynamic> sectionUiSchema = widget.uiSchema != null ? {propName: widget.uiSchema![propName] ?? {}} : {};
+    final Map<String, dynamic> sectionUiSchema = _getUiSchema() != null ? {propName: _getUiSchema()![propName] ?? {}} : {};
 
     // Add special UI layout for arrays if needed
     if (isArray && !sectionUiSchema.containsKey('ui:layout')) {
       sectionUiSchema['ui:layout'] = {"fullWidth": true, "type": "grid"};
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Fix: Remove the "data" debug text in _ArrayFormEditor
-        JsonSchemaForm(
-          schema: sectionSchema,
-          formData: propData,
-          formErrors: propErrors,
-          uiSchema: sectionUiSchema,
-          onChanged: (data) {
-            // Update the main form data with this property's data
+    Widget formWidget = JsonSchemaForm(
+      schema: sectionSchema,
+      formData: propData,
+      uiSchema: sectionUiSchema,
+      validationErrors: validationErrors,
+      onChanged: (data) {
+        // Update the main form data with this property's data
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
             setState(() {
               if (data[propName] != null) {
+                print('...');
+                print(propName);
+
                 _formData[propName] = data[propName];
+                print(_formData);
               }
             });
             _validateFormData(_formData);
-          },
-          onSubmit: (data) {
-            _validateFormData(_formData);
-          },
-        ),
-      ],
+          }
+        });
+      },
+      onSubmit: (data) {
+        _validateFormData(_formData);
+      },
     );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (isInScrollView) formWidget else Expanded(child: formWidget)]);
   }
 
   // Helper to extract UI schema for specific fields
   Map<String, dynamic> _extractUiSchemaForSection(List<String> fields) {
-    final result = {'ui:layout': widget.uiSchema?['ui:layout'] ?? {}};
+    final result = {'ui:layout': _getUiSchema()?['ui:layout'] ?? {}};
 
     for (final field in fields) {
-      if (widget.uiSchema != null && widget.uiSchema![field] != null) {
-        result[field] = widget.uiSchema![field];
+      if (_getUiSchema() != null && _getUiSchema()![field] != null) {
+        result[field] = _getUiSchema()![field];
       }
     }
 
@@ -284,11 +397,13 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
 
   // Returns true if the form is valid, false otherwise
   bool _validateFormData(Map<String, dynamic> data) {
+    print(' -- VALIDATE --');
     try {
       // Validate the data against the schema
       final result = _jsonSchema.validate(data);
-      print('validateFormData: ${data}');
-      print('validateFormData: ${widget.schema['required']}');
+      validationErrors = result.errors;
+      if (data['plot_landmark']) print(data['plot_landmark']);
+
       if (result.isValid) {
         // Clear errors if valid
         setState(() {
@@ -302,7 +417,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> {
         for (var error in result.errors) {
           // Parse the error path to identify the field
           String path = error.instancePath;
-          print('validateFormData: ${error.message}');
 
           // Handle empty path (top-level errors)
           if (path.isEmpty) {

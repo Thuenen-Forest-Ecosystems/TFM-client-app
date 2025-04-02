@@ -55,9 +55,6 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
   Future<void> _createPlotJson() async {
     values = await plotAsJson(_plotId!);
     _initTabs(values);
-
-    print('-----plotJson------');
-    print(values);
   }
 
   @override

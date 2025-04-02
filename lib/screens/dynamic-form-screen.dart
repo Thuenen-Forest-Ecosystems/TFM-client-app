@@ -89,10 +89,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               Map<String, dynamic> clusterSchemaData = jsonDecode(snapshot.data!['schema']);
 
               // Get Plot from schema
-              Map<String, dynamic> plotSchemaData = clusterSchemaData['items']['properties']['plot']['items'];
+              Map<String, dynamic> plotSchemaData = clusterSchemaData['properties']['plot']['items'];
 
               // Make sure it's a valid map
-              return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, uiSchema: {}, recordsId: widget.recordsId);
+              return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, recordsId: widget.recordsId);
             } else {
               // No schema found with the given ID
               return Center(

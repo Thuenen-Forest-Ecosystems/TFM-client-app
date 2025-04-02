@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:json_schema/json_schema.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 import 'dart:math' show min, max;
 
@@ -11,10 +13,24 @@ class ArrayFieldEditor extends StatefulWidget {
   final Map<String, dynamic> schema;
   final List<dynamic> value;
   final bool isRequired;
-  final Function(List<dynamic>) onChanged;
+  final Function(List) onChanged;
   final String? errorText;
+  final List<ValidationError> validationErrors;
+  final Map<String, dynamic>? formData;
 
-  const ArrayFieldEditor({Key? key, required this.name, required this.title, this.description, required this.schema, required this.value, required this.isRequired, required this.onChanged, this.errorText}) : super(key: key);
+  const ArrayFieldEditor({
+    Key? key,
+    required this.name,
+    this.formData,
+    required this.validationErrors,
+    required this.title,
+    this.description,
+    required this.schema,
+    required this.value,
+    required this.isRequired,
+    required this.onChanged,
+    this.errorText,
+  }) : super(key: key);
 
   @override
   State<ArrayFieldEditor> createState() => _ArrayFieldEditorState();
@@ -25,48 +41,79 @@ class _ArrayFieldEditorState extends State<ArrayFieldEditor> {
 
   @override
   Widget build(BuildContext context) {
-    // Check if array items are objects
-    final bool itemsAreObjects = widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
+    if (_editorType == ArrayEditorType.form) {
+      return Expanded(child: Row(children: [Expanded(child: SingleChildScrollView(child: _buildFormEditor())), ConstrainedBox(constraints: BoxConstraints(maxWidth: 50), child: _configNavigation())]));
+    } else {
+      return Expanded(child: Row(children: [Expanded(child: _buildGridEditor()), ConstrainedBox(constraints: BoxConstraints(maxWidth: 50), child: _configNavigation())]));
+    }
+  }
 
-    // Only show toggle if items are objects (grid doesn't make sense for simple arrays)
-    final bool showToggle = itemsAreObjects;
+  void _addRowToValues() {
+    Map<String, dynamic> newRow = {};
+    // Add default values based on schema if needed
 
-    //return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: Container(width: 100, color: Colors.red))]);
+    Map properties = widget.schema['items']['properties'];
 
+    for (var key in properties.keys) {
+      if (properties[key]['type'] == 'string') {
+        newRow[key] = '';
+      } else if (properties[key]['type'] == 'number') {
+        newRow[key] = 0;
+      } else if (properties[key]['type'] == 'boolean') {
+        newRow[key] = false;
+      } else {
+        newRow[key] = null;
+      }
+    }
+    widget.value.add(newRow);
+    widget.onChanged(widget.value);
+    /*if (this.mounted) {
+      setState(() {});
+    }*/
+  }
+
+  Widget _configNavigation() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        SegmentedButton<ArrayEditorType>(
-          segments: const [ButtonSegment(value: ArrayEditorType.form, icon: Icon(Icons.view_list), label: Text('Form')), ButtonSegment(value: ArrayEditorType.grid, icon: Icon(Icons.grid_on), label: Text('Grid'))],
-          selected: {_editorType},
-          onSelectionChanged: (Set<ArrayEditorType> selection) {
+        IconButton(
+          icon: Icon(Icons.add),
+          onPressed: () {
+            _addRowToValues();
+          },
+        ),
+        IconButton(
+          icon: Icon(_editorType == ArrayEditorType.form ? Icons.view_list : Icons.grid_on),
+          onPressed: () {
             setState(() {
-              _editorType = selection.first;
+              _editorType = _editorType == ArrayEditorType.form ? ArrayEditorType.grid : ArrayEditorType.form;
             });
           },
         ),
-        const SizedBox(height: 8),
-        if (widget.errorText != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(widget.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-
-        // Show either form or grid based on selected type
-        if (_editorType == ArrayEditorType.form || !showToggle) _buildFormEditor() else _buildGridEditor(),
       ],
     );
+  }
+
+  void _onChanged(List newValue) {
+    if (widget.formData != null && widget.formData!.containsKey(widget.name)) {
+      widget.formData![widget.name] = newValue;
+      widget.onChanged(newValue);
+    }
   }
 
   Widget _buildFormEditor() {
     // Implementation of your existing form editor for arrays
     // This is similar to your _buildArrayField method
-    return _ArrayFormEditor(name: widget.name, schema: widget.schema, value: widget.value, onChanged: widget.onChanged);
+    return _ArrayFormEditor(name: widget.name, schema: widget.schema, value: widget.value, onChanged: _onChanged);
   }
 
   Widget _buildGridEditor() {
     // Grid implementation using PlutoGrid
-    return _ArrayGridEditor(name: widget.name, schema: widget.schema, value: widget.value, onChanged: widget.onChanged);
+    return _ArrayGridEditor(name: widget.name, schema: widget.schema, value: widget.value, onChanged: _onChanged, validationErrors: widget.validationErrors);
   }
 }
 
-class _ArrayFormEditor extends StatelessWidget {
+class _ArrayFormEditor extends StatefulWidget {
   final String name;
   final Map<String, dynamic> schema;
   final List<dynamic> value;
@@ -75,12 +122,17 @@ class _ArrayFormEditor extends StatelessWidget {
   const _ArrayFormEditor({Key? key, required this.name, required this.schema, required this.value, required this.onChanged}) : super(key: key);
 
   @override
+  State<_ArrayFormEditor> createState() => _ArrayFormEditorState();
+}
+
+class _ArrayFormEditorState extends State<_ArrayFormEditor> {
+  @override
   Widget build(BuildContext context) {
     // Check if array items are objects
-    final bool itemsAreObjects = schema['items'] != null && schema['items']['type'] == 'object';
+    final bool itemsAreObjects = widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
 
     // Get the item schema for object items
-    final Map<String, dynamic>? itemSchema = itemsAreObjects ? _typeSafeMap<String, dynamic>(schema['items']) : null;
+    final Map<String, dynamic>? itemSchema = itemsAreObjects ? _typeSafeMap<String, dynamic>(widget.schema['items']) : null;
 
     return Column(
       children: [
@@ -92,7 +144,7 @@ class _ArrayFormEditor extends StatelessWidget {
               icon: const Icon(Icons.add),
               label: const Text('Add Item'),
               onPressed: () {
-                final updatedValues = List<dynamic>.from(value);
+                final updatedValues = List<dynamic>.from(widget.value);
 
                 // Add empty object for object items or empty string for simple items
                 if (itemsAreObjects) {
@@ -101,13 +153,13 @@ class _ArrayFormEditor extends StatelessWidget {
                   updatedValues.add('');
                 }
 
-                onChanged(updatedValues);
+                widget.onChanged(updatedValues);
               },
             ),
             // Build all existing items
-            ...List.generate(value.length, (index) {
+            ...List.generate(widget.value.length, (index) {
               // Render existing item - either an object or a simple value
-              final itemValue = value[index];
+              final itemValue = widget.value[index];
 
               return Card(
                 key: ValueKey('array-item-$index'), // Add key for stable identity
@@ -124,9 +176,9 @@ class _ArrayFormEditor extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                             onPressed: () {
-                              final updatedValues = List<dynamic>.from(value);
+                              final updatedValues = List<dynamic>.from(widget.value);
                               updatedValues.removeAt(index);
-                              onChanged(updatedValues);
+                              widget.onChanged(updatedValues);
                             },
                           ),
                         ],
@@ -151,9 +203,9 @@ class _ArrayFormEditor extends StatelessWidget {
       initialValue: itemValue?.toString() ?? '',
       decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Value'),
       onChanged: (newValue) {
-        final updatedValues = List<dynamic>.from(value);
+        final updatedValues = List<dynamic>.from(widget.value);
         updatedValues[index] = newValue;
-        onChanged(updatedValues);
+        widget.onChanged(updatedValues);
       },
     );
   }
@@ -237,7 +289,7 @@ class _ArrayFormEditor extends StatelessWidget {
 
   void _updateObjectProperty(int index, String propertyName, dynamic propertyValue) {
     // Get the current array
-    final updatedValues = List<dynamic>.from(value);
+    final updatedValues = List<dynamic>.from(widget.value);
 
     if (index < updatedValues.length) {
       // Get the object at the specified index
@@ -250,8 +302,22 @@ class _ArrayFormEditor extends StatelessWidget {
       updatedValues[index] = itemMap;
 
       // Update the entire array
-      onChanged(updatedValues);
+      widget.onChanged(updatedValues);
     }
+  }
+
+  void _addItem() {
+    final updatedValues = List<dynamic>.from(widget.value);
+
+    // Add empty object for object items or empty string for simple items
+    final bool itemsAreObjects = widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
+    if (itemsAreObjects) {
+      updatedValues.add({});
+    } else {
+      updatedValues.add('');
+    }
+
+    widget.onChanged(updatedValues);
   }
 
   Map<K, V> _typeSafeMap<K, V>(dynamic map) {
@@ -282,8 +348,9 @@ class _ArrayGridEditor extends StatefulWidget {
   final Map<String, dynamic> schema;
   final List<dynamic> value;
   final Function(List<dynamic>) onChanged;
+  final List<ValidationError> validationErrors;
 
-  const _ArrayGridEditor({Key? key, required this.name, required this.schema, required this.value, required this.onChanged}) : super(key: key);
+  const _ArrayGridEditor({Key? key, required this.name, required this.schema, required this.value, required this.onChanged, required this.validationErrors}) : super(key: key);
 
   @override
   State<_ArrayGridEditor> createState() => _ArrayGridEditorState();
@@ -293,6 +360,8 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
   late List<PlutoColumn> columns;
   late List<PlutoRow> rows;
   late PlutoGridStateManager stateManager;
+  final PlutoGridConfiguration configurationLight = PlutoGridConfiguration();
+  final PlutoGridConfiguration configurationDark = PlutoGridConfiguration.dark();
 
   @override
   void initState() {
@@ -303,12 +372,18 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
   @override
   void didUpdateWidget(_ArrayGridEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value || oldWidget.schema != widget.schema) {
-      _setupGridData();
-      if (this.mounted) {
-        setState(() {});
-      }
+
+    //if (oldWidget.value != widget.value || oldWidget.schema != widget.schema) {
+
+    _setupGridData();
+    stateManager.removeAllRows();
+    stateManager.appendRows(rows);
+    //stateManager.notifyListeners();
+
+    if (this.mounted) {
+      setState(() {});
     }
+    //}
   }
 
   void _setupGridData() {
@@ -331,6 +406,34 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
           final title = propSchema['title'] as String? ?? key;
           final type = _getEffectiveType(propSchema['type']);
 
+          if (propSchema['enum'] != null) {
+            List enumColumns = [];
+            for (var i = 0; i < propSchema['enum'].length; i++) {
+              String enumKey = propSchema['enum'][i].toString();
+              if (propSchema['\$tfm'] != null && propSchema['\$tfm']['name_de'] != null && propSchema['\$tfm']['name_de'][i] != null) {
+                // Handle translation if available
+                String translatedValue = propSchema['\$tfm']['name_de'][i];
+                enumKey += '- $translatedValue';
+              }
+              enumColumns.add(enumKey);
+            }
+            print('ENUM: $key');
+            // Handle enum type
+            final List<dynamic> enumValues = List<dynamic>.from(enumColumns);
+            return PlutoColumn(
+              title: title,
+              field: key,
+              type: PlutoColumnType.select(enumValues, enableColumnFilter: true),
+              width: 150,
+              minWidth: 80,
+              enableEditingMode: true,
+              enableSorting: true,
+              enableDropToResize: true,
+              enableFilterMenuItem: false,
+              enableContextMenu: false,
+            );
+          }
+
           // Determine column type based on property type
           PlutoColumnType columnType;
           switch (type) {
@@ -350,8 +453,60 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
           // Ensure column field is not null or empty
           // PlutoGrid requires unique, non-empty field identifiers
           final String safeKey = key.isNotEmpty ? key : 'column_$title';
+          if (key.isEmpty) {
+            print('!!!!Column key is empty, using default: $safeKey');
+          }
 
-          return PlutoColumn(title: title, field: safeKey, type: columnType, width: 150, minWidth: 80, enableEditingMode: true, enableSorting: true, enableDropToResize: true, enableFilterMenuItem: false, enableContextMenu: false);
+          // https://pluto.weblaze.dev/columns
+          PlutoColumn column = PlutoColumn(title: title, field: safeKey, type: columnType, width: 150, minWidth: 80, enableEditingMode: true, enableSorting: true, enableDropToResize: true, enableFilterMenuItem: false, enableContextMenu: false);
+
+          if (key == 'tree_number') {
+            //column.enableEditingMode = false; // Disable editing for ID column
+            column.frozen = PlutoColumnFrozen.start; // Freeze ID column
+          }
+
+          // Add custom renderer to show validation errors
+          column.renderer = (rendererContext) {
+            // Check if there's an error for this field
+            bool hasError = false;
+            String? errorMessage;
+
+            // Process validation errors for this cell
+            if (widget.validationErrors.isNotEmpty) {
+              // Look for errors related to this array item
+              final String instancePath = "/${widget.name}/${rendererContext.rowIdx}/${key}";
+              for (final error in widget.validationErrors) {
+                // Match errors by instance path
+                /*print('---');
+                print(error.instancePath);
+                print(instancePath);*/
+                if (error.instancePath == instancePath) {
+                  hasError = true;
+                  errorMessage = error.message;
+                  break;
+                }
+              }
+            }
+
+            return Container(
+              decoration: BoxDecoration(border: hasError ? Border.all(color: Colors.red, width: 2) : null),
+              child: Row(
+                children: [
+                  Expanded(child: Text(rendererContext.cell.value?.toString() ?? '', style: TextStyle(color: hasError ? Colors.red : null))),
+                  if (type != 'boolean')
+                    IconButton(
+                      onPressed: () {
+                        // Microphone functionality could be added here
+                      },
+                      icon: Icon(Icons.mic),
+                    ),
+                  if (hasError) Tooltip(message: errorMessage ?? 'Invalid value', child: Icon(Icons.error_outline, color: Colors.red, size: 16)),
+                ],
+              ),
+            );
+          };
+
+          return column;
         }).toList();
 
     // Safety check - ensure we have generated columns
@@ -381,57 +536,78 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = PlatformDispatcher.instance.platformBrightness;
+    bool isDarkMode = brightness == Brightness.dark;
+
     // Safety check - handle empty columns case
     if (columns.isEmpty) {
       return Card(child: Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Text('No fields defined for array items'))));
     }
 
+    print('BUILD GRID ${rows.length}');
+
     // Rest of the build method...
-    return Container(
-      height: 400,
-      decoration: BoxDecoration(border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(4)),
-      child: Column(
-        children: [
-          Expanded(
-            child: PlutoGrid(
-              columns: columns,
-              rows: rows,
-              onLoaded: (PlutoGridOnLoadedEvent event) {
-                // Avoid setting state during build
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  stateManager = event.stateManager;
+    return PlutoGrid(
+      columns: columns,
+      rows: rows,
+      configuration: isDarkMode ? configurationDark : configurationLight,
+      onChanged: (PlutoGridOnChangedEvent event) {
+        widget.value[event.rowIdx][event.column.field] = event.value;
+        widget.onChanged(widget.value);
+      },
+      onLoaded: (PlutoGridOnLoadedEvent event) {
+        // Avoid setting state during build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          stateManager = event.stateManager;
 
-                  // Wait until grid is actually ready before configuring
-                  Future.delayed(Duration(milliseconds: 100), () {
-                    if (!mounted) return;
+          stateManager.setSelectingMode(PlutoGridSelectingMode.row);
 
-                    stateManager.setShowLoading(true);
+          print('StateManager initialized');
 
-                    // Resize columns with a try-catch to prevent uncaught errors
-                    try {
-                      final double availableWidth = context.size?.width ?? 0;
-                      if (availableWidth > 0 && stateManager.columns.isNotEmpty) {
-                        // Simple even width distribution
-                        final double colWidth = (availableWidth / stateManager.columns.length) - 10;
-                        for (final column in stateManager.columns) {
-                          stateManager.resizeColumn(column, colWidth);
-                        }
-                      }
-                    } catch (e) {
-                      print('Error adjusting column widths: $e');
-                    }
+          // Wait until grid is actually ready before configuring
+          Future.delayed(Duration(milliseconds: 100), () {
+            if (!mounted) return;
 
-                    stateManager.setShowLoading(false);
-                  });
-                });
-              },
-              // Rest of your configuration...
-            ),
-          ),
-          // Action buttons...
-        ],
-      ),
+            stateManager.setShowLoading(true);
+
+            // Resize columns with a try-catch to prevent uncaught errors
+            try {
+              final double availableWidth = context.size?.width ?? 0;
+              if (availableWidth > 0 && stateManager.columns.isNotEmpty) {
+                // Simple even width distribution
+                final double colWidth = (availableWidth / stateManager.columns.length) - 10;
+                for (final column in stateManager.columns) {
+                  stateManager.resizeColumn(column, colWidth);
+                }
+              }
+            } catch (e) {
+              print('Error adjusting column widths: $e');
+            }
+
+            stateManager.setShowLoading(false);
+          });
+        });
+      },
     );
+    // Action buttons...
+  }
+
+  void _addRow() {
+    // Create empty cells for the new row
+    final Map<String, PlutoCell> newCells = {};
+
+    for (var column in columns) {
+      newCells[column.field] = PlutoCell(value: null);
+    }
+
+    // Create a new row with the empty cells
+    final newRow = PlutoRow(cells: newCells);
+
+    // Add the new row to the grid
+    stateManager.appendRows([newRow]);
+
+    // Update data source
+    _updateDataFromGrid();
   }
 
   void _updateDataFromGrid() {
