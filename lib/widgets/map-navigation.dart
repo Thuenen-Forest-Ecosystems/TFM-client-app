@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:terrestrial_forest_monitor/widgets/gps-button.dart';
 
 class MapNavigation extends StatefulWidget {
   final bool isDrawer;

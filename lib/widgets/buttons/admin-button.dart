@@ -11,40 +11,53 @@ class AdminButton extends StatefulWidget {
 }
 
 class _AdminButtonState extends State<AdminButton> {
-  User? user = getCurrentUser();
+  User? user; //getCurrentUser();
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-        future: db.get('SELECT * FROM users_profile WHERE user_id = ?', [user?.id]),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return SizedBox(
-              width: 24,
-              height: 24,
-              child: const CircularProgressIndicator(),
-            );
-          }
-          if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}');
-          }
-          if (snapshot.hasData) {
-            final data = snapshot.data as Map<String, dynamic>;
+    return StreamBuilder(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          User? user = getCurrentUser();
 
-            if (data['is_admin'] == null || data.isEmpty) {
+          if (user == null) {
+            return SizedBox();
+          }
+
+          return FutureBuilder(
+            future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                final data = snapshot.data as Map<String, dynamic>;
+
+                print('ADMIN');
+                print(data);
+
+                if (data['is_admin'] == null || data.isEmpty) {
+                  return SizedBox();
+                }
+
+                if (data['is_admin'] == 1) {
+                  return IconButton(
+                    onPressed: () {
+                      context.beamToNamed('/admin');
+                    },
+                    icon: Icon(Icons.admin_panel_settings),
+                  );
+                } else {
+                  return SizedBox();
+                }
+              } else {
+                print('snapshot: ${snapshot.error} ${user.id}');
+              }
               return SizedBox();
-            }
-
-            if (data['is_admin'] == 1) {
-              return IconButton(
-                onPressed: () {
-                  context.beamToNamed('/admin');
-                },
-                icon: Icon(Icons.admin_panel_settings),
-              );
-            }
-          }
+            },
+          );
+        } else {
           return SizedBox();
-        });
+        }
+      },
+    );
   }
 }

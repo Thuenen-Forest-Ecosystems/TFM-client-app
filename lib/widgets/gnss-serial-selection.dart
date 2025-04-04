@@ -73,7 +73,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     } catch (e) {
       if (e is SerialPortError) {
         // TODO: Show error
-        print('availablePorts: ${e}');
+        print('availablePorts: $e');
         // Handle the error, e.g., show a dialog or a snackbar
       } else {
         print('Error Get Ports: $e');
@@ -127,7 +127,6 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
   }
 
   Future<void> _testConnection() async {
-
     _closePort();
     nmeaSentences = [];
 
@@ -175,7 +174,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
         setState(() {
           nmeaSentences.addAll(lines);
         });
-        
+
         // Step 2: Iterate through each line
         for (String line in lines) {
           // Step 3: Check if the line starts with "GNRMC"
@@ -185,11 +184,8 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
             _getLatLonFromGNRMC(line);
           }
         }
-
-       
       }, onDone: () {
         print('Done');
-        
       }, onError: (e) {
         print('$e');
         setState(() {
@@ -273,7 +269,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
         Divider(),
         // nmeaSentences
         if (nmeaSentences.isNotEmpty)
-          Container(
+          SizedBox(
             height: 200,
             child: ListView.builder(
               itemCount: nmeaSentences.length,

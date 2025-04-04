@@ -2,20 +2,25 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:terrestrial_forest_monitor/providers/api-log.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/clusters.dart';
+import 'package:terrestrial_forest_monitor/components/json-schema-form-wrapper.dart';
+import 'package:terrestrial_forest_monitor/screens/dynamic-form-screen.dart';
+import 'package:terrestrial_forest_monitor/screens/organizations.dart';
+import 'package:terrestrial_forest_monitor/screens/plot-edit-by-schema.dart';
 import 'package:terrestrial_forest_monitor/screens/plot-edit.dart';
 import 'package:terrestrial_forest_monitor/screens/plot.dart';
+import 'package:terrestrial_forest_monitor/screens/plots-by-permissions.dart';
 
 //import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:terrestrial_forest_monitor/screens/libserial.dart';
 
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
 import 'package:terrestrial_forest_monitor/screens/drawer.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
+import 'package:terrestrial_forest_monitor/widgets/buttons/permissions-admin-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
-import 'package:terrestrial_forest_monitor/widgets/login-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/map.dart';
 import 'package:terrestrial_forest_monitor/screens/thuenengrid.dart';
 import 'package:terrestrial_forest_monitor/screens/verticalbar.dart';
@@ -51,6 +56,8 @@ class _HomeState extends State<Home> {
 
   final routerDelegate = BeamerDelegate(
     notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
+    transitionDelegate: const NoAnimationTransitionDelegate(),
+    updateListenable: ValueNotifier<bool>(false), // Prevents navigation animations
     initialPath: '/',
     guards: [
       BeamGuard(
@@ -68,34 +75,48 @@ class _HomeState extends State<Home> {
         ),*/
       ),
     ],
-    locationBuilder: RoutesLocationBuilder(
-      routes: {
-        '/': (context, state, data) => BeamPage(
-              key: ValueKey('TFM-grid'),
-              title: 'Terrestrial Forest Monitoring',
-              child: ThuenenGrid(),
-            ),
-        '403': (context, state, data) => BeamPage(
-              key: ValueKey('TFM-grid'),
-              title: '403',
-              child: ForbiddenScreen(),
-            ),
-        'schema/:schemaId': (context, state, data) {
-          final schemaId = state.pathParameters['schemaId']!;
-          return Clusters(schemaId: schemaId);
-        },
-        'cluster/:schemaId/:clusterId': (context, state, data) {
-          final schemaId = state.pathParameters['schemaId']!;
-          final clusterId = state.pathParameters['clusterId']!;
-          return Plots(clusterId: clusterId, schemaId: schemaId);
-        },
-        'plot/:schemaId/:clusterId/:plot': (context, state, data) {
-          final schemaId = state.pathParameters['schemaId']!;
-          final clusterId = state.pathParameters['clusterId']!;
-          final plotId = state.pathParameters['plot']!;
-          return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
-        },
-        /*'schema/:schemaId/:clusterId': (context, state, data) {
+    locationBuilder:
+        RoutesLocationBuilder(
+          routes: {
+            '/': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: 'Terrestrial Forest Monitoring', child: ThuenenGrid(), type: BeamPageType.noTransition),
+            '403': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: '403', child: ForbiddenScreen(), type: BeamPageType.noTransition),
+            'schema/:schemaId': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(schemaId: schemaId), type: BeamPageType.noTransition);
+            },
+            'cluster/:schemaId/:clusterId': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              final clusterId = state.pathParameters['clusterId']!;
+              return Plots(clusterId: clusterId, schemaId: schemaId);
+            },
+            /*'plot/:schemaId/:clusterId/:plot': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              final clusterId = state.pathParameters['clusterId']!;
+              final plotId = state.pathParameters['plot']!;
+              return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+            },*/
+            'organizations': (context, state, data) {
+              return OrganizationsScreen();
+            },
+            'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              final clusterId = state.pathParameters['clusterId']!;
+              final plotId = state.pathParameters['plot']!;
+              return DynamicFormScreen(schemaId: schemaId, recordsId: plotId, clusterId: clusterId);
+            },
+            /*'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              final clusterId = state.pathParameters['clusterId']!;
+              final plotId = state.pathParameters['plot']!;
+              return PlotEdit(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+            },
+            'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+              final schemaId = state.pathParameters['schemaId']!;
+              final clusterId = state.pathParameters['clusterId']!;
+              final plotId = state.pathParameters['plot']!;
+              return PlotEditBySchema(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
+            },*/
+            /*'schema/:schemaId/:clusterId': (context, state, data) {
           final schemaId = state.pathParameters['schemaId']!;
           final clusterId = state.pathParameters['clusterId']!;
           return Plots(clusterId: clusterId, schemaId: schemaId);
@@ -106,13 +127,16 @@ class _HomeState extends State<Home> {
           final plotId = state.pathParameters['plot']!;
           return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
         },*/
-      },
-    ).call,
+          },
+        ).call,
   );
 
   @override
   void initState() {
     super.initState();
+    db.getAll('SELECT * FROM schemas').then((value) {
+      print(value);
+    });
   }
 
   void _handleDragInit(DragStartDetails details) {
@@ -138,8 +162,6 @@ class _HomeState extends State<Home> {
     FlutterView view = WidgetsBinding.instance.platformDispatcher.views.first;
     screenWidth = view.physicalSize.width;
 
-    /*screenWidth2 = screenWidth; //MediaQuery.sizeOf(context).width;
-    print(screenWidth2);*/
     screenWidth2 = MediaQuery.sizeOf(context).width;
     // https://pub.dev/packages/get_storage
 
@@ -191,58 +213,82 @@ class _HomeState extends State<Home> {
       appBar: AppBar(
         centerTitle: false,
         automaticallyImplyLeading: false,
-        leading: screenWidth2 >= 600
-            ? null
-            : Builder(
-                builder: (context) => IconButton(
-                  icon: Icon(Icons.map),
-                  onPressed: () {
-                    Scaffold.of(context).openDrawer();
-                  },
+        leading:
+            screenWidth2 >= 600
+                ? null
+                : Builder(
+                  builder:
+                      (context) => IconButton(
+                        icon: Icon(Icons.map),
+                        onPressed: () {
+                          Scaffold.of(context).openDrawer();
+                        },
+                      ),
                 ),
-              ),
-        title: Row(
-          children: [
-            InkWell(
-              onTap: () {
-                Beamer.of(context).beamToNamed('/');
-              },
-              child: SvgPicture.asset(
-                'assets/logo/THUENEN_SCREEN_Black.svg',
-                height: 50,
-              ),
-            ),
-          ],
-        ),
+
+        title:
+            screenWidth2 >= 600
+                ? Row(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Beamer.of(context).beamToNamed('/');
+                      },
+                      child: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
+                    ),
+                  ],
+                )
+                : SizedBox(),
         actions: [
           //if (!kIsWeb && (Platform.isAndroid || Platform.isLinux || Platform.isWindows || Platform.isIOS || Platform.isMacOS))
 
           //SystemMessageIcon(),
-          OnlineStatus(),
-          LoginButton(),
+          //OnlineStatus(),
+          SignInBtn(),
+
+          //SizedBox(width: 10),
           const AdminButton(),
-          //SignInBtn(),
+          const PermissionsAdminButton(),
           IconButton(
             onPressed: () {
-              //Beamer.of(context).beamToNamed('/settings');
               context.beamToNamed('/settings');
-              //_navigatorKey.currentState?.pushNamed('monitor/sdfgsdfg', arguments: ThuenenArguments('inventory'));
-              //Navigator.pushNamed(context, '/settings');
             },
             icon: Icon(Icons.settings),
           ),
+          IconButton(
+            onPressed: () {
+              context.beamToNamed('/organizations');
+            },
+            icon: Icon(Icons.people),
+          ),
+          LoginButton(),
+          /*IconButton(
+            onPressed: () {
+              context.beamToNamed('/headless');
+            },
+            icon: Icon(Icons.car_crash),
+          ),
+          IconButton(
+            onPressed: () {
+              context.beamToNamed('/brick');
+            },
+            icon: Icon(Icons.code),
+          ),*/
+          /*IconButton(
+            onPressed: () {
+              context.beamToNamed('/FlutterJsHomeScreen');
+            },
+            icon: Icon(Icons.car_crash_outlined),
+          ),*/
         ],
       ),
-      drawer: const TfmDrawer(),
+      //drawer: const TfmDrawer(),
       body: Stack(
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (screenWidth2 >= 600)
-                VertialBar(
-                  isDrawer: false,
-                ),
+              if (screenWidth2 >= 600) VertialBar(isDrawer: false),
               if (screenWidth2 >= 600)
                 Stack(
                   children: [
@@ -250,9 +296,7 @@ class _HomeState extends State<Home> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
-                          const BoxShadow(
-                            color: Color.fromARGB(255, 255, 22, 224),
-                          ),
+                          const BoxShadow(color: Color.fromARGB(255, 255, 22, 224)),
                           BoxShadow(
                             color: const Color.fromARGB(255, 255, 22, 224).withOpacity(0.5),
                             spreadRadius: -5,
@@ -283,66 +327,16 @@ class _HomeState extends State<Home> {
                             });
                           },
 
-                          child: Container(
-                            width: 15,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: Color.fromRGBO(108, 108, 108, 1),
-                            ),
-                            child: RotatedBox(
-                              quarterTurns: 1,
-                              child: const Icon(
-                                Icons.drag_handle,
-                                size: 15,
-                              ),
-                            ),
-                          ),
+                          child: Container(width: 15, height: 100, decoration: BoxDecoration(color: Color.fromRGBO(108, 108, 108, 1)), child: RotatedBox(quarterTurns: 1, child: const Icon(Icons.drag_handle, size: 15))),
                         ),
                       ),
                     ),
                   ],
                 ),
-              Expanded(
-                child: Beamer(
-                  routerDelegate: routerDelegate,
-                ),
-              )
-              /*Expanded(
-                // https://api.flutter.dev/flutter/widgets/Navigator-class.html
-                child: Navigator(
-                  key: _navigatorKey,
-                  initialRoute: widget.pageRoute,
-                  onGenerateRoute: (RouteSettings settings) {
-                    Widget page;
-                    if (settings.name!.startsWith('/monitor/')) {
-                      List routes = settings.name!.split('/');
-                      if (routes.length == 3) {
-                        page = Clusters(schemaId: routes[2]);
-                      } else if (routes.length == 4) {
-                        page = SingleChildScrollView(child: Plots(clusterId: routes[3]));
-                      } else {
-                        page = const Text('Error');
-                      }
-                    } else {
-                      page = const ThuenenGrid();
-                    }
-                    return MaterialPageRoute<void>(
-                        builder: (context) {
-                          return page;
-                        },
-                        settings: settings);
-                  },
-                ),
-              ),*/
+              Expanded(child: Beamer(routerDelegate: routerDelegate)),
             ],
           ),
-          if (screenWidth2 >= 600)
-            Positioned(
-              left: 49,
-              child: CustomPaint(
-                painter: ImageEditor(),
-              ),
-            ),
+          if (screenWidth2 >= 600) Positioned(left: 49, child: CustomPaint(painter: ImageEditor())),
         ],
       ),
     );

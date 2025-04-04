@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite3;
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/widgets/form/datagrid-from-sqlite-table.dart';
+//import 'package:terrestrial_forest_monitor/widgets/form/datatable-from-sqlite-table%20copy.dart';
+//import 'package:terrestrial_forest_monitor/widgets/form/ediable-datatable-from-sqlite-table.dart';
 
 class DatabaseList extends StatefulWidget {
   const DatabaseList({super.key});
@@ -28,6 +31,15 @@ class _DatabaseListState extends State<DatabaseList> {
         ListTile(
           title: Text(table['tbl_name']),
           subtitle: Text(table['sql']),
+          onTap: () {
+            // Open Dialog
+            showDialog(
+              context: context,
+              builder: (context) {
+                return Dialog(child: DataGridFromSqlTable(tableName: table['tbl_name']));
+              },
+            );
+          },
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -44,11 +56,7 @@ class _DatabaseListState extends State<DatabaseList> {
                   if (snapshot.connectionState == ConnectionState.done) {
                     return Text(snapshot.data.toString());
                   } else {
-                    return SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(),
-                    );
+                    return SizedBox(height: 20, width: 20, child: CircularProgressIndicator());
                   }
                 },
               ),
@@ -68,27 +76,18 @@ class _DatabaseListState extends State<DatabaseList> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: _getLocalTables(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            if (snapshot.hasData) {
-              return Column(
-                children: snapshot.data as List<Widget>,
-              );
-            } else {
-              return Center(
-                child: Text('No tables found'),
-              );
-            }
+      future: _getLocalTables(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData) {
+            return Column(children: snapshot.data as List<Widget>);
           } else {
-            return Center(
-              child: SizedBox(
-                height: 50,
-                width: 50,
-                child: CircularProgressIndicator(),
-              ),
-            );
+            return Center(child: Text('No tables found'));
           }
-        });
+        } else {
+          return Center(child: SizedBox(height: 50, width: 50, child: CircularProgressIndicator()));
+        }
+      },
+    );
   }
 }

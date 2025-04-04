@@ -68,7 +68,7 @@ class _SignInDialogState extends State<SignInDialog> {
 
     var response = await signUp(userName, password);
 
-    sqlite.ResultSet res = await db.getAll('SELECT * FROM lists');
+    //sqlite.ResultSet res = await db.getAll('SELECT * FROM lists');
 
     /*Error response = await apiService.login(userName, password);
 
@@ -111,12 +111,7 @@ class _SignInDialogState extends State<SignInDialog> {
         children: [
           Text('You are logged in as ${_user?['email']}'),
           SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ElevatedButton(onPressed: _logoutRequest, child: Text('Logout')),
-            ],
-          ),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [ElevatedButton(onPressed: _logoutRequest, child: Text('Logout'))]),
         ],
       );
     } else {
@@ -124,56 +119,24 @@ class _SignInDialogState extends State<SignInDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (errors.isNotEmpty)
-            ...errors.map(
-              (error) => Text(
-                error,
-                style: TextStyle(
-                  color: Color.fromRGBO(255, 0, 0, 1),
-                  fontSize: 15,
-                ),
-              ),
-            ),
+          if (errors.isNotEmpty) ...errors.map((error) => Text(error, style: TextStyle(color: Color.fromRGBO(255, 0, 0, 1), fontSize: 15))),
           SizedBox(height: 20),
-          TextFormField(
-            controller: userNameController,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: 'Username',
-            ),
-          ),
+          TextFormField(controller: userNameController, decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'Username')),
           SizedBox(height: 20),
-          TextField(
-            controller: passwordController,
-            obscureText: true,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: 'Password',
-            ),
-          ),
+          TextField(controller: passwordController, obscureText: true, decoration: InputDecoration(border: OutlineInputBorder(), labelText: 'Password')),
           SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               ElevatedButton(
-                onPressed: _loggingIn
-                    ? null
-                    : () async {
-                        _loginRequest(context);
-                        //Navigator.of(context).pop();
-                      },
-                child: Row(
-                  children: [
-                    if (_loggingIn)
-                      SizedBox(
-                        width: 15,
-                        height: 15,
-                        child: CircularProgressIndicator(),
-                      ),
-                    if (_loggingIn) SizedBox(width: 10),
-                    Text('Login'),
-                  ],
-                ),
+                onPressed:
+                    _loggingIn
+                        ? null
+                        : () async {
+                          _loginRequest(context);
+                          //Navigator.of(context).pop();
+                        },
+                child: Row(children: [if (_loggingIn) SizedBox(width: 15, height: 15, child: CircularProgressIndicator()), if (_loggingIn) SizedBox(width: 10), Text('Login')]),
               ),
             ],
           ),

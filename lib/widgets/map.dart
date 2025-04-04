@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -20,7 +20,8 @@ import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/widgets/ci2027/plot-dialog.dart';
+import 'package:turf/destination.dart';
+import 'package:turf/helpers.dart';
 
 // https://docs.fleaflet.dev/layers/tile-layer#url-template
 // offline Map: https://docs.fleaflet.dev/tile-servers/offline-mapping
@@ -42,7 +43,8 @@ class _TFMMapState extends State<TFMMap> {
 
   StreamSubscription? plotSubscription;
 
-  final MapController _mapController = MapController();
+  late final MapController _mapController;
+  bool _isControllerInitialized = false;
 
   late MapOptions options;
 
@@ -50,7 +52,10 @@ class _TFMMapState extends State<TFMMap> {
 
   Future<sqlite.ResultSet> _getPlots() async {
     sqlite.ResultSet plots = await db.getAll('SELECT * FROM plot');
-    setState(() {});
+    print('UPDATE STATE MAP');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {});
+    });
     return plots;
   }
 
@@ -60,17 +65,29 @@ class _TFMMapState extends State<TFMMap> {
 
     print('TFMMap initState');
 
-    _plots = _getPlots();
+    _mapController = MapController();
 
-    options = MapOptions(
-      onMapEvent: _handleMapEvent,
-      onPositionChanged: _handlePositionChanged,
-      initialCenter: _currentCenter,
-      initialZoom: _currentZoom,
-      interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
-      minZoom: 5.0,
-      maxZoom: 22.0,
-    );
+    //_plots = _getPlots();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      options = MapOptions(
+        onMapEvent: _handleMapEvent,
+        onPositionChanged: _handlePositionChanged,
+        initialCenter: _currentCenter,
+        initialZoom: _currentZoom,
+        interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+        minZoom: 5.0,
+        maxZoom: 22.0,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isControllerInitialized = true;
+        });
+      }
+    });
 
     /*_plotHitNotifier.addListener(() {
       
@@ -139,27 +156,23 @@ class _TFMMapState extends State<TFMMap> {
 
   Widget _plotLayer() {
     return FutureBuilder(
-        future: _plots,
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return GestureDetector(
-              onTapUp: (details) {
-                final LayerHitResult? hitResult = _plotHitNotifier.value;
-                if (hitResult == null) return;
+      future: _plots,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return GestureDetector(
+            onTapUp: (details) {
+              final LayerHitResult? hitResult = _plotHitNotifier.value;
+              if (hitResult == null) return;
 
-                for (final hitValue in hitResult.hitValues) {
-                  Map plot = hitValue as Map;
-                  _navigateToPlot(
-                    'private_ci2027_001',
-                    plot['cluster_id'],
-                    plot['id'],
-                  );
-                }
-              },
-              child: CircleLayer(
-                hitNotifier: _plotHitNotifier,
-                circles: snapshot.data!.where((plot) => plot['center_location_json'] != null).map<CircleMarker<Object>>(
-                  (plot) {
+              for (final hitValue in hitResult.hitValues) {
+                Map plot = hitValue as Map;
+                _navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
+              }
+            },
+            child: CircleLayer(
+              hitNotifier: _plotHitNotifier,
+              circles:
+                  snapshot.data!.where((plot) => plot['center_location_json'] != null).map<CircleMarker<Object>>((plot) {
                     Map plotLocation = jsonDecode(plot['center_location_json']);
                     return CircleMarker<Object>(
                       point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
@@ -168,13 +181,54 @@ class _TFMMapState extends State<TFMMap> {
                       color: Color(0xFF008CD2).withAlpha(150), //Colors.blue.withOpacity(0.7),
                       hitValue: plot,
                     );
-                  },
-                ).toList(),
-              ),
-            );
-          }
-          return Container();
-        });
+                  }).toList(),
+            ),
+          );
+        }
+        return Container();
+      },
+    );
+  }
+
+  // Tree Layer
+  Widget _treeLayer() {
+    Map? targetPlot = context.read<GpsPositionProvider>().navigationTarget;
+
+    if (targetPlot == null) return Container();
+
+    return FutureBuilder(
+      future: db.getAll('SELECT * FROM tree WHERE plot_id=?', [targetPlot['target']['id']]),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          Map<String, dynamic> jsonCoordinates = jsonDecode(targetPlot['target']['center_location_json']);
+
+          return CircleLayer(
+            circles:
+                snapshot.data!.map<CircleMarker<Object>>((tree) {
+                  double dbh = 1000;
+                  Color color = Colors.black;
+                  double distance = double.parse(tree['distance']);
+                  double azimuth = double.parse(tree['azimuth']);
+                  if (tree['dbh'] != null) {
+                    dbh = double.parse(tree['dbh']);
+                    color = Colors.red;
+                  }
+
+                  Point dest = destination(Point.fromJson(jsonCoordinates), distance, azimuth, Unit.centimeters);
+
+                  return CircleMarker<Object>(
+                    point: LatLng(dest.coordinates.lat.toDouble(), dest.coordinates.lng.toDouble()),
+                    radius: dbh / 1000 / 2,
+                    useRadiusInMeter: true,
+                    color: color,
+                    //hitValue: plot,
+                  );
+                }).toList(),
+          );
+        }
+        return Container();
+      },
+    );
   }
 
   Widget _plotClusterLayer(data) {
@@ -188,10 +242,7 @@ class _TFMMapState extends State<TFMMap> {
           key: ValueKey(plot['plot_name'] + '_' + plot['cluster_id']),
           width: 20.0,
           height: 20.0,
-          point: LatLng(
-            plotLocation['coordinates'][1],
-            plotLocation['coordinates'][0],
-          ),
+          point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
           child: GestureDetector(
             onTapUp: (_) {
               _navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
@@ -199,16 +250,8 @@ class _TFMMapState extends State<TFMMap> {
             child: Container(
               width: 20.0,
               height: 20.0,
-              decoration: BoxDecoration(
-                color: Color(0xFF333333),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  plot['plot_name'].toString(),
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
+              decoration: BoxDecoration(color: Color(0xFF333333), borderRadius: BorderRadius.circular(10)),
+              child: Center(child: Text(plot['plot_name'].toString(), style: const TextStyle(color: Colors.white))),
             ),
           ),
         ),
@@ -216,27 +259,24 @@ class _TFMMapState extends State<TFMMap> {
     }
     return MarkerClusterLayerWidget(
       options: MarkerClusterLayerOptions(
-        maxClusterRadius: 3,
-        size: const Size(40, 40),
+        maxClusterRadius: 1,
+        size: const Size(15, 15),
         alignment: Alignment.center,
         padding: const EdgeInsets.all(50),
-        maxZoom: 16,
+        maxZoom: 15,
         markers: markers,
         builder: (context, markers) {
           // Get first Marker key as String
           String clusterName = (markers[0].key as ValueKey).value.toString().split('_')[1];
 
           return Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: Color(0xFF008CD2),
-            ),
-            child: Center(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: Color(0xFF008CD2)),
+            /*child: Center(
               child: Text(
                 clusterName, //markers.length.toString(),
                 style: const TextStyle(color: Colors.white),
               ),
-            ),
+            ),*/
           );
         },
       ),
@@ -285,18 +325,7 @@ class _TFMMapState extends State<TFMMap> {
       //headingStream: _headingStreamController.stream,
       alignPositionOnUpdate: AlignOnUpdate.never,
       alignDirectionOnUpdate: AlignOnUpdate.never,
-      style: const LocationMarkerStyle(
-        marker: DefaultLocationMarker(
-          color: Color(0xFF008CD2),
-          child: Icon(
-            Icons.navigation,
-            color: Colors.white,
-            size: 10,
-          ),
-        ),
-        markerSize: Size(20, 20),
-        markerDirection: MarkerDirection.heading,
-      ),
+      style: const LocationMarkerStyle(marker: DefaultLocationMarker(color: Color(0xFF008CD2), child: Icon(Icons.navigation, color: Colors.white, size: 10)), markerSize: Size(20, 20), markerDirection: MarkerDirection.heading),
     );
   }
 
@@ -311,10 +340,7 @@ class _TFMMapState extends State<TFMMap> {
 
   _dopLayer() {
     return TileLayer(
-      wmsOptions: WMSTileLayerOptions(
-        baseUrl: 'https://{s}.s2maps-tiles.eu/wms/?',
-        layers: const ['s2cloudless-2021_3857'],
-      ),
+      wmsOptions: WMSTileLayerOptions(baseUrl: 'https://{s}.s2maps-tiles.eu/wms/?', layers: const ['s2cloudless-2021_3857']),
       subdomains: const ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
       userAgentPackageName: 'dev.fleaflet.flutter_map.example',
       //tileProvider: CancellableNetworkTileProvider(),
@@ -325,40 +351,22 @@ class _TFMMapState extends State<TFMMap> {
   _wmsDtk25Layer() {
     // https://gdz.bkg.bund.de/index.php/default/dienste_in_webanwendungen/
     return TileLayer(
-      wmsOptions: WMSTileLayerOptions(
-        baseUrl: 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?',
-        layers: const ['dtk25'],
-        format: 'image/jpeg',
-      ),
+      wmsOptions: WMSTileLayerOptions(baseUrl: 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?', layers: const ['dtk25'], format: 'image/jpeg'),
       userAgentPackageName: 'de.thuenen.tfm',
       //tileProvider: CancellableNetworkTileProvider(),
-      tileProvider: FMTCStore('wms_dtk25__').getTileProvider(),
-      additionalOptions: {
-        'userAgent': 'dev.fleaflet.flutter_map.example',
-        'layers': 'your-layer-name',
-        'format': 'image/png',
-        'transparent': 'true',
-      },
+      tileProvider: kIsWeb ? CancellableNetworkTileProvider() : FMTCStore('wms_dtk25__').getTileProvider(),
+      additionalOptions: {'userAgent': 'dev.fleaflet.flutter_map.example', 'layers': 'your-layer-name', 'format': 'image/png', 'transparent': 'true'},
     );
   }
 
   _gdzLayer() {
     // https://sg.geodatenzentrum.de/wms_dop?request=GetCapabilities&service=WMS
     return TileLayer(
-      wmsOptions: WMSTileLayerOptions(
-        baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
-        layers: const ['rgb'],
-        format: 'image/jpeg',
-      ), // https://sg.geodatenzentrum.de/wms_dtk25?request=GetCapabilities&service=WMS
+      wmsOptions: WMSTileLayerOptions(baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?', layers: const ['rgb'], format: 'image/jpeg'), // https://sg.geodatenzentrum.de/wms_dtk25?request=GetCapabilities&service=WMS
       userAgentPackageName: 'de.thuenen.tfm',
       //tileProvider: CancellableNetworkTileProvider(),
-      tileProvider: FMTCStore('wms_dop__').getTileProvider(),
-      additionalOptions: {
-        'userAgent': 'dev.fleaflet.flutter_map.example',
-        'layers': 'your-layer-name',
-        'format': 'image/png',
-        'transparent': 'true',
-      },
+      tileProvider: kIsWeb ? CancellableNetworkTileProvider() : FMTCStore('wms_dop__').getTileProvider(),
+      additionalOptions: {'userAgent': 'dev.fleaflet.flutter_map.example', 'layers': 'your-layer-name', 'format': 'image/png', 'transparent': 'true'},
     );
   }
 
@@ -384,14 +392,10 @@ class _TFMMapState extends State<TFMMap> {
       if (point.longitude > maxLng) maxLng = point.longitude;
     }
 
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)),
-        padding: const EdgeInsets.all(20),
-      ),
-    );
+    _mapController.fitCamera(CameraFit.bounds(bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)), padding: const EdgeInsets.all(20)));
   }
 
+  var _inited = false;
   @override
   Widget build(BuildContext context) {
     bool isMapOpen = context.watch<MapState>().mapOpen;
@@ -406,19 +410,33 @@ class _TFMMapState extends State<TFMMap> {
       focusAllCluster();
       _focusAllCluster = newFocus;
     }*/
+    // Only render the map when controller is initialized
+    if (!_isControllerInitialized) {
+      return Center(child: CircularProgressIndicator());
+    }
 
     return Stack(
       children: [
         Container(
           child: FlutterMap(
-            mapController: context.watch<MapState>().mapController,
+            //mapController: context.watch<MapState>().mapController,
+            mapController: _mapController,
 
-            ///mapController: _mapController,
             options: options,
             children: [
               Visibility(child: _wmsDtk25Layer(), visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY')),
               Visibility(child: _gdzLayer(), visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY') && context.read<MapState>().isDop),
               if (!dotenv.env.containsKey('DMZ_KEY')) _osmLayer(),
+              _plotLayer(),
+              FutureBuilder(
+                future: _plots,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return _plotClusterLayer(snapshot.data);
+                  }
+                  return Container();
+                },
+              ),
               Consumer<GpsPositionProvider>(
                 builder: (context, gpsPositionProvider, child) {
                   if (!gpsPositionProvider.listeningPosition) return Container();
@@ -439,15 +457,8 @@ class _TFMMapState extends State<TFMMap> {
                   );
                 },
               ),
-              _plotLayer(),
-              FutureBuilder(
-                  future: _plots,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return _plotClusterLayer(snapshot.data);
-                    }
-                    return Container();
-                  }),
+              _treeLayer(),
+              Scalebar(padding: EdgeInsets.all(5), alignment: Alignment.bottomLeft),
             ],
           ),
         ),
@@ -460,25 +471,8 @@ class _TFMMapState extends State<TFMMap> {
               child: Container(
                 margin: const EdgeInsets.all(5),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: const BorderRadius.all(
-                    Radius.circular(20),
-                  ),
-                ),
-                child: Row(children: [
-                  Icon(
-                    Icons.open_in_full,
-                    size: 20,
-                  ),
-                  Text(' ${_nearestPlot!['prettyDistance']}'),
-                  VerticalDivider(),
-                  Icon(
-                    Icons.explore,
-                    size: 20,
-                  ),
-                  Text(' ${_nearestPlot!['bearing'].toStringAsFixed(2)} °'),
-                ]),
+                decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(20))),
+                child: Row(children: [Icon(Icons.open_in_full, size: 20), Text(' ${_nearestPlot!['prettyDistance']}'), VerticalDivider(), Icon(Icons.explore, size: 20), Text(' ${_nearestPlot!['bearing'].toStringAsFixed(2)} °')]),
               ),
             );
           },

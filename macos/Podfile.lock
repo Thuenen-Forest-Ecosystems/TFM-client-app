@@ -2,59 +2,71 @@ PODS:
   - app_links (1.0.0):
     - FlutterMacOS
   - connectivity_plus (0.0.1):
+    - FlutterMacOS
+  - flutter_blue_plus_darwin (0.0.2):
     - Flutter
     - FlutterMacOS
-  - flutter_blue_plus (0.0.1):
+  - flutter_inappwebview_macos (0.0.1):
     - FlutterMacOS
-  - flutter_libserialport (0.0.1):
+    - OrderedSet (~> 6.0.3)
+  - flutter_tts (0.0.1):
     - FlutterMacOS
-    - libserialport
   - FlutterMacOS (1.0.0)
   - geolocator_apple (1.2.0):
     - FlutterMacOS
-  - libserialport (0.1.1)
-  - ObjectBox (4.0.1)
+  - ObjectBox (4.1.0)
   - objectbox_flutter_libs (0.0.1):
     - FlutterMacOS
-    - ObjectBox (= 4.0.1)
+    - ObjectBox (= 4.1.0)
+  - OrderedSet (6.0.3)
   - package_info_plus (0.0.1):
     - FlutterMacOS
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - powersync-sqlite-core (0.3.6)
+  - powersync-sqlite-core (0.3.12)
   - powersync_flutter_libs (0.0.1):
     - FlutterMacOS
-    - powersync-sqlite-core (~> 0.3.6)
+    - powersync-sqlite-core (~> 0.3.12)
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - sqlite3 (3.47.0):
-    - sqlite3/common (= 3.47.0)
-  - sqlite3/common (3.47.0)
-  - sqlite3/dbstatvtab (3.47.0):
+  - speech_to_text (0.0.1):
+    - Flutter
+    - FlutterMacOS
+    - Try
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
+  - sqlite3 (3.49.1):
+    - sqlite3/common (= 3.49.1)
+  - sqlite3/common (3.49.1)
+  - sqlite3/dbstatvtab (3.49.1):
     - sqlite3/common
-  - sqlite3/fts5 (3.47.0):
+  - sqlite3/fts5 (3.49.1):
     - sqlite3/common
-  - sqlite3/perf-threadsafe (3.47.0):
+  - sqlite3/perf-threadsafe (3.49.1):
     - sqlite3/common
-  - sqlite3/rtree (3.47.0):
+  - sqlite3/rtree (3.49.1):
     - sqlite3/common
   - sqlite3_flutter_libs (0.0.1):
+    - Flutter
     - FlutterMacOS
-    - sqlite3 (~> 3.47.0)
+    - sqlite3 (~> 3.49.1)
     - sqlite3/dbstatvtab
     - sqlite3/fts5
     - sqlite3/perf-threadsafe
     - sqlite3/rtree
+  - Try (2.1.1)
   - url_launcher_macos (0.0.1):
     - FlutterMacOS
 
 DEPENDENCIES:
   - app_links (from `Flutter/ephemeral/.symlinks/plugins/app_links/macos`)
-  - connectivity_plus (from `Flutter/ephemeral/.symlinks/plugins/connectivity_plus/darwin`)
-  - flutter_blue_plus (from `Flutter/ephemeral/.symlinks/plugins/flutter_blue_plus/macos`)
-  - flutter_libserialport (from `Flutter/ephemeral/.symlinks/plugins/flutter_libserialport/macos`)
+  - connectivity_plus (from `Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos`)
+  - flutter_blue_plus_darwin (from `Flutter/ephemeral/.symlinks/plugins/flutter_blue_plus_darwin/darwin`)
+  - flutter_inappwebview_macos (from `Flutter/ephemeral/.symlinks/plugins/flutter_inappwebview_macos/macos`)
+  - flutter_tts (from `Flutter/ephemeral/.symlinks/plugins/flutter_tts/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - geolocator_apple (from `Flutter/ephemeral/.symlinks/plugins/geolocator_apple/macos`)
   - objectbox_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/objectbox_flutter_libs/macos`)
@@ -62,25 +74,30 @@ DEPENDENCIES:
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
   - powersync_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/powersync_flutter_libs/macos`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
-  - sqlite3_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/sqlite3_flutter_libs/macos`)
+  - speech_to_text (from `Flutter/ephemeral/.symlinks/plugins/speech_to_text/darwin`)
+  - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
+  - sqlite3_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/sqlite3_flutter_libs/darwin`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
 
 SPEC REPOS:
   trunk:
-    - libserialport
     - ObjectBox
+    - OrderedSet
     - powersync-sqlite-core
     - sqlite3
+    - Try
 
 EXTERNAL SOURCES:
   app_links:
     :path: Flutter/ephemeral/.symlinks/plugins/app_links/macos
   connectivity_plus:
-    :path: Flutter/ephemeral/.symlinks/plugins/connectivity_plus/darwin
-  flutter_blue_plus:
-    :path: Flutter/ephemeral/.symlinks/plugins/flutter_blue_plus/macos
-  flutter_libserialport:
-    :path: Flutter/ephemeral/.symlinks/plugins/flutter_libserialport/macos
+    :path: Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos
+  flutter_blue_plus_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_blue_plus_darwin/darwin
+  flutter_inappwebview_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_inappwebview_macos/macos
+  flutter_tts:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_tts/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
   geolocator_apple:
@@ -95,30 +112,38 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/powersync_flutter_libs/macos
   shared_preferences_foundation:
     :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
+  speech_to_text:
+    :path: Flutter/ephemeral/.symlinks/plugins/speech_to_text/darwin
+  sqflite_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin
   sqlite3_flutter_libs:
-    :path: Flutter/ephemeral/.symlinks/plugins/sqlite3_flutter_libs/macos
+    :path: Flutter/ephemeral/.symlinks/plugins/sqlite3_flutter_libs/darwin
   url_launcher_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
 
 SPEC CHECKSUMS:
-  app_links: 10e0a0ab602ffaf34d142cd4862f29d34b303b2a
-  connectivity_plus: ddd7f30999e1faaef5967c23d5b6d503d10434db
-  flutter_blue_plus: e2868679021f19d12a8c0c58a33f1df66ec7fa6a
-  flutter_libserialport: d1a505fd4b05785f7b50cc7c93b361937ea1c5bd
+  app_links: 86a57d95d4dec830373b8c85c21d1c59a4a5dc21
+  connectivity_plus: 0a976dfd033b59192912fa3c6c7b54aab5093802
+  flutter_blue_plus_darwin: 3ea4ec9133b377febcc8a70b28cd2d2dc9242bd9
+  flutter_inappwebview_macos: bdf207b8f4ebd58e86ae06cd96b147de99a67c9b
+  flutter_tts: 64651204e5d276ffea5a910f942d5e9785a96085
   FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
   geolocator_apple: 72a78ae3f3e4ec0db62117bd93e34523f5011d58
-  libserialport: 1cb25e66ef3c92a8e59c2ea3820302c3fa2268cd
-  ObjectBox: 0bc4bb75eea85f6af06b369148b334c2056bbc29
-  objectbox_flutter_libs: 769e6f44f7381c8a8e46a2ed5c71c6068bb476f7
-  package_info_plus: fa739dd842b393193c5ca93c26798dff6e3d0e0c
+  ObjectBox: bf3d4b51075d52868422d5d1f2f2141b1d630d30
+  objectbox_flutter_libs: 90e8897eeef16e16bccaf0f91a6c92d53589dd64
+  OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
+  package_info_plus: 12f1c5c2cfe8727ca46cbd0b26677728972d9a5b
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
-  powersync-sqlite-core: e6217cc9e89e8803550f1b5bb7fd5b00becc903a
-  powersync_flutter_libs: f80992352d52843f598ca77157950e96a17171d8
+  powersync-sqlite-core: fcc32da5528fca9d50b185fcd777705c034e255b
+  powersync_flutter_libs: 0d864998c224e841b40869d2db633ad5e592b053
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
-  sqlite3: 0aa20658a9b238a3b1ff7175eb7bdd863b0ab4fd
-  sqlite3_flutter_libs: f0b7a85544d8bac7b8bac12eac7d05bcfdd786d0
+  speech_to_text: 627d3fd2194770b51abb324ba45c2d39398f24a8
+  sqflite_darwin: 5a7236e3b501866c1c9befc6771dfd73ffb8702d
+  sqlite3: fc1400008a9b3525f5914ed715a5d1af0b8f4983
+  sqlite3_flutter_libs: cc304edcb8e1d8c595d1b08c7aeb46a47691d9db
+  Try: 5ef669ae832617b3cee58cb2c6f99fb767a4ff96
   url_launcher_macos: c82c93949963e55b228a30115bd219499a6fe404
 
-PODFILE CHECKSUM: ee954fade8f3b11c1f8b26bea93380ea85316f08
+PODFILE CHECKSUM: 32cd93bea4a742aadfebbcf392d60035c34780e6
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

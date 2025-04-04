@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -41,8 +39,6 @@ class _NavigationCarState extends State<NavigationCar> {
         bearing += 360;
       }
     }
-
-    print(context.read<GpsPositionProvider>().listeningPosition);
 
     return Stack(
       children: [

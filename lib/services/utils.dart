@@ -3,10 +3,30 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:powersync/sqlite3_common.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:terrestrial_forest_monitor/config.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:path_provider/path_provider.dart';
+
+bool isNumeric(String? s) {
+  if (s == null) {
+    return false;
+  }
+  return double.tryParse(s) != null;
+}
 
 String degreeToGon(double degree) {
   return '${(degree * 200 / 180).toStringAsFixed(0)} gon';
+}
+
+Future<Map<String, String>> getServerConfig() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? serverName = prefs.getString('selectedServer');
+  if (serverName != null) {
+    return AppConfig.servers.firstWhere((element) => serverName == element['supabaseUrl'], orElse: () => AppConfig.servers[0]);
+  }
+  return AppConfig.servers[0];
 }
 
 void launchStringExternal(String url) async {
@@ -16,6 +36,18 @@ void launchStringExternal(String url) async {
   )) {
     throw Exception('Could not launch $url');
   }
+}
+
+Future<Map> plotAsJson(String plotId) async {
+  Map plotRecord = Map.from(await db.get('SELECT * FROM plot WHERE id = ?', [plotId]) as Map);
+
+  List<Map<String, dynamic>> tree = (await db.getAll('SELECT * FROM tree WHERE plot_id=?', [plotId])).map((t) => Map<String, dynamic>.from(t)).toList();
+  plotRecord['tree'] = tree;
+
+  List<Map<String, dynamic>> deadwood = (await db.getAll('SELECT * FROM deadwood WHERE plot_id=?', [plotId])).map((t) => Map<String, dynamic>.from(t)).toList();
+  plotRecord['deadwood'] = deadwood;
+
+  return plotRecord;
 }
 
 String prettyDistance(double distance) {
@@ -89,4 +121,19 @@ LatLng getCenterLocation(ResultSet plots, String locationAttribute) {
   }
 
   return LatLng(lat / count, lon / count);
+}
+
+Future<String> getUserStorageDirectory() async {
+  final directory = await getApplicationDocumentsDirectory();
+  return directory.path;
+}
+
+Future<String> getStorageDirectory() async {
+  String userStorageDirectory = await getUserStorageDirectory();
+  return '$userStorageDirectory/TFM';
+}
+
+Future<String> getLocalUri(String filePath) async {
+  String storageDirectory = await getStorageDirectory();
+  return '$storageDirectory/$filePath';
 }
