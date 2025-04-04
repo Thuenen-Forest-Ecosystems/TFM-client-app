@@ -24,7 +24,8 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace = "de.thuenen.terrestrial_forest_monitor"
+    namespace "de.thuenen.terrestrial_forest_monitor"
+
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

@@ -1,167 +1,66 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-class GNSSBluetooth extends StatefulWidget {
-  const GNSSBluetooth({super.key});
+class GnssBluetooth extends StatefulWidget {
+  const GnssBluetooth({super.key});
 
   @override
-  State<GNSSBluetooth> createState() => _GNSSBluetoothState();
+  State<GnssBluetooth> createState() => _GnssBluetoothState();
 }
 
-class _GNSSBluetoothState extends State<GNSSBluetooth> {
-  //List baudeRates = [9600, 19200, 38400, 57600, 115200];
-  List baudeRates = [9600, 19200, 38400, 57600, 115200];
-  int? baudeRate;
-  List<String> availablePorts = [];
-  String selectedPort = '';
-  bool scanning = false;
-  bool tested = false;
-  bool testing = false;
-  var serialPort;
+class _GnssBluetoothState extends State<GnssBluetooth> {
+  List<BluetoothDevice> devices = [];
+  String remoteID = 'F8256438-D5D2-457B-28E4-0A23DD0F6DEA-NONE';
+  bool _connected = false;
 
-  _getAvailablePorts() {
-    return FlutterBluePlus.onScanResults.listen(
-      (results) {
-        print(results);
-        if (results.isNotEmpty) {
-          ScanResult r = results.last; // the most recently found device
-          print('${r.device.remoteId}: "${r.advertisementData.advName}" found!');
-          availablePorts.add(r.advertisementData.advName);
-          setState(() {
-            availablePorts = availablePorts.toSet().toList();
-          });
-        }
-      },
-      onError: (e) => print(e),
-    );
+  BluetoothDevice? _dearchForDeviceByID() {
+    for (var device in devices) {
+      if (device.remoteId.toString() == remoteID) {
+        print('Device found: $device');
+        return device;
+      }
+    }
+    return null;
   }
 
-  _refreshAvailable() async {
-    scanning = true;
-    await FlutterBluePlus.startScan(timeout: Duration(seconds: 4), androidUsesFineLocation: true);
-    scanning = false;
-  }
-
-  Future<dynamic> _init() async {
-    if (await FlutterBluePlus.isSupported == false) {
-      print("Bluetooth not supported by this device");
-      return;
-    }
-
-    var status = await Permission.bluetoothScan.status;
-    if (status.isDenied) {
-      print('denied');
-    } else {
-      print('Permitted');
-    }
-
-    // handle bluetooth on & off
-    // note: for iOS the initial state is typically BluetoothAdapterState.unknown
-    // note: if you have permissions issues you will get stuck at BluetoothAdapterState.unauthorized
-    var subscription = FlutterBluePlus.adapterState.listen((BluetoothAdapterState state) async {
-      print('BluetoothAdapterState');
-      print(state);
-      if (state == BluetoothAdapterState.on) {
-        // usually start scanning, connecting, etc
-        _getAvailablePorts();
-
-        print('start Scanning');
+  Future<void> _searchDevices() async {
+    // Use FlutterBluePlus directly without instance
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 20));
+    FlutterBluePlus.scanResults.listen((results) {
+      setState(() {
+        devices = results.map((r) => r.device).toList();
+      });
+      print('Discovered devices: $devices');
+      BluetoothDevice? device = _dearchForDeviceByID();
+      if (device != null && !_connected) {
+        _connected = true;
+        print('Device found: $device');
+        // Connect to the device
+        device
+            .connect()
+            .then((_) {
+              print('Connected to $device');
+              // Perform any additional actions after connecting
+            })
+            .catchError((error) {
+              print('Error connecting to device: $error');
+            });
       } else {
-        // show an error to the user, etc
-        print('ERROR');
+        print('Device not found');
       }
     });
-    print('START _INiT');
-    return;
-
-    // turn on bluetooth ourself if we can
-    // for iOS, the user controls bluetooth enable/disable
-    if (Platform.isAndroid) {
-      await FlutterBluePlus.turnOn();
-    }
-
-    // cancel to prevent duplicate listeners
-    subscription.cancel();
   }
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    _init();
+    _searchDevices();
   }
-
-  _testConnection() {}
-  _cancelTesting() {}
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ListTile(
-            title: Text('Serial Ports:'),
-            subtitle: Text('Get Information from Device...'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButton<String>(
-                  value: selectedPort,
-                  onChanged: (String? value) {
-                    if (value == null) return;
-                    setState(() {
-                      selectedPort = value;
-                    });
-                  },
-                  items: availablePorts.map<DropdownMenuItem<String>>((dynamic value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(), // Explicitly specify the type
-                ),
-                IconButton(
-                  icon: Icon(Icons.refresh),
-                  onPressed: _refreshAvailable,
-                ),
-              ],
-            )),
-        ListTile(
-          title: Text('Baud Rate: '),
-          subtitle: Text('Get Information from Device...'),
-          trailing: DropdownButton<int>(
-            value: baudeRate,
-            onChanged: (int? value) {
-              setState(() {
-                baudeRate = value;
-              });
-            },
-            items: baudeRates.map<DropdownMenuItem<int>>((dynamic value) {
-              return DropdownMenuItem<int>(
-                value: value,
-                child: Text(value.toString()),
-              );
-            }).toList(), // Explicitly specify the type
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (testing)
-              ElevatedButton(
-                onPressed: _cancelTesting,
-                child: Text('Cancel testing'),
-              )
-            else
-              ElevatedButton(
-                onPressed: baudeRate != null ? _testConnection : null,
-                child: Text('TEST connection'),
-              ),
-          ],
-        )
-      ],
-    );
+    return Container();
   }
 }

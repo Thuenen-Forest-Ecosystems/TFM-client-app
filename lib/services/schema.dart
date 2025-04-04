@@ -61,7 +61,7 @@ const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.t
 Schema schema = Schema(([
   const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id')]),
   const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
-  const Table('users_profile', [Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id')]),
+  const Table('users_profile', [Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id'), Column.text('email')]),
   const Table('schemas', [
     Column.text('created_at'),
     Column.text('interval_name'),

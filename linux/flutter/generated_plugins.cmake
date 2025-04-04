@@ -3,7 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  flutter_libserialport
   gtk
   objectbox_flutter_libs
   powersync_flutter_libs

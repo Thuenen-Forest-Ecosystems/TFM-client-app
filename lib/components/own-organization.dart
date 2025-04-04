@@ -44,12 +44,12 @@ class _OwnOrganizationState extends State<OwnOrganization> {
                   }
 
                   final parentOrganization = snapshot.data;
-                  return ListTile(title: Text(parentOrganization?['name'] ?? 'Unknown'), subtitle: Text(parentOrganization?['description'] ?? 'No description available'));
+                  return ListTile(title: Text(parentOrganization?['name'] ?? 'Unknown'));
                 },
               ),
             ListTile(
               title: Text(organization?['name'] ?? 'Unknown'),
-              subtitle: Text(organization?['description'] ?? 'No description available'),
+              subtitle: Text(organization?['description'] ?? organization?['id']),
               trailing: ElevatedButton(
                 onPressed: () async {
                   await showDialog(
@@ -60,7 +60,7 @@ class _OwnOrganizationState extends State<OwnOrganization> {
                   );
                   setState(() {});
                 },
-                child: const Text('Landesinventurleitung hinzufügen'),
+                child: const Text('Mitarbeitende hinzufügen'),
               ),
             ),
           ],

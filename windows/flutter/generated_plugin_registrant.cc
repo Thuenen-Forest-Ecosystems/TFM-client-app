@@ -9,7 +9,6 @@
 #include <app_links/app_links_plugin_c_api.h>
 #include <connectivity_plus/connectivity_plus_windows_plugin.h>
 #include <flutter_inappwebview_windows/flutter_inappwebview_windows_plugin_c_api.h>
-#include <flutter_libserialport/flutter_libserialport_plugin.h>
 #include <flutter_tts/flutter_tts_plugin.h>
 #include <geolocator_windows/geolocator_windows.h>
 #include <objectbox_flutter_libs/objectbox_flutter_libs_plugin.h>
@@ -25,8 +24,6 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("ConnectivityPlusWindowsPlugin"));
   FlutterInappwebviewWindowsPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FlutterInappwebviewWindowsPluginCApi"));
-  FlutterLibserialportPluginRegisterWithRegistrar(
-      registry->GetRegistrarForPlugin("FlutterLibserialportPlugin"));
   FlutterTtsPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FlutterTtsPlugin"));
   GeolocatorWindowsRegisterWithRegistrar(

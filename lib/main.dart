@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'; // Add this line
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -64,6 +64,7 @@ void main() async {
 
   // Save Map offline
   if (!kIsWeb) {
+    print('Offline Map Cache');
     await FMTCObjectBoxBackend().initialise();
     await FMTCStore('wms_dtk25__').manage.create();
     await FMTCStore('wms_dop__').manage.create();

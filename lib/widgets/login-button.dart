@@ -16,6 +16,9 @@ class _LoginButtonState extends State<LoginButton> {
   bool _loggingIn = true;
   User? user;
 
+  // Small screen width threshold in logical pixels
+  final double _smallScreenThreshold = 600;
+
   @override
   void initState() {
     super.initState();
@@ -36,39 +39,38 @@ class _LoginButtonState extends State<LoginButton> {
 
   @override
   Widget build(BuildContext context) {
+    // Get current screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < _smallScreenThreshold;
+
     if (user == null) {
-      return ElevatedButton.icon(
-        /*onPressed: () async {
-          // TEST ONLY
-          sqlite.ResultSet res = await db.getAll('SELECT * FROM lists');
-          print(res);
-        },*/
-        onPressed: () => {
-          showDialog<String>(
-            context: context,
-            builder: (BuildContext context) => AlertDialog(
-              title: const Text('Login'),
-              content: LoginDialog(),
-            ),
+      // User not logged in
+      return isSmallScreen
+          // Small screen - icon only
+          ? IconButton(
+            onPressed: () => {showDialog<String>(context: context, builder: (BuildContext context) => AlertDialog(title: const Text('Login'), content: LoginDialog()))},
+            icon: Icon(Icons.account_circle),
+            tooltip: AppLocalizations.of(context)!.authenticationLogin,
           )
-        },
-        icon: Icon(Icons.account_circle),
-        label: Text(AppLocalizations.of(context)!.authenticationLogin),
-        iconAlignment: IconAlignment.start,
-      );
+          // Normal screen - icon and text
+          : ElevatedButton.icon(
+            onPressed: () => {showDialog<String>(context: context, builder: (BuildContext context) => AlertDialog(title: const Text('Login'), content: LoginDialog()))},
+            icon: Icon(Icons.account_circle),
+            label: Text(AppLocalizations.of(context)!.authenticationLogin),
+            iconAlignment: IconAlignment.start,
+          );
     } else {
-      return ElevatedButton.icon(
-        onPressed: () => showDialog<String>(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('Logout'),
-            content: LoginDialog(),
-          ),
-        ),
-        icon: Icon(Icons.account_circle),
-        label: Text(user?.email ?? ''),
-        iconAlignment: IconAlignment.start,
-      );
+      // User logged in
+      return isSmallScreen
+          // Small screen - icon only
+          ? IconButton(onPressed: () => showDialog<String>(context: context, builder: (BuildContext context) => AlertDialog(title: const Text('Logout'), content: LoginDialog())), icon: Icon(Icons.account_circle), tooltip: user?.email ?? '')
+          // Normal screen - icon and text
+          : ElevatedButton.icon(
+            onPressed: () => showDialog<String>(context: context, builder: (BuildContext context) => AlertDialog(title: const Text('Logout'), content: LoginDialog())),
+            icon: Icon(Icons.account_circle),
+            label: Text(user?.email ?? ''),
+            iconAlignment: IconAlignment.start,
+          );
     }
   }
 }

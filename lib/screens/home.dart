@@ -17,6 +17,7 @@ import 'package:terrestrial_forest_monitor/screens/plots-by-permissions.dart';
 
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
 import 'package:terrestrial_forest_monitor/screens/drawer.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/permissions-admin-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
@@ -133,6 +134,9 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    db.getAll('SELECT * FROM schemas').then((value) {
+      print(value);
+    });
   }
 
   void _handleDragInit(DragStartDetails details) {
@@ -221,24 +225,28 @@ class _HomeState extends State<Home> {
                         },
                       ),
                 ),
-        title: Row(
-          children: [
-            InkWell(
-              onTap: () {
-                Beamer.of(context).beamToNamed('/');
-              },
-              child: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
-            ),
-          ],
-        ),
+
+        title:
+            screenWidth2 >= 600
+                ? Row(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Beamer.of(context).beamToNamed('/');
+                      },
+                      child: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
+                    ),
+                  ],
+                )
+                : SizedBox(),
         actions: [
           //if (!kIsWeb && (Platform.isAndroid || Platform.isLinux || Platform.isWindows || Platform.isIOS || Platform.isMacOS))
 
           //SystemMessageIcon(),
           //OnlineStatus(),
           SignInBtn(),
-          SizedBox(width: 10),
-          LoginButton(),
+
+          //SizedBox(width: 10),
           const AdminButton(),
           const PermissionsAdminButton(),
           IconButton(
@@ -251,8 +259,9 @@ class _HomeState extends State<Home> {
             onPressed: () {
               context.beamToNamed('/organizations');
             },
-            icon: Icon(Icons.store),
+            icon: Icon(Icons.people),
           ),
+          LoginButton(),
           /*IconButton(
             onPressed: () {
               context.beamToNamed('/headless');

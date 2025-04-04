@@ -57,9 +57,12 @@ dependencies:
   turf: ^0.0.10
   beamer: ^1.6.1
   hive: ^2.2.3
-  flutter_libserialport: ^0.5.0
+  
   hive_flutter: ^1.1.0
+  
+  #flutter_libserialport: ^0.5.0
   #libserialport: ^0.3.0+1
+
   nmea: ^3.3.2
   package_info_plus: ^8.0.2
   supabase_flutter: ^2.8.1
@@ -80,9 +83,11 @@ dependencies:
   speech_to_text: ^7.0.0
   #flutter_js: ^0.8.1
   localstorage: ^5.0.0
-  powersync: ^1.11.1
-  powersync_attachments_helper: ^0.6.17
+  powersync: ^1.12.2
+  powersync_attachments_helper: ^0.6.18+4
+  powersync_flutter_libs: ^0.4.7
   pluto_grid: ^8.0.0
+  
   
 
   #flutter_gen: any
