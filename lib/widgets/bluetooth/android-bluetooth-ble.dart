@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:terrestrial_forest_monitor/widgets/bluetooth/android-bluetooth-classic.dart';
 
 // instead of import 'package:flutter_blue_plus/flutter_blue_plus.dart'; https://pub.dev/packages/flutter_blue_plus_windows
 //import 'package:flutter_blue_plus_windows/flutter_blue_plus_windows.dart';
