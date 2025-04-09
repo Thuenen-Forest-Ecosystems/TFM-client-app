@@ -61,7 +61,7 @@ const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.t
 Schema schema = Schema(([
   const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id')]),
   const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
-  const Table('users_profile', [Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id'), Column.text('email')]),
+  const Table('users_profile', [Column.integer('can_admin_troop'), Column.integer('is_organization_admin'), Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id'), Column.text('email')]),
   const Table('schemas', [
     Column.text('created_at'),
     Column.text('interval_name'),
@@ -86,7 +86,16 @@ Schema schema = Schema(([
     Column.text('cluster_situation'),
     Column.text('inspire_grid_cell'),
   ]),
-  const Table('organizations', [Column.text('apex_domain'), Column.text('created_at'), Column.text('created_by'), Column.text('name'), Column.text('state_responsible'), Column.text('parent_organization_id')]),
+  const Table('organizations', [
+    Column.text('apex_domain'),
+    Column.text('created_at'),
+    Column.text('created_by'),
+    Column.text('name'),
+    Column.integer('state_responsible'),
+    Column.text('parent_organization_id'),
+    Column.integer('can_admin_organization'),
+    Column.integer('can_admin_troop'),
+  ]),
   const Table('troop', [Column.text('plot_ids'), Column.text('name'), Column.text('supervisor_id'), Column.text('user_ids'), Column.text('organization_id')]),
   const Table('plot', [Column.text('intkey'), Column.text('plot_name'), Column.text('cluster_id'), Column.text('center_location_json'), Column.text('created_at'), Column.text('modified_local')]),
   /*const Table('tree', [

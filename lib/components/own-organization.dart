@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/components/add-edit-organization-dialog.dart';
+import 'package:terrestrial_forest_monitor/components/invite-user-dialog.dart';
+import 'package:terrestrial_forest_monitor/components/user-management/users-profile-list.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class OwnOrganization extends StatefulWidget {
   final String organizationId;
-  const OwnOrganization({super.key, required this.organizationId});
+  final bool isOrganisationAdmin;
+  const OwnOrganization({super.key, required this.organizationId, this.isOrganisationAdmin = false});
 
   @override
   State<OwnOrganization> createState() => _OwnOrganizationState();
@@ -20,7 +23,7 @@ class _OwnOrganizationState extends State<OwnOrganization> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(child: Text('Organization Error: ${snapshot.error}'));
         }
         if (!snapshot.hasData) {
           return const Center(child: Text('No data found'));
@@ -44,23 +47,39 @@ class _OwnOrganizationState extends State<OwnOrganization> {
                   }
 
                   final parentOrganization = snapshot.data;
-                  return ListTile(title: Text(parentOrganization?['name'] ?? 'Unknown'));
+                  return ListTile(title: Text('Berechtigungt durch:'), subtitle: Text(parentOrganization?['name'] ?? 'Unknown'));
                 },
               ),
+
             ListTile(
               title: Text(organization?['name'] ?? 'Unknown'),
-              subtitle: Text(organization?['description'] ?? organization?['id']),
-              trailing: ElevatedButton(
-                onPressed: () async {
-                  await showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AddEditOrganizationDialog(parentOrganizationId: widget.organizationId);
-                    },
-                  );
-                  setState(() {});
+              //subtitle: Text(organization?['description'] ?? organization?['id']),
+              trailing:
+                  widget.isOrganisationAdmin
+                      ? ElevatedButton(
+                        onPressed: () async {
+                          await showDialog(
+                            context: context,
+                            builder: (context) {
+                              return InviteUserDialog(parentOrganizationId: widget.organizationId);
+                              //return AddEditOrganizationDialog(parentOrganizationId: widget.organizationId);
+                            },
+                          );
+                          setState(() {});
+                        },
+                        child: const Text('Mitarbeitende hinzufügen'),
+                      )
+                      : null,
+            ),
+            Card(
+              child: FutureBuilder(
+                future: db.getAll('SELECT * FROM users_profile WHERE organization_id = ?', [widget.organizationId]),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return UsersProfileList(usersProfileList: snapshot.data as List<Map<String, dynamic>>);
+                  }
+                  return const Center(child: CircularProgressIndicator());
                 },
-                child: const Text('Mitarbeitende hinzufügen'),
               ),
             ),
           ],

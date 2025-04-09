@@ -3,7 +3,8 @@ import 'package:terrestrial_forest_monitor/components/add-edit-organization-dial
 import 'package:terrestrial_forest_monitor/components/add-edit-troop-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/invite-user-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/own-organization.dart';
-import 'package:terrestrial_forest_monitor/components/users-profile-list.dart';
+import 'package:terrestrial_forest_monitor/components/user-management/troop.dart';
+import 'package:terrestrial_forest_monitor/components/user-management/users-profile-list.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -42,32 +43,85 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               rootOrganizationId = (snapshot.data as Map<String, dynamic>)['organization_id'] ?? rootOrganizationId;
+
               bool isAdmin = (snapshot.data as Map<String, dynamic>)['is_admin'] == 1;
               int? stateResponsible = (snapshot.data as Map<String, dynamic>)['state_responsible'] ?? null;
-              print(stateResponsible);
-              print(isAdmin);
-              if (stateResponsible != null || isAdmin) {
+              String? organizationId = (snapshot.data as Map<String, dynamic>)['organization_id'] ?? '';
+              bool? isOrganizationAdmin = (snapshot.data as Map<String, dynamic>)['is_organization_admin'] == 1;
+              //bool canAdminTroop = (snapshot.data as Map<String, dynamic>)['can_admin_troop'] == 1;
+
+              if (organizationId != null) {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    OwnOrganization(organizationId: rootOrganizationId),
+                    OwnOrganization(organizationId: rootOrganizationId, isOrganisationAdmin: isOrganizationAdmin),
                     SizedBox(height: 10),
-                    Divider(thickness: 2),
+                    if (isOrganizationAdmin) Divider(thickness: 1),
                     SizedBox(height: 10),
-                    Center(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await showDialog(
-                            context: context,
-                            builder: (context) {
-                              return AddEditOrganizationDialog(parentOrganizationId: rootOrganizationId);
-                            },
-                          );
-                          setState(() {});
+                    if (isOrganizationAdmin)
+                      FutureBuilder(
+                        future: db.get('SELECT * FROM organizations WHERE id = ?', [rootOrganizationId]),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData) {
+                            final int? stateResponsible = (snapshot.data as Map<String, dynamic>)['state_responsible'];
+                            final bool isServiceProvider = (snapshot.data as Map<String, dynamic>)['is_service_provider'] == 1;
+                            final bool canAdminTroop = (snapshot.data as Map<String, dynamic>)['can_admin_troop'] == 1;
+                            final bool canAdminOrganization = (snapshot.data as Map<String, dynamic>)['can_admin_organization'] == 1;
+
+                            List<Widget> additionalButtons = [];
+
+                            if (canAdminTroop) {
+                              additionalButtons.add(
+                                ListTile(
+                                  title: const Text('Truppe'),
+                                  subtitle: const Text('Fügen Sie Dienstleister hinzu'),
+                                  trailing: IconButton(
+                                    onPressed: () async {
+                                      await showDialog(
+                                        context: context,
+                                        builder: (context) {
+                                          return AddEditTroopDialog(parentOrganizationId: rootOrganizationId);
+                                        },
+                                      );
+                                      setState(() {});
+                                    },
+                                    icon: const Icon(Icons.add),
+                                  ),
+                                ),
+                              );
+                              additionalButtons.add(Card(child: TroopManagement(organizationId: organizationId)));
+                            }
+                            if (!isServiceProvider) {
+                              additionalButtons.add(
+                                ListTile(
+                                  title: const Text('Dienstleister'),
+                                  subtitle: const Text('Fügen Sie Dienstleister hinzu'),
+                                  trailing: IconButton(
+                                    onPressed: () async {
+                                      await showDialog(
+                                        context: context,
+                                        builder: (context) {
+                                          return AddEditOrganizationDialog(parentOrganizationId: rootOrganizationId);
+                                        },
+                                      );
+                                      setState(() {});
+                                    },
+                                    icon: const Icon(Icons.add),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ...additionalButtons, // Injecting additionalButtons here
+                              ],
+                            );
+                          }
+                          return const Center(child: CircularProgressIndicator());
                         },
-                        child: const Text('Organisation hinzufügen'),
                       ),
-                    ),
                     const SizedBox(height: 10),
                     Expanded(
                       // Wichtig: Wrapped in Expanded // WHERE parent_organization_id = $rootOrganizationId OR id = $rootOrganizationId
@@ -109,18 +163,6 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                                                 setState(() {});
                                               },
                                             ),
-                                            ElevatedButton(
-                                              onPressed: () async {
-                                                await showDialog(
-                                                  context: context,
-                                                  builder: (context) {
-                                                    return InviteUserDialog(parentOrganizationId: organization['id']);
-                                                  },
-                                                );
-                                                setState(() {});
-                                              },
-                                              child: const Text('Mitarbeiter einladen'),
-                                            ),
                                           ],
                                         ),
                                       ),
@@ -128,10 +170,18 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                                       FutureBuilder(
                                         future: db.getAll('SELECT * FROM users_profile WHERE organization_id = ?', [organization['id']]),
                                         builder: (context, snapshot) {
-                                          if (snapshot.hasData) {
+                                          if (snapshot.connectionState == ConnectionState.waiting) {
+                                            return const Center(child: CircularProgressIndicator());
+                                          } else if (snapshot.hasData) {
                                             return UsersProfileList(usersProfileList: snapshot.data as List<Map<String, dynamic>>);
+                                          } else if (snapshot.hasData && (snapshot.data as List<Map<String, dynamic>>).isEmpty) {
+                                            return const Center(child: Text('Keine Mitarbeitende gefunden.'));
+                                          } else if (snapshot.hasError) {
+                                            return Center(child: Text('Error: ${snapshot.error}'));
+                                          } else {
+                                            // Handle the case when data is null or empty
+                                            return const Center(child: Text('Keine Daten gefunden.'));
                                           }
-                                          return const Center(child: CircularProgressIndicator());
                                         },
                                       ),
                                     ],
@@ -139,8 +189,14 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                                 );
                               },
                             );
-                          } else {
+                          } else if (snapshot.hasError) {
+                            return Center(child: Text('Error: ${snapshot.error}'));
+                          } else if (snapshot.connectionState == ConnectionState.waiting) {
                             return const Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasData && (snapshot.data as List<Map<String, dynamic>>).isEmpty) {
+                            return const Center(child: Text('Keine Organisationen gefunden.'));
+                          } else {
+                            return const Center(child: Text('Unbekannter Fehler.'));
                           }
                         },
                       ),
@@ -148,10 +204,14 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                   ],
                 );
               } else {
-                return const Center(child: Text('Sie haben keine Berechtigung, Organisationen zu verwalten.'));
+                return const Center(child: Text('Sie haben keine Berechtigung, eine Organisation zu verwalten.'));
               }
-            } else {
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
+            } else {
+              return const Center(child: Text('Unbekannter Fehler.'));
             }
           },
         ),

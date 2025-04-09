@@ -37,7 +37,10 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   flutter_map_cancellable_tile_provider: ^3.0.0
+
   flutter_blue_plus: ^1.33.4
+  flutter_blue_classic: ^0.0.4
+
   url_strategy: ^0.3.0
   provider: ^6.1.2
   flutter_svg: ^2.0.10+1
@@ -87,6 +90,8 @@ dependencies:
   powersync_attachments_helper: ^0.6.18+4
   powersync_flutter_libs: ^0.4.7
   pluto_grid: ^8.0.0
+  flutter_blue_plus_windows: ^1.25.2
+  
   
   
 

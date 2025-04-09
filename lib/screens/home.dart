@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
+import 'package:terrestrial_forest_monitor/screens/cluster-admin.dart';
 import 'package:terrestrial_forest_monitor/screens/clusters.dart';
 import 'package:terrestrial_forest_monitor/components/json-schema-form-wrapper.dart';
 import 'package:terrestrial_forest_monitor/screens/dynamic-form-screen.dart';
@@ -20,6 +21,7 @@ import 'package:terrestrial_forest_monitor/screens/drawer.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/permissions-admin-button.dart';
+import 'package:terrestrial_forest_monitor/widgets/cluster-adminbutton.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/map.dart';
 import 'package:terrestrial_forest_monitor/screens/thuenengrid.dart';
@@ -35,6 +37,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 //import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/online-status.dart';
+import 'package:terrestrial_forest_monitor/widgets/organizations-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/painter.dart';
 import 'package:terrestrial_forest_monitor/widgets/sign-in-btn.dart';
 
@@ -83,6 +86,9 @@ class _HomeState extends State<Home> {
             'schema/:schemaId': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(schemaId: schemaId), type: BeamPageType.noTransition);
+            },
+            'cluster/admin': (context, state, data) {
+              return ClusterAdmin();
             },
             'cluster/:schemaId/:clusterId': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
@@ -244,23 +250,20 @@ class _HomeState extends State<Home> {
 
           //SystemMessageIcon(),
           //OnlineStatus(),
-          SignInBtn(),
+          //SignInBtn(),
 
           //SizedBox(width: 10),
           const AdminButton(),
-          const PermissionsAdminButton(),
+          //const PermissionsAdminButton(),
           IconButton(
             onPressed: () {
               context.beamToNamed('/settings');
             },
             icon: Icon(Icons.settings),
           ),
-          IconButton(
-            onPressed: () {
-              context.beamToNamed('/organizations');
-            },
-            icon: Icon(Icons.people),
-          ),
+          ClusterAdminButton(),
+          OrganizationsButton(),
+          SizedBox(width: 10),
           LoginButton(),
           /*IconButton(
             onPressed: () {

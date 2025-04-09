@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/config.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/widgets/bluetooth/android-bluetooth.dart';
+import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gnss-bluetooth.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
 
@@ -77,7 +79,8 @@ class _SettingsState extends State<Settings> {
           constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
           child: ListView(
             children: <Widget>[
-              //Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
+              Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
+              Card(margin: EdgeInsets.all(10.0), child: AndroidBluetooth()),
               //Card(margin: EdgeInsets.all(10.0), child: GnssSettings()),
               //Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Bluetooth - GNSS', style: TextStyle(fontSize: 15))),
               //Card(margin: EdgeInsets.all(10.0), child: GnssBluetooth()),

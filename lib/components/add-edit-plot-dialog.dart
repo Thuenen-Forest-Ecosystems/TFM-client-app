@@ -91,7 +91,7 @@ class _AddEditPlotDialogState extends State<AddEditPlotDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Trupp hinzufügen'),
+      title: const Text('Plot hinzufügen'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
