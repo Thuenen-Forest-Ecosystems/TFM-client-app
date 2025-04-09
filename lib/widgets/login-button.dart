@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/widgets/login-dialog.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 

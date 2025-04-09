@@ -22,21 +22,26 @@ class _InviteUserDialogState extends State<InviteUserDialog> {
       return;
     }
     try {
-      final FunctionResponse data = await Supabase.instance.client.functions.invoke(
+      final FunctionResponse response = await Supabase.instance.client.functions.invoke(
         'invite-user',
         body: jsonEncode({
           'email': emailController.text,
           'metaData': {'organization_id': widget.parentOrganizationId},
         }),
       );
-      if (data.data['success'] == true) {
+      if (response.data['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation sent successfully')));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending invitation: ${data.data['error']}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending invitation1: ${response.data['error']}')));
       }
-      print(data.data);
+      print(response.data);
     } catch (e) {
-      print(e);
+      // Handle error
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending invitation: $e')));
+      print('Error sending invitation: $e');
+    } finally {
+      // Optionally clear the text field or perform other actions
+      emailController.clear();
     }
   }
 

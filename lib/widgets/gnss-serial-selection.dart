@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:flutter_libserialport/flutter_libserialport.dart';
-//import 'package:flutter_libserialport/flutter_libserialport.dart';
+//import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:flutter_libserialport/flutter_libserialport.dart';
 
 extension IntToString on int {
   String toHex() => '0x${toRadixString(16)}';
@@ -162,36 +161,40 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
         return;
       }
       var reader = SerialPortReader(serialPort!);
-      reader!.stream.listen((data) {
-        String nmeaSentence = String.fromCharCodes(data);
+      reader!.stream.listen(
+        (data) {
+          String nmeaSentence = String.fromCharCodes(data);
 
-        // split nmeaSentances in Lines
-        List<String> lines = nmeaSentence.split('\$');
+          // split nmeaSentances in Lines
+          List<String> lines = nmeaSentence.split('\$');
 
-        // Clear empty lines
-        lines.removeWhere((element) => element.isEmpty);
+          // Clear empty lines
+          lines.removeWhere((element) => element.isEmpty);
 
-        setState(() {
-          nmeaSentences.addAll(lines);
-        });
+          setState(() {
+            nmeaSentences.addAll(lines);
+          });
 
-        // Step 2: Iterate through each line
-        for (String line in lines) {
-          // Step 3: Check if the line starts with "GNRMC"
-          if (line.startsWith('GNRMC')) {
-            print(line);
-            // Step 4: Parse the line
-            _getLatLonFromGNRMC(line);
+          // Step 2: Iterate through each line
+          for (String line in lines) {
+            // Step 3: Check if the line starts with "GNRMC"
+            if (line.startsWith('GNRMC')) {
+              print(line);
+              // Step 4: Parse the line
+              _getLatLonFromGNRMC(line);
+            }
           }
-        }
-      }, onDone: () {
-        print('Done');
-      }, onError: (e) {
-        print('$e');
-        setState(() {
-          testing = false;
-        });
-      });
+        },
+        onDone: () {
+          print('Done');
+        },
+        onError: (e) {
+          print('$e');
+          setState(() {
+            testing = false;
+          });
+        },
+      );
       print('read start');
     } catch (e) {
       print(e);
@@ -203,32 +206,28 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     return Column(
       children: [
         ListTile(
-            title: Text('Serial Ports:'),
-            subtitle: Text('Get Information from Device...'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButton<String>(
-                  value: selectedPort,
-                  onChanged: (String? value) {
-                    if (value == null || testing) return;
-                    setState(() {
-                      selectedPort = value;
-                    });
-                  },
-                  items: availablePorts.map<DropdownMenuItem<String>>((dynamic value) {
-                    return DropdownMenuItem<String>(
-                      value: value.toString(),
-                      child: Text(value.toString()),
-                    );
-                  }).toList(), // Explicitly specify the type
-                ),
-                IconButton(
-                  icon: Icon(Icons.refresh),
-                  onPressed: _getAvailablePorts,
-                ),
-              ],
-            )),
+          title: Text('Serial Ports:'),
+          subtitle: Text('Get Information from Device...'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButton<String>(
+                value: selectedPort,
+                onChanged: (String? value) {
+                  if (value == null || testing) return;
+                  setState(() {
+                    selectedPort = value;
+                  });
+                },
+                items:
+                    availablePorts.map<DropdownMenuItem<String>>((dynamic value) {
+                      return DropdownMenuItem<String>(value: value.toString(), child: Text(value.toString()));
+                    }).toList(), // Explicitly specify the type
+              ),
+              IconButton(icon: Icon(Icons.refresh), onPressed: _getAvailablePorts),
+            ],
+          ),
+        ),
         ListTile(
           title: Text('Baud Rate: '),
           subtitle: Text('Get Information from Device...'),
@@ -239,31 +238,17 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
                 baudeRate = value;
               });
             },
-            items: baudeRates.map<DropdownMenuItem<int>>((dynamic value) {
-              return DropdownMenuItem<int>(
-                value: value,
-                child: Text(value.toString()),
-              );
-            }).toList(), // Explicitly specify the type
+            items:
+                baudeRates.map<DropdownMenuItem<int>>((dynamic value) {
+                  return DropdownMenuItem<int>(value: value, child: Text(value.toString()));
+                }).toList(), // Explicitly specify the type
           ),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            if (testing)
-              ElevatedButton(
-                onPressed: _cancelTesting,
-                child: Text('Cancel testing'),
-              )
-            else
-              ElevatedButton(
-                onPressed: baudeRate != null ? _testConnection : null,
-                child: Text('TEST connection'),
-              ),
-            ElevatedButton(
-              onPressed: tested ? _saveDevice : null,
-              child: Text('SAVE'),
-            )
+            if (testing) ElevatedButton(onPressed: _cancelTesting, child: Text('Cancel testing')) else ElevatedButton(onPressed: baudeRate != null ? _testConnection : null, child: Text('TEST connection')),
+            ElevatedButton(onPressed: tested ? _saveDevice : null, child: Text('SAVE')),
           ],
         ),
         Divider(),
@@ -274,12 +259,10 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
             child: ListView.builder(
               itemCount: nmeaSentences.length,
               itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(nmeaSentences[index].toString()),
-                );
+                return ListTile(title: Text(nmeaSentences[index].toString()));
               },
             ),
-          )
+          ),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/screens/admin-permissions.dart';
 import 'package:terrestrial_forest_monitor/screens/admin.dart';
@@ -17,7 +18,7 @@ import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
 import 'package:intl/intl.dart';
 import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';

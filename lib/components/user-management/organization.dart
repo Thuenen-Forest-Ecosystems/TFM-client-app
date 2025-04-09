@@ -48,18 +48,7 @@ class _OrganizationState extends State<Organization> {
                               setState(() {});
                             },
                           ),
-                          /*ElevatedButton(
-                                            onPressed: () async {
-                                              await showDialog(
-                                                context: context,
-                                                builder: (context) {
-                                                  return AddEditTroopDialog(parentOrganizationId: organization['id']);
-                                                },
-                                              );
-                                              setState(() {});
-                                            },
-                                            child: const Text('Trupp hinzufügen'),
-                                          ),*/
+
                           ElevatedButton(
                             onPressed: () async {
                               await showDialog(

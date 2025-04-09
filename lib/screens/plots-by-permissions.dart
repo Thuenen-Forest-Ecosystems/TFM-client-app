@@ -17,6 +17,8 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
     Map clusterMap = {};
     // Get all records from the database
     List records = await db.getAll('SELECT * FROM records');
+    print('docker compose --env-file .env.local -f docker-compose.local.yaml up ');
+    print(records);
 
     // group by cluster_id
     for (var record in records) {
@@ -33,8 +35,7 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
       // Add the record to the clusterMap
       clusterMap[clusterId].add({...record, 'previous_properties': previous_properties});
     }
-    print('-----');
-    print(clusterMap);
+
     return clusterMap;
   }
 

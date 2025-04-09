@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:uuid/uuid.dart';
 
 class AddEditOrganizationDialog extends StatefulWidget {
   /// Dialog to add or edit an organization.
@@ -37,35 +38,51 @@ class _AddEditOrganizationDialogState extends State<AddEditOrganizationDialog> {
     String name = nameController.text;
     String email = apexDomainController.text;
     // Validate email format
-    final RegExp emailRegex = RegExp(r'^@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final RegExp emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid email format')));
       return;
     }
-    String domain = email.split('@').last;
 
-    String apexDomain = '@$domain';
     String? id = widget.organizationId;
     if (id != null) {
       // Update existing organization
       await db
-          .execute('UPDATE organizations SET name = ?, apex_domain = ? WHERE id = ?', [name, apexDomain, id])
+          .execute('UPDATE organizations SET name = ? WHERE id = ?', [name, id])
           .then((value) {
             // Handle success
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Organization updated successfully')));
+            //ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Organization updated successfully')));
             Navigator.of(context).pop();
           })
           .catchError((error) {
             // Handle error
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error updating organization: $error')));
+          })
+          .then((value) {
+            // Handle success
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User invited successfully')));
+          })
+          .catchError((error) {
+            // Handle error
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error inviting user: $error')));
           });
     } else {
       // Add new organization
+      String uuid = Uuid().v4();
       await db
-          .execute('INSERT INTO organizations (id, name, apex_domain, parent_organization_id) VALUES (uuid(), ?, ?, ?)', [name, apexDomain, widget.parentOrganizationId])
+          .execute('INSERT INTO organizations (id, name, parent_organization_id) VALUES (?, ?, ?)', [uuid, name, widget.parentOrganizationId])
           .then((value) {
             // Handle success
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Organization added successfully')));
+            //ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Organization added successfully')));
+
+            return inviteUserByEmail(
+              email, // email parameter as positional argument
+              uuid, // metaData as positional argument
+            );
+          })
+          .then((value) {
+            // Handle success
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User invited successfully')));
             Navigator.of(context).pop();
           })
           .catchError((error) {

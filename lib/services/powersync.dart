@@ -32,6 +32,17 @@ final List<RegExp> fatalResponseCodes = [
 
 late PowerSyncDatabase db;
 
+Future<FunctionResponse> inviteUserByEmail(String email, String organizationId) async {
+  // final FunctionResponse response =
+  return await Supabase.instance.client.functions.invoke(
+    'invite-user',
+    body: jsonEncode({
+      'email': email,
+      'metaData': {'organization_id': organizationId},
+    }),
+  );
+}
+
 Future<String> getDatabasePath() async {
   var config = await getServerConfig();
 

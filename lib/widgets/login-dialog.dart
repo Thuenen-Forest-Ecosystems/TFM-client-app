@@ -30,7 +30,6 @@ class _LoginDialogState extends State<LoginDialog> {
   void _getUser() async {
     user = getCurrentUser();
     //_user = await ApiService().getLoggedInUser();
-    setState(() {});
   }
 
   @override
@@ -87,6 +86,7 @@ class _LoginDialogState extends State<LoginDialog> {
   _logoutRequest() async {
     try {
       await logout();
+      print('logged out');
       //await apiService.logout(_user?['email']);
       //Provider.of<ApiLog>(context, listen: false).changeToken(null);
     } catch (e) {
@@ -102,26 +102,6 @@ class _LoginDialogState extends State<LoginDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          FutureBuilder(
-            future: db.get('SELECT * FROM users_profile WHERE id = ?', [user?.id]),
-            builder: (context, AsyncSnapshot snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
-                }
-                if (snapshot.hasData) {
-                  if (snapshot.data.isEmpty) {
-                    return Text('No user found');
-                  }
-                }
-                if (snapshot.data['is_admin'] == true) {
-                  return Text('You are logged in as ${user?.email} (Admin)');
-                }
-              }
-              return CircularProgressIndicator();
-            },
-          ),
-          SizedBox(height: 20),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [ElevatedButton(onPressed: _logoutRequest, child: Text('Logout'))]),
         ],
       );
