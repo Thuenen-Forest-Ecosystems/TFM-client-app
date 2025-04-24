@@ -16,7 +16,6 @@ class _ClusterAdminButtonState extends State<ClusterAdminButton> {
 
   @override
   Widget build(BuildContext context) {
-    print('Auth state changed:');
     return StreamBuilder(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {

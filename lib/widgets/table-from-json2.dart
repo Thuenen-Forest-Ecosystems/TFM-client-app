@@ -22,8 +22,6 @@ class _TableFromJsonState extends State<TableFromJson2> {
     super.initState();
     _data = widget.data;
     _parentPath = widget.parentPath;
-
-    print('initState');
   }
 
   @override
@@ -44,32 +42,16 @@ class _TableFromJsonState extends State<TableFromJson2> {
       fixedTopRows: 1,
       isVerticalScrollBarVisible: true,
       isHorizontalScrollBarVisible: true,
-      columns: [
-        DataColumn2(
-          label: Text('ID'),
-          size: ColumnSize.S,
-        ),
-        DataColumn2(
-          label: Text('Plot-Nummer'),
-          size: ColumnSize.S,
-        )
-      ],
-      rows: _data.map((dat) {
-        return DataRow(
-          onSelectChanged: (val) {
-            print(dat['id']);
-            Beamer.of(context).beamToNamed('$_parentPath/${dat['id']}');
-          },
-          cells: [
-            DataCell(
-              Text(dat['id'].toString()),
-            ),
-            DataCell(
-              Text(dat['plot_name'].toString()),
-            ),
-          ],
-        );
-      }).toList(),
+      columns: [DataColumn2(label: Text('ID'), size: ColumnSize.S), DataColumn2(label: Text('Plot-Nummer'), size: ColumnSize.S)],
+      rows:
+          _data.map((dat) {
+            return DataRow(
+              onSelectChanged: (val) {
+                Beamer.of(context).beamToNamed('$_parentPath/${dat['id']}');
+              },
+              cells: [DataCell(Text(dat['id'].toString())), DataCell(Text(dat['plot_name'].toString()))],
+            );
+          }).toList(),
       /*rows: List<DataRow>.generate(
         100,
         (index) => DataRow(

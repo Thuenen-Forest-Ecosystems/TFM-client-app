@@ -14,13 +14,5 @@ class _TIDeadwoodState extends State<TIDeadwood> {
   @override
   Widget build(BuildContext context) {
     return Text('Deadwood');
-    /*return Center(
-      child: EditableDatatableFromSqliteTable(
-        data: widget.data,
-        onUpdate: () {
-          print('update: ${widget.data}');
-        },
-      ),
-    );*/
   }
 }

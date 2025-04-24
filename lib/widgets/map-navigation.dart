@@ -30,9 +30,7 @@ class _MapNavigationState extends State<MapNavigation> {
               },
             ),
           ),
-        Divider(
-          color: Color.fromARGB(150, 27, 27, 27),
-        ),
+        Divider(color: Color.fromARGB(150, 27, 27, 27)),
 
         IconButton(
           icon: const Icon(Icons.zoom_in),
@@ -48,9 +46,7 @@ class _MapNavigationState extends State<MapNavigation> {
             context.read<MapState>().zoomOut();
           },
         ),
-        Divider(
-          color: Color.fromARGB(100, 27, 27, 27),
-        ),
+        Divider(color: Color.fromARGB(100, 27, 27, 27)),
         IconButton(
           icon: const Icon(Icons.apps),
           color: Color.fromARGB(255, 27, 27, 27),
@@ -60,9 +56,7 @@ class _MapNavigationState extends State<MapNavigation> {
         ),
 
         //GpsButton(),
-        Divider(
-          color: Color.fromARGB(100, 27, 27, 27),
-        ),
+        Divider(color: Color.fromARGB(100, 27, 27, 27)),
         IconButton(
           icon: const Icon(Icons.close),
           color: Color.fromARGB(255, 27, 27, 27),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:beamer/beamer.dart';
@@ -6,6 +7,7 @@ import 'package:json_schema/json_schema.dart';
 import 'package:terrestrial_forest_monitor/components/form-errors-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/json-schema-form.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class JsonSchemaFormWrapper extends StatefulWidget {
   final String recordsId;
@@ -25,6 +27,11 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
   late JsonSchema _jsonSchema;
   late TabController _tabController;
   Map<String, Map<String, String>> _tabs = {};
+  Timer? _timer;
+
+  bool _speechInitialized = false;
+  late stt.SpeechToText _speechToText;
+  bool _speechEnabled = false;
 
   // Helper method to safely access nested maps
   Map<String, dynamic>? _typeSafeMap(dynamic value) {
@@ -62,16 +69,48 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
     //widget.schema['properties'].keys.toList().length + 1;
     _tabController = TabController(length: tabsCount, vsync: this);
     // Create schema validator when the widget initializes
+
     _jsonSchema = JsonSchema.create(widget.schema);
     _formData = widget.formData;
     _getFormData();
 
     //_validateFormData(_formData);
+    // https://github.com/csdcorp/speech_to_text/issues/539
+    // if not macOs
+    _speechToText = stt.SpeechToText();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Move platform check to didChangeDependencies
+    if (!_speechInitialized && Theme.of(context).platform != TargetPlatform.macOS) {
+      _initSpeech();
+      _speechInitialized = true;
+    }
+  }
+
+  // Add this method for async initialization
+  Future<void> _initSpeech() async {
+    try {
+      _speechEnabled = await _speechToText.initialize();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Failed to initialize speech recognition: $e');
+      _speechEnabled = false;
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -106,6 +145,40 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
     }
   }
 
+  Future _autosave() async {
+    if (_timer != null) {
+      _timer!.cancel();
+    }
+    print('Autosaving...');
+    _timer = Timer(Duration(seconds: 3), () {
+      _timer = null;
+      _save();
+    });
+    return;
+  }
+
+  bool _saveInProgress = false;
+  Future _save() async {
+    // Save the form data to the database or perform any other action
+
+    _saveInProgress = true;
+    try {
+      final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
+      if (record.isNotEmpty) {
+        print('Record exists, updating...');
+        // Update the record
+        await db.execute('UPDATE records SET properties = ? WHERE id = ?', [jsonEncode(_formData), widget.recordsId]);
+      } else {
+        print('Record does not exist, inserting...');
+        // Insert a new record
+        await db.execute('INSERT INTO records (properties, schema_id) VALUES (?, ?)', [jsonEncode(_formData), widget.schema['id']]);
+      }
+    } catch (e) {
+      print('Error saving form data: $e');
+    }
+    _saveInProgress = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Extract schema properties
@@ -138,28 +211,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       _tabs[propName] = {"name": title, "path": propName};
     });
 
-    Future _save() async {
-      // Save the form data to the database or perform any other action
-      print('Saving form data: $_formData');
-      print(widget.recordsId);
-      // Check if exists
-      try {
-        final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
-        if (record.isNotEmpty) {
-          print('Record exists, updating...');
-          print(_formData);
-          // Update the record
-          await db.execute('UPDATE records SET properties = ? WHERE id = ?', [_formData, widget.recordsId]);
-        } else {
-          print('Record does not exist, inserting...');
-          // Insert a new record
-          await db.execute('INSERT INTO records (properties, schema_id) VALUES (?, ?)', [_formData, widget.schema['id']]);
-        }
-      } catch (e) {
-        print('Error saving form data: $e');
-      }
-    }
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -185,7 +236,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
                 final focusError = await showDialog<ValidationError>(
                   context: context,
                   builder: (context) {
-                    return FormErrorsDialog(validationErrors: validationErrors);
+                    return FormErrorsDialog(validationErrors: validationErrors, schema: widget.schema);
                   },
                 );
 
@@ -196,14 +247,14 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
                   });
                 }
               },
-              label: Text('Fehler'),
+              label: Text('Fehler (${validationErrors.length})'),
             ),
           SizedBox(width: 16),
           ElevatedButton.icon(
             onPressed:
-                formErrors.isEmpty
+                validationErrors.isEmpty
                     ? () {
-                      if (formErrors.isEmpty) {
+                      if (validationErrors.isEmpty) {
                         _save();
                       } else {
                         print('Form data is invalid: $_formData');
@@ -338,6 +389,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
 
     // Create schema for just this property
     final Map<String, dynamic> sectionSchema = {
+      ...propSchema,
       "title": propSchema['title'] ?? propName,
       "type": "object",
       "properties": {propName: propSchema},
@@ -363,11 +415,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
           if (mounted) {
             setState(() {
               if (data[propName] != null) {
-                print('...');
-                print(propName);
-
                 _formData[propName] = data[propName];
-                print(_formData);
               }
             });
             _validateFormData(_formData);
@@ -401,20 +449,15 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
     try {
       // Validate the data against the schema
       final result = _jsonSchema.validate(data);
-      validationErrors = result.errors;
-      if (data['plot_landmark']) print(data['plot_landmark']);
+      // Filter out validation errors that not have instancePath or instancePath is empty
+      validationErrors = result.errors.where((error) => error.instancePath.isNotEmpty).toList();
+      //validationErrors = result.errors;
 
-      if (result.isValid) {
-        // Clear errors if valid
-        setState(() {
-          formErrors = {};
-        });
-        return true;
-      } else {
+      if (!result.isValid) {
         // Process validation errors
         final Map<String, dynamic> errors = {};
 
-        for (var error in result.errors) {
+        for (var error in validationErrors) {
           // Parse the error path to identify the field
           String path = error.instancePath;
 
@@ -443,14 +486,18 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
             }
           }
         }
-
         // Update errors state
-        setState(() {
-          formErrors = errors;
-        });
-
-        return false;
+        formErrors = errors;
+      } else {
+        print('Form is valid $validationErrors');
+        // Clear errors if validation is successful
+        validationErrors = [];
+        formErrors = {};
       }
+      setState(() {});
+
+      //_autosave();
+      return validationErrors.isEmpty;
     } catch (e) {
       setState(() {
         formErrors = {'_form': 'Validation error: ${e.toString()}'};

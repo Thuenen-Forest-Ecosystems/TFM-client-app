@@ -95,6 +95,19 @@ class _LoginDialogState extends State<LoginDialog> {
     _getUser();
   }
 
+  List<Widget> _userDataFromJwtToken() {
+    List<Widget> data = [];
+    Map<String, dynamic>? jwtInfo = getDecriptedToken();
+    for (var key in jwtInfo!.keys) {
+      if (key == 'exp') {
+        data.add(Text('Token expires at: ${DateTime.fromMillisecondsSinceEpoch(jwtInfo[key] * 1000)} in ${DateTime.fromMillisecondsSinceEpoch(jwtInfo[key] * 1000).difference(DateTime.now()).inHours} hours'));
+      } else if (key == 'state_responsible' || key == 'troop_id' || key == 'organization_id' || key == 'is_admin' || key == 'email') {
+        data.add(Text('$key: ${jwtInfo[key]}'));
+      }
+    }
+    return data;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (user != null) {
@@ -102,6 +115,7 @@ class _LoginDialogState extends State<LoginDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          ..._userDataFromJwtToken(),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [ElevatedButton(onPressed: _logoutRequest, child: Text('Logout'))]),
         ],
       );

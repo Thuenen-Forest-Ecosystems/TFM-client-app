@@ -83,6 +83,9 @@ void main() async {
   //await Repository.configure(databaseFactory);
   //await Repository().initialize();
 
+  final gpsProvider = GpsPositionProvider();
+  gpsProvider.initialize();
+
   runApp(
     MultiProvider(
       providers: [
@@ -92,7 +95,7 @@ void main() async {
         //ChangeNotifierProvider(create: (_) => ApiLog(token)),
         //ChangeNotifierProvider(create: (_) => JsonSchemaProvider()),
         ChangeNotifierProvider(create: (_) => MapState()),
-        ChangeNotifierProvider(create: (_) => GpsPositionProvider()),
+        ChangeNotifierProvider(create: (_) => gpsProvider),
       ],
       child: Layout(),
     ),
@@ -138,7 +141,7 @@ class Layout extends StatelessWidget {
         scaffoldBackgroundColor: Color(0xFF333333),
         colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.dark),
         primaryColor: const Color(0xFFC3E399),
-        appBarTheme: AppBarTheme(color: const Color(0xFFC3E399), foregroundColor: Colors.black),
+        appBarTheme: AppBarTheme(color: const Color.fromARGB(255, 224, 241, 203), foregroundColor: Colors.black), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
         bottomNavigationBarTheme: BottomNavigationBarThemeData(backgroundColor: const Color(0xFFC3E399), selectedItemColor: Colors.black, unselectedItemColor: Colors.black),
         useMaterial3: true,
         /* dark theme settings */

@@ -55,12 +55,7 @@ class MapState with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void fitCameraBounds(LatLngBounds bounds, double padding) {
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: bounds,
-        padding: EdgeInsets.all(padding),
-      ),
-    );
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: EdgeInsets.all(padding)));
   }
 
   void moveToPoint(LatLng point, double? zoom) {

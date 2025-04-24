@@ -36,7 +36,6 @@ class _AddEditPlotDialogState extends State<AddEditPlotDialog> {
     // 0000201d-84d9-48a7-8134-47c7438f2bd3
     if (id != null) {
       // Update existing organization
-      print('UPDATE');
       await db
           .execute('UPDATE records SET plot_id = ?, troop_id = ?, schema_name=? WHERE id = ?', [plotId, widget.troopId, schemaName, id])
           .then((value) {
@@ -50,7 +49,7 @@ class _AddEditPlotDialogState extends State<AddEditPlotDialog> {
           });
     } else {
       // Add new organization
-      print('troopId: ${widget.troopId} plotId: $plotId schemaId: $schemaName');
+
       // timestamptz
       String created_at = DateTime.now().toIso8601String();
       await db

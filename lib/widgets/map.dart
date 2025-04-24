@@ -33,6 +33,7 @@ class TFMMap extends StatefulWidget {
 }
 
 class _TFMMapState extends State<TFMMap> {
+  List _plotList = [];
   Future<sqlite.ResultSet>? _plots;
   Function? disposeListen;
   sqlite.ResultSet? clusters;
@@ -50,13 +51,24 @@ class _TFMMapState extends State<TFMMap> {
 
   final LayerHitNotifier _plotHitNotifier = ValueNotifier(null);
 
-  Future<sqlite.ResultSet> _getPlots() async {
-    sqlite.ResultSet plots = await db.getAll('SELECT * FROM plot');
-    print('UPDATE STATE MAP');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {});
-    });
-    return plots;
+  Future<void> _watchRecords() async {
+    await db.watch('SELECT * FROM records').listen((sqlite.ResultSet resultSet) {
+      _plotList = [];
+      if (resultSet.isEmpty) return;
+
+      // Get all records from the database
+      for (var record in resultSet) {
+        Map previous_properties = jsonDecode(record['previous_properties']);
+        previous_properties['schemaId'] = record['schema_id'];
+        previous_properties['recordId'] = record['id'];
+
+        if (previous_properties['plot_coordinates'] == null) continue;
+        _plotList.add(previous_properties);
+      }
+      if (mounted) {
+        setState(() {});
+      }
+    }).asFuture();
   }
 
   @override
@@ -65,9 +77,10 @@ class _TFMMapState extends State<TFMMap> {
 
     print('TFMMap initState');
 
-    _mapController = MapController();
+    // get MapController from MapState
+    _mapController = context.read<MapState>().mapController;
 
-    //_plots = _getPlots();
+    _watchRecords();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -110,6 +123,7 @@ class _TFMMapState extends State<TFMMap> {
   }
 
   void _navigateToPlot(String schemaId, String clusterId, String plotId) {
+    // /plot/edit/${records[0]['schema_id']}/$clusterId/${records[0]['id']}
     context.beamToNamed('/plot/$schemaId/$clusterId/$plotId');
   }
 
@@ -155,38 +169,33 @@ class _TFMMapState extends State<TFMMap> {
   }*/
 
   Widget _plotLayer() {
-    return FutureBuilder(
-      future: _plots,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return GestureDetector(
-            onTapUp: (details) {
-              final LayerHitResult? hitResult = _plotHitNotifier.value;
-              if (hitResult == null) return;
+    return GestureDetector(
+      onTapUp: (details) {
+        final LayerHitResult? hitResult = _plotHitNotifier.value;
+        if (hitResult == null) return;
 
-              for (final hitValue in hitResult.hitValues) {
-                Map plot = hitValue as Map;
-                _navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
-              }
-            },
-            child: CircleLayer(
-              hitNotifier: _plotHitNotifier,
-              circles:
-                  snapshot.data!.where((plot) => plot['center_location_json'] != null).map<CircleMarker<Object>>((plot) {
-                    Map plotLocation = jsonDecode(plot['center_location_json']);
-                    return CircleMarker<Object>(
-                      point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
-                      radius: 50,
-                      useRadiusInMeter: true,
-                      color: Color(0xFF008CD2).withAlpha(150), //Colors.blue.withOpacity(0.7),
-                      hitValue: plot,
-                    );
-                  }).toList(),
-            ),
-          );
+        for (final hitValue in hitResult.hitValues) {
+          Map plot = hitValue as Map;
+          print(plot);
+          Beamer.of(context).beamToNamed('/record/${plot['recordId']}');
+          //_navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
         }
-        return Container();
       },
+      child: CircleLayer(
+        hitNotifier: _plotHitNotifier,
+        circles:
+            _plotList.map<CircleMarker<Object>>((plot) {
+              Map plotLocation = plot['plot_coordinates'][0]['center_location'];
+
+              return CircleMarker<Object>(
+                point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
+                radius: 5000,
+                useRadiusInMeter: true,
+                color: Colors.red, // Color(0xFF008CD2).withAlpha(150),
+                hitValue: plot,
+              );
+            }).toList(),
+      ),
     );
   }
 
@@ -322,7 +331,6 @@ class _TFMMapState extends State<TFMMap> {
   Widget _currentLocationLayer(gpsPositionProvider) {
     return CurrentLocationLayer(
       positionStream: gpsPositionProvider.positionStreamController.asBroadcastStream(),
-      //headingStream: _headingStreamController.stream,
       alignPositionOnUpdate: AlignOnUpdate.never,
       alignDirectionOnUpdate: AlignOnUpdate.never,
       style: const LocationMarkerStyle(marker: DefaultLocationMarker(color: Color(0xFF008CD2), child: Icon(Icons.navigation, color: Colors.white, size: 10)), markerSize: Size(20, 20), markerDirection: MarkerDirection.heading),
@@ -439,7 +447,9 @@ class _TFMMapState extends State<TFMMap> {
               ),
               Consumer<GpsPositionProvider>(
                 builder: (context, gpsPositionProvider, child) {
-                  if (!gpsPositionProvider.listeningPosition) return Container();
+                  // check if lastPosition.timestamp is older than 5 seconds
+                  if (gpsPositionProvider.lastPosition == null) return Container();
+                  if (gpsPositionProvider.lastPosition!.timestamp.isBefore(DateTime.now().subtract(const Duration(seconds: 10)))) return Container();
 
                   return Stack(
                     children: [
@@ -466,6 +476,7 @@ class _TFMMapState extends State<TFMMap> {
           builder: (context, gpsPositionProvider, child) {
             if (!gpsPositionProvider.listeningPosition) return Container();
             if (_nearestPlot == null) return Container();
+
             return Positioned(
               bottom: 0,
               child: Container(

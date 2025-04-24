@@ -30,6 +30,11 @@
 	<string>NSApplication</string>
 	<key>NSLocationUsageDescription</key>
 	<string>This app needs access to location.</string>
-	
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app needs access to speech recognition.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to the microphone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to the camera.</string>
 </dict>
 </plist>

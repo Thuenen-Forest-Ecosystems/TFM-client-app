@@ -21,7 +21,6 @@ class _OrganizationsButtonState extends State<OrganizationsButton> {
 
   @override
   Widget build(BuildContext context) {
-    print('Auth state changed: Access Management');
     // Get current screen width
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isSmallScreen = screenWidth < _smallScreenThreshold;

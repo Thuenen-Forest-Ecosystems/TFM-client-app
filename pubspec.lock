@@ -345,6 +345,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
+  coordinate_converter:
+    dependency: "direct main"
+    description:
+      name: coordinate_converter
+      sha256: ae14ad326551acbd6c384d717f508537340ed566a6e2412b7a908e8d3e7a1750
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.3"
   coverage:
     dependency: transitive
     description:
@@ -664,14 +672,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_tts:
-    dependency: "direct main"
-    description:
-      name: flutter_tts
-      sha256: baa3cb6b4990318460fe28bfa8c7869399e97223971532c02bd97c5e876aa3c5
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.2.2"
   flutter_web_plugins:
     dependency: "direct main"
     description: flutter

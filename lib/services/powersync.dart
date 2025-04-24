@@ -70,6 +70,15 @@ String? getUserId() {
   return Supabase.instance.client.auth.currentSession?.user.id;
 }
 
+/// id of the user currently logged in
+Map<String, dynamic>? getDecriptedToken() {
+  String? token = Supabase.instance.client.auth.currentSession?.accessToken;
+  if (token == null) {
+    return null;
+  }
+  return JwtDecoder.decode(token);
+}
+
 // get the current user
 User? getCurrentUser() {
   return Supabase.instance.client.auth.currentUser;
