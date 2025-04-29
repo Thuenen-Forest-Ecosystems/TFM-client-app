@@ -45,7 +45,7 @@ jobs:
         KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: flutter build appbundle --release
+      run: flutter build appbundle --release --stacktrace
 
     - name: Setup Google Play Service Account
       run: |
