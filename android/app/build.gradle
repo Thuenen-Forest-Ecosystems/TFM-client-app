@@ -61,6 +61,20 @@ if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
     }
 }
 
+// *** ADD DEBUG LOGGING HERE ***
+println "DEBUG: Keystore Path Property: ${project.hasProperty('keyStorePath') ? project.property('keyStorePath') : 'Not Found'}"
+println "DEBUG: Keystore Password Property: ${project.hasProperty('keyStorePassword') ? 'Set (masked)' : 'Not Found'}" // Mask password
+println "DEBUG: Key Alias Property: ${project.hasProperty('keyAlias') ? project.property('keyAlias') : 'Not Found'}"
+println "DEBUG: Key Password Property: ${project.hasProperty('keyPassword') ? 'Set (masked)' : 'Not Found'}" // Mask password
+
+// Print the values assigned to the variables used by signingConfigs
+println "DEBUG: Variable keystorePath = ${keystorePath}"
+// WARNING: Printing password - remove/mask after debugging
+println "DEBUG: Variable keystorePassword = ${keystorePassword}"
+println "DEBUG: Variable keystoreAlias = ${keystoreAlias}"
+// WARNING: Printing password - remove/mask after debugging
+println "DEBUG: Variable keyPassword = ${keyPassword}"
+// *** END DEBUG LOGGING ***
 
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
 if (flutterVersionCode == null) {
@@ -104,26 +118,31 @@ android {
 
     signingConfigs {
         release {
+            println "DEBUG: Inside signingConfigs.release" // Add log here
             // Use the properties read above
-            if (keystorePath?.trim()) { // Check if path is not empty before creating file object
+            // Temporarily remove the 'if' check here, rely on checks at the top
+            // if (keystorePath?.trim()) {
                  storeFile = file(keystorePath)
-            }
+                 println "DEBUG: Assigned storeFile = ${storeFile?.absolutePath}" // Log assigned path
+            // }
             storePassword = keystorePassword
             keyAlias = keystoreAlias
             keyPassword = keyPassword
+            println "DEBUG: Assigned storePassword, keyAlias, keyPassword" // Confirm assignment
         }
     }
 
     buildTypes {
         release {
+             println "DEBUG: Inside buildTypes.release" // Add log here
+            // Check file existence *after* attempting to configure signingConfigs.release
             if (!signingConfigs.release.storeFile?.exists()) {
-                 // Log a warning if the file doesn't exist *after* being created in the workflow
-                 logger.warn("Keystore file specified but not found at path derived from KEYSTORE_PATH: ${signingConfigs.release.storeFile?.absolutePath}")
-                 // You could optionally throw an error here to fail faster:
-                 // throw new GradleException("Keystore file not found at path derived from KEYSTORE_PATH: ${signingConfigs.release.storeFile?.absolutePath}")
+                 logger.warn("Keystore file specified but not found at path: ${signingConfigs.release.storeFile?.absolutePath}")
             }
-            // Always attempt to assign the release signing config for release builds
-            signingConfig = signingConfigs.release
+            // Assign the release signing config.
+            signingConfig signingConfigs.release
+            println "DEBUG: Assigned signingConfig = signingConfigs.release" // Confirm assignment
+            // ...
         }
     }
 }
