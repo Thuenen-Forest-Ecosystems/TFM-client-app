@@ -22,20 +22,11 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 
-// After the existing properties loading code
-
-def getProperty(name, fallback) {
-    def value = System.getenv(name)
-    if (value == null) {
-        value = System.getProperty(name, fallback)
-    }
-    return value
-}
-
-def keystorePath = getProperty("KEYSTORE_PATH", "../../keystore.jks")
-def keystoreAlias = getProperty("KEYSTORE_ALIAS", "upload")
-def keystorePassword = getProperty("KEYSTORE_PASSWORD", "")
-def keyPassword = getProperty("KEY_PASSWORD", "")
+// Get signing config from environment variables or key.properties
+def keystorePath = System.getenv("KEYSTORE_PATH") ?: keystoreProperties.getProperty("storeFile", "keystore.jks")
+def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword", "")
+def keystoreAlias = System.getenv("KEYSTORE_ALIAS") ?: keystoreProperties.getProperty("keyAlias", "")
+def keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword", "")
 
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
 if (flutterVersionCode == null) {
@@ -79,7 +70,7 @@ android {
 
     signingConfigs {
         release {
-            storeFile file(keystorePath)
+            storeFile keystorePath ? file(keystorePath) : null
             storePassword keystorePassword
             keyAlias keystoreAlias
             keyPassword keyPassword
