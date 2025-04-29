@@ -118,11 +118,22 @@ android {
 
     signingConfigs {
         release {
-            // Check if keystore file exists before proceeding
-            def keystoreFile = new File(project.rootDir, "app/${keystorePath}")
+            // FIX: Better handling of absolute vs relative paths
+            def keystoreFile
+            if (keystorePath.contains('/')) {
+                // Path with '/' is treated as relative from project root
+                keystoreFile = rootProject.file(keystorePath)
+            } else {
+                // Simple filename is resolved relative to app dir
+                keystoreFile = new File(project.rootDir, "app/${keystorePath}")
+            }
+            
+            println "DEBUG: Resolving keystore at: ${keystoreFile.absolutePath}"
+            
             if (!keystoreFile.exists()) {
                 throw new GradleException("Keystore file not found at: ${keystoreFile.absolutePath}")
             }
+            
             storeFile = keystoreFile
             storePassword = keystorePassword
             keyAlias = keystoreAlias

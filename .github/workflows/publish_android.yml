@@ -64,7 +64,7 @@ jobs:
     - name: Build Signed AAB
       run: |
         flutter build appbundle --release \
-          -PkeyStorePath=android/app/keystore.jks \
+          -PkeyStorePath=keystore.jks \
           -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
           -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
           -PkeyPassword=${{ secrets.KEY_PASSWORD }}
