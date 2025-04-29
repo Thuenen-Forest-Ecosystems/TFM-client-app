@@ -28,6 +28,7 @@ def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.
 def keystoreAlias = System.getenv("KEYSTORE_ALIAS") ?: keystoreProperties.getProperty("keyAlias", "")
 def keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword", "")
 
+
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
 if (flutterVersionCode == null) {
     flutterVersionCode = "1"
