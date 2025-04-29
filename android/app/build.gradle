@@ -118,10 +118,12 @@ android {
 
     signingConfigs {
         release {
-            println "DEBUG: Inside signingConfigs.release"
-            // Adjust path resolution for GitHub Actions environment
-            storeFile = file(project.rootDir.toString() + '/app/' + keystorePath)
-            println "DEBUG: Assigned storeFile = ${storeFile?.absolutePath}"
+            // Check if keystore file exists before proceeding
+            def keystoreFile = new File(project.rootDir, "app/${keystorePath}")
+            if (!keystoreFile.exists()) {
+                throw new GradleException("Keystore file not found at: ${keystoreFile.absolutePath}")
+            }
+            storeFile = keystoreFile
             storePassword = keystorePassword
             keyAlias = keystoreAlias
             keyPassword = keyPassword
