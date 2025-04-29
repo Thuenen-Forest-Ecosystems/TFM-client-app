@@ -69,15 +69,23 @@ jobs:
     - name: Create Test Keystore
       run: |
         keytool -genkey -v -keystore android/app/test-keystore.jks -storepass android -alias androidkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Test,O=Android,C=US"
-        
-    - name: Build with Test Keystore
-      run: |
-        flutter build appbundle --release \
-          -PkeyStorePath=test-keystore.jks \
-          -PkeyStorePassword=android \
-          -PkeyAlias=androidkey \
-          -PkeyPassword=android
+    
+    - name: Build Release AppBundle
+      env:
+        storePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+        keyAlias: ${{ secrets.KEYSTORE_ALIAS }}
+        keyPassword: ${{ secrets.KEYSTORE_PASSWORD }} 
+      run: flutter build appbundle
+    
 
+    #- name: Build with Test Keystore
+    #  run: |
+    #    flutter build appbundle --release --no-watch \
+    #      -PkeyStorePath=test-keystore.jks \
+    #      -PkeyStorePassword=android \
+    #      -PkeyAlias=androidkey \
+    #      -PkeyPassword=android
+#
     # - name: Build Signed AAB
     #   run: |
     #     flutter build appbundle --release --no-watch \
