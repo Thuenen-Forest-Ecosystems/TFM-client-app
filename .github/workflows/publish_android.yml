@@ -21,6 +21,11 @@ jobs:
 
     - name: Install Dependencies
       run: flutter pub get
+    
+    - name: 'Create .env file from secrets'
+      run: |
+        touch .env
+        echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
 
     #- name: Run Tests
     #  run: flutter test
