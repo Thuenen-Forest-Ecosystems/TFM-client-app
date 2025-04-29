@@ -106,7 +106,7 @@ class _PlotState extends State<Plot> {
                       Card(child: Navigation(target: plot, position: plotCenter)),
                       Card(child: NavigationCar(target: plot, position: plotCenter)),
                       Card(child: ListTile(title: Text('Ecke: ${plot['plot_name']}'), subtitle: Text('Erstellt: ${plot['created_at']}'))),
-                      Card(child: TreeOverview(plotId: widget.plotId)),
+                      //Card(child: TreeOverview(plotId: widget.plotId)),
                     ],
                   ),
                 ),

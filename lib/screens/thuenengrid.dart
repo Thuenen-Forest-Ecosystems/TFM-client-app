@@ -62,8 +62,12 @@ class _ThuenenGridState extends State<ThuenenGrid> {
     return StreamBuilder(
       stream: db.watch('SELECT * FROM schemas'),
       builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return _buildGrid(snapshot.data, width);
+        if (snapshot.hasData && snapshot.data != null) {
+          if (snapshot.data!.isEmpty) {
+            return Center(child: Text('No data available'));
+          } else {
+            return _buildGrid(snapshot.data, width);
+          }
         } else if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         } else {

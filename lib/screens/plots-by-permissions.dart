@@ -3,25 +3,25 @@ import 'dart:convert';
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:powersync/sqlite3_common.dart' as sqlite;
 
 class PlotsByPermissions extends StatefulWidget {
-  final String schemaId;
-  const PlotsByPermissions({super.key, required this.schemaId});
+  const PlotsByPermissions({super.key});
 
   @override
   State<PlotsByPermissions> createState() => _PlotsByPermissionsState();
 }
 
 class _PlotsByPermissionsState extends State<PlotsByPermissions> {
+  List _records = [];
+
   Future<Map> _getAllRecords() async {
     Map clusterMap = {};
     // Get all records from the database
-    List records = await db.getAll('SELECT * FROM records');
-    print('docker compose --env-file .env.local -f docker-compose.local.yaml up ');
-    print(records);
+    _records = await db.getAll('SELECT * FROM records');
 
     // group by cluster_id
-    for (var record in records) {
+    for (var record in _records) {
       // record.previous_properties from json string to map
       Map<String, dynamic> previous_properties = record['previous_properties'] != null ? Map<String, dynamic>.from(jsonDecode(record['previous_properties'])) : {};
       if (previous_properties['cluster_id'] == null) {
@@ -42,23 +42,49 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Cluster')),
+      appBar: AppBar(title: ListTile(title: Text('Plots')), automaticallyImplyLeading: false, centerTitle: false),
       body: FutureBuilder(
-        future: _getAllRecords(),
+        future: db.getAll('SELECT * FROM records'), //_getAllRecords(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+            if (snapshot.data!.isEmpty) {
+              return Center(child: Text('Melde dich bei deinem Admin um Daten freizugeben.'));
+            }
+
             return ListView.builder(
-              itemCount: snapshot.data?.entries.length,
+              itemCount: snapshot.data?.length,
               itemBuilder: (context, index) {
-                List records = snapshot.data?.values.elementAt(index);
-                String clusterId = records[0]['previous_properties']['cluster_id'] ?? '';
+                sqlite.Row? record = snapshot.data?.elementAt(index);
+                if (record == null) {
+                  return Container();
+                }
+                Map previous_properties = record['previous_properties'] != null ? jsonDecode(record['previous_properties']) : {};
+                String clusterId = previous_properties['cluster_id'] ?? '';
 
                 return ListTile(
-                  title: Text('Cluster:' + clusterId),
-                  subtitle: Text('First Plot:' + records[0]['plot_id'] ?? ''),
+                  title: Text('Ecke:' + previous_properties['plot_name'].toString()),
+                  subtitle: Text('Trakt:' + previous_properties['cluster_name'].toString() ?? ''),
                   onTap: () {
-                    Beamer.of(context).beamToNamed('/plot/edit/${records[0]['schema_id']}/$clusterId/${records[0]['id']}');
+                    Beamer.of(context).beamToNamed('/record/${record['id']}');
                   },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit),
+                        onPressed: () {
+                          Beamer.of(context).beamToNamed('/plot/edit/${record['schema_id']}/${previous_properties['cluster_id']}/${previous_properties['id']}');
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete),
+                        onPressed: () {
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                  leading: Icon(Icons.blur_circular),
                 );
               },
             );
@@ -69,54 +95,6 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
           }
         },
       ),
-    );
-    return FutureBuilder(
-      future: _getAllRecords(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          return Scaffold(appBar: AppBar(title: Text('Plots by Permissions')), body: Text(snapshot.data.toString() ?? 'no data'));
-        } else {
-          return Center(child: CircularProgressIndicator());
-        }
-      },
-    );
-    return FutureBuilder(
-      future: getPlotsByPermissions(widget.schemaId),
-      builder: (context, snapshot) {
-        // List of Plots accessible by the user
-        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-          List ids = snapshot.data;
-          String placeholders = snapshot.data.map((e) => '?').join(',');
-          print('getPlotsByPermissions');
-          print(snapshot.data);
-          return FutureBuilder(
-            future: db.getAll('SELECT * FROM plot_nested_json WHERE id IN ($placeholders)', ids),
-            builder: (context, snapshot) {
-              print(snapshot.data);
-              if (snapshot.connectionState == ConnectionState.done) {
-                return ListView.builder(
-                  itemCount: snapshot.data?.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text(snapshot.data?[index]['id']),
-                      subtitle: Text(snapshot.data?[index]['cluster_id'] ?? ''),
-                      onTap: () {
-                        Beamer.of(context).beamToNamed('/plot/edit/${widget.schemaId}/${snapshot.data?[index]['cluster_id']}/${snapshot.data?[index]['id']}');
-                      },
-                    );
-                  },
-                );
-              } else {
-                return Center(child: CircularProgressIndicator());
-              }
-            },
-          );
-        } else if (!snapshot.hasData) {
-          return Center(child: Text('no datas'));
-        } else {
-          return Center(child: CircularProgressIndicator());
-        }
-      },
     );
   }
 }

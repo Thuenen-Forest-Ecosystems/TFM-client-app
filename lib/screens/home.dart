@@ -5,23 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/cluster-admin.dart';
-import 'package:terrestrial_forest_monitor/screens/clusters.dart';
-import 'package:terrestrial_forest_monitor/components/json-schema-form-wrapper.dart';
 import 'package:terrestrial_forest_monitor/screens/dynamic-form-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/organizations.dart';
-import 'package:terrestrial_forest_monitor/screens/plot-edit-by-schema.dart';
-import 'package:terrestrial_forest_monitor/screens/plot-edit.dart';
 import 'package:terrestrial_forest_monitor/screens/plot.dart';
 import 'package:terrestrial_forest_monitor/screens/plots-by-permissions.dart';
 
 //import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:terrestrial_forest_monitor/screens/libserial.dart';
 
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
-import 'package:terrestrial_forest_monitor/screens/drawer.dart';
+import 'package:terrestrial_forest_monitor/screens/previous-record.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/permissions-admin-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster-adminbutton.dart';
+import 'package:terrestrial_forest_monitor/widgets/gps-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/map.dart';
 import 'package:terrestrial_forest_monitor/screens/thuenengrid.dart';
@@ -36,10 +33,8 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 //import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
-import 'package:terrestrial_forest_monitor/widgets/online-status.dart';
 import 'package:terrestrial_forest_monitor/widgets/organizations-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/painter.dart';
-import 'package:terrestrial_forest_monitor/widgets/sign-in-btn.dart';
 
 ///StateLess
 class Home extends StatefulWidget {
@@ -83,9 +78,12 @@ class _HomeState extends State<Home> {
           routes: {
             '/': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: 'Terrestrial Forest Monitoring', child: ThuenenGrid(), type: BeamPageType.noTransition),
             '403': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: '403', child: ForbiddenScreen(), type: BeamPageType.noTransition),
+            'records': (context, state, data) {
+              return BeamPage(key: ValueKey('records'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
+            },
             'schema/:schemaId': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
-              return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(schemaId: schemaId), type: BeamPageType.noTransition);
+              return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
             },
             'cluster/admin': (context, state, data) {
               return ClusterAdmin();
@@ -95,12 +93,10 @@ class _HomeState extends State<Home> {
               final clusterId = state.pathParameters['clusterId']!;
               return Plots(clusterId: clusterId, schemaId: schemaId);
             },
-            /*'plot/:schemaId/:clusterId/:plot': (context, state, data) {
-              final schemaId = state.pathParameters['schemaId']!;
-              final clusterId = state.pathParameters['clusterId']!;
-              final plotId = state.pathParameters['plot']!;
-              return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
-            },*/
+            'record/:recordId': (context, state, data) {
+              final recordId = state.pathParameters['recordId']!;
+              return PreviousRecord(recordId: recordId);
+            },
             'organizations': (context, state, data) {
               return OrganizationsScreen();
             },
@@ -140,9 +136,6 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    db.getAll('SELECT * FROM schemas').then((value) {
-      print(value);
-    });
   }
 
   void _handleDragInit(DragStartDetails details) {
@@ -173,52 +166,10 @@ class _HomeState extends State<Home> {
 
     return Scaffold(
       key: _navigatorKey,
-      /*bottomNavigationBar: screenWidth2 >= 600
-          ? null
-          : BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
-              items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.map),
-                  label: 'Karte',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.inventory),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.settings),
-                  label: 'Einstellungen',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.account_circle),
-                  label: 'Login',
-                ),
-              ],
-              onTap: (index) {
-                if (index == 0) {
-                  _navigatorKey.currentState?.openDrawer();
-                  //context.read<MapState>().toggleMap();
-                } else if (index == 1) {
-                  context.beamToNamed('/');
-                  //_navigatorKey.currentState?.pushNamed('thuenen/inventory', arguments: ThuenenArguments('inventory'));
-                  //_navigatorKey.currentState?.popUntil(ModalRoute.withName('/'));
-                } else if (index == 2) {
-                  context.beamToNamed('/settings');
-                } else {
-                  showDialog<String>(
-                    context: context,
-                    builder: (BuildContext context) => AlertDialog(
-                      title: const Text('Login'),
-                      content: LoginDialog(),
-                    ),
-                  );
-                }
-              },
-            ),*/
       appBar: AppBar(
         centerTitle: false,
         automaticallyImplyLeading: false,
+        backgroundColor: Color(0xFFC3E399),
         leading:
             screenWidth2 >= 600
                 ? null
@@ -253,6 +204,7 @@ class _HomeState extends State<Home> {
           //SignInBtn(),
 
           //SizedBox(width: 10),
+          const GpsButton(),
           const AdminButton(),
           //const PermissionsAdminButton(),
           IconButton(
@@ -265,17 +217,12 @@ class _HomeState extends State<Home> {
           OrganizationsButton(),
           SizedBox(width: 10),
           LoginButton(),
+          SizedBox(width: 10),
           /*IconButton(
             onPressed: () {
               context.beamToNamed('/headless');
             },
             icon: Icon(Icons.car_crash),
-          ),
-          IconButton(
-            onPressed: () {
-              context.beamToNamed('/brick');
-            },
-            icon: Icon(Icons.code),
           ),*/
           /*IconButton(
             onPressed: () {

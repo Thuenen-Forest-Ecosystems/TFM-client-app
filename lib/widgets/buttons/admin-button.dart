@@ -29,16 +29,7 @@ class _AdminButtonState extends State<AdminButton> {
             future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
             builder: (context, snapshot) {
               if (snapshot.hasData) {
-                final data = snapshot.data as Map<String, dynamic>;
-
-                print('ADMIN');
-                print(data);
-
-                if (data['is_admin'] == null || data.isEmpty) {
-                  return SizedBox();
-                }
-
-                if (data['is_admin'] == 1) {
+                if (true) {
                   return IconButton(
                     onPressed: () {
                       context.beamToNamed('/admin');

@@ -59,7 +59,10 @@ const listOfLookupTables = [
 const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.text('interval'), Column.integer('sort'), Column.text('code')];
 
 Schema schema = Schema(([
-  const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id')]),
+  const Table.localOnly('device_settings', [Column.text('key'), Column.text('value')]),
+  const Table.localOnly('user_settings', [Column.text('value'), Column.text('key'), Column.text('user_id')]),
+
+  const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id'), Column.text('language')]),
   const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
   const Table('users_profile', [Column.integer('can_admin_troop'), Column.integer('is_organization_admin'), Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id'), Column.text('email')]),
   const Table('schemas', [
@@ -72,7 +75,8 @@ Schema schema = Schema(([
     Column.text('bucket_plausability_file_name'),
     Column.text('schema'),
   ]),
-  const Table('records', [Column.text('properties'), Column.text('schema_name'), Column.text('schema_id'), Column.text('plot_id'), Column.text('supervisor_id'), Column.text('troop_id'), Column.text('previous_properties')]),
+  const Table('records', [Column.text('properties'), Column.text('schema_name'), Column.text('schema_id'), Column.text('plot_id'), Column.text('troop_id'), Column.text('previous_properties'), Column.text('organization_id')]),
+
   const Table('records_test', [Column.text('plot_id'), Column.text('created_at')]),
 
   const Table('cluster', [

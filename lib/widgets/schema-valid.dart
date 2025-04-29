@@ -30,9 +30,7 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
     ValidationResults validationResult = _jsonSchema.validate(data);
     // Get the errors
     for (var error in validationResult.errors) {
-      print(error.instancePath);
-      print(error.runtimeType);
-      print(error.schemaPath);
+      print('deprecated');
     }
     return validationResult;
   }
@@ -46,12 +44,10 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
           content: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: validationResults.errors.map((error) {
-              return ListTile(
-                title: Text(error.instancePath ?? ''),
-                subtitle: Text(error.schemaPath ?? ''),
-              );
-            }).toList(),
+            children:
+                validationResults.errors.map((error) {
+                  return ListTile(title: Text(error.instancePath ?? ''), subtitle: Text(error.schemaPath ?? ''));
+                }).toList(),
           ),
           actions: <Widget>[
             TextButton(
@@ -69,27 +65,28 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: _loadSchema(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            ValidationResults validationResult = _checkIfValidJson(widget.values);
-            if (validationResult.errors.isEmpty) {
-              return ChoiceChip(
-                label: Text('Valid'),
-                selected: validationResult.errors.isEmpty,
-                onSelected: (bool selected) {
-                  /*if (!validationResult) {
+      future: _loadSchema(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          ValidationResults validationResult = _checkIfValidJson(widget.values);
+          if (validationResult.errors.isEmpty) {
+            return ChoiceChip(
+              label: Text('Valid'),
+              selected: validationResult.errors.isEmpty,
+              onSelected: (bool selected) {
+                /*if (!validationResult) {
                     print('Invalid');
                   }*/
-                  _errorsDialog(validationResult);
-                },
-              );
-            } else {
-              return Text(validationResult.errors.length.toString());
-            }
+                _errorsDialog(validationResult);
+              },
+            );
           } else {
-            return Text('Loading...');
+            return Text(validationResult.errors.length.toString());
           }
-        });
+        } else {
+          return Text('Loading...');
+        }
+      },
+    );
   }
 }

@@ -33,7 +33,7 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
   cupertino_icons: ^1.0.6
-  json_schema: ^5.2.0
+  json_schema: ^5.2.1
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   flutter_map_cancellable_tile_provider: ^3.0.0
@@ -83,7 +83,6 @@ dependencies:
   sqflite: ^2.4.1
   flutter_inappwebview: ^6.1.5
   shared_preferences: ^2.3.5
-  flutter_tts: ^4.2.2
   speech_to_text: ^7.0.0
   #flutter_js: ^0.8.1
   localstorage: ^5.0.0
@@ -91,6 +90,7 @@ dependencies:
   powersync_attachments_helper: ^0.6.18+4
   powersync_flutter_libs: ^0.4.7
   pluto_grid: ^8.0.0
+  coordinate_converter: ^1.2.3
   
   
   

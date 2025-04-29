@@ -4,6 +4,8 @@ import 'package:json_schema/json_schema.dart';
 import 'package:pluto_grid/pluto_grid.dart';
 import 'dart:math' show min, max;
 
+import 'package:terrestrial_forest_monitor/components/stt-button.dart';
+
 enum ArrayEditorType { form, grid }
 
 class ArrayFieldEditor extends StatefulWidget {
@@ -417,7 +419,7 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
               }
               enumColumns.add(enumKey);
             }
-            print('ENUM: $key');
+
             // Handle enum type
             final List<dynamic> enumValues = List<dynamic>.from(enumColumns);
             return PlutoColumn(
@@ -477,9 +479,6 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
               final String instancePath = "/${widget.name}/${rendererContext.rowIdx}/${key}";
               for (final error in widget.validationErrors) {
                 // Match errors by instance path
-                /*print('---');
-                print(error.instancePath);
-                print(instancePath);*/
                 if (error.instancePath == instancePath) {
                   hasError = true;
                   errorMessage = error.message;
@@ -494,11 +493,12 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
                 children: [
                   Expanded(child: Text(rendererContext.cell.value?.toString() ?? '', style: TextStyle(color: hasError ? Colors.red : null))),
                   if (type != 'boolean')
-                    IconButton(
-                      onPressed: () {
-                        // Microphone functionality could be added here
+                    SpeechToTextButton(
+                      onChanged: (value) {
+                        print('SpeechToTextButton value: $value');
+                        // Update the cell value with the recognized text
+                        //rendererContext.stateManager.setCellValue(rendererContext.rowIdx, rendererContext.column.field, value);
                       },
-                      icon: Icon(Icons.mic),
                     ),
                   if (hasError) Tooltip(message: errorMessage ?? 'Invalid value', child: Icon(Icons.error_outline, color: Colors.red, size: 16)),
                 ],
@@ -561,8 +561,6 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
           stateManager = event.stateManager;
 
           stateManager.setSelectingMode(PlutoGridSelectingMode.row);
-
-          print('StateManager initialized');
 
           // Wait until grid is actually ready before configuring
           Future.delayed(Duration(milliseconds: 100), () {

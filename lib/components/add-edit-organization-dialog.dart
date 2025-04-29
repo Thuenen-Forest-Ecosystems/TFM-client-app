@@ -24,8 +24,6 @@ class _AddEditOrganizationDialogState extends State<AddEditOrganizationDialog> {
     super.initState();
     nameController.text = widget.organizationName ?? '';
     apexDomainController.text = widget.organizationApexDomain ?? '';
-    print(nameController.text);
-    print(apexDomainController.text);
   }
 
   Future<void> _saveOrganization() async {

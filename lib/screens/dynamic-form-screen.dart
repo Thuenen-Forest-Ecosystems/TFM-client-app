@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/components/json-schema-form-wrapper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -93,6 +94,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
               // Make sure it's a valid map
               return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, recordsId: widget.recordsId);
+            } else if (snapshot.data!['schema'] == null) {
+              // No schema found with the given ID
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.search_off, size: 48, color: Colors.orange),
+                    SizedBox(height: 16),
+                    Text('Schema is null: ${widget.schemaId}'),
+                    SizedBox(height: 8),
+                    ElevatedButton(onPressed: () => {Beamer.of(context).beamToNamed('/')}, child: Text('Go Back')),
+                  ],
+                ),
+              );
             } else {
               // No schema found with the given ID
               return Center(
@@ -103,7 +118,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     SizedBox(height: 16),
                     Text('No schema-json found with ID: ${widget.schemaId}'),
                     SizedBox(height: 8),
-                    ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: Text('Go Back')),
+                    ElevatedButton(onPressed: () => {Beamer.of(context).beamToNamed('/')}, child: Text('Go Back')),
                   ],
                 ),
               );
@@ -113,7 +128,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [Icon(Icons.error, size: 48, color: Colors.red), SizedBox(height: 16), Text('Error: ${snapshot.error}'), SizedBox(height: 8), ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: Text('Go Back'))],
+                children: [
+                  Icon(Icons.error, size: 48, color: Colors.red),
+                  SizedBox(height: 16),
+                  Text('Error: ${snapshot.error}'),
+                  SizedBox(height: 8),
+                  ElevatedButton(onPressed: () => {Beamer.of(context).beamToNamed('/')}, child: Text('Go Back')),
+                ],
               ),
             );
           } else {

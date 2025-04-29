@@ -39,10 +39,7 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
 
   List<String> availablePorts = [];
 
-  final LocationSettings locationSettings = LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: 100,
-  );
+  final LocationSettings locationSettings = LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 100);
   StreamSubscription<Position>? positionStream;
 
   @override
@@ -69,18 +66,19 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
       streaming = false;
     } else {
       _requestPermissions();
-      positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).handleError((error) {
-        print(error);
-      }).listen((Position? position) {
-        context.read<GpsPositionProvider>().setPosition(position);
+      positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
+          .handleError((error) {
+            print(error);
+          })
+          .listen((Position? position) {
+            context.read<GpsPositionProvider>().setPosition(position);
 
-        if (position != null) {
-          setState(() {
-            currentPosition = position;
+            if (position != null) {
+              setState(() {
+                currentPosition = position;
+              });
+            }
           });
-        }
-        print(currentPosition);
-      });
       streaming = true;
     }
     setState(() {});

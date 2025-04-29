@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
@@ -22,6 +23,8 @@ class MapState with ChangeNotifier, DiagnosticableTreeMixin {
   bool get gps => _gps;
   MapController get mapController => _mapController;
 
+  /// onMoveMap
+
   void toggleMap() {
     _mapOpen = !_mapOpen;
     notifyListeners();
@@ -37,13 +40,25 @@ class MapState with ChangeNotifier, DiagnosticableTreeMixin {
     notifyListeners();
   }
 
-  void toggleGps() {
-    _gps = !_gps;
+  void setDop(bool value) {
+    _isDop = value;
+    setDeviceSettings('dop', value.toString());
     notifyListeners();
   }
 
-  void setDop(bool value) {
-    _isDop = value;
+  void getDop() async {
+    // Consider making async if getDeviceSettings is async
+    try {
+      final setting = await getDeviceSettings('dop');
+      if (setting != null && setting['value'] != null) {
+        // This correctly parses the string back to a boolean
+        _isDop = setting['value'] == 'true';
+      } else {
+        _isDop = false; // Default value if not found
+      }
+    } catch (e) {
+      _isDop = false; // Default on error
+    }
     notifyListeners();
   }
 
@@ -55,12 +70,7 @@ class MapState with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void fitCameraBounds(LatLngBounds bounds, double padding) {
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: bounds,
-        padding: EdgeInsets.all(padding),
-      ),
-    );
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: EdgeInsets.all(padding)));
   }
 
   void moveToPoint(LatLng point, double? zoom) {
@@ -78,6 +88,7 @@ class MapState with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void setFocus() {
+    print('dsfsfsdf');
     // LatLngBounds bounds = getBounds(plots, 'center_location_json');
     db.getAll('SELECT * FROM plot WHERE center_location_json IS NOT NULL').then((plots) {
       LatLngBounds bounds = getBounds(plots, 'center_location_json');

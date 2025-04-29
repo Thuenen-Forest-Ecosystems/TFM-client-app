@@ -1,0 +1,49 @@
+name: Flutter Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 'stable'
+
+    - name: Install Dependencies
+      run: flutter pub get
+
+    - name: Run Tests
+      run: flutter test
+
+    - name: Decode Keystore File
+      run: echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/keystore.jks
+
+    - name: Decode Keystore Credentials
+      run: |
+        echo "${{ secrets.KEYSTORE_ALIAS }}" | base64 --decode > keystore_alias.txt
+        echo "${{ secrets.KEYSTORE_PASSWORD }}" | base64 --decode > keystore_password.txt
+        echo "${{ secrets.KEY_PASSWORD }}" | base64 --decode > key_password.txt
+
+    - name: Build Signed APK
+      run: |
+        flutter build apk --release \
+          --dart-define=KEYSTORE_PATH=android/app/keystore.jks \
+          --dart-define=KEYSTORE_ALIAS=$(cat keystore_alias.txt) \
+          --dart-define=KEYSTORE_PASSWORD=$(cat keystore_password.txt) \
+          --dart-define=KEY_PASSWORD=$(cat key_password.txt)
+
+    - name: Deploy to Google Play
+      uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJson: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+        packageName: de.thuenen.terrestrial_forest_monitor
+        releaseFiles: build/app/outputs/flutter-apk/app-release.apk

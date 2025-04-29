@@ -114,7 +114,6 @@ class DataGridFromSqlTableState extends State<DataGridFromSqlTable> {
                 if (event is PlutoGridChangeColumnFilterEvent) {
                   widget.onRowsSelected!(stateManager.refRows.filteredList);
                 }
-                print(event);
               });
             },
             configuration: isDarkMode ? configurationDark : configurationLight,

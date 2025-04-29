@@ -1,0 +1,2 @@
+/Users/b-mini/sites/thuenen/tfm/TFM-app/android/app/.cxx/RelWithDebInfo/3y251i4k/x86_64/CMakeFiles/edit_cache.dir
+/Users/b-mini/sites/thuenen/tfm/TFM-app/android/app/.cxx/RelWithDebInfo/3y251i4k/x86_64/CMakeFiles/rebuild_cache.dir

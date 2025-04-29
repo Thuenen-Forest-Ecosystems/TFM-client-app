@@ -33,13 +33,23 @@ class TFMMap extends StatefulWidget {
 }
 
 class _TFMMapState extends State<TFMMap> {
+  List _plotList = [];
   Future<sqlite.ResultSet>? _plots;
   Function? disposeListen;
   sqlite.ResultSet? clusters;
   List? plots = [];
-  LatLng _currentCenter = LatLng(52.825277, 13.809495);
-  double _currentZoom = 10.0;
+  LatLng _currentCenter = LatLng(51.16, 10.45); // Center of Germany (approx)
+  double _currentZoom = 10.0; // Initial zoom suitable for Germany
+
+  // Define approximate bounds for Germany
+  final LatLngBounds germanyBounds = LatLngBounds(
+    LatLng(47.27, 5.87), // South-West corner
+    LatLng(55.06, 15.04), // North-East corner
+  );
+
   Map? _nearestPlot;
+
+  Timer? _debounceTimer; // Timer for debouncing position changes
 
   StreamSubscription? plotSubscription;
 
@@ -50,33 +60,75 @@ class _TFMMapState extends State<TFMMap> {
 
   final LayerHitNotifier _plotHitNotifier = ValueNotifier(null);
 
-  Future<sqlite.ResultSet> _getPlots() async {
-    sqlite.ResultSet plots = await db.getAll('SELECT * FROM plot');
-    print('UPDATE STATE MAP');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {});
-    });
-    return plots;
+  Future<void> _watchRecords() async {
+    await db.watch('SELECT * FROM records').listen((sqlite.ResultSet resultSet) {
+      _plotList = [];
+      if (resultSet.isEmpty) return;
+
+      // Get all records from the database
+      for (var record in resultSet) {
+        Map previous_properties = jsonDecode(record['previous_properties']);
+        previous_properties['schemaId'] = record['schema_id'];
+        previous_properties['recordId'] = record['id'];
+
+        if (previous_properties['plot_coordinates'] == null) continue;
+        _plotList.add(previous_properties);
+      }
+      if (mounted) {
+        setState(() {});
+      }
+    }).asFuture();
+  }
+
+  Future<void> _moveToSavedBounds() async {
+    try {
+      final setting = await getDeviceSettings('cameraState');
+      if (setting != null && setting['value'] != null) {
+        final String cameraStateString = setting['value'];
+        if (cameraStateString.isNotEmpty) {
+          final Map<String, dynamic> cameraState = jsonDecode(cameraStateString);
+
+          if (cameraState.containsKey('center') && cameraState.containsKey('zoom')) {
+            final List<dynamic> centerList = cameraState['center'];
+            final double zoom = cameraState['zoom'];
+
+            if (centerList.length == 2) {
+              // Update the state variables that will be used in MapOptions
+              _currentCenter = LatLng(centerList[0], centerList[1]);
+              _currentZoom = zoom;
+              print('Restored camera state: Center=$_currentCenter, Zoom=$_currentZoom');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error restoring camera state: $e');
+      // Keep default values if restoring fails
+    }
   }
 
   @override
   void initState() {
     super.initState();
-
     print('TFMMap initState');
 
-    _mapController = MapController();
+    // get MapController from MapState
+    _mapController = context.read<MapState>().mapController;
 
-    //_plots = _getPlots();
+    _watchRecords();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // Restore saved state (might override _currentCenter/_currentZoom defaults)
+      await _moveToSavedBounds();
 
       options = MapOptions(
         onMapEvent: _handleMapEvent,
         onPositionChanged: _handlePositionChanged,
         initialCenter: _currentCenter,
         initialZoom: _currentZoom,
+        cameraConstraint: CameraConstraint.containCenter(bounds: germanyBounds),
         interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
         minZoom: 5.0,
         maxZoom: 22.0,
@@ -110,6 +162,7 @@ class _TFMMapState extends State<TFMMap> {
   }
 
   void _navigateToPlot(String schemaId, String clusterId, String plotId) {
+    // /plot/edit/${records[0]['schema_id']}/$clusterId/${records[0]['id']}
     context.beamToNamed('/plot/$schemaId/$clusterId/$plotId');
   }
 
@@ -124,8 +177,31 @@ class _TFMMapState extends State<TFMMap> {
   }
 
   void _handlePositionChanged(position, bool hasGesture) {
-    _currentCenter = position.center;
-    _currentZoom = position.zoom;
+    // Timout to avoid too many calls and setSettings('cameraBounds', bounds.toString());
+    // Cancel any existing timer
+    _debounceTimer?.cancel();
+
+    // Start a new timer
+    _debounceTimer = Timer(const Duration(seconds: 2), () {
+      // This code runs after 2 seconds of no position changes
+      if (mounted) {
+        final LatLng center = _mapController.camera.center;
+        final double zoom = _mapController.camera.zoom;
+
+        // Create a map to hold the state
+        final cameraState = {
+          'center': [center.latitude, center.longitude],
+          'zoom': zoom,
+        };
+
+        // Convert map to JSON string
+        final String cameraStateString = jsonEncode(cameraState);
+
+        // Save the JSON string
+        setDeviceSettings('cameraState', cameraStateString);
+        print('Saved camera state: $cameraStateString');
+      }
+    });
   }
 
   void _handleMapEvent(MapEvent event) {}
@@ -155,38 +231,33 @@ class _TFMMapState extends State<TFMMap> {
   }*/
 
   Widget _plotLayer() {
-    return FutureBuilder(
-      future: _plots,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return GestureDetector(
-            onTapUp: (details) {
-              final LayerHitResult? hitResult = _plotHitNotifier.value;
-              if (hitResult == null) return;
+    return GestureDetector(
+      onTapUp: (details) {
+        final LayerHitResult? hitResult = _plotHitNotifier.value;
+        if (hitResult == null) return;
 
-              for (final hitValue in hitResult.hitValues) {
-                Map plot = hitValue as Map;
-                _navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
-              }
-            },
-            child: CircleLayer(
-              hitNotifier: _plotHitNotifier,
-              circles:
-                  snapshot.data!.where((plot) => plot['center_location_json'] != null).map<CircleMarker<Object>>((plot) {
-                    Map plotLocation = jsonDecode(plot['center_location_json']);
-                    return CircleMarker<Object>(
-                      point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
-                      radius: 50,
-                      useRadiusInMeter: true,
-                      color: Color(0xFF008CD2).withAlpha(150), //Colors.blue.withOpacity(0.7),
-                      hitValue: plot,
-                    );
-                  }).toList(),
-            ),
-          );
+        for (final hitValue in hitResult.hitValues) {
+          Map plot = hitValue as Map;
+          print(plot);
+          Beamer.of(context).beamToNamed('/record/${plot['recordId']}');
+          //_navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
         }
-        return Container();
       },
+      child: CircleLayer(
+        hitNotifier: _plotHitNotifier,
+        circles:
+            _plotList.map<CircleMarker<Object>>((plot) {
+              Map plotLocation = plot['plot_coordinates'][0]['center_location'];
+
+              return CircleMarker<Object>(
+                point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
+                radius: 5000,
+                useRadiusInMeter: true,
+                color: Colors.red, // Color(0xFF008CD2).withAlpha(150),
+                hitValue: plot,
+              );
+            }).toList(),
+      ),
     );
   }
 
@@ -322,7 +393,6 @@ class _TFMMapState extends State<TFMMap> {
   Widget _currentLocationLayer(gpsPositionProvider) {
     return CurrentLocationLayer(
       positionStream: gpsPositionProvider.positionStreamController.asBroadcastStream(),
-      //headingStream: _headingStreamController.stream,
       alignPositionOnUpdate: AlignOnUpdate.never,
       alignDirectionOnUpdate: AlignOnUpdate.never,
       style: const LocationMarkerStyle(marker: DefaultLocationMarker(color: Color(0xFF008CD2), child: Icon(Icons.navigation, color: Colors.white, size: 10)), markerSize: Size(20, 20), markerDirection: MarkerDirection.heading),
@@ -395,7 +465,6 @@ class _TFMMapState extends State<TFMMap> {
     _mapController.fitCamera(CameraFit.bounds(bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)), padding: const EdgeInsets.all(20)));
   }
 
-  var _inited = false;
   @override
   Widget build(BuildContext context) {
     bool isMapOpen = context.watch<MapState>().mapOpen;
@@ -439,7 +508,9 @@ class _TFMMapState extends State<TFMMap> {
               ),
               Consumer<GpsPositionProvider>(
                 builder: (context, gpsPositionProvider, child) {
-                  if (!gpsPositionProvider.listeningPosition) return Container();
+                  // check if lastPosition.timestamp is older than 5 seconds
+                  if (gpsPositionProvider.lastPosition == null) return Container();
+                  if (gpsPositionProvider.lastPosition!.timestamp.isBefore(DateTime.now().subtract(const Duration(seconds: 10)))) return Container();
 
                   return Stack(
                     children: [
@@ -466,6 +537,7 @@ class _TFMMapState extends State<TFMMap> {
           builder: (context, gpsPositionProvider, child) {
             if (!gpsPositionProvider.listeningPosition) return Container();
             if (_nearestPlot == null) return Container();
+
             return Positioned(
               bottom: 0,
               child: Container(

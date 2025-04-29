@@ -52,9 +52,7 @@ class _EditableDatatableFromSqliteTableState extends State<EditableDatatableFrom
           //size: ColumnSize.L,
           //fixedWidth: 200,
           numeric: isNumeric(entry.value.toString()),
-          label: Text(
-            entry.key,
-          ),
+          label: Text(entry.key),
           onSort: (columnIndex, ascending) => _sort(entry.key, columnIndex, ascending),
         ),
       );
@@ -71,15 +69,7 @@ class _EditableDatatableFromSqliteTableState extends State<EditableDatatableFrom
           continue;
         }
         if (widget.tableSettings[cell.key] != null && widget.tableSettings[cell.key]['editable'] == false) {
-          cells.add(
-            DataCell(
-              Row(
-                children: [
-                  Text(cell.value.toString(), overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-          );
+          cells.add(DataCell(Row(children: [Text(cell.value.toString(), overflow: TextOverflow.ellipsis)])));
           continue;
         } else {
           cells.add(
@@ -89,11 +79,7 @@ class _EditableDatatableFromSqliteTableState extends State<EditableDatatableFrom
                 children: [
                   Expanded(
                     child: TextField(
-                      decoration: InputDecoration(
-                        isDense: true,
-                        filled: true,
-                        fillColor: const Color.fromARGB(109, 116, 116, 116),
-                      ),
+                      decoration: InputDecoration(isDense: true, filled: true, fillColor: const Color.fromARGB(109, 116, 116, 116)),
                       controller: TextEditingController(text: cell.value == null ? '' : cell.value.toString()),
                       onChanged: (value) {
                         row[cell.key] = value;
@@ -103,10 +89,7 @@ class _EditableDatatableFromSqliteTableState extends State<EditableDatatableFrom
                       },
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: Icon(Icons.mic),
-                  ),
+                  IconButton(onPressed: () {}, icon: Icon(Icons.mic)),
                   SpeechToTextButton(),
                 ],
               ),
@@ -114,18 +97,13 @@ class _EditableDatatableFromSqliteTableState extends State<EditableDatatableFrom
           );
         }
       }
-      rows.add(
-        DataRow2(
-          cells: cells,
-        ),
-      );
+      rows.add(DataRow2(cells: cells));
     }
     return rows;
   }
 
   @override
   Widget build(BuildContext context) {
-    print('columns');
     return DataTable2(
       scrollController: _scrollController,
       isHorizontalScrollBarVisible: true,

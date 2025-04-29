@@ -1,12 +1,17 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:terrestrial_forest_monitor/providers/language.dart';
+import 'package:terrestrial_forest_monitor/services/utils.dart';
 
 class SpeechToTextButton extends StatefulWidget {
-  const SpeechToTextButton({super.key});
+  final Function onChanged;
+  const SpeechToTextButton({super.key, required this.onChanged});
 
   @override
   State<SpeechToTextButton> createState() => _SpeechToTextButtonState();
@@ -80,12 +85,30 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
     }
   }*/
 
+  dynamic _parseWords(String words) {
+    // Parse the words and return a list of strings
+    List<String> parsedWords = words.split(' ');
+    // Check if integer oder double
+    for (int i = 0; i < parsedWords.length; i++) {
+      String word = parsedWords[i];
+      if (double.tryParse(word) != null) {
+        speech.stop();
+        return word;
+      } else if (int.tryParse(word) != null) {
+        speech.stop();
+        return word;
+      }
+    }
+    return null;
+  }
+
   /// This callback is invoked each time new recognition results are
   /// available after `listen` is called.
   void resultListener(SpeechRecognitionResult result) {
     setState(() {
       lastWords = '${result.recognizedWords} - ${result.finalResult}';
-      print(lastWords);
+
+      widget.onChanged(_parseWords(lastWords));
     });
   }
 
@@ -98,7 +121,20 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
     });
   }
 
-  void startListening() {
+  void startListening() async {
+    const _currentLocaleId = 'de-DE';
+    //var selectedLocale = locales[selectedLocale];
+    print('start');
+    //String? currentLanguage = await getSettings('language');
+    //print('language: ${currentLanguage}');
+
+    try {
+      print('start');
+      String languageCountry = context.watch<Language>().locale.toString();
+      print("locale: ${languageCountry}");
+    } catch (e) {
+      print("Error: $e");
+    }
     lastWords = '';
     lastError = '';
     final pauseFor = int.tryParse(_pauseForController.text);
@@ -107,23 +143,28 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
     // Note that `listenFor` is the maximum, not the minimum, on some
     // systems recognition will be stopped before this value is reached.
     // Similarly `pauseFor` is a maximum not a minimum and may be ignored
-    // on some devices.
-    speech.listen(
-      onResult: resultListener,
-      listenFor: Duration(seconds: listenFor ?? 30),
-      pauseFor: Duration(seconds: pauseFor ?? 3),
-      localeId: _currentLocaleId,
-      onSoundLevelChange: soundLevelListener,
-      listenOptions: options,
-    );
+    // on some devices. , localeId: _currentLocaleId
+    speech.listen(onResult: resultListener, localeId: _currentLocaleId, listenFor: Duration(seconds: listenFor ?? 30), pauseFor: Duration(seconds: pauseFor ?? 3), onSoundLevelChange: soundLevelListener, listenOptions: options);
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    // green if .isListening
+    // red if .isNotListening
     return IconButton(
-      onPressed: startListening,
-      icon: Icon(Icons.mic),
+      onPressed: () {
+        if (speech.isListening) {
+          speech.stop();
+          setState(() {
+            lastWords = '';
+            lastError = '';
+          });
+        } else {
+          startListening();
+        }
+      },
+      icon: speech.isListening ? Icon(Icons.mic, color: Colors.green) : Icon(Icons.mic),
     );
   }
 }

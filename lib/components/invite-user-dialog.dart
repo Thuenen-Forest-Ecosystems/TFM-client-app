@@ -34,11 +34,9 @@ class _InviteUserDialogState extends State<InviteUserDialog> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending invitation1: ${response.data['error']}')));
       }
-      print(response.data);
     } catch (e) {
       // Handle error
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending invitation: $e')));
-      print('Error sending invitation: $e');
     } finally {
       // Optionally clear the text field or perform other actions
       emailController.clear();

@@ -61,7 +61,6 @@ class _StorageListState extends State<StorageList> {
                           } else if (snapshot.hasError) {
                             return Center(child: Text('Error: ${snapshot.error}'));
                           } else if (snapshot.hasData) {
-                            print(snapshot.data);
                             final List<FileObject> objects = snapshot.data as List<FileObject>;
 
                             return Column(

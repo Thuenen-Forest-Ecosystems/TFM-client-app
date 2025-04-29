@@ -24,14 +24,6 @@ class _ClustersState extends State<Clusters> {
   @override
   initState() {
     super.initState();
-    db
-        .get('SELECT * FROM settings WHERE user_id = ?', [getUserId()])
-        .then((value) {
-          print(value);
-        })
-        .catchError((error) {
-          print('Error: $error');
-        });
   }
 
   /*Future _refreshClusters() async {
