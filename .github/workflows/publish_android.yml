@@ -45,6 +45,12 @@ jobs:
         rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
         rm -rf $HOME/.gradle/caches/*/plugin-resolution/
 
+    - name: Debug Keystore
+      run: |
+        echo "Current directory: $(pwd)"
+        find . -name "keystore.jks" | xargs ls -la
+        ls -la android/app/
+
     - name: Verify Signing Inputs
       run: |
         echo "--- Verifying Signing Inputs ---"
@@ -58,7 +64,7 @@ jobs:
     - name: Build Signed AAB
       run: |
         flutter build appbundle --release \
-          -PkeyStorePath=keystore.jks \
+          -PkeyStorePath=android/app/keystore.jks \
           -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
           -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
           -PkeyPassword=${{ secrets.KEY_PASSWORD }}

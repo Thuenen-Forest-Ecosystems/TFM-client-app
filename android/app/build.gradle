@@ -118,30 +118,28 @@ android {
 
     signingConfigs {
         release {
-            println "DEBUG: Inside signingConfigs.release" // Add log here
-            // Use the properties read above
-            // Temporarily remove the 'if' check here, rely on checks at the top
-            // if (keystorePath?.trim()) {
-                 storeFile = file(keystorePath)
-                 println "DEBUG: Assigned storeFile = ${storeFile?.absolutePath}" // Log assigned path
-            // }
+            println "DEBUG: Inside signingConfigs.release"
+            // Adjust path resolution for GitHub Actions environment
+            storeFile = file(project.rootDir.toString() + '/app/' + keystorePath)
+            println "DEBUG: Assigned storeFile = ${storeFile?.absolutePath}"
             storePassword = keystorePassword
             keyAlias = keystoreAlias
             keyPassword = keyPassword
-            println "DEBUG: Assigned storePassword, keyAlias, keyPassword" // Confirm assignment
+            storeType = "jks"
+            println "DEBUG: Assigned storePassword, keyAlias, keyPassword, storeType"
         }
     }
 
     buildTypes {
         release {
-             println "DEBUG: Inside buildTypes.release" // Add log here
-            // Check file existence *after* attempting to configure signingConfigs.release
+             println "DEBUG: Inside buildTypes.release"
+            // Check file existence
             if (!signingConfigs.release.storeFile?.exists()) {
                  logger.warn("Keystore file specified but not found at path: ${signingConfigs.release.storeFile?.absolutePath}")
             }
             // Assign the release signing config.
             signingConfig signingConfigs.release
-            println "DEBUG: Assigned signingConfig = signingConfigs.release" // Confirm assignment
+            println "DEBUG: Assigned signingConfig = signingConfigs.release"
             // ...
         }
     }
