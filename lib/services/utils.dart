@@ -189,6 +189,25 @@ double? dmsToDecimal_deprecated(String dms, String direction) {
   return decimalDegrees;
 }
 
+Future<ResultSet> setDeviceSettings(String key, String value) async {
+  Map<String, dynamic>? currentValue = await getDeviceSettings(key);
+  if (currentValue != null && currentValue['id'] != null) {
+    return db.execute('UPDATE device_settings SET value = ? WHERE id = ?', [value, currentValue['id']]);
+  } else {
+    const uuid = Uuid();
+    String settingId = uuid.v4();
+    return db.execute('INSERT INTO device_settings (id, key, value) VALUES (?, ?, ?)', [settingId, key, value]);
+  }
+}
+
+Future<Map<String, dynamic>?> getDeviceSettings(String key) async {
+  try {
+    return await db.get('SELECT * FROM device_settings WHERE key = ?', [key]);
+  } on StateError {
+    return null; // Return null if not found globally either
+  }
+}
+
 Future<ResultSet> setSettings(String key, String value) async {
   Map<String, dynamic>? currentValue = await getSettings(key);
 

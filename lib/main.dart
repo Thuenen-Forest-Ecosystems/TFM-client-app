@@ -86,10 +86,13 @@ void main() async {
   final gpsProvider = GpsPositionProvider();
   gpsProvider.initialize();
 
+  final languageProvider = Language(Locale(defaultLocale));
+  languageProvider.watchLanguageChange();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => Language(Locale(defaultLocale))),
+        ChangeNotifierProvider(create: (_) => languageProvider),
         ChangeNotifierProvider(create: (_) => ThemeModeProvider(initialThemeMode)),
 
         //ChangeNotifierProvider(create: (_) => ApiLog(token)),

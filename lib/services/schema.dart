@@ -59,6 +59,7 @@ const listOfLookupTables = [
 const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.text('interval'), Column.integer('sort'), Column.text('code')];
 
 Schema schema = Schema(([
+  const Table.localOnly('device_settings', [Column.text('key'), Column.text('value')]),
   const Table.localOnly('user_settings', [Column.text('value'), Column.text('key'), Column.text('user_id')]),
 
   const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id'), Column.text('language')]),

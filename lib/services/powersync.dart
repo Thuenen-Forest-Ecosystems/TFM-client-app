@@ -340,14 +340,7 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     final userId = session.user.id;
     final expiresAt = session.expiresAt == null ? null : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
 
-    //var config = AppConfig.servers[0];
     var config = await getServerConfig();
-    print('powersyncUrl INIT');
-    print(config['powersyncUrl']);
-    print(token);
-    print(userId);
-    print(expiresAt);
-
     return PowerSyncCredentials(endpoint: config['powersyncUrl'] ?? '', token: token, userId: userId, expiresAt: expiresAt);
   }
 

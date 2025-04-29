@@ -10,9 +10,7 @@ import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/widgets/bluetooth/android-bluetooth.dart';
-import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
-//import 'package:terrestrial_forest_monitor/widgets/gnss-bluetooth.dart';
+//import 'package:terrestrial_forest_monitor/widgets/bluetooth/android-bluetooth.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
 
 class Settings extends StatefulWidget {
@@ -29,7 +27,16 @@ class _SettingsState extends State<Settings> {
   List<bool> _selectedServer = <bool>[];
   List<Widget> _servers = <Widget>[]; // Add
 
+  void _setLanguage(String language) async {
+    setDeviceSettings('language', language);
+  }
+
   void _watchLanguage() {
+    db.watch('SELECT * FROM device_settings WHERE key = \'language\'').listen((event) {
+      print('newLanguage: $event');
+    });
+    return;
+
     try {
       db.watch('SELECT * FROM user_settings WHERE key = \'language\' AND user_id=\'${getUserId()}\'').listen((event) {
         if (event.isNotEmpty) {
@@ -51,7 +58,7 @@ class _SettingsState extends State<Settings> {
     super.initState();
 
     _updateServerSelection();
-    _watchLanguage();
+    // _watchLanguage();
   }
 
   _updateServerSelection() async {
@@ -97,32 +104,46 @@ class _SettingsState extends State<Settings> {
     print(kDebugMode);
 
     return Scaffold(
-      appBar: AppBar(centerTitle: false, automaticallyImplyLeading: true, title: Text(AppLocalizations.of(context)!.settings)),
+      appBar: AppBar(
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        title: Text(AppLocalizations.of(context)!.settings),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: const Icon(Icons.close),
+        ),
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
           child: ListView(
             children: <Widget>[
-              if (!kIsWeb) Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
-              if (!kIsWeb) Card(margin: EdgeInsets.all(10.0), child: BluetoothSetup()),
-
+              //if (!kIsWeb) Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
+              //if (!kIsWeb) Card(margin: EdgeInsets.all(10.0), child: BluetoothSetup()),
               Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Layout', style: TextStyle(fontSize: 15))),
               Card(
                 margin: EdgeInsets.all(10.0),
                 child: Column(
                   children: <Widget>[
-                    ListTile(
-                      title: Text(AppLocalizations.of(context)!.language),
-                      leading: const Icon(Icons.language),
-                      trailing: SegmentedButton(
-                        selected: {_selectedLanguage},
-                        onSelectionChanged: (newSelection) async {
-                          await setSettings('language', newSelection.first);
+                    Consumer<Language>(
+                      builder:
+                          (context, value, child) => ListTile(
+                            title: Text(AppLocalizations.of(context)!.language),
+                            leading: const Icon(Icons.language),
+                            trailing: SegmentedButton(
+                              selected: {value.locale.languageCode},
+                              onSelectionChanged: (newSelection) async {
+                                //await setSettings('language', newSelection.first);
+                                _setLanguage(newSelection.first);
+                                //await setDeviceSettings('language', newSelection.first);
 
-                          context.read<Language>().setLocale(Locale(newSelection.first));
-                        },
-                        segments: [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'de', label: Text('Deutsch'))],
-                      ),
+                                //context.read<Language>().setLocale(Locale(newSelection.first));
+                              },
+                              segments: [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'de', label: Text('Deutsch'))],
+                            ),
+                          ),
                     ),
                     Divider(),
                     SwitchListTile(

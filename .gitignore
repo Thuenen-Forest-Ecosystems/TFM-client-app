@@ -45,3 +45,6 @@ app.*.map.json
 /android/app/release
 
 .env*
+upload-keystore.jks
+android/key.properties
+terrestrial-forest-monitor-823870528593.json

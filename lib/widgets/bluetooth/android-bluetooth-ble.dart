@@ -26,7 +26,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
   BluetoothDevice? connectedDevice;
 
   void _parseData(List<int> data) {
-    print('Parsing data');
     // Convert the byte data to a string
     String rawData = String.fromCharCodes(data);
 
@@ -263,7 +262,7 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
           // Check if characteristic supports notifications
           if (characteristic.properties.notify) {
             // Subscribe to notifications
-            await characteristic.setNotifyValue(true);
+            await characteristic.setNotifyValue(false);
             subscriptionNotification = characteristic.onValueReceived.listen((value) {
               //print('Notification received: ${value}');
               _parseData(value);

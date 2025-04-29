@@ -38,9 +38,18 @@ class _TFMMapState extends State<TFMMap> {
   Function? disposeListen;
   sqlite.ResultSet? clusters;
   List? plots = [];
-  LatLng _currentCenter = LatLng(52.825277, 13.809495);
-  double _currentZoom = 10.0;
+  LatLng _currentCenter = LatLng(51.16, 10.45); // Center of Germany (approx)
+  double _currentZoom = 10.0; // Initial zoom suitable for Germany
+
+  // Define approximate bounds for Germany
+  final LatLngBounds germanyBounds = LatLngBounds(
+    LatLng(47.27, 5.87), // South-West corner
+    LatLng(55.06, 15.04), // North-East corner
+  );
+
   Map? _nearestPlot;
+
+  Timer? _debounceTimer; // Timer for debouncing position changes
 
   StreamSubscription? plotSubscription;
 
@@ -71,10 +80,36 @@ class _TFMMapState extends State<TFMMap> {
     }).asFuture();
   }
 
+  Future<void> _moveToSavedBounds() async {
+    try {
+      final setting = await getDeviceSettings('cameraState');
+      if (setting != null && setting['value'] != null) {
+        final String cameraStateString = setting['value'];
+        if (cameraStateString.isNotEmpty) {
+          final Map<String, dynamic> cameraState = jsonDecode(cameraStateString);
+
+          if (cameraState.containsKey('center') && cameraState.containsKey('zoom')) {
+            final List<dynamic> centerList = cameraState['center'];
+            final double zoom = cameraState['zoom'];
+
+            if (centerList.length == 2) {
+              // Update the state variables that will be used in MapOptions
+              _currentCenter = LatLng(centerList[0], centerList[1]);
+              _currentZoom = zoom;
+              print('Restored camera state: Center=$_currentCenter, Zoom=$_currentZoom');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error restoring camera state: $e');
+      // Keep default values if restoring fails
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-
     print('TFMMap initState');
 
     // get MapController from MapState
@@ -82,14 +117,18 @@ class _TFMMapState extends State<TFMMap> {
 
     _watchRecords();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // Restore saved state (might override _currentCenter/_currentZoom defaults)
+      await _moveToSavedBounds();
 
       options = MapOptions(
         onMapEvent: _handleMapEvent,
         onPositionChanged: _handlePositionChanged,
         initialCenter: _currentCenter,
         initialZoom: _currentZoom,
+        cameraConstraint: CameraConstraint.containCenter(bounds: germanyBounds),
         interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
         minZoom: 5.0,
         maxZoom: 22.0,
@@ -138,8 +177,31 @@ class _TFMMapState extends State<TFMMap> {
   }
 
   void _handlePositionChanged(position, bool hasGesture) {
-    _currentCenter = position.center;
-    _currentZoom = position.zoom;
+    // Timout to avoid too many calls and setSettings('cameraBounds', bounds.toString());
+    // Cancel any existing timer
+    _debounceTimer?.cancel();
+
+    // Start a new timer
+    _debounceTimer = Timer(const Duration(seconds: 2), () {
+      // This code runs after 2 seconds of no position changes
+      if (mounted) {
+        final LatLng center = _mapController.camera.center;
+        final double zoom = _mapController.camera.zoom;
+
+        // Create a map to hold the state
+        final cameraState = {
+          'center': [center.latitude, center.longitude],
+          'zoom': zoom,
+        };
+
+        // Convert map to JSON string
+        final String cameraStateString = jsonEncode(cameraState);
+
+        // Save the JSON string
+        setDeviceSettings('cameraState', cameraStateString);
+        print('Saved camera state: $cameraStateString');
+      }
+    });
   }
 
   void _handleMapEvent(MapEvent event) {}
@@ -403,7 +465,6 @@ class _TFMMapState extends State<TFMMap> {
     _mapController.fitCamera(CameraFit.bounds(bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)), padding: const EdgeInsets.all(20)));
   }
 
-  var _inited = false;
   @override
   Widget build(BuildContext context) {
     bool isMapOpen = context.watch<MapState>().mapOpen;
