@@ -64,7 +64,7 @@ class _ThuenenGridState extends State<ThuenenGrid> {
       builder: (context, snapshot) {
         if (snapshot.hasData && snapshot.data != null) {
           if (snapshot.data!.isEmpty) {
-            return Center(child: Text('No data available'));
+            return Center(child: Text('No SCHEMA available'));
           } else {
             return _buildGrid(snapshot.data, width);
           }
