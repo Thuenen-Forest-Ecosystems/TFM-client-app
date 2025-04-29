@@ -23,21 +23,6 @@ if (keystorePropertiesFile.exists()) {
 }
 
 
-// *** ADD DEBUG LOGGING HERE ***
-println "DEBUG: Keystore Path Property: ${project.hasProperty('keyStorePath') ? project.property('keyStorePath') : 'Not Found'}"
-println "DEBUG: Keystore Password Property: ${project.hasProperty('keyStorePassword') ? 'Set (masked)' : 'Not Found'}" // Mask password
-println "DEBUG: Key Alias Property: ${project.hasProperty('keyAlias') ? project.property('keyAlias') : 'Not Found'}"
-println "DEBUG: Key Password Property: ${project.hasProperty('keyPassword') ? 'Set (masked)' : 'Not Found'}" // Mask password
-
-// Print the values assigned to the variables used by signingConfigs
-println "DEBUG: Variable keystorePath = ${keystorePath}"
-// WARNING: Printing password - remove/mask after debugging
-println "DEBUG: Variable keystorePassword = ${keystorePassword}"
-println "DEBUG: Variable keystoreAlias = ${keystoreAlias}"
-// WARNING: Printing password - remove/mask after debugging
-println "DEBUG: Variable keyPassword = ${keyPassword}"
-// *** END DEBUG LOGGING ***
-
 def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
 if (flutterVersionCode == null) {
     flutterVersionCode = "1"
