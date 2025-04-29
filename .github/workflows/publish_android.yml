@@ -60,14 +60,32 @@ jobs:
         echo "KEYSTORE_PASSWORD is set: ${{ secrets.KEYSTORE_PASSWORD != '' }}"
         echo "KEY_PASSWORD is set: ${{ secrets.KEY_PASSWORD != '' }}"
         echo "--- End Verification ---"
+
+    - name: Verify Keystore File Integrity
+      run: |
+        echo "Checking keystore validity:"
+        keytool -list -v -keystore android/app/keystore.jks -storepass ${{ secrets.KEYSTORE_PASSWORD }} || echo "Keystore validation failed"
     
-    - name: Build Signed AAB
+    - name: Create Test Keystore
+      run: |
+        keytool -genkey -v -keystore android/app/test-keystore.jks -storepass android -alias androidkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Test,O=Android,C=US"
+        
+    - name: Build with Test Keystore
       run: |
         flutter build appbundle --release \
-          -PkeyStorePath=keystore.jks \
-          -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
-          -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
-          -PkeyPassword=${{ secrets.KEY_PASSWORD }}
+          -PkeyStorePath=test-keystore.jks \
+          -PkeyStorePassword=android \
+          -PkeyAlias=androidkey \
+          -PkeyPassword=android
+
+    # - name: Build Signed AAB
+    #   run: |
+    #     flutter build appbundle --release --no-watch \
+    #       --verbose \
+    #       -PkeyStorePath=keystore.jks \
+    #       -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
+    #       -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
+    #       -PkeyPassword=${{ secrets.KEY_PASSWORD }}
     
     #- name: Build Signed AAB
     #  env:
