@@ -27,8 +27,10 @@ jobs:
       - name: Download Dependencies
         run: flutter pub get
       
-      - name: 'Copy env file'
-        run: cp .env.example .env
+      - name: 'Create .env file from secrets'
+        run: |
+          touch .env
+          echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
 
       - name: Build
         run: flutter build web --base-href "/TFM-client-app/"
