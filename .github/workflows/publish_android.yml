@@ -111,5 +111,7 @@ jobs:
       uses: r0adkll/upload-google-play@v1
       with:
         serviceAccountJson: service-account.json
+        # serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
         packageName: de.thuenen.terrestrial_forest_monitor
         releaseFiles: build/app/outputs/bundle/release/app-release.aab
+        track: qa
