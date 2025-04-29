@@ -47,9 +47,13 @@ jobs:
           --dart-define=KEYSTORE_PASSWORD=$(cat keystore_password.txt) \
           --dart-define=KEY_PASSWORD=$(cat key_password.txt)
 
+    - name: Setup Google Play Service Account
+      run: |
+        echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > service-account.json
+
     - name: Deploy to Google Play
       uses: r0adkll/upload-google-play@v1
       with:
-        serviceAccountJson: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+        serviceAccountJson: service-account.json
         packageName: de.thuenen.terrestrial_forest_monitor
         releaseFiles: build/app/outputs/flutter-apk/app-release.apk
