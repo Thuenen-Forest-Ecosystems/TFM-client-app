@@ -72,9 +72,9 @@ android {
     signingConfigs {
         release {
             storeFile keystorePath ? file(keystorePath) : null
-            storePassword keystorePassword
-            keyAlias keystoreAlias
-            keyPassword keyPassword
+            storePassword "${keystorePassword}"
+            keyAlias "${keystoreAlias}"
+            keyPassword "${keyPassword}"
         }
     }
 
