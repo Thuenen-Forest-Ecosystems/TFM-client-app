@@ -76,12 +76,12 @@ android {
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
             }
-            storeFile = file("${project.rootDir}/app/keystore.jks")
-            storePassword = keystorePassword
-            keyAlias = keystoreAlias
-            keyPassword = keyPassword
-            storeType = "jks"
-            println "DEBUG: Assigned storePassword, keyAlias, keyPassword, storeType"
+            //storeFile = file("${project.rootDir}/app/keystore.jks")
+            //storePassword = keystorePassword
+            //keyAlias = keystoreAlias
+            //keyPassword = keyPassword
+            //storeType = "jks"
+            //println "DEBUG: Assigned storePassword, keyAlias, keyPassword, storeType"
         }
     }
 
