@@ -87,25 +87,24 @@ android {
 
     signingConfigs {
         release {
-            // Only configure if properties are available (checked above for release tasks)
-            if (keystorePath?.trim() && keystorePassword?.trim() && keystoreAlias?.trim() && keyPassword?.trim()) {
-                storeFile = file(keystorePath)
-                storePassword = keystorePassword
-                keyAlias = keystoreAlias
-                keyPassword = keyPassword
-            }
+            // Properties are guaranteed to be non-empty for release builds by checks above.
+            storeFile = file(keystorePath)
+            storePassword = keystorePassword
+            keyAlias = keystoreAlias
+            keyPassword = keyPassword
         }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            if (signingConfigs.release.storeFile?.exists()) {
-                signingConfig = signingConfigs.release
-            } else {
-                logger.warn("Release signing config not fully configured or keystore file not found. Falling back to default signing.")
+            if (!signingConfigs.release.storeFile?.exists()) {
+                 // Log a warning if the file doesn't exist *after* being created in the workflow
+                 logger.warn("Keystore file specified but not found at path derived from KEYSTORE_PATH: ${signingConfigs.release.storeFile?.absolutePath}")
+                 // You could optionally throw an error here to fail faster:
+                 // throw new GradleException("Keystore file not found at path derived from KEYSTORE_PATH: ${signingConfigs.release.storeFile?.absolutePath}")
             }
+            // Always attempt to assign the release signing config for release builds
+            signingConfig = signingConfigs.release
         }
     }
 }
