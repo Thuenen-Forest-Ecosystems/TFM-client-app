@@ -23,24 +23,41 @@ if (keystorePropertiesFile.exists()) {
 }
 
 // Get signing config from environment variables or key.properties
-def keystorePath = System.getenv("KEYSTORE_PATH") ?: keystoreProperties.getProperty("storeFile", "keystore.jks")
-def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword", "")
-def keystoreAlias = System.getenv("KEYSTORE_ALIAS") ?: keystoreProperties.getProperty("keyAlias", "")
-def keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword", "")
+def keystorePath = project.hasProperty('keyStorePath') ? project.property('keyStorePath') : keystoreProperties.getProperty("storeFile", "keystore.jks")
+def keystorePassword = project.hasProperty('keyStorePassword') ? project.property('keyStorePassword') : keystoreProperties.getProperty("storePassword", "")
+def keystoreAlias = project.hasProperty('keyAlias') ? project.property('keyAlias') : keystoreProperties.getProperty("keyAlias", "")
+def keyPassword = project.hasProperty('keyPassword') ? project.property('keyPassword') : keystoreProperties.getProperty("keyPassword", "")
 
 // Add checks for required signing properties for release builds
 if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+    // Check if the properties were actually provided
+    if (!project.hasProperty('keyStorePath') && !keystoreProperties.containsKey("storeFile")) {
+         logger.warn("Keystore path not provided via -PkeyStorePath or key.properties. Using default 'keystore.jks'.")
+         // Default is already set above, but you could throw an error if required:
+         // throw new GradleException("Release build requires Keystore path (-PkeyStorePath=... or storeFile in key.properties).")
+    }
+     if (!project.hasProperty('keyStorePassword') && !keystoreProperties.containsKey("storePassword")) {
+         throw new GradleException("Release build requires Keystore password (-PkeyStorePassword=... or storePassword in key.properties).")
+     }
+     if (!project.hasProperty('keyAlias') && !keystoreProperties.containsKey("keyAlias")) {
+         throw new GradleException("Release build requires Key alias (-PkeyAlias=... or keyAlias in key.properties).")
+     }
+     if (!project.hasProperty('keyPassword') && !keystoreProperties.containsKey("keyPassword")) {
+         throw new GradleException("Release build requires Key password (-PkeyPassword=... or keyPassword in key.properties).")
+     }
+
+    // Also check if the retrieved values are empty (secrets might exist but be empty strings)
     if (!keystorePath?.trim()) {
-        throw new GradleException("Release build requires Keystore path (KEYSTORE_PATH env var or storeFile in key.properties).")
+        throw new GradleException("Keystore path resolved to an empty value.")
     }
     if (!keystorePassword?.trim()) {
-        throw new GradleException("Release build requires Keystore password (KEYSTORE_PASSWORD env var or storePassword in key.properties).")
+        throw new GradleException("Keystore password resolved to an empty value.")
     }
     if (!keystoreAlias?.trim()) {
-        throw new GradleException("Release build requires Key alias (KEYSTORE_ALIAS env var or keyAlias in key.properties).")
+        throw new GradleException("Key alias resolved to an empty value.")
     }
     if (!keyPassword?.trim()) {
-        throw new GradleException("Release build requires Key password (KEY_PASSWORD env var or keyPassword in key.properties).")
+        throw new GradleException("Key password resolved to an empty value.")
     }
 }
 
@@ -87,8 +104,10 @@ android {
 
     signingConfigs {
         release {
-            // Properties are guaranteed to be non-empty for release builds by checks above.
-            storeFile = file(keystorePath)
+            // Use the properties read above
+            if (keystorePath?.trim()) { // Check if path is not empty before creating file object
+                 storeFile = file(keystorePath)
+            }
             storePassword = keystorePassword
             keyAlias = keystoreAlias
             keyPassword = keyPassword

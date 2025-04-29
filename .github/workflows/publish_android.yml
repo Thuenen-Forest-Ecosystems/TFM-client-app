@@ -54,14 +54,22 @@ jobs:
         echo "KEYSTORE_PASSWORD is set: ${{ secrets.KEYSTORE_PASSWORD != '' }}"
         echo "KEY_PASSWORD is set: ${{ secrets.KEY_PASSWORD != '' }}"
         echo "--- End Verification ---"
-
+    
     - name: Build Signed AAB
-      env:
-        KEYSTORE_PATH: keystore.jks
-        KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: flutter build appbundle --release
+      run: |
+        flutter build appbundle --release \
+          -PkeyStorePath=keystore.jks \
+          -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
+          -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
+          -PkeyPassword=${{ secrets.KEY_PASSWORD }}
+    
+    #- name: Build Signed AAB
+    #  env:
+    #    KEYSTORE_PATH: keystore.jks
+    #    KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+    #    KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+    #    KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    #  run: flutter build appbundle --release
 
     - name: Setup Google Play Service Account
       run: |
