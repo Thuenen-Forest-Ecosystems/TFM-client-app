@@ -114,4 +114,4 @@ jobs:
         # serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
         packageName: de.thuenen.terrestrial_forest_monitor
         releaseFiles: build/app/outputs/bundle/release/app-release.aab
-        track: qa
+        track: internal
