@@ -17,66 +17,24 @@ class DynamicFormScreen extends StatefulWidget {
 }
 
 class _DynamicFormScreenState extends State<DynamicFormScreen> {
-  // Example UI schema for tree array
-  Map<String, dynamic> _uiSchema = {
-    // MAKE deprecated
-    "ui:layout": {"type": "grid"},
-    "intkey": {"ui:widget": "hidden"},
-    "cluster_name": {"ui:widget": "hidden"},
-    "federal_state": {
-      "ui:layout": {"maxWidth": 300.0, "autocomplete": true},
-    },
-    "growth_district": {
-      "ui:layout": {"maxWidth": 300.0, "autocomplete": true},
-    },
-    "forest_office": {
-      "ui:layout": {"maxWidth": 300.0, "autocomplete": true},
-    },
+  Map<String, dynamic> previousData = {};
 
-    "tree": {
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-    "deadwood": {
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-    "position": {
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-    "edges": {
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-    "subplots_relative_position": {
-      "ui:widget": "hidden",
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-    "regeneration": {
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-    "structure_lt4m": {
-      "ui:layout": {"fullWidth": true, "clearFloat": true},
-      "items": {
-        "ui:layout": {"type": "grid"},
-      },
-    },
-  };
+  Future<Map> getPreviousData() async {
+    // Get the previous data from the database
+    Map<String, dynamic>? data = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
+    previousData = Map<String, dynamic>.from(data);
+    previousData['previous_properties'] = previousData['previous_properties'] != null ? jsonDecode(previousData['previous_properties']) : {};
+    setState(() {});
+    return data;
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    // Get the previous data from the database
+    getPreviousData();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +51,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               Map<String, dynamic> plotSchemaData = clusterSchemaData['properties']['plot']['items'];
 
               // Make sure it's a valid map
-              return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, recordsId: widget.recordsId);
+              return JsonSchemaFormWrapper(schema: plotSchemaData, formData: {}, recordsId: widget.recordsId, previousData: previousData);
             } else if (snapshot.data!['schema'] == null) {
               // No schema found with the given ID
               return Center(
