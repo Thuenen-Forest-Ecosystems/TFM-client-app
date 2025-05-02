@@ -13,8 +13,9 @@ class JsonSchemaFormWrapper extends StatefulWidget {
   final String recordsId;
   final Map<String, dynamic> schema;
   final Map<String, dynamic> formData;
+  final Map<String, dynamic>? previousData;
 
-  const JsonSchemaFormWrapper({Key? key, required this.recordsId, required this.schema, required this.formData}) : super(key: key);
+  const JsonSchemaFormWrapper({Key? key, required this.recordsId, required this.schema, required this.formData, this.previousData}) : super(key: key);
 
   @override
   State<JsonSchemaFormWrapper> createState() => _JsonSchemaFormWrapperState();
@@ -211,6 +212,17 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       _tabs[propName] = {"name": title, "path": propName};
     });
 
+    String title = widget.schema['title'] as String? ?? 'Form';
+
+    if (widget.previousData != null && widget.previousData!['previous_properties'] is Map && widget.previousData!['previous_properties']['plot_name'] != null) {
+      title += ': ' + widget.previousData!['previous_properties']['plot_name'].toString();
+    }
+
+    String subTitle = widget.schema['description'] as String? ?? 'Clusters:';
+    if (widget.previousData != null && widget.previousData!['previous_properties'] is Map && widget.previousData!['previous_properties']['cluster_name'] != null) {
+      subTitle += ' ' + widget.previousData!['previous_properties']['cluster_name'].toString();
+    }
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -219,12 +231,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
             Beamer.of(context).beamToNamed('/');
           },
         ),
-        title: ListTile(
-          title: Text(widget.schema['title'] as String? ?? 'Form', style: TextStyle(color: Colors.black)),
-          subtitle: Text(widget.schema['description'] as String? ?? 'Cluster:', style: TextStyle(color: Colors.black)),
-          leading: Icon(Icons.blur_circular, size: 40, color: Colors.black),
-          minLeadingWidth: 0,
-        ),
+        title: ListTile(title: Text(title, style: TextStyle(color: Colors.black)), subtitle: Text(subTitle, style: TextStyle(color: Colors.black)), minLeadingWidth: 0),
         backgroundColor: Color.fromARGB(255, 224, 241, 203),
         actions: [
           SizedBox(width: 16),
@@ -496,7 +503,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       }
       setState(() {});
 
-      //_autosave();
+      _autosave();
       return validationErrors.isEmpty;
     } catch (e) {
       setState(() {

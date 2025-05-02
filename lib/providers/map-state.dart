@@ -88,12 +88,13 @@ class MapState with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void setFocus() {
-    print('dsfsfsdf');
-    // LatLngBounds bounds = getBounds(plots, 'center_location_json');
+    print('DEPRECATED: setFocus()');
+    /*
     db.getAll('SELECT * FROM plot WHERE center_location_json IS NOT NULL').then((plots) {
       LatLngBounds bounds = getBounds(plots, 'center_location_json');
       fitCameraBounds(bounds, 50);
-    });
+    });*/
+
     //_focusAll++;
     //notifyListeners();
   }
