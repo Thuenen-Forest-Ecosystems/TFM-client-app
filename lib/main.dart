@@ -8,7 +8,6 @@ import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/screens/admin-permissions.dart';
 import 'package:terrestrial_forest_monitor/screens/admin.dart';
-import 'package:terrestrial_forest_monitor/screens/brick.dart';
 import 'package:terrestrial_forest_monitor/screens/headless.dart';
 import 'package:terrestrial_forest_monitor/screens/home.dart';
 import 'package:terrestrial_forest_monitor/screens/settings.dart';
@@ -23,13 +22,6 @@ import 'package:intl/intl.dart';
 import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
-//import 'package:hive_flutter/hive_flutter.dart';
-
-//import 'package:terrestrial_forest_monitor/no-animation.dart';
-
-// BRICK
-import 'package:terrestrial_forest_monitor/brick/repository.dart';
-import 'package:sqflite/sqflite.dart' show databaseFactory;
 
 final routerDelegate = BeamerDelegate(
   notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
@@ -41,7 +33,6 @@ final routerDelegate = BeamerDelegate(
           '*': (context, state, data) => BeamPage(key: ValueKey('home-${DateTime.now()}'), title: 'TFM', child: Home(), type: BeamPageType.noTransition),
           '/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
           '/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
-          '/brick': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: BrickScreen(), type: BeamPageType.noTransition),
           '/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
           '/headless': (context, state, data) => BeamPage(key: ValueKey('headless-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: StatelessTest(), type: BeamPageType.noTransition),
         },

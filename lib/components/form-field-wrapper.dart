@@ -5,7 +5,7 @@ class FormFieldWrapper extends StatelessWidget {
   final double spacing;
   final double runSpacing;
 
-  const FormFieldWrapper({Key? key, required this.children, this.spacing = 16.0, this.runSpacing = 16.0}) : super(key: key);
+  const FormFieldWrapper({super.key, required this.children, this.spacing = 16.0, this.runSpacing = 16.0});
 
   @override
   Widget build(BuildContext context) {

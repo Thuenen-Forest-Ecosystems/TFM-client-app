@@ -1,8 +1,7 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
@@ -51,95 +50,88 @@ class _GpsButtonState extends State<GpsButton> {
 
   // Function to build menu items dynamically based on current provider state
   List<PopupMenuEntry> _buildMenuItems(BluetoothDevice? connectedDevice, bool listeningPosition) {
+    List<PopupMenuEntry> items = [];
     List<PopupMenuEntry> savedDeviceItems = [];
 
-    if (_savedDeviceSettings.isNotEmpty) {
-      for (var entry in _savedDeviceSettings.entries) {
-        final deviceKey = entry.key;
-        final deviceData = entry.value as Map<String, dynamic>; // Cast value to Map
-        final platformName = deviceData['platformName'] ?? deviceKey;
+    // Only include Bluetooth options if not on web
+    if (!kIsWeb) {
+      // Add Bluetooth header
+      items.add(
+        PopupMenuItem(
+          value: 'bluetooth_header',
+          enabled: false,
+          child: ListTile(
+            title: Text('BLUETOOTH'),
+            trailing: IconButton(
+              onPressed: () {
+                _openGNSSDialog(context);
+              },
+              icon: Icon(Icons.add),
+            ),
+          ),
+        ),
+      );
 
-        // Check if this saved device is the currently connected one
-        if (connectedDevice != null && connectedDevice.remoteId.toString() == deviceKey) {
-          savedDeviceItems.add(
-            PopupMenuItem(
-              value: deviceKey,
-              child: ListTile(
-                leading: CircleAvatar(
-                  child: Icon(Icons.bluetooth),
-                  backgroundColor: Theme.of(context).colorScheme.primary, // Change color based on connection status
-                ), // Indicate connected
-                title: Text(platformName),
-                subtitle: Text('Verbunden'),
-              ),
-            ),
-          );
-        } else {
-          // Item for a saved device that is NOT currently connected
-          savedDeviceItems.add(
-            PopupMenuItem(
-              value: deviceKey, // Value is the device ID (key) to connect
-              child: ListTile(
-                leading: CircleAvatar(
-                  child: Icon(Icons.bluetooth),
-                  backgroundColor: Colors.grey, // Change color based on connection status
+      // Add saved Bluetooth devices
+      if (_savedDeviceSettings.isNotEmpty) {
+        for (var entry in _savedDeviceSettings.entries) {
+          final deviceKey = entry.key;
+          final deviceData = entry.value as Map<String, dynamic>; // Cast value to Map
+          final platformName = deviceData['platformName'] ?? deviceKey;
+
+          // Check if this saved device is the currently connected one
+          if (connectedDevice != null && connectedDevice.remoteId.toString() == deviceKey) {
+            savedDeviceItems.add(
+              PopupMenuItem(
+                value: deviceKey,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    child: Icon(Icons.bluetooth), // Change color based on connection status
+                  ), // Indicate connected
+                  title: Text(platformName),
+                  subtitle: Text('Verbunden'),
                 ),
-                title: Text(platformName),
               ),
-            ),
-          );
+            );
+          } else {
+            // Item for a saved device that is NOT currently connected
+            savedDeviceItems.add(
+              PopupMenuItem(
+                value: deviceKey, // Value is the device ID (key) to connect
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.grey,
+                    child: Icon(Icons.bluetooth), // Change color based on connection status
+                  ),
+                  title: Text(platformName),
+                ),
+              ),
+            );
+          }
         }
+      }
+
+      items.addAll(savedDeviceItems);
+
+      // Add divider if we have any Bluetooth items
+      if (items.isNotEmpty) {
+        items.add(PopupMenuDivider());
       }
     }
 
-    // Combine static and dynamic items
-    return [
-      PopupMenuItem(
-        value: 'bluetooth_header',
-        enabled: false,
-        child: ListTile(
-          title: Text('BLUETOOTH'),
-          trailing: IconButton(
-            onPressed: () {
-              _openGNSSDialog(context);
-            },
-            icon: Icon(Icons.add),
-          ),
-        ),
-      ),
-      ...savedDeviceItems,
-      PopupMenuDivider(),
-      PopupMenuItem(
-        value: 'gps',
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: listeningPosition ? Theme.of(context).colorScheme.primary : Colors.grey, // Change color based on connection status
-            child: const Icon(Icons.gps_fixed),
-          ),
-          title: Text('Internal GPS'),
-        ),
-      ),
-    ];
+    // Internal GPS is always available
+    items.add(PopupMenuItem(value: 'gps', child: ListTile(leading: CircleAvatar(backgroundColor: listeningPosition ? Theme.of(context).colorScheme.primary : Colors.grey, child: const Icon(Icons.gps_fixed)), title: Text('Internal GPS'))));
+
+    return items;
   }
 
   Future<void> _openGNSSDialog(BuildContext context) {
+    // Original dialog for non-web platforms
     return showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          /*title: ListTile(
-            leading: Icon(Icons.bluetooth),
-            title: Text('Bluetooth GNSS'),
-            subtitle: Text('Bluetooth GNSS hinzufügen'),
-            trailing: IconButton(
-              icon: Icon(Icons.close),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ),*/
-          content: SingleChildScrollView(child: Container(width: 400, child: AndroidBluetoothBle(autoSearch: true))),
-        );
+        return AlertDialog(content: SingleChildScrollView(child: SizedBox(width: 400, child: AndroidBluetoothBle(autoSearch: true))));
       },
     );
   }
@@ -161,7 +153,7 @@ class _GpsButtonState extends State<GpsButton> {
             children: [
               // Display connection status or NMEA data if available
               PopupMenuButton(
-                tooltip: 'GPS Options',
+                tooltip: 'GPS Selection',
                 offset: Offset(0, 40.0),
                 // Use the dynamically built menu items
                 itemBuilder: (context) => currentMenuItems,

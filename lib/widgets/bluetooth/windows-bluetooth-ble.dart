@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus_windows/flutter_blue_plus_windows.dart';
 
 // Alternatively, you can hide FlutterBluePlus when importing the FBP statement
-import 'package:flutter_blue_plus/flutter_blue_plus.dart' hide FlutterBluePlus;
-import 'package:flutter_blue_plus_windows/flutter_blue_plus_windows.dart';
 
 
 class WindowsBluetoothBle extends StatefulWidget {

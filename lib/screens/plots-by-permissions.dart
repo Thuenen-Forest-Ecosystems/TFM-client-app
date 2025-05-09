@@ -26,10 +26,10 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
     List filteredRecords = [];
 
     for (var record in data) {
-      Map<String, dynamic> previous_properties = record['previous_properties'] != null ? Map<String, dynamic>.from(jsonDecode(record['previous_properties'])) : {};
+      Map<String, dynamic> previousProperties = record['previous_properties'] != null ? Map<String, dynamic>.from(jsonDecode(record['previous_properties'])) : {};
 
       // Add the record to the filteredRecords
-      filteredRecords.add({...record, 'previous_properties': previous_properties});
+      filteredRecords.add({...record, 'previous_properties': previousProperties});
     }
 
     return filteredRecords;
@@ -98,8 +98,8 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
                 //String clusterId = previous_properties['cluster_id'] ?? '';
 
                 return ListTile(
-                  title: Text('Ecke: ' + record['previous_properties']['plot_name'].toString(), overflow: TextOverflow.ellipsis, maxLines: 1),
-                  subtitle: Text('Trakt: ' + record['previous_properties']['cluster_name'].toString(), overflow: TextOverflow.ellipsis, maxLines: 1),
+                  title: Text('Ecke: ${record['previous_properties']['plot_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  subtitle: Text('Trakt: ${record['previous_properties']['cluster_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
                   onTap: () {
                     Beamer.of(context).beamToNamed('/record/${record['id']}');
                   },

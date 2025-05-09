@@ -60,7 +60,6 @@ class _PreviousRecordState extends State<PreviousRecord> {
             appBar: AppBar(
               title: ListTile(
                 contentPadding: EdgeInsets.all(0),
-                leading: Icon(Icons.blur_circular),
                 title: Text('Ecke ${plot['plot_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
                 subtitle: FutureBuilder(
                   future: db.get('SELECT * FROM cluster WHERE id = ?', [plot['cluster_id']]),
@@ -69,7 +68,7 @@ class _PreviousRecordState extends State<PreviousRecord> {
                       return Text('...');
                     }
                     if (snapshot.hasError) {
-                      return Text('Error: ${snapshot.error}');
+                      return Text('Error: ${snapshot.error} : ${plot['cluster_id']}');
                     }
                     if (snapshot.hasData) {
                       Map cluster = snapshot.data as Map;

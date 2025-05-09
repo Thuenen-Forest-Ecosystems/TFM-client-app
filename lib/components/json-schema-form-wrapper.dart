@@ -15,7 +15,7 @@ class JsonSchemaFormWrapper extends StatefulWidget {
   final Map<String, dynamic> formData;
   final Map<String, dynamic>? previousData;
 
-  const JsonSchemaFormWrapper({Key? key, required this.recordsId, required this.schema, required this.formData, this.previousData}) : super(key: key);
+  const JsonSchemaFormWrapper({super.key, required this.recordsId, required this.schema, required this.formData, this.previousData});
 
   @override
   State<JsonSchemaFormWrapper> createState() => _JsonSchemaFormWrapperState();
@@ -136,7 +136,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       return;
     }
 
-    if (tabIndex != null && tabIndex >= 0) {
+    if (tabIndex >= 0) {
       // Safely access the TabController
 
       //final tabController = DefaultTabController.of(context);
@@ -206,21 +206,21 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
 
     // Create tab names list - first tab for simple fields, then each complex field
     _tabs['Plot'] = {"name": 'Plot', "path": ""};
-    complexProperties.keys.forEach((propName) {
+    for (var propName in complexProperties.keys) {
       // Use title if available, otherwise capitalize the property name
       String title = complexProperties[propName]!['title'] as String? ?? propName[0].toUpperCase() + propName.substring(1);
       _tabs[propName] = {"name": title, "path": propName};
-    });
+    }
 
     String title = widget.schema['title'] as String? ?? 'Form';
 
     if (widget.previousData != null && widget.previousData!['previous_properties'] is Map && widget.previousData!['previous_properties']['plot_name'] != null) {
-      title += ': ' + widget.previousData!['previous_properties']['plot_name'].toString();
+      title += ': ${widget.previousData!['previous_properties']['plot_name']}';
     }
 
     String subTitle = widget.schema['description'] as String? ?? 'Clusters:';
     if (widget.previousData != null && widget.previousData!['previous_properties'] is Map && widget.previousData!['previous_properties']['cluster_name'] != null) {
-      subTitle += ' ' + widget.previousData!['previous_properties']['cluster_name'].toString();
+      subTitle += ' ${widget.previousData!['previous_properties']['cluster_name']}';
     }
 
     return Scaffold(
@@ -320,7 +320,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
             final isArray = propSchema['type'] == 'array' || (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
 
             return isArray ? _buildComplexSection(propName, propSchema, false) : SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildComplexSection(propName, propSchema, true));
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -334,7 +334,7 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       "type": "object",
       "properties": properties,
       // Copy required fields that are in this section
-      "required": (widget.schema['required'] as List<dynamic>?)?.where((field) => properties.containsKey(field))?.toList() ?? [],
+      "required": (widget.schema['required'] as List<dynamic>?)?.where((field) => properties.containsKey(field)).toList() ?? [],
     };
 
     // Extract just the form data for these properties

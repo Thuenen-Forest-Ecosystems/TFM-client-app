@@ -78,7 +78,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // BLUETOOTH
   Future<void> initialize() async {
-    List<BluetoothDevice> connected = await FlutterBluePlus.connectedDevices;
+    List<BluetoothDevice> connected = FlutterBluePlus.connectedDevices;
     if (connected.isEmpty) {
       await getSettings('GNSSDevice').then((value) {
         if (value != null) {
@@ -229,7 +229,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void connectDevice(BluetoothDevice device) async {
-    List<BluetoothDevice> connected = await FlutterBluePlus.connectedDevices;
+    List<BluetoothDevice> connected = FlutterBluePlus.connectedDevices;
 
     if (connected.isNotEmpty) {
       for (var connectedDevice in connected) {

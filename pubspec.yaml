@@ -64,8 +64,7 @@ dependencies:
   
   hive_flutter: ^1.1.0
   
-  #flutter_libserialport: ^0.5.0
-  #libserialport: ^0.3.0+1
+  
 
   nmea: ^3.3.2
   package_info_plus: ^8.0.2
@@ -92,11 +91,23 @@ dependencies:
   pluto_grid: ^8.0.0
   coordinate_converter: ^1.2.3
   
-  
-  
-  
-
   #flutter_gen: any
+  powersync_core: any
+  image: any
+  path_provider: any
+  path: any
+  logging: any
+  vector_map_tiles: ^8.0.0
+  flutter_libserialport: ^0.5.0
+  libserialport: ^0.3.0+1
+  
+dependency_overrides:
+  # because of https://github.com/jpnurmi/flutter_libserialport/issues/128
+  flutter_libserialport:
+    git:
+      url: https://github.com/NeariX67/flutter_libserialport
+      ref: main
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

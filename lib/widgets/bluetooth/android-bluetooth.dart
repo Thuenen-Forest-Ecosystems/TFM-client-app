@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 // Conditionally import dart:io (not available on web)
 import 'dart:io' if (dart.library.html) 'package:terrestrial_forest_monitor/widgets/bluetooth/web_stub.dart';
@@ -20,7 +19,7 @@ class _BluetoothSetupState extends State<BluetoothSetup> {
   Widget build(BuildContext context) {
     // Handle web platform specifically
     if (kIsWeb) {
-      return Container(height: 200, child: Center(child: Text('Bluetooth is not supported on web')));
+      return SizedBox(height: 200, child: Center(child: Text('Bluetooth is not supported on web')));
     }
 
     // For non-web platforms, use Platform checks

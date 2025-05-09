@@ -11,7 +11,6 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/widgets/ci2027/tree/overview.dart';
 
 class Plot extends StatefulWidget {
   final String schemaId;

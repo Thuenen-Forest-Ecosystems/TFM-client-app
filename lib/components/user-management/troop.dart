@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:terrestrial_forest_monitor/components/add-edit-plot-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/user-management/users-profile-list.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 

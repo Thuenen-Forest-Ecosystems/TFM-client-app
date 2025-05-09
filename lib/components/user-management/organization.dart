@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/components/add-edit-organization-dialog.dart';
-import 'package:terrestrial_forest_monitor/components/user-management/troop.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class Organization extends StatefulWidget {

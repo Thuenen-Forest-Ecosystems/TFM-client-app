@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/widgets/dynamic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/tabs-table-form.dart';
 
 class PlotEditBySchema extends StatefulWidget {

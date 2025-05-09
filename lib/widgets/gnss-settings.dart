@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-//import 'package:terrestrial_forest_monitor/polyfill/gnss-serial-selection.dart'
-//    if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/gnss-serial-selection.dart'
-//    if (dart.library.io) 'package:terrestrial_forest_monitor/widgets/gnss-serial-selection.dart';
+import 'package:terrestrial_forest_monitor/polyfill/gnss-serial-selection.dart'
+    if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/gnss-serial-selection.dart'
+    if (dart.library.io) 'package:terrestrial_forest_monitor/widgets/gnss-serial-selection.dart';
 
 class GnssSettings extends StatefulWidget {
   const GnssSettings({super.key});
@@ -24,7 +24,7 @@ class _GnssSettingsState extends State<GnssSettings> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        //GnssSerialSelection(),
+        GnssSerialSelection(),
         Divider(),
         FutureBuilder(
           future: _getAvailableDevices(),

@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:pluto_grid/pluto_grid.dart';
-import 'dart:math' show min, max;
 
 import 'package:terrestrial_forest_monitor/components/stt-button.dart';
 
@@ -21,7 +20,7 @@ class ArrayFieldEditor extends StatefulWidget {
   final Map<String, dynamic>? formData;
 
   const ArrayFieldEditor({
-    Key? key,
+    super.key,
     required this.name,
     this.formData,
     required this.validationErrors,
@@ -32,7 +31,7 @@ class ArrayFieldEditor extends StatefulWidget {
     required this.isRequired,
     required this.onChanged,
     this.errorText,
-  }) : super(key: key);
+  });
 
   @override
   State<ArrayFieldEditor> createState() => _ArrayFieldEditorState();
@@ -121,7 +120,7 @@ class _ArrayFormEditor extends StatefulWidget {
   final List<dynamic> value;
   final Function(List<dynamic>) onChanged;
 
-  const _ArrayFormEditor({Key? key, required this.name, required this.schema, required this.value, required this.onChanged}) : super(key: key);
+  const _ArrayFormEditor({required this.name, required this.schema, required this.value, required this.onChanged});
 
   @override
   State<_ArrayFormEditor> createState() => _ArrayFormEditorState();
@@ -352,7 +351,7 @@ class _ArrayGridEditor extends StatefulWidget {
   final Function(List<dynamic>) onChanged;
   final List<ValidationError> validationErrors;
 
-  const _ArrayGridEditor({Key? key, required this.name, required this.schema, required this.value, required this.onChanged, required this.validationErrors}) : super(key: key);
+  const _ArrayGridEditor({required this.name, required this.schema, required this.value, required this.onChanged, required this.validationErrors});
 
   @override
   State<_ArrayGridEditor> createState() => _ArrayGridEditorState();
@@ -382,7 +381,7 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
     stateManager.appendRows(rows);
     //stateManager.notifyListeners();
 
-    if (this.mounted) {
+    if (mounted) {
       setState(() {});
     }
     //}
@@ -441,13 +440,10 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
           switch (type) {
             case 'number':
               columnType = PlutoColumnType.number();
-              break;
             case 'integer':
               columnType = PlutoColumnType.number(format: '#,###');
-              break;
             case 'boolean':
               columnType = PlutoColumnType.select([true, false]);
-              break;
             default:
               columnType = PlutoColumnType.text();
           }
@@ -476,7 +472,7 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
             // Process validation errors for this cell
             if (widget.validationErrors.isNotEmpty) {
               // Look for errors related to this array item
-              final String instancePath = "/${widget.name}/${rendererContext.rowIdx}/${key}";
+              final String instancePath = "/${widget.name}/${rendererContext.rowIdx}/$key";
               for (final error in widget.validationErrors) {
                 // Match errors by instance path
                 if (error.instancePath == instancePath) {

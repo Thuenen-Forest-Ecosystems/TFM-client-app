@@ -15,7 +15,7 @@ class JsonSchemaForm extends StatefulWidget {
   final void Function()? onCancel;
   final void Function(Map<String, dynamic>) onSubmit;
 
-  const JsonSchemaForm({Key? key, required this.schema, required this.validationErrors, this.initialData, this.uiSchema, this.formData, this.onChanged, this.onError, this.onReset, this.onCancel, required this.onSubmit}) : super(key: key);
+  const JsonSchemaForm({super.key, required this.schema, required this.validationErrors, this.initialData, this.uiSchema, this.formData, this.onChanged, this.onError, this.onReset, this.onCancel, required this.onSubmit});
 
   @override
   State<JsonSchemaForm> createState() => _JsonSchemaFormState();
@@ -91,9 +91,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         if (path.contains('/')) {
           path = path.replaceAll('/', '.');
         }
-      } else if (error.instancePath != null && error.instancePath!.isNotEmpty) {
+      } else if (error.instancePath.isNotEmpty) {
         // Use instance path as fallback
-        path = error.instancePath!.substring(1).replaceAll('/', '.');
+        path = error.instancePath.substring(1).replaceAll('/', '.');
       }
 
       if (path.isNotEmpty) {
@@ -327,12 +327,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         fields.add(_buildField(fieldName, fieldSchema, isRequired));
       } else {
         double? maxWidth = 400.0;
-        wrapChildren.add(Container(child: _buildField(fieldName, fieldSchema, isRequired), padding: EdgeInsets.only(bottom: 16), constraints: BoxConstraints(minWidth: 100, maxWidth: maxWidth)));
+        wrapChildren.add(Container(padding: EdgeInsets.only(bottom: 16), constraints: BoxConstraints(minWidth: 100, maxWidth: maxWidth), child: _buildField(fieldName, fieldSchema, isRequired)));
       }
     }
 
     if (!fullSize) {
-      fields.add(Wrap(spacing: 16, runSpacing: 16, children: wrapChildren, alignment: WrapAlignment.start, runAlignment: WrapAlignment.start, crossAxisAlignment: WrapCrossAlignment.center));
+      fields.add(Wrap(spacing: 16, runSpacing: 16, alignment: WrapAlignment.start, runAlignment: WrapAlignment.start, crossAxisAlignment: WrapCrossAlignment.center, children: wrapChildren));
     }
 
     return fields;
@@ -503,14 +503,11 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       case 'string':
         // Create a controller for this nested field
         field = _buildTextField(path, propTitle, propSchema['description'], propSchema, isRequired, propUiOptions);
-        break;
       case 'integer':
       case 'number':
         field = _buildNumberField(path, propTitle, propSchema['description'], propSchema, isRequired);
-        break;
       case 'boolean':
         field = _buildBooleanField(path, propTitle, propSchema['description'], propSchema);
-        break;
       default:
         // Fallback to simple text field for unsupported types in tabs
         field = Text('Unsupported field type: $propType');
@@ -604,9 +601,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           onChanged: (value) {
             if (value.isNotEmpty) {
               if (schema['type'] == 'integer') {
-                _updateField(name, int.tryParse(value) ?? null);
+                _updateField(name, int.tryParse(value));
               } else {
-                _updateField(name, double.tryParse(value) ?? null);
+                _updateField(name, double.tryParse(value));
               }
             } else {
               _updateField(name, null);
@@ -647,7 +644,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         DropdownButtonFormField<String>(
           decoration: InputDecoration(border: const OutlineInputBorder(), errorText: fieldError),
           value: currentValue,
-          hint: Text('$title'),
+          hint: Text(title),
           isExpanded: true,
           validator: isRequired ? (value) => value == null || value.isEmpty ? '$title is required' : null : null,
           items:
@@ -813,7 +810,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
                 stringOptions.asMap().entries.map((entry) {
                   final int idx = entry.key;
                   final String value = entry.value;
-                  final String displayName = enumNames != null && idx < enumNames.length ? value + ' | ' + enumNames[idx] : value;
+                  final String displayName = enumNames != null && idx < enumNames.length ? '$value | ${enumNames[idx]}' : value;
 
                   return DropdownMenuItem<String>(value: value, child: Container(constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8), child: Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 2)));
                 }).toList(),

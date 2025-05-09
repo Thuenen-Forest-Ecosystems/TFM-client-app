@@ -5,18 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/cluster-admin.dart';
+import 'package:terrestrial_forest_monitor/screens/drawer.dart';
 import 'package:terrestrial_forest_monitor/screens/dynamic-form-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/organizations.dart';
-import 'package:terrestrial_forest_monitor/screens/plot.dart';
 import 'package:terrestrial_forest_monitor/screens/plots-by-permissions.dart';
 
 //import 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.html) 'package:terrestrial_forest_monitor/polyfill/libserial.dart' if (dart.library.io) 'package:terrestrial_forest_monitor/screens/libserial.dart';
 
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
 import 'package:terrestrial_forest_monitor/screens/previous-record.dart';
-import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
-import 'package:terrestrial_forest_monitor/widgets/buttons/permissions-admin-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster-adminbutton.dart';
 import 'package:terrestrial_forest_monitor/widgets/gps-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
@@ -35,6 +33,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/organizations-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/painter.dart';
+import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 
 ///StateLess
 class Home extends StatefulWidget {
@@ -85,9 +84,9 @@ class _HomeState extends State<Home> {
               final schemaId = state.pathParameters['schemaId']!;
               return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
             },
-            'cluster/admin': (context, state, data) {
+            /*'cluster/admin': (context, state, data) {
               return ClusterAdmin();
-            },
+            },*/
             'cluster/:schemaId/:clusterId': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               final clusterId = state.pathParameters['clusterId']!;
@@ -205,6 +204,9 @@ class _HomeState extends State<Home> {
 
           //SizedBox(width: 10),
           const GpsButton(),
+          SizedBox(width: 10),
+          const SyncStatusButton(),
+          SizedBox(width: 10),
           const AdminButton(),
           //const PermissionsAdminButton(),
           IconButton(
@@ -213,7 +215,7 @@ class _HomeState extends State<Home> {
             },
             icon: Icon(Icons.settings),
           ),
-          ClusterAdminButton(),
+          //ClusterAdminButton(),
           OrganizationsButton(),
           SizedBox(width: 10),
           LoginButton(),
@@ -232,7 +234,7 @@ class _HomeState extends State<Home> {
           ),*/
         ],
       ),
-      //drawer: const TfmDrawer(),
+      drawer: const TfmDrawer(),
       body: Stack(
         children: [
           Row(

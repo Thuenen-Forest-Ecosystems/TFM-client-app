@@ -43,6 +43,12 @@ class _OrderSelectionState extends State<OrderSelection> {
 
     return ToggleButtons(
       // The map operation now correctly infers List<Widget> due to better typing
+      isSelected: isSelected, // Use the passed-in list
+      onPressed: _select, // Use the passed-in callback
+      // Add some styling for better appearance
+      constraints: const BoxConstraints(minHeight: 32.0), // Ensure minimum height
+      borderRadius: BorderRadius.circular(8.0),
+      // The map operation now correctly infers List<Widget> due to better typing
       children:
           widget.selectionList.map<Widget>((e) {
             // Ensure required keys exist and handle potential nulls gracefully
@@ -61,11 +67,6 @@ class _OrderSelectionState extends State<OrderSelection> {
               ),
             );
           }).toList(),
-      isSelected: isSelected, // Use the passed-in list
-      onPressed: _select, // Use the passed-in callback
-      // Add some styling for better appearance
-      constraints: const BoxConstraints(minHeight: 32.0), // Ensure minimum height
-      borderRadius: BorderRadius.circular(8.0),
     );
   }
 }

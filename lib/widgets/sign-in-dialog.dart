@@ -4,7 +4,6 @@ import 'package:terrestrial_forest_monitor/providers/api-log.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
-import 'package:sqlite3/src/result_set.dart' as sqlite;
 
 class SignInDialog extends StatefulWidget {
   const SignInDialog({super.key});

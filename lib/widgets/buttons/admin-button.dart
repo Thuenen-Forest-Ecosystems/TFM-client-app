@@ -28,6 +28,7 @@ class _AdminButtonState extends State<AdminButton> {
           return FutureBuilder(
             future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
             builder: (context, snapshot) {
+              print('PROFILE: ${snapshot.data} ${user.id}');
               if (snapshot.hasData) {
                 if (true) {
                   return IconButton(
