@@ -51,7 +51,6 @@ class _AddEditPlotDialogState extends State<AddEditPlotDialog> {
       // Add new organization
 
       // timestamptz
-      String created_at = DateTime.now().toIso8601String();
       await db
           .execute('INSERT INTO records (id, troop_id, plot_id, schema_name) VALUES (uuid(), ?, ?, ?)', [widget.troopId, plotId, schemaName])
           .then((value) {

@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class InviteUserDialog extends StatefulWidget {
   final String parentOrganizationId;

@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:pluto_grid/pluto_grid.dart';
@@ -223,7 +222,7 @@ class CustomSelectCell extends StatelessWidget {
   final List<String> items;
   final Map<String, String> codeToNameMap;
 
-  const CustomSelectCell({Key? key, required this.stateManager, required this.rowIdx, required this.column, required this.value, required this.items, required this.codeToNameMap}) : super(key: key);
+  const CustomSelectCell({super.key, required this.stateManager, required this.rowIdx, required this.column, required this.value, required this.items, required this.codeToNameMap});
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +233,7 @@ class CustomSelectCell extends StatelessWidget {
           builder: (context) {
             return AlertDialog(
               title: Text('Wählen Sie einen Wert'),
-              content: Container(
+              content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.8, // 80% der Bildschirmbreite
                 height: MediaQuery.of(context).size.height * 0.6, // 60% der Bildschirmhöhe
                 child: ListView.builder(

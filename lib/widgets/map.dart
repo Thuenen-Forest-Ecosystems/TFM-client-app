@@ -67,12 +67,12 @@ class _TFMMapState extends State<TFMMap> {
 
       // Get all records from the database
       for (var record in resultSet) {
-        Map previous_properties = jsonDecode(record['previous_properties']);
-        previous_properties['schemaId'] = record['schema_id'];
-        previous_properties['recordId'] = record['id'];
+        Map previousProperties = jsonDecode(record['previous_properties']);
+        previousProperties['schemaId'] = record['schema_id'];
+        previousProperties['recordId'] = record['id'];
 
-        if (previous_properties['plot_coordinates'] == null) continue;
-        _plotList.add(previous_properties);
+        if (previousProperties['plot_coordinates'] == null) continue;
+        _plotList.add(previousProperties);
       }
       if (mounted) {
         setState(() {});

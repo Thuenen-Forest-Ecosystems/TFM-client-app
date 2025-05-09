@@ -1,8 +1,6 @@
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
-import 'package:terrestrial_forest_monitor/widgets/login-dialog.dart';
 
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
@@ -16,15 +14,8 @@ class OrganizationsButton extends StatefulWidget {
 class _OrganizationsButtonState extends State<OrganizationsButton> {
   User? user;
 
-  // Small screen width threshold in logical pixels
-  final double _smallScreenThreshold = 600;
-
   @override
   Widget build(BuildContext context) {
-    // Get current screen width
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isSmallScreen = screenWidth < _smallScreenThreshold;
-
     return StreamBuilder(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {

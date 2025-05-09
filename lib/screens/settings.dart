@@ -10,8 +10,8 @@ import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-//import 'package:terrestrial_forest_monitor/widgets/bluetooth/android-bluetooth.dart';
-//import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
+import 'package:terrestrial_forest_monitor/widgets/bluetooth/android-bluetooth.dart';
+import 'package:terrestrial_forest_monitor/widgets/gnss-settings.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -101,8 +101,6 @@ class _SettingsState extends State<Settings> {
     ThemeMode themeMode = context.watch<ThemeModeProvider>().mode;
     _lights = themeMode == ThemeMode.dark;
 
-    print(kDebugMode);
-
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
@@ -120,8 +118,13 @@ class _SettingsState extends State<Settings> {
           constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
           child: ListView(
             children: <Widget>[
-              //if (!kIsWeb) Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
-              //if (!kIsWeb) Card(margin: EdgeInsets.all(10.0), child: BluetoothSetup()),
+              Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Serial Port', style: TextStyle(fontSize: 15))),
+              Card(
+                margin: EdgeInsets.all(10.0),
+                child: GnssSettings(), // if (Platform.isWindows)
+              ),
+              if (!kIsWeb) Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
+              if (!kIsWeb) Card(margin: EdgeInsets.all(10.0), child: BluetoothSetup()),
               Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Layout', style: TextStyle(fontSize: 15))),
               Card(
                 margin: EdgeInsets.all(10.0),

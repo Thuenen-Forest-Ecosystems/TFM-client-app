@@ -1,13 +1,11 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
-import 'package:terrestrial_forest_monitor/services/utils.dart';
 
 class SpeechToTextButton extends StatefulWidget {
   final Function onChanged;
@@ -122,7 +120,7 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
   }
 
   void startListening() async {
-    const _currentLocaleId = 'de-DE';
+    const currentLocaleId = 'de-DE';
     //var selectedLocale = locales[selectedLocale];
     print('start');
     //String? currentLanguage = await getSettings('language');
@@ -131,7 +129,7 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
     try {
       print('start');
       String languageCountry = context.watch<Language>().locale.toString();
-      print("locale: ${languageCountry}");
+      print("locale: $languageCountry");
     } catch (e) {
       print("Error: $e");
     }
@@ -144,7 +142,7 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
     // systems recognition will be stopped before this value is reached.
     // Similarly `pauseFor` is a maximum not a minimum and may be ignored
     // on some devices. , localeId: _currentLocaleId
-    speech.listen(onResult: resultListener, localeId: _currentLocaleId, listenFor: Duration(seconds: listenFor ?? 30), pauseFor: Duration(seconds: pauseFor ?? 3), onSoundLevelChange: soundLevelListener, listenOptions: options);
+    speech.listen(onResult: resultListener, localeId: currentLocaleId, listenFor: Duration(seconds: listenFor ?? 30), pauseFor: Duration(seconds: pauseFor ?? 3), onSoundLevelChange: soundLevelListener, listenOptions: options);
     setState(() {});
   }
 

@@ -5,13 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:powersync/powersync.dart';
 import 'package:powersync/sqlite3_common.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:terrestrial_forest_monitor/config.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 
 import 'schema.dart';
 import 'package:logging/logging.dart';
@@ -274,7 +271,7 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           var data = Map<String, dynamic>.of(op.opData!);
 
           // Check if the table is records table
-          print(op.table + ' PUT');
+          print('${op.table} PUT');
           if (op.table == 'records' && data['properties'] != null) {
             data['properties'] = jsonDecode(data['properties']);
             print('PS: properties: ${data['properties']}');
@@ -284,7 +281,7 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           await table.upsert(data);
         } else if (op.op == UpdateType.patch) {
           // Check if the table is records table
-          print(op.table + ' PATCH');
+          print('${op.table} PATCH');
           if (op.table == 'records' && op.opData!['properties'] != null) {
             op.opData!['properties'] = jsonDecode(op.opData!['properties']);
             print('PS: properties: ${op.opData!['properties']}');

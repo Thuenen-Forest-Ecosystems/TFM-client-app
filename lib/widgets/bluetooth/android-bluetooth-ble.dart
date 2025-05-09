@@ -47,7 +47,7 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
 
             String talkerId = fields[0].substring(1);
 
-            print('$talkerId');
+            print(talkerId);
 
             // https://openrtk.readthedocs.io/en/latest/communication_port/nmea.html
             if (talkerId == 'GNRMC') {
@@ -62,7 +62,7 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
 
               print('Time: $time');
               print('Status: $status');
-              print('Latitude: ${dmsToDecimal('0' + latitude, latitudeDirection)}°');
+              print('Latitude: ${dmsToDecimal('0$latitude', latitudeDirection)}°');
               print('Latitude Direction: $latitudeDirection');
               print('Longitude: ${dmsToDecimal(longitude, longitudeDirection)}°');
               print('Longitude Direction: $longitudeDirection');
@@ -181,11 +181,9 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
             // autoConnect First
             for (var deviceId in devices.keys) {
               var device = BluetoothDevice.fromId(deviceId);
-              if (device != null) {
-                _connectDevice(device);
-                break; // Connect to the first found device
-              }
-            }
+              _connectDevice(device);
+              break; // Connect to the first found device
+                        }
           }
         }
       } else {
@@ -200,10 +198,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
       return;
     }
     var device = BluetoothDevice.fromId(remoteId);
-    if (device == null) {
-      print('Device not found');
-      return;
-    }
     _connectDevice(device);
   }
 
@@ -253,7 +247,7 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
           if (characteristic.properties.read) {
             // Read value
             List<int> value = await characteristic.read();
-            print('Read value: ${value}');
+            print('Read value: $value');
 
             // You can process the data here
             // Example: String stringValue = String.fromCharCodes(value);
@@ -297,7 +291,7 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
   }
 
   Future<void> _checkConnectedDevices() async {
-    List<BluetoothDevice> connected = await FlutterBluePlus.connectedDevices;
+    List<BluetoothDevice> connected = FlutterBluePlus.connectedDevices;
     if (connected.isNotEmpty) {
       print('Already connected devices:');
       for (var device in connected) {

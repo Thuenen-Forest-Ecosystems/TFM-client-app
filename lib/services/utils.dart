@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -226,20 +225,16 @@ Future<Map<String, dynamic>?> getSettings(String key) async {
     try {
       return await db.get('SELECT * FROM user_settings WHERE key = ? AND user_id = ?', [key, getUserId()]);
     } on StateError {
-      // Catch 'Bad state: No element' if no row found for this user
-      print("Setting '$key' not found for user ${getUserId()}. Trying without user ID.");
       // If not found for the specific user, try fetching without user_id (fallback)
       try {
         return await db.get('SELECT * FROM user_settings WHERE key = ?', [key]);
       } on StateError {
         // Catch 'Bad state: No element' if no row found at all
-        print("Setting '$key' not found globally.");
         return null; // Return null if not found globally either
       }
     }
   } catch (e) {
     // Catch any other unexpected database errors during the process
-    print("Error fetching setting '$key': $e");
     return null; // Return null on other errors as well
   }
 }
@@ -363,17 +358,17 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
               // VTG often has speed in knots at index 7
               String? courseTrue = fields[1];
               String? speedKnots = fields[7];
-              if (courseTrue != null && courseTrue.isNotEmpty) {
+              if (courseTrue.isNotEmpty) {
                 nmeaState.heading ??= double.tryParse(courseTrue);
               }
-              if (speedKnots != null && speedKnots.isNotEmpty) {
+              if (speedKnots.isNotEmpty) {
                 nmeaState.speedKnots ??= double.tryParse(speedKnots); // Use VTG speed as fallback
               }
             }
           } else {
             // print('Unknown or unhandled NMEA $talkerId: $sentence');
           }
-        } catch (e, stackTrace) {
+        } catch (e) {
           // Catch specific parsing errors
           print('Failed to parse NMEA sentence: $sentence');
           print('Error: $e');

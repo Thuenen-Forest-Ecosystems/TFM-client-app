@@ -93,13 +93,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
           },
           icon: Icon(Icons.close),
         ),
-        title: ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.all(0),
-          leading: Icon(Icons.blur_circular, size: 40),
-          title: Text('Ecke ${widget.plotId}', overflow: TextOverflow.ellipsis, maxLines: 1),
-          subtitle: Text('Trakt: ${widget.clusterId}', overflow: TextOverflow.ellipsis, maxLines: 1),
-        ),
+        title: ListTile(dense: true, contentPadding: EdgeInsets.all(0), title: Text('Ecke ${widget.plotId}', overflow: TextOverflow.ellipsis, maxLines: 1), subtitle: Text('Trakt: ${widget.clusterId}', overflow: TextOverflow.ellipsis, maxLines: 1)),
         backgroundColor: Colors.transparent,
         iconTheme: IconThemeData(color: Colors.white),
         bottom: TabBar(

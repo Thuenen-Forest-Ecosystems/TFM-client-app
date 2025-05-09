@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/components/add-edit-organization-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/add-edit-troop-dialog.dart';
-import 'package:terrestrial_forest_monitor/components/invite-user-dialog.dart';
 import 'package:terrestrial_forest_monitor/components/own-organization.dart';
 import 'package:terrestrial_forest_monitor/components/user-management/troop.dart';
 import 'package:terrestrial_forest_monitor/components/user-management/users-profile-list.dart';
@@ -45,7 +44,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
               rootOrganizationId = (snapshot.data as Map<String, dynamic>)['organization_id'] ?? rootOrganizationId;
 
               bool isAdmin = (snapshot.data as Map<String, dynamic>)['is_admin'] == 1;
-              int? stateResponsible = (snapshot.data as Map<String, dynamic>)['state_responsible'] ?? null;
+              int? stateResponsible = (snapshot.data as Map<String, dynamic>)['state_responsible'];
               String? organizationId = (snapshot.data as Map<String, dynamic>)['organization_id'] ?? '';
               bool? isOrganizationAdmin = (snapshot.data as Map<String, dynamic>)['is_organization_admin'] == 1;
               //bool canAdminTroop = (snapshot.data as Map<String, dynamic>)['can_admin_troop'] == 1;

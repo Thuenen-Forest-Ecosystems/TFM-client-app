@@ -1,9 +1,7 @@
-import 'dart:async';
 
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/libraries/globals.dart' as globals;
-import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'dart:math';
 
 import 'package:terrestrial_forest_monitor/services/powersync.dart';

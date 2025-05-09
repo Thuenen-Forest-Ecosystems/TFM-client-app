@@ -26,7 +26,7 @@ class _AndroidBluetoothClassicState extends State<AndroidBluetoothClassic> {
       // Then listen to results
       _flutterBlueClassicPlugin.scanResults.listen(
         (device) {
-          print('FlutterBlueClassic scan results: $device');
+          print('FlutterBlueClassic scan results: ${device.toString()}');
           setState(() {
             _scanResults.add(device);
           });
