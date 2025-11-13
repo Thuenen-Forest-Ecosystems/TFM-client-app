@@ -15,6 +15,12 @@ class _AdminButtonState extends State<AdminButton> {
 
   @override
   Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () {
+        context.beamToNamed('/admin');
+      },
+      icon: Icon(Icons.admin_panel_settings),
+    );
     return StreamBuilder(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
@@ -28,7 +34,6 @@ class _AdminButtonState extends State<AdminButton> {
           return FutureBuilder(
             future: db.get('SELECT * FROM users_profile WHERE id = ?', [user.id]),
             builder: (context, snapshot) {
-              print('PROFILE: ${snapshot.data} ${user.id}');
               if (snapshot.hasData) {
                 if (true) {
                   return IconButton(

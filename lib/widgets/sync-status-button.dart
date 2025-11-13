@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:powersync/powersync.dart';
+import 'package:powersync/powersync.dart' hide Column;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
@@ -25,6 +25,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     _syncStatusSubscription = db.statusStream.listen((event) {
       setState(() {
         _connectionState = db.currentStatus;
+        print('SyncStatus: ${event}');
       });
     });
   }
@@ -37,7 +38,6 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
 
   @override
   Widget build(BuildContext context) {
-    final statusIcon = _getStatusIcon(_connectionState);
     return StreamBuilder(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
@@ -47,7 +47,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
           if (user == null) {
             return SizedBox();
           }
-          return statusIcon;
+          return _makeIconButton(context, _connectionState);
         } else {
           return SizedBox();
         }
@@ -56,32 +56,88 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   }
 }
 
-Widget _makeIcon(String text, IconData icon) {
-  return Tooltip(message: text, child: Icon(icon));
+Widget _makeIconButton(BuildContext context, SyncStatus status) {
+  final iconData = _getStatusIconData(status);
+  final statusText = _getStatusText(status);
+
+  return FloatingActionButton(onPressed: () => _showStatusDialog(context, status), tooltip: statusText, child: Icon(iconData));
 }
 
-Widget _getStatusIcon(SyncStatus status) {
+IconData _getStatusIconData(SyncStatus status) {
   if (status.anyError != null) {
-    // The error message is verbose, could be replaced with something
-    // more user-friendly
     if (!status.connected) {
-      return _makeIcon(status.anyError!.toString(), Icons.cloud_off);
+      return Icons.cloud_off;
     } else {
-      return _makeIcon(status.anyError!.toString(), Icons.sync_problem);
+      return Icons.sync_problem;
     }
   } else if (status.connecting) {
-    return _makeIcon('Connecting', Icons.cloud_sync_outlined);
+    return Icons.cloud_sync_outlined;
   } else if (!status.connected) {
-    return _makeIcon('Not connected', Icons.cloud_off);
+    return Icons.cloud_off;
   } else if (status.uploading && status.downloading) {
-    // The status changes often between downloading, uploading and both,
-    // so we use the same icon for all three
-    return _makeIcon('Uploading and downloading', Icons.cloud_sync_outlined);
+    return Icons.cloud_sync_outlined;
   } else if (status.uploading) {
-    return _makeIcon('Uploading', Icons.cloud_sync_outlined);
+    return Icons.cloud_sync_outlined;
   } else if (status.downloading) {
-    return _makeIcon('Downloading', Icons.cloud_sync_outlined);
+    return Icons.cloud_sync_outlined;
   } else {
-    return _makeIcon('Connected', Icons.cloud_queue);
+    return Icons.cloud_queue;
   }
+}
+
+String _getStatusText(SyncStatus status) {
+  if (status.anyError != null) {
+    return status.anyError!.toString();
+  } else if (status.connecting) {
+    return 'Connecting';
+  } else if (!status.connected) {
+    return 'Not connected';
+  } else if (status.uploading && status.downloading) {
+    return 'Uploading and downloading';
+  } else if (status.uploading) {
+    return 'Uploading';
+  } else if (status.downloading) {
+    return 'Downloading';
+  } else {
+    return 'Connected';
+  }
+}
+
+void _showStatusDialog(BuildContext context, SyncStatus status) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Sync Status'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildStatusRow('Connected', status.connected ? 'Yes' : 'No'),
+              _buildStatusRow('Connecting', status.connecting ? 'Yes' : 'No'),
+              _buildStatusRow('Downloading', status.downloading ? 'Yes' : 'No'),
+              _buildStatusRow('Uploading', status.uploading ? 'Yes' : 'No'),
+              const Divider(),
+              _buildStatusRow('Last Synced At', status.lastSyncedAt?.toString() ?? 'Never'),
+              if (status.anyError != null) ...[
+                const Divider(),
+                const Text('Error:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                const SizedBox(height: 4),
+                Text(status.anyError.toString(), style: const TextStyle(fontSize: 12)),
+              ],
+            ],
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+      );
+    },
+  );
+}
+
+Widget _buildStatusRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(width: 120, child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500))), Expanded(child: Text(value))]),
+  );
 }

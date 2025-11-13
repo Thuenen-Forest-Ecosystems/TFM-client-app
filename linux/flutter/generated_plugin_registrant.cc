@@ -8,6 +8,7 @@
 
 #include <flutter_libserialport/flutter_libserialport_plugin.h>
 #include <gtk/gtk_plugin.h>
+#include <maplibre/maplibre_plugin.h>
 #include <objectbox_flutter_libs/objectbox_flutter_libs_plugin.h>
 #include <powersync_flutter_libs/powersync_flutter_libs_plugin.h>
 #include <sqlite3_flutter_libs/sqlite3_flutter_libs_plugin.h>
@@ -20,6 +21,9 @@ void fl_register_plugins(FlPluginRegistry* registry) {
   g_autoptr(FlPluginRegistrar) gtk_registrar =
       fl_plugin_registry_get_registrar_for_plugin(registry, "GtkPlugin");
   gtk_plugin_register_with_registrar(gtk_registrar);
+  g_autoptr(FlPluginRegistrar) maplibre_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(registry, "MaplibrePlugin");
+  maplibre_plugin_register_with_registrar(maplibre_registrar);
   g_autoptr(FlPluginRegistrar) objectbox_flutter_libs_registrar =
       fl_plugin_registry_get_registrar_for_plugin(registry, "ObjectboxFlutterLibsPlugin");
   objectbox_flutter_libs_plugin_register_with_registrar(objectbox_flutter_libs_registrar);

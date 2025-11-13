@@ -61,6 +61,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   Stream<LocationMarkerPosition> get positionStreamController => _positionStreamController.stream;
   Stream<LocationMarkerHeading> get headingStreamController => _headingStreamController.stream;
   LocationPermission? get permission => _permission;
+  CurrentNMEA? get currentNMEA => _currentNMEA;
 
   final LocationSettings locationSettings = AndroidSettings(
     accuracy: LocationAccuracy.high,
@@ -109,8 +110,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
         // Get characteristics for this service
         for (var characteristic in service.characteristics) {
-          print('Characteristic: ${characteristic.uuid}');
-
           // Check if characteristic is readable
           if (characteristic.properties.read) {
             // Read value
@@ -128,13 +127,17 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
             await characteristic.setNotifyValue(true);
             characteristic.onValueReceived.listen((value) {
               _currentNMEA = parseData(value, _currentNMEA);
-              // merge with current NMEA only not null
-              if (_currentNMEA != null) {
+              // merge with current NMEA only not null and has valid coordinates
+              if (_currentNMEA != null && _currentNMEA!.latitude != null && _currentNMEA!.longitude != null) {
+                // Calculate accuracy from HDOP (horizontal dilution of precision)
+                // HDOP * 5 gives approximate accuracy in meters (rough estimation)
+                double calculatedAccuracy = (_currentNMEA!.hdop ?? 1.0) * 5.0;
+
                 // set last position
                 _lastPosition = Position(
                   latitude: _currentNMEA!.latitude!,
                   longitude: _currentNMEA!.longitude!,
-                  accuracy: 0,
+                  accuracy: calculatedAccuracy,
                   altitude: _currentNMEA!.altitude ?? 0,
                   altitudeAccuracy: 0,
                   heading: _currentNMEA!.heading ?? 0,
@@ -143,10 +146,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
                   speedAccuracy: 0,
                   timestamp: DateTime.now(),
                 );
-
-                //_positionStreamController.add(LocationMarkerPosition(latitude: _currentNMEA!.latitude!, longitude: _currentNMEA!.longitude!, accuracy: _currentNMEA!.hdop ?? 0));
-
-                _positionStreamController.add(LocationMarkerPosition(latitude: _lastPosition!.latitude, longitude: _lastPosition!.longitude, accuracy: _lastPosition!.accuracy));
 
                 if (_currentNMEA?.heading != null) {
                   // Estimate heading accuracy based on HDOP and Speed
@@ -181,6 +180,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
                     ),
                   );
                 }
+
+                // Add position to stream for map widget
+                _positionStreamController.add(LocationMarkerPosition(latitude: _lastPosition!.latitude, longitude: _lastPosition!.longitude, accuracy: _lastPosition!.accuracy));
+
                 _isConnecting = false;
                 notifyListeners();
               }

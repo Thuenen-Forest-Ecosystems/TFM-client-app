@@ -29,7 +29,6 @@ import 'package:terrestrial_forest_monitor/widgets/login-button.dart';
 import 'package:beamer/beamer.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
-//import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/organizations-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/painter.dart';
@@ -77,9 +76,9 @@ class _HomeState extends State<Home> {
           routes: {
             '/': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: 'Terrestrial Forest Monitoring', child: ThuenenGrid(), type: BeamPageType.noTransition),
             '403': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: '403', child: ForbiddenScreen(), type: BeamPageType.noTransition),
-            'records': (context, state, data) {
+            /*'records': (context, state, data) {
               return BeamPage(key: ValueKey('records'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
-            },
+            },*/
             'schema/:schemaId': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
@@ -202,9 +201,9 @@ class _HomeState extends State<Home> {
           //OnlineStatus(),
           //SignInBtn(),
 
+          // ToDo: Gps Button
+          //const GpsButton(),
           //SizedBox(width: 10),
-          const GpsButton(),
-          SizedBox(width: 10),
           const SyncStatusButton(),
           SizedBox(width: 10),
           const AdminButton(),
@@ -216,7 +215,8 @@ class _HomeState extends State<Home> {
             icon: Icon(Icons.settings),
           ),
           //ClusterAdminButton(),
-          OrganizationsButton(),
+          // ToDo: Organization is done on Website
+          //OrganizationsButton(),
           SizedBox(width: 10),
           LoginButton(),
           SizedBox(width: 10),
@@ -234,7 +234,8 @@ class _HomeState extends State<Home> {
           ),*/
         ],
       ),
-      drawer: const TfmDrawer(),
+      //ToDo: remove drawer when map is implemented
+      //drawer: const TfmDrawer(),
       body: Stack(
         children: [
           Row(

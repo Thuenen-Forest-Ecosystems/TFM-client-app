@@ -21,7 +21,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get energySaving => 'Energiesparen';
 
   @override
-  String get energySavingDescription => 'Reduziere die Helligkeit des Bildschirms';
+  String get energySavingDescription =>
+      'Reduziere die Helligkeit des Bildschirms';
 
   @override
   String get authenticationLogin => 'ANMELDEN';
