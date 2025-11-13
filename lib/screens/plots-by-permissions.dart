@@ -4,6 +4,7 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
+import 'package:terrestrial_forest_monitor/widgets/cluster-grid.dart';
 import 'package:terrestrial_forest_monitor/widgets/order-selection.dart';
 
 class PlotsByPermissions extends StatefulWidget {
@@ -71,18 +72,22 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
         title: ListTile(
           contentPadding: EdgeInsets.all(0),
           title: Text('Ecken', style: TextStyle(color: Colors.black)),
-          subtitle: Text('Dir zugewiesene Ecken', style: TextStyle(color: Colors.black), overflow: TextOverflow.ellipsis, maxLines: 1),
-          trailing: Row(mainAxisSize: MainAxisSize.min, children: [OrderSelection(selectionList: orderBtns), OutlinedButton.icon(onPressed: () {}, label: Text('Sortieren'), icon: Icon(Icons.sort))]),
+          //subtitle: Text('Dir zugewiesene Ecken', style: TextStyle(color: Colors.black), overflow: TextOverflow.ellipsis, maxLines: 1),
+          // ToDo: Sort By
+          //trailing: Row(mainAxisSize: MainAxisSize.min, children: [OrderSelection(selectionList: orderBtns), OutlinedButton.icon(onPressed: () {}, label: Text('Sortieren'), icon: Icon(Icons.sort))]),
         ),
         automaticallyImplyLeading: false,
       ),
       body: FutureBuilder(
-        future: db.getAll('SELECT * FROM records'), //_getAllRecords(),
+        future: db.getAll('SELECT id, cluster_name, plot_name FROM records LIMIT 100'), //_getAllRecords(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
             if (snapshot.data!.isEmpty) {
               return Center(child: Text('Melde dich bei deinem Admin um Daten freizugeben.'));
             }
+
+            return ClusterGrid(data: snapshot.data!);
+
             // Filter the records based json filter settings
             List filteredData = _filterRecords(snapshot.data!);
             List orderedData = _orderRecords(filteredData);
@@ -98,8 +103,8 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
                 //String clusterId = previous_properties['cluster_id'] ?? '';
 
                 return ListTile(
-                  title: Text('Ecke: ${record['previous_properties']['plot_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
-                  subtitle: Text('Trakt: ${record['previous_properties']['cluster_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  title: Text('Ecke: ${record['plot_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  subtitle: Text('Trakt: ${record['cluster_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
                   onTap: () {
                     Beamer.of(context).beamToNamed('/record/${record['id']}');
                   },

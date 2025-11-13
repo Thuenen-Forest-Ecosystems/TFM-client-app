@@ -25,6 +25,8 @@ class _VertialBarState extends State<VertialBar> {
 
   @override
   Widget build(BuildContext context) {
+    // ToDo: Remove this if statement when the map is implemented
+    return Container(color: Theme.of(context).primaryColor, width: 50, child: Column());
     return Container(
       color: Theme.of(context).primaryColor,
       width: 50,
@@ -37,21 +39,9 @@ class _VertialBarState extends State<VertialBar> {
                 scrollDirection: Axis.vertical,
                 child: Container(
                   margin: const EdgeInsets.all(5),
-                  padding: const EdgeInsets.only(
-                    top: 5,
-                    bottom: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: context.watch<MapState>().mapOpen ? Colors.white : Colors.transparent,
-                    borderRadius: const BorderRadius.all(
-                      Radius.circular(20),
-                    ),
-                  ),
-                  child: IntrinsicHeight(
-                    child: MapNavigation(
-                      isDrawer: true,
-                    ),
-                  ),
+                  padding: const EdgeInsets.only(top: 5, bottom: 5),
+                  decoration: BoxDecoration(color: context.watch<MapState>().mapOpen ? Colors.white : Colors.transparent, borderRadius: const BorderRadius.all(Radius.circular(20))),
+                  child: IntrinsicHeight(child: MapNavigation(isDrawer: true)),
                 ),
               ),
             ),
@@ -64,21 +54,9 @@ class _VertialBarState extends State<VertialBar> {
                   Scaffold.of(context).closeDrawer();
                 }
               },
-              icon: Icon(
-                widget.isDrawer ? Icons.close : Icons.map,
-                color: Color.fromARGB(255, 27, 27, 27),
-              ),
+              icon: Icon(widget.isDrawer ? Icons.close : Icons.map, color: Color.fromARGB(255, 27, 27, 27)),
             ),
-          IconButton(
-            onPressed: () => showDialog<String>(
-              context: context,
-              builder: (BuildContext context) => SupportDialog(),
-            ),
-            icon: const Icon(
-              Icons.contact_support,
-              color: Color.fromARGB(255, 27, 27, 27),
-            ),
-          ),
+          IconButton(onPressed: () => showDialog<String>(context: context, builder: (BuildContext context) => SupportDialog()), icon: const Icon(Icons.contact_support, color: Color.fromARGB(255, 27, 27, 27))),
         ],
       ),
     );
@@ -111,10 +89,7 @@ class _VertialBarState extends State<VertialBar> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (context.watch<MapState>().mapOpen || widget.isDrawer)
-                      MapNavigation(
-                        isDrawer: true,
-                      ),
+                    if (context.watch<MapState>().mapOpen || widget.isDrawer) MapNavigation(isDrawer: true),
                     IconButton(
                       onPressed: () {
                         if (!widget.isDrawer) {
@@ -123,10 +98,7 @@ class _VertialBarState extends State<VertialBar> {
                           Scaffold.of(context).closeDrawer();
                         }
                       },
-                      icon: Icon(
-                        widget.isDrawer ? Icons.close : Icons.map,
-                        color: Color.fromARGB(255, 27, 27, 27),
-                      ),
+                      icon: Icon(widget.isDrawer ? Icons.close : Icons.map, color: Color.fromARGB(255, 27, 27, 27)),
                     ),
                   ],
                 ),
@@ -172,36 +144,11 @@ class _VertialBarState extends State<VertialBar> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  height: 250,
-                  width: 50,
-                  color: Colors.red,
-                ),
-                Container(
-                  height: 250,
-                  width: 50,
-                  color: Colors.green,
-                ),
-              ],
-            ),
-          ),
+          SingleChildScrollView(scrollDirection: Axis.vertical, child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [Container(height: 250, width: 50, color: Colors.red), Container(height: 250, width: 50, color: Colors.green)])),
           Container(
             margin: const EdgeInsets.all(5),
-            padding: const EdgeInsets.only(
-              top: 5,
-              bottom: 5,
-            ),
-            decoration: BoxDecoration(
-              color: context.watch<MapState>().mapOpen ? Colors.white : Colors.transparent,
-              borderRadius: const BorderRadius.all(
-                Radius.circular(20),
-              ),
-            ),
+            padding: const EdgeInsets.only(top: 5, bottom: 5),
+            decoration: BoxDecoration(color: context.watch<MapState>().mapOpen ? Colors.white : Colors.transparent, borderRadius: const BorderRadius.all(Radius.circular(20))),
             /*child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -224,16 +171,7 @@ class _VertialBarState extends State<VertialBar> {
               ],
             ),*/
           ),
-          IconButton(
-            onPressed: () => showDialog<String>(
-              context: context,
-              builder: (BuildContext context) => SupportDialog(),
-            ),
-            icon: const Icon(
-              Icons.contact_support,
-              color: Color.fromARGB(255, 27, 27, 27),
-            ),
-          ),
+          IconButton(onPressed: () => showDialog<String>(context: context, builder: (BuildContext context) => SupportDialog()), icon: const Icon(Icons.contact_support, color: Color.fromARGB(255, 27, 27, 27))),
         ],
       ),
     );

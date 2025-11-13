@@ -1,0 +1,82 @@
+import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
+import 'package:geolocator/geolocator.dart';
+
+class RecordsListProvider extends ChangeNotifier {
+  // Cache for records list
+  final Map<String, List<Map<String, dynamic>>> _recordsCache = {};
+  final Map<String, int> _currentPageCache = {};
+  final Map<String, bool> _hasMoreDataCache = {};
+
+  Position? _currentPosition;
+
+  // Get cached data for an interval and order
+  List<Map<String, dynamic>>? getCachedRecords(String intervalName, ClusterOrderBy orderBy) {
+    final key = _getCacheKey(intervalName, orderBy);
+    return _recordsCache[key];
+  }
+
+  int getCachedPage(String intervalName, ClusterOrderBy orderBy) {
+    final key = _getCacheKey(intervalName, orderBy);
+    return _currentPageCache[key] ?? 0;
+  }
+
+  bool getHasMoreData(String intervalName, ClusterOrderBy orderBy) {
+    final key = _getCacheKey(intervalName, orderBy);
+    return _hasMoreDataCache[key] ?? true;
+  }
+
+  Position? get currentPosition => _currentPosition;
+
+  void setCurrentPosition(Position? position) {
+    _currentPosition = position;
+    notifyListeners();
+  }
+
+  // Cache records for an interval and order
+  void cacheRecords(String intervalName, ClusterOrderBy orderBy, List<Map<String, dynamic>> records, int page, bool hasMore) {
+    final key = _getCacheKey(intervalName, orderBy);
+    _recordsCache[key] = records;
+    _currentPageCache[key] = page;
+    _hasMoreDataCache[key] = hasMore;
+    notifyListeners();
+  }
+
+  // Append more records to cache
+  void appendRecords(String intervalName, ClusterOrderBy orderBy, List<Map<String, dynamic>> newRecords, int page, bool hasMore) {
+    final key = _getCacheKey(intervalName, orderBy);
+    final existing = _recordsCache[key] ?? [];
+    _recordsCache[key] = [...existing, ...newRecords];
+    _currentPageCache[key] = page;
+    _hasMoreDataCache[key] = hasMore;
+    notifyListeners();
+  }
+
+  // Clear cache for a specific interval/order combination
+  void clearCache(String intervalName, ClusterOrderBy orderBy) {
+    final key = _getCacheKey(intervalName, orderBy);
+    _recordsCache.remove(key);
+    _currentPageCache.remove(key);
+    _hasMoreDataCache.remove(key);
+    notifyListeners();
+  }
+
+  // Clear all cache
+  void clearAllCache() {
+    _recordsCache.clear();
+    _currentPageCache.clear();
+    _hasMoreDataCache.clear();
+    notifyListeners();
+  }
+
+  String _getCacheKey(String intervalName, ClusterOrderBy orderBy) {
+    return '$intervalName-${orderBy.name}';
+  }
+
+  // Check if we should invalidate cache (e.g., after sync)
+  bool shouldInvalidateCache(String intervalName, ClusterOrderBy orderBy) {
+    // Can add logic here to check if data has changed
+    // For now, cache is valid unless manually cleared
+    return false;
+  }
+}

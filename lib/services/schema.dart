@@ -61,10 +61,10 @@ const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.t
 Schema schema = Schema(([
   const Table.localOnly('device_settings', [Column.text('key'), Column.text('value')]),
   const Table.localOnly('user_settings', [Column.text('value'), Column.text('key'), Column.text('user_id')]),
-
   const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id'), Column.text('language')]),
   const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
-  const Table('users_profile', [Column.integer('can_admin_troop'), Column.integer('is_organization_admin'), Column.integer('is_admin'), Column.integer('state_responsible'), Column.text('organization_id'), Column.text('email')]),
+
+  const Table('users_profile', [Column.integer('is_organization_admin'), Column.integer('is_database_admin'), Column.integer('is_admin'), Column.text('organization_id'), Column.text('email')]),
   const Table('schemas', [
     Column.text('created_at'),
     Column.text('interval_name'),
@@ -79,25 +79,17 @@ Schema schema = Schema(([
     Column.text('properties'),
     Column.text('schema_name'),
     Column.text('schema_id'),
+    Column.text('updated_at'),
     Column.text('plot_id'),
-    Column.text('troop_id'),
-    Column.text('previous_properties'),
-    Column.text('organization_id'),
-    Column.integer('is_valid'),
-  ]),
-
-  const Table('records_test', [Column.text('plot_id'), Column.text('created_at')]),
-
-  const Table('cluster', [
-    Column.text('intkey'),
+    Column.text('cluster_id'),
+    Column.text('plot_name'),
     Column.text('cluster_name'),
-    Column.text('state_responsible'),
-    Column.text('topo_map_sheet'),
-    Column.text('states_affected'),
-    Column.text('grid_density'),
-    Column.text('cluster_status'),
-    Column.text('cluster_situation'),
-    Column.text('inspire_grid_cell'),
+    Column.text('previous_properties'),
+    Column.integer('is_valid'),
+    Column.text('responsible_administration'),
+    Column.text('responsible_provider'),
+    Column.text('responsible_state'),
+    Column.text('responsible_troop'),
   ]),
   const Table('organizations', [
     Column.text('apex_domain'),
@@ -110,30 +102,7 @@ Schema schema = Schema(([
     Column.integer('can_admin_troop'),
   ]),
   const Table('troop', [Column.text('plot_ids'), Column.text('name'), Column.text('supervisor_id'), Column.text('user_ids'), Column.text('organization_id')]),
-  const Table('plot', [Column.text('intkey'), Column.text('plot_name'), Column.text('cluster_id'), Column.text('center_location_json'), Column.text('created_at'), Column.text('modified_local')]),
-  /*const Table('tree', [
-    Column.text('intkey'),
-    Column.text('plot_id'),
-    Column.text('tree_number'),
-    Column.text('azimuth'),
-    Column.text('distance'),
-    Column.text('tree_species'),
-    Column.text('dbh'),
-    Column.text('dbh_height'),
-    Column.text('tree_status'),
-    Column.text('tree_height'),
-    Column.text('stem_crown'),
-    Column.text('tree_height_azimuth'),
-    Column.text('tree_height_distance'),
-    Column.text('tree_age'),
-  ]),
-  const Table('deadwood', [
-    Column.text('intkey'),
-    Column.text('plot_id'),
-    Column.text('created_at'),
-    Column.text('modified_at'),
-    Column.text('modified_by'),
-  ]),*/
+
   ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),
 ]));
