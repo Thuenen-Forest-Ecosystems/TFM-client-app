@@ -37,36 +37,38 @@ import 'package:terrestrial_forest_monitor/screens/profile.dart';
 // provider
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 
-final routerDelegate = BeamerDelegate(
-  notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
-  //transitionDelegate: const NoAnimationTransitionDelegate(),
-  updateListenable: ValueNotifier<bool>(false),
-  guards: [
-    BeamGuard(
-      pathPatterns: ['/settings', '/admin', '/admin-permissions', '/headless', '/', '/profile'],
-      check: (context, location) {
-        final authProvider = context.read<AuthProvider>();
-        return authProvider.isAuthenticated;
-      },
-      beamToNamed: (origin, target) => '/login',
-    ),
-  ],
-  locationBuilder:
-      RoutesLocationBuilder(
-        routes: {
-          '/login': (context, state, data) => BeamPage(key: ValueKey('login-${DateTime.now()}'), title: 'Login', child: Login(), type: BeamPageType.noTransition),
-          '/': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Schema(), type: BeamPageType.noTransition),
-          //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-          '/records-selection/:intervalName': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-          '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-          '/profile': (context, state, data) => BeamPage(key: ValueKey('profile-${DateTime.now()}'), title: 'Profile', child: Profile(), type: BeamPageType.noTransition),
-          //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
-          //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
-          //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
-          //'/headless': (context, state, data) => BeamPage(key: ValueKey('headless-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: StatelessTest(), type: BeamPageType.noTransition),
+BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
+  return BeamerDelegate(
+    notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
+    //transitionDelegate: const NoAnimationTransitionDelegate(),
+    updateListenable: authProvider,
+    guards: [
+      BeamGuard(
+        pathPatterns: ['/settings', '/admin', '/admin-permissions', '/headless', '/', '/profile'],
+        check: (context, location) {
+          final authProvider = context.read<AuthProvider>();
+          return authProvider.isAuthenticated;
         },
-      ).call,
-);
+        beamToNamed: (origin, target) => '/login',
+      ),
+    ],
+    locationBuilder:
+        RoutesLocationBuilder(
+          routes: {
+            '/login': (context, state, data) => BeamPage(key: ValueKey('login-${DateTime.now()}'), title: 'Login', child: Login(), type: BeamPageType.noTransition),
+            '/': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Schema(), type: BeamPageType.noTransition),
+            //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
+            '/records-selection/:intervalName': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
+            '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
+            '/profile': (context, state, data) => BeamPage(key: ValueKey('profile-${DateTime.now()}'), title: 'Profile', child: Profile(), type: BeamPageType.noTransition),
+            //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
+            //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
+            //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
+            //'/headless': (context, state, data) => BeamPage(key: ValueKey('headless-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: StatelessTest(), type: BeamPageType.noTransition),
+          },
+        ).call,
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -122,7 +124,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => authProvider),
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => DatabaseProvider()),
         ChangeNotifierProvider(create: (_) => languageProvider),
         ChangeNotifierProvider(create: (_) => ThemeModeProvider(initialThemeMode)),
@@ -135,14 +137,16 @@ void main() async {
         Provider(create: (_) => ForestLocationRepository()),
         Provider(create: (_) => SchemaRepository()),
       ],
-      child: Layout(),
+      child: Layout(routerDelegate: createRouterDelegate(authProvider)),
     ),
   );
   //context.read<Language>().setLocale(Locale(defaultLocale));
 }
 
 class Layout extends StatelessWidget {
-  Layout({super.key});
+  final BeamerDelegate routerDelegate;
+
+  const Layout({super.key, required this.routerDelegate});
 
   // This widget is the root of your application.
   @override

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+//import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -19,12 +20,23 @@ class _LoginState extends State<Login> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isFormValid = false;
+  late AuthProvider _authProvider;
 
   @override
   void initState() {
     super.initState();
     _emailController.addListener(_validateForm);
     _passwordController.addListener(_validateForm);
+
+    // Store reference to AuthProvider to avoid context access in dispose
+    _authProvider = context.read<AuthProvider>();
+    _authProvider.addListener(_onAuthStateChanged);
+  }
+
+  void _onAuthStateChanged() {
+    if (_authProvider.isAuthenticated && mounted) {
+      context.beamToNamed('/');
+    }
   }
 
   void _validateForm() {
@@ -43,10 +55,8 @@ class _LoginState extends State<Login> {
       return;
     }
 
-    final authProvider = context.read<AuthProvider>();
-
     // Prevent double-clicks
-    if (authProvider.loggingIn) {
+    if (_authProvider.loggingIn) {
       return;
     }
 
@@ -54,11 +64,9 @@ class _LoginState extends State<Login> {
     final password = _passwordController.text;
 
     try {
-      await authProvider.login(email, password);
+      await _authProvider.login(email, password);
 
-      if (mounted) {
-        context.beamToNamed('/');
-      }
+      // Navigation will be handled by the auth state listener
     } catch (e) {
       if (mounted) {
         String errorMessage = 'Login fehlgeschlagen';
@@ -67,10 +75,8 @@ class _LoginState extends State<Login> {
           switch (e.message) {
             case 'Invalid login credentials':
               errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.';
-              break;
             case 'Email not confirmed':
               errorMessage = 'E-Mail-Adresse wurde noch nicht bestätigt. Bitte überprüfen Sie Ihr Postfach.';
-              break;
             default:
               errorMessage = 'Anmeldefehler: ${e.message}';
           }
@@ -78,13 +84,19 @@ class _LoginState extends State<Login> {
           errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
+        } catch (e) {
+          // Ignore if widget is disposed
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // We use _authProvider for loggingIn, but still watch for rebuilds if needed
+    // Since AuthProvider notifies listeners, and we have our own listener, but for UI, we can watch
     final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
@@ -107,7 +119,7 @@ class _LoginState extends State<Login> {
                         // Login assets/logo/tfm.png form content (centered)
                         const Image(image: AssetImage('assets/logo/tfm.png'), height: 100),
 
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 10),
 
                         // Email Field
                         TextFormField(
@@ -188,6 +200,18 @@ class _LoginState extends State<Login> {
                                 ),
                               ],
                             ),
+                            // Show App version and build number using package_info_plus
+                            FutureBuilder<PackageInfo>(
+                              future: PackageInfo.fromPlatform(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+                                  final packageInfo = snapshot.data!;
+                                  return Center(child: Text('App Version: ${packageInfo.version} (${packageInfo.buildNumber})', style: const TextStyle(fontSize: 12, color: Colors.grey)));
+                                } else {
+                                  return const SizedBox.shrink();
+                                }
+                              },
+                            ),
                           ],
                         ),
                       ],
@@ -206,6 +230,7 @@ class _LoginState extends State<Login> {
   void dispose() {
     _emailController.removeListener(_validateForm);
     _passwordController.removeListener(_validateForm);
+    _authProvider.removeListener(_onAuthStateChanged);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
