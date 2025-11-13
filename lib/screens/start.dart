@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
-import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
+//import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
 //import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon.dart';
 import 'package:terrestrial_forest_monitor/widgets/map_widget_maplibre.dart';
@@ -11,8 +11,7 @@ import 'package:terrestrial_forest_monitor/widgets/map_widget_maplibre.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/records-selection.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/properties-edit.dart';
-import 'package:terrestrial_forest_monitor/widgets/map_widget_maplibre.dart';
-import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
+//import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
 import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 
 class Start extends StatefulWidget {
@@ -65,6 +64,16 @@ class _StartState extends State<Start> {
     );
   }
 
+  Widget _buildTopBar() {
+    return Container(
+      // add scaffold background color and rounded corners
+      height: 60,
+      decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(30))),
+      padding: EdgeInsets.symmetric(horizontal: 10),
+      child: Row(children: [const SyncStatusButton(), const BluetoothIconCombined()]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BackButtonListener(
@@ -91,7 +100,7 @@ class _StartState extends State<Start> {
               ),
             ),
           ),
-          SafeArea(child: Container(alignment: Alignment.topLeft, padding: EdgeInsets.only(left: 16), child: Row(children: [const SyncStatusButton(), const Expanded(child: SizedBox()), const BluetoothIconCombined()]))),
+          SafeArea(child: Container(alignment: Alignment.topLeft, padding: EdgeInsets.only(left: 16), child: Row(children: [const Expanded(child: SizedBox()), _buildTopBar(), SizedBox(width: 16)]))),
 
           // Bottom Sheet with Content
           _buildBottomSheet(),
@@ -116,25 +125,24 @@ class _StartState extends State<Start> {
         return ChangeNotifierProvider<ScrollController>.value(
           value: scrollController,
           child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, -2))],
-            ),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                // Drag Handle as a pinned header
-                SliverPersistentHeader(pinned: true, delegate: _DragHandleDelegate()),
+            decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), boxShadow: [BoxShadow(blurRadius: 5)]),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              child: CustomScrollView(
+                controller: scrollController,
+                slivers: [
+                  // Drag Handle as a pinned header
+                  SliverPersistentHeader(pinned: true, delegate: _DragHandleDelegate()),
 
-                // Content Area with Beamer routing
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: maxHeight - 28, // Subtract drag handle height
-                    child: Beamer(routerDelegate: _beamerDelegate),
+                  // Content Area with Beamer routing
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: maxHeight - 28, // Subtract drag handle height
+                      child: Beamer(routerDelegate: _beamerDelegate),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

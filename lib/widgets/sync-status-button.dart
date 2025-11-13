@@ -60,7 +60,7 @@ Widget _makeIconButton(BuildContext context, SyncStatus status) {
   final iconData = _getStatusIconData(status);
   final statusText = _getStatusText(status);
 
-  return FloatingActionButton(onPressed: () => _showStatusDialog(context, status), tooltip: statusText, child: Icon(iconData));
+  return IconButton(onPressed: () => _showStatusDialog(context, status), tooltip: statusText, icon: Icon(iconData));
 }
 
 IconData _getStatusIconData(SyncStatus status) {

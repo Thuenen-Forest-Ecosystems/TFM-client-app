@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.dart';
 import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
+import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 
 class Schema extends StatefulWidget {
   const Schema({super.key});
@@ -15,7 +16,7 @@ class _SchemaState extends State<Schema> {
   Widget build(BuildContext context) {
     // add Logo THUENEN_SCREEN_Black.svg
     return Scaffold(
-      appBar: AppBar(centerTitle: false, title: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50), actions: [Container(margin: const EdgeInsets.only(right: 10), child: const ProfileIcon())]),
+      appBar: AppBar(centerTitle: false, title: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50), actions: [const SyncStatusButton(), Container(margin: const EdgeInsets.only(right: 10), child: const ProfileIcon())]),
       body: const Center(child: SchemaSelection()),
     );
   }
