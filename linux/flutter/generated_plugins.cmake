@@ -3,7 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  flutter_libserialport
   gtk
   maplibre
   objectbox_flutter_libs

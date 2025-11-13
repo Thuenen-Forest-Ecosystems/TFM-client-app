@@ -26,6 +26,39 @@ subprojects {
             }
         }
     }
+
+    // Configure Kotlin JVM toolchain to 21 where Kotlin is applied (recommended).
+    // This ensures the Kotlin compiler uses a JDK compatible with Java 21.
+    try {
+        // For Kotlin JVM projects
+        plugins.withId('org.jetbrains.kotlin.jvm') {
+            def kotlinExt = project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension)
+            if (kotlinExt != null) {
+                kotlinExt.jvmToolchain {
+                    languageVersion = org.gradle.jvm.toolchain.JavaLanguageVersion.of(21)
+                }
+            }
+        }
+
+        // For Kotlin Android projects
+        plugins.withId('org.jetbrains.kotlin.android') {
+            def kotlinAndroidExt = project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension)
+            if (kotlinAndroidExt != null) {
+                kotlinAndroidExt.jvmToolchain {
+                    languageVersion = org.gradle.jvm.toolchain.JavaLanguageVersion.of(21)
+                }
+            }
+        }
+
+        // Fallback: also set the kotlinOptions.jvmTarget to 21 for KotlinCompile tasks
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinCompile ->
+            kotlinCompile.kotlinOptions {
+                jvmTarget = "21"
+            }
+        }
+    } catch(Exception ignored) {
+        // If the Kotlin plugin isn't applied to a subproject or the extension API isn't available, ignore.
+    }
 }
 
 rootProject.buildDir = "../build"

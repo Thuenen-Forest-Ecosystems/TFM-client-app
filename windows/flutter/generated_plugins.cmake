@@ -6,12 +6,12 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   connectivity_plus
   flutter_inappwebview_windows
-  flutter_libserialport
   geolocator_windows
   maplibre
   objectbox_flutter_libs
   permission_handler_windows
   powersync_flutter_libs
+  speech_to_text_windows
   sqlite3_flutter_libs
   url_launcher_windows
 )
