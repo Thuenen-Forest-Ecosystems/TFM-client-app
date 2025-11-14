@@ -81,7 +81,7 @@ IconData _getStatusIconData(SyncStatus status) {
   } else if (status.downloading) {
     return Icons.cloud_sync_outlined;
   } else {
-    return Icons.cloud_queue;
+    return Icons.cloud_done;
   }
 }
 

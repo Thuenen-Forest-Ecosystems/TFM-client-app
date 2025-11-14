@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:powersync/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 
 class Record {
   final String? id;
@@ -145,37 +146,54 @@ class Record {
 }
 
 class RecordsRepository {
+  /// Get WHERE clause for filtering by selected organization
+  /// Returns SQL condition that checks if record belongs to the selected organization
+  Future<String> _getOrganizationFilter() async {
+    final orgId = await OrganizationSelectionService().getSelectedOrganizationId();
+    if (orgId == null || orgId.isEmpty) {
+      return '1=1'; // No filter if no organization selected
+    }
+    return "(responsible_administration = '$orgId' OR responsible_provider = '$orgId' OR responsible_state = '$orgId')";
+  }
+
   Future<List<Record>> getRecordsByCluster(String clusterId) async {
-    final results = await db.execute('SELECT * FROM records WHERE cluster_id = ?', [clusterId]);
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute('SELECT * FROM records WHERE cluster_id = ? AND $orgFilter', [clusterId]);
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
   Future<List<Record>> getRecordsByPlot(String plotId) async {
-    final results = await db.execute('SELECT * FROM records WHERE plot_id = ?', [plotId]);
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute('SELECT * FROM records WHERE plot_id = ? AND $orgFilter', [plotId]);
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
-  Stream<List<Record>> watchRecordsByCluster(String clusterId) {
-    return db.watch('SELECT * FROM records WHERE cluster_id = ?', parameters: [clusterId]).map((results) => results.map((row) => Record.fromRow(row)).toList());
+  Stream<List<Record>> watchRecordsByCluster(String clusterId) async* {
+    final orgFilter = await _getOrganizationFilter();
+    yield* db.watch('SELECT * FROM records WHERE cluster_id = ? AND $orgFilter', parameters: [clusterId]).map((results) => results.map((row) => Record.fromRow(row)).toList());
   }
 
-  Stream<List<Record>> watchRecordsByPlot(String plotId) {
-    return db.watch('SELECT * FROM records WHERE plot_id = ?', parameters: [plotId]).map((results) => results.map((row) => Record.fromRow(row)).toList());
+  Stream<List<Record>> watchRecordsByPlot(String plotId) async* {
+    final orgFilter = await _getOrganizationFilter();
+    yield* db.watch('SELECT * FROM records WHERE plot_id = ? AND $orgFilter', parameters: [plotId]).map((results) => results.map((row) => Record.fromRow(row)).toList());
   }
 
   Future<List<Record>> getRecordsByClusterAndPlot(String clusterName, String plotName) async {
-    final results = await db.execute('SELECT * FROM records WHERE cluster_name = ? AND plot_name = ?', [clusterName, plotName]);
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute('SELECT * FROM records WHERE cluster_name = ? AND plot_name = ? AND $orgFilter', [clusterName, plotName]);
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
   Future<List<Record>> getAllRecords() async {
-    final results = await db.execute('SELECT * FROM records');
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute('SELECT * FROM records WHERE $orgFilter');
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
   // group by cluster_name
   Future<List<Record>> getRecordsGroupedByCluster({String orderBy = 'cluster_name', int offset = 0, int limit = 100}) async {
-    final results = await db.execute('SELECT * FROM records GROUP BY cluster_name ORDER BY $orderBy LIMIT ? OFFSET ?', [limit, offset]);
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute('SELECT * FROM records WHERE $orgFilter GROUP BY cluster_name ORDER BY $orderBy LIMIT ? OFFSET ?', [limit, offset]);
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
@@ -196,6 +214,7 @@ class RecordsRepository {
   /// Get records grouped by cluster, ordered by distance from a point
   /// Calculates distance in Dart for accuracy
   Future<List<Record>> getRecordsGroupedByClusterOrderedByDistance({required double latitude, required double longitude, int? limit}) async {
+    final orgFilter = await _getOrganizationFilter();
     // Get all records grouped by cluster
     final results = await db.execute('''
       SELECT *
@@ -203,6 +222,7 @@ class RecordsRepository {
       WHERE previous_properties IS NOT NULL
         AND json_extract(previous_properties, '\$.plot_coordinates.center_location.coordinates[0]') IS NOT NULL
         AND json_extract(previous_properties, '\$.plot_coordinates.center_location.coordinates[1]') IS NOT NULL
+        AND $orgFilter
       GROUP BY cluster_name
     ''');
 
@@ -225,8 +245,9 @@ class RecordsRepository {
     return limit != null ? records.take(limit).toList() : records;
   }
 
-  Stream<List<Record>> watchAllRecords() {
-    return db.watch('SELECT * FROM records').map((results) => results.map((row) => Record.fromRow(row)).toList());
+  Stream<List<Record>> watchAllRecords() async* {
+    final orgFilter = await _getOrganizationFilter();
+    yield* db.watch('SELECT * FROM records WHERE $orgFilter').map((results) => results.map((row) => Record.fromRow(row)).toList());
   }
 
   Future<String> insertRecord(Record record) async {
@@ -271,13 +292,15 @@ class RecordsRepository {
   }
 
   Future<List<Record>> getLimitedRecords(int limit) async {
-    final results = await db.execute('SELECT * FROM records LIMIT ?', [limit]);
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute('SELECT * FROM records WHERE $orgFilter LIMIT ?', [limit]);
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
   /// Get records within a certain distance (in kilometers) from a point
   /// Calculates distance in Dart for accuracy
   Future<List<Record>> getRecordsByDistance({required double latitude, required double longitude, required double radiusKm, int? limit}) async {
+    final orgFilter = await _getOrganizationFilter();
     // Get all records with coordinates
     final results = await db.execute('''
       SELECT *
@@ -285,6 +308,7 @@ class RecordsRepository {
       WHERE previous_properties IS NOT NULL
         AND json_extract(previous_properties, '\$.plot_coordinates.center_location.coordinates[0]') IS NOT NULL
         AND json_extract(previous_properties, '\$.plot_coordinates.center_location.coordinates[1]') IS NOT NULL
+        AND $orgFilter
     ''');
 
     final records = results.map((row) => Record.fromRow(row)).toList();
@@ -311,12 +335,14 @@ class RecordsRepository {
 
   /// Get records within a bounding box (more efficient than distance for large areas)
   Future<List<Record>> getRecordsInBounds({required double northLat, required double southLat, required double eastLng, required double westLng, int? limit}) async {
+    final orgFilter = await _getOrganizationFilter();
     final query = '''
       SELECT *
       FROM records
       WHERE previous_properties IS NOT NULL
         AND CAST(json_extract(previous_properties, '\$.plot_coordinates.center_location.coordinates[1]') AS REAL) BETWEEN ? AND ?
         AND CAST(json_extract(previous_properties, '\$.plot_coordinates.center_location.coordinates[0]') AS REAL) BETWEEN ? AND ?
+        AND $orgFilter
       ${limit != null ? 'LIMIT ?' : ''}
     ''';
 

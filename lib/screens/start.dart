@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -24,6 +25,7 @@ class Start extends StatefulWidget {
 class _StartState extends State<Start> {
   final DraggableScrollableController _sheetController = DraggableScrollableController();
   late final BeamerDelegate _beamerDelegate;
+  double _currentSheetSize = 0.25; // Track current sheet size
 
   // Initial position of bottom sheet (25% of screen height)
   final double _initialChildSize = 0.25;
@@ -33,6 +35,9 @@ class _StartState extends State<Start> {
   @override
   void initState() {
     super.initState();
+
+    // Listen to sheet controller changes
+    _sheetController.addListener(_onSheetChanged);
 
     _beamerDelegate = BeamerDelegate(
       initialPath: '/',
@@ -64,13 +69,29 @@ class _StartState extends State<Start> {
     );
   }
 
+  void _onSheetChanged() {
+    if (_sheetController.isAttached && mounted) {
+      final newSize = _sheetController.size;
+      if (newSize != _currentSheetSize) {
+        setState(() {
+          _currentSheetSize = newSize;
+        });
+      }
+    }
+  }
+
   Widget _buildTopBar() {
     return Container(
       // add scaffold background color and rounded corners
       height: 60,
       decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(30))),
       padding: EdgeInsets.symmetric(horizontal: 10),
-      child: Row(children: [const SyncStatusButton(), const BluetoothIconCombined()]),
+      child: Row(
+        children: [
+          //const SyncStatusButton(),
+          const BluetoothIconCombined(),
+        ],
+      ),
     );
   }
 
@@ -91,16 +112,53 @@ class _StartState extends State<Start> {
       },
       child: Stack(
         children: [
-          // Background Map (Full Screen) - Keep static, don't transform
-          const SizedBox.expand(
-            child: RepaintBoundary(
-              child: MapWidgetMapLibre(
-                initialCenter: LatLng(52.2688, 10.5268), // Braunschweig
-                initialZoom: 4,
+          // Background Map (Fixed Height) - Move up based on sheet position
+          // The map center should align with the center of visible area (above the sheet)
+          Positioned(
+            top: -(_currentSheetSize - _initialChildSize) * MediaQuery.of(context).size.height * 0.5 - MediaQuery.of(context).padding.top,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
+            child: const MapWidgetMapLibre(
+              initialCenter: LatLng(52.2688, 10.5268), // Braunschweig
+              initialZoom: 4,
+            ),
+          ),
+          SafeArea(
+            child: Container(
+              alignment: Alignment.topLeft,
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.only(topRight: Radius.circular(30), bottomRight: Radius.circular(30))),
+                    child: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        SchedulerBinding.instance.addPostFrameCallback((_) async {
+                          final shouldNavigate = await showDialog<bool>(
+                            context: context,
+                            builder:
+                                (context) => AlertDialog(
+                                  title: const Text('Zurückgehen bestätigen'),
+                                  content: const Text('Sind Sie sicher, dass Sie zurück zur Inventur-Auswahl gehen möchten?'),
+                                  actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Abbrechen')), const Spacer(), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Ja'))],
+                                ),
+                          );
+                          if (shouldNavigate == true) {
+                            // Navigate to root in main router, not nested Beamer
+                            Beamer.of(context, root: true).beamToNamed('/');
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const Expanded(child: SizedBox()),
+                  _buildTopBar(),
+                  SizedBox(width: 16),
+                ],
               ),
             ),
           ),
-          SafeArea(child: Container(alignment: Alignment.topLeft, padding: EdgeInsets.only(left: 16), child: Row(children: [const Expanded(child: SizedBox()), _buildTopBar(), SizedBox(width: 16)]))),
 
           // Bottom Sheet with Content
           _buildBottomSheet(),
@@ -152,6 +210,7 @@ class _StartState extends State<Start> {
 
   @override
   void dispose() {
+    _sheetController.removeListener(_onSheetChanged);
     _beamerDelegate.dispose();
     _sheetController.dispose();
     super.dispose();

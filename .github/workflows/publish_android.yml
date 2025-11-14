@@ -121,4 +121,4 @@ jobs:
         packageName: de.thuenen.terrestrial_forest_monitor
         releaseFiles: build/app/outputs/bundle/release/app-release.aab
         track: internal
-        status: completed #completed
+        status: draft # completed: if status of app is production

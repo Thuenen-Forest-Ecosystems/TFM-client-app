@@ -31,8 +31,9 @@ Map<String, dynamic> _createGeoJsonInIsolate(List<Map<String, dynamic>> recordsD
 class MapWidgetMapLibre extends StatefulWidget {
   final LatLng? initialCenter;
   final double? initialZoom;
+  final double? sheetPosition;
 
-  const MapWidgetMapLibre({super.key, this.initialCenter, this.initialZoom});
+  const MapWidgetMapLibre({super.key, this.initialCenter, this.initialZoom, this.sheetPosition});
 
   @override
   State<MapWidgetMapLibre> createState() => _MapWidgetMapLibreState();
@@ -47,6 +48,16 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
   Circle? _locationCircle;
   Circle? _accuracyCircle;
   bool _isUpdatingLocation = false;
+
+  List<Color> aggregatedMarkerColors = [
+    Color.fromARGB(255, 0, 170, 170), // #0aa
+    Color.fromARGB(255, 0, 170, 130), // #00aa82
+    Color.fromARGB(255, 0, 159, 224), // #009fe0
+    Color.fromARGB(255, 120, 189, 30), // #78bd1e
+    Color.fromARGB(255, 201, 219, 156), // #c9db9c
+    Color.fromARGB(255, 213, 123, 22), // #d57b16
+    Color.fromARGB(255, 235, 192, 139), // #ebc08b
+  ];
 
   @override
   void didChangeDependencies() {
@@ -317,11 +328,19 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
           circleColor: [
             'step',
             ['get', 'point_count'],
-            '#51bbd6',
+            '#${aggregatedMarkerColors[0].value.toRadixString(16).substring(2)}',
+            50,
+            '#${aggregatedMarkerColors[1].value.toRadixString(16).substring(2)}',
             100,
-            '#f1f075',
-            750,
-            '#f28cb1',
+            '#${aggregatedMarkerColors[2].value.toRadixString(16).substring(2)}',
+            250,
+            '#${aggregatedMarkerColors[3].value.toRadixString(16).substring(2)}',
+            500,
+            '#${aggregatedMarkerColors[4].value.toRadixString(16).substring(2)}',
+            1000,
+            '#${aggregatedMarkerColors[5].value.toRadixString(16).substring(2)}',
+            2500,
+            '#${aggregatedMarkerColors[6].value.toRadixString(16).substring(2)}',
           ],
           circleRadius: [
             'step',

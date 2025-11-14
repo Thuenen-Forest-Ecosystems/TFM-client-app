@@ -65,6 +65,7 @@ Schema schema = Schema(([
   const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
 
   const Table('users_profile', [Column.integer('is_organization_admin'), Column.integer('is_database_admin'), Column.integer('is_admin'), Column.text('organization_id'), Column.text('email')]),
+  const Table('users_permissions', [Column.text('created_at'), Column.text('user_id'), Column.text('organization_id'), Column.integer('is_organization_admin')]),
   const Table('schemas', [
     Column.text('created_at'),
     Column.text('interval_name'),
@@ -96,6 +97,7 @@ Schema schema = Schema(([
     Column.text('created_at'),
     Column.text('created_by'),
     Column.text('name'),
+    Column.text('description'),
     Column.integer('state_responsible'),
     Column.text('parent_organization_id'),
     Column.integer('can_admin_organization'),

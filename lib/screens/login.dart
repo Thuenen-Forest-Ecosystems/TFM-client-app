@@ -52,43 +52,52 @@ class _LoginState extends State<Login> {
   void _handleLogin() async {
     // Always validate first
     if (!_formKey.currentState!.validate()) {
+      print('Login: Form validation failed');
       return;
     }
 
     // Prevent double-clicks
     if (_authProvider.loggingIn) {
+      print('Login: Already logging in, ignoring');
       return;
     }
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
+    print('Login: Attempting login for email: $email');
+
     try {
       await _authProvider.login(email, password);
+      print('Login: Login successful');
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
+      print('Login: Error occurred: $e');
+
+      String errorMessage = 'Login fehlgeschlagen';
+
+      if (e is AuthException) {
+        print('Login: AuthException - ${e.message}');
+        switch (e.message) {
+          case 'Invalid login credentials':
+            errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.';
+          case 'Email not confirmed':
+            errorMessage = 'E-Mail-Adresse wurde noch nicht bestätigt. Bitte überprüfen Sie Ihr Postfach.';
+          default:
+            errorMessage = 'Anmeldefehler: ${e.message}';
+        }
+      } else {
+        print('Login: Non-AuthException error - $e');
+        errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
+      }
+
+      print('Login: Showing error message: $errorMessage');
+
       if (mounted) {
-        String errorMessage = 'Login fehlgeschlagen';
-
-        if (e is AuthException) {
-          switch (e.message) {
-            case 'Invalid login credentials':
-              errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.';
-            case 'Email not confirmed':
-              errorMessage = 'E-Mail-Adresse wurde noch nicht bestätigt. Bitte überprüfen Sie Ihr Postfach.';
-            default:
-              errorMessage = 'Anmeldefehler: ${e.message}';
-          }
-        } else {
-          errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
-        }
-
-        try {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
-        } catch (e) {
-          // Ignore if widget is disposed
-        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
+      } else {
+        print('Login: Widget not mounted, cannot show error');
       }
     }
   }

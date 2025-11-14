@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+13
+version: 1.0.0+14
  
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -71,11 +71,11 @@ dependencies:
   flutter_map_marker_cluster: ^1.4.0
   timeago: ^3.7.0
   url_launcher: ^6.3.1
-  brick_offline_first_with_supabase: ^2.0.0
-  brick_sqlite: ^4.0.0
-  brick_core: ^2.0.0
+  #brick_offline_first_with_supabase: ^2.0.0
+  #brick_sqlite: ^4.0.0
+  #brick_core: ^2.0.0
   sqflite_common: ^2.5.5
-  brick_supabase: ^2.0.0
+  #brick_supabase: ^2.0.0
   uuid: ^4.5.1
   sqflite: ^2.4.1
   flutter_inappwebview: ^6.1.5

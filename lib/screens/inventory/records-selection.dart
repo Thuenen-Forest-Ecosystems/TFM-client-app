@@ -284,26 +284,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             height: 40.0,
             child: Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    SchedulerBinding.instance.addPostFrameCallback((_) async {
-                      final shouldNavigate = await showDialog<bool>(
-                        context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              title: const Text('Zurückgehen bestätigen'),
-                              content: const Text('Sind Sie sicher, dass Sie zurück zur Inventur-Auswahl gehen möchten?'),
-                              actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Abbrechen')), const Spacer(), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Ja'))],
-                            ),
-                      );
-                      if (shouldNavigate == true) {
-                        // Navigate to root in main router, not nested Beamer
-                        Beamer.of(context, root: true).beamToNamed('/');
-                      }
-                    });
-                  },
-                ),
                 const SizedBox(width: 5),
                 const Text('All Records'),
                 if (_isLoadingLocation) ...[const SizedBox(width: 8), const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))],
