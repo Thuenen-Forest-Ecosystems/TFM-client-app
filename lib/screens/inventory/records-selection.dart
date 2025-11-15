@@ -6,9 +6,13 @@ import 'package:terrestrial_forest_monitor/widgets/cluster/filter-cluster-by.dar
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
+import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math' as math;
-import 'package:flutter/scheduler.dart';
+
+import 'package:url_launcher/url_launcher.dart';
 
 class RecordsSelection extends StatefulWidget {
   final String intervalName;
@@ -218,12 +222,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         }
 
       case ClusterOrderBy.updatedAt:
-        records = await RecordsRepository().getRecordsGroupedByCluster(orderBy: 'updated_at DESC', offset: offset, limit: limit);
+        records = await RecordsRepository().getAllRecords();
         records = _applyFilters(records);
         return records.map((r) => {'record': r, 'metadata': _formatDate(r.properties['updated_at'])}).toList();
 
       case ClusterOrderBy.clusterName:
-        records = await RecordsRepository().getRecordsGroupedByCluster(orderBy: 'cluster_name', offset: offset, limit: limit);
+        records = await RecordsRepository().getAllRecords();
         records = _applyFilters(records);
         return records.map((r) => {'record': r, 'metadata': null}).toList();
     }
@@ -274,8 +278,54 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     }
   }
 
+  void _openNativeNavigation(List<Record> clusterRecords) {
+    // Find the nearest record with valid coordinates
+    if (clusterRecords.isEmpty) return;
+
+    String clusterName = clusterRecords.first.clusterName;
+
+    // calculate center of clusterRecords using turf
+    double sumLat = 0.0;
+    double sumLng = 0.0;
+    int count = 0;
+    for (final record in clusterRecords) {
+      final coords = record.getCoordinates();
+      if (coords != null) {
+        sumLat += coords['latitude']!;
+        sumLng += coords['longitude']!;
+        count++;
+      }
+    }
+
+    Map<String, double>? centerCoords;
+    if (count > 0) {
+      centerCoords = {'latitude': sumLat / count, 'longitude': sumLng / count};
+    }
+
+    if (centerCoords != null) {
+      final latitude = centerCoords['latitude'];
+      final longitude = centerCoords['longitude'];
+
+      final uri = Uri.parse('geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encodeComponent(clusterName)})');
+
+      launchUrl(uri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Group records by cluster name
+    final Map<String, List<Record>> groupedRecords = {};
+    for (final item in _allRecords) {
+      final record = item['record'] as Record;
+      if (!groupedRecords.containsKey(record.clusterName)) {
+        groupedRecords[record.clusterName] = [];
+      }
+      groupedRecords[record.clusterName]!.add(record);
+    }
+
+    final clusterNames = groupedRecords.keys.toList();
+
     return Scaffold(
       body: Column(
         children: [
@@ -285,7 +335,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             child: Row(
               children: [
                 const SizedBox(width: 5),
-                const Text('All Records'),
+                Text('${clusterNames.length} Trakte'), // Show number of clusters and records
                 if (_isLoadingLocation) ...[const SizedBox(width: 8), const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))],
                 //align right
                 Expanded(child: Container()),
@@ -337,38 +387,59 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                     : ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(16),
-                      itemCount: _allRecords.length + (_hasMoreData ? 1 : 0),
+                      itemCount: clusterNames.length + (_hasMoreData ? 1 : 0),
                       itemBuilder: (context, index) {
                         // Show loading indicator at the end
-                        if (index == _allRecords.length) {
+                        if (index == clusterNames.length) {
                           return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
                         }
 
-                        final item = _allRecords[index];
-                        final record = item['record'] as Record;
-                        final metadata = item['metadata'] as String?;
+                        final clusterName = clusterNames[index];
+                        final clusterRecords = groupedRecords[clusterName]!;
 
-                        return GestureDetector(
-                          onTap: () {
-                            Beamer.of(context).beamToNamed('/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}');
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
+                          child: Padding(
                             padding: const EdgeInsets.all(12),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [Text(record.clusterName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(record.plotName, style: TextStyle(fontSize: 14, color: Colors.grey[600]))],
-                                  ),
+                                // Cluster name header with focus button
+                                Row(
+                                  children: [
+                                    Expanded(child: Text(clusterName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                                    IconButton(
+                                      icon: const Icon(Icons.map),
+                                      tooltip: 'Focus on map',
+                                      onPressed: () {
+                                        _focusClusterOnMap(clusterRecords);
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.directions_car),
+                                      tooltip: 'Open native navigation',
+                                      onPressed: () {
+                                        _openNativeNavigation(clusterRecords);
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                if (metadata != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(color: Colors.blue[100], borderRadius: BorderRadius.circular(4)),
-                                    child: Text(metadata, style: TextStyle(fontSize: 12, color: Colors.blue[900])),
-                                  ),
+                                const SizedBox(height: 8),
+                                // Plot names as chips
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children:
+                                      clusterRecords.map((record) {
+                                        return ActionChip(
+                                          label: Text(record.plotName),
+                                          onPressed: () {
+                                            Beamer.of(context).beamToNamed('/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}');
+                                          },
+                                        );
+                                      }).toList(),
+                                ),
                               ],
                             ),
                           ),
@@ -379,6 +450,42 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         ],
       ),
     );
+  }
+
+  void _focusClusterOnMap(List<Record> clusterRecords) {
+    // Calculate bounds for all records in this cluster
+    double minLat = double.infinity;
+    double maxLat = -double.infinity;
+    double minLng = double.infinity;
+    double maxLng = -double.infinity;
+
+    for (final record in clusterRecords) {
+      final coords = record.getCoordinates();
+      if (coords != null) {
+        final lat = coords['latitude'];
+        final lng = coords['longitude'];
+        if (lat != null && lng != null) {
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+        }
+      }
+    }
+
+    if (minLat != double.infinity && maxLat != -double.infinity) {
+      // Add padding (10% of the range)
+      final latPadding = (maxLat - minLat) * 0.1;
+      final lngPadding = (maxLng - minLng) * 0.1;
+
+      final bounds = LatLngBounds(LatLng(minLat - latPadding, minLng - lngPadding), LatLng(maxLat + latPadding, maxLng + lngPadding));
+
+      // Set focus bounds in provider (MapWidget will respond)
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.setFocusBounds(bounds);
+
+      debugPrint('Focus bounds set for cluster with ${clusterRecords.length} records');
+    }
   }
 
   @override

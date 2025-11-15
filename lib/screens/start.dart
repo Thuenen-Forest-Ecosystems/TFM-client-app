@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
-import 'package:maplibre_gl/maplibre_gl.dart';
+//import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
 
 //import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
 //import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon.dart';
-import 'package:terrestrial_forest_monitor/widgets/map_widget_maplibre.dart';
+//import 'package:terrestrial_forest_monitor/widgets/map_widget_maplibre.dart'; // not supported in windows
+import 'package:terrestrial_forest_monitor/widgets/map_widget.dart';
 
 import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/records-selection.dart';
@@ -119,7 +121,7 @@ class _StartState extends State<Start> {
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
-            child: const MapWidgetMapLibre(
+            child: const MapWidget(
               initialCenter: LatLng(52.2688, 10.5268), // Braunschweig
               initialZoom: 4,
             ),
@@ -141,7 +143,8 @@ class _StartState extends State<Start> {
                                 (context) => AlertDialog(
                                   title: const Text('Zurückgehen bestätigen'),
                                   content: const Text('Sind Sie sicher, dass Sie zurück zur Inventur-Auswahl gehen möchten?'),
-                                  actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Abbrechen')), const Spacer(), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Ja'))],
+                                  actionsAlignment: MainAxisAlignment.spaceBetween,
+                                  actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Abbrechen')), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Ja'))],
                                 ),
                           );
                           if (shouldNavigate == true) {

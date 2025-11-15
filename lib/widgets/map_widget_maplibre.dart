@@ -183,11 +183,10 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
   }
 
   Future<void> _onMapClick(Point<double> point, LatLng coordinates) async {
+    debugPrint('Map click detected at point: $point, coordinates: $coordinates');
     if (_isDisposed || _mapController == null) {
       return;
     }
-
-    debugPrint('Map clicked at point: $point, coordinates: $coordinates');
 
     if (_mapController == null) {
       debugPrint('Map controller is null');
@@ -207,6 +206,9 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         final pointCount = cluster['properties']['point_count'];
 
         debugPrint('Cluster clicked with $pointCount points');
+
+        // Trigger circle click callback
+        _onCircleClicked(cluster, 'clusters');
 
         // Get current zoom from camera position
         final currentZoom = _mapController!.cameraPosition?.zoom ?? 5.0;
@@ -231,6 +233,10 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         final plotName = feature['properties']['plot_name'];
 
         debugPrint('Individual point clicked: $clusterName - $plotName');
+
+        // Trigger circle click callback
+        _onCircleClicked(feature, 'unclustered-point');
+
         // You can add navigation or show details here if needed
       } else {
         debugPrint('No features found at clicked location');
@@ -249,6 +255,15 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
     if (_markersLoaded && _records.isNotEmpty && mounted && !_isDisposed) {
       _addMarkers();
     }
+  }
+
+  void _onCircleClicked(Map<String, dynamic> feature, String layerId) {
+    debugPrint('Circle clicked on layer: $layerId');
+    debugPrint('Feature data: $feature');
+
+    // Add your custom logic here for when any circle is clicked
+    // feature contains the GeoJSON feature properties
+    // layerId will be either 'clusters' or 'unclustered-point'
   }
 
   Future<void> _addMarkers() async {

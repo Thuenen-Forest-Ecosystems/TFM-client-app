@@ -686,6 +686,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.0"
+  geobase:
+    dependency: transitive
+    description:
+      name: geobase
+      sha256: "3a4e2eb17a7ab452dda78fb45ee498a3ab02469ded749a5f4a9abea21fc95919"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.0"
   geolocator:
     dependency: "direct main"
     description:
@@ -866,10 +874,10 @@ packages:
     dependency: transitive
     description:
       name: jni
-      sha256: "3296e4327bd74d57763ba71fd9efeb6f132634a27ea8754101e4ff3f8bca5faa"
+      sha256: d2c361082d554d4593c3012e26f6b188f902acd291330f13d6427641a92b3da1
       url: "https://pub.dev"
     source: hosted
-    version: "0.13.0"
+    version: "0.14.2"
   js:
     dependency: transitive
     description:
@@ -994,10 +1002,10 @@ packages:
     dependency: "direct main"
     description:
       name: maplibre
-      sha256: "46a65ae23efc6febd81e1f3567fd811da8accbf931e5bf1183bfc1510bfc9f9f"
+      sha256: "89fe424cbe1b844b0ed7647924cc8d25edd06440e17c2df188d2b2a899e719b6"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.1"
+    version: "0.3.1"
   maplibre_gl:
     dependency: "direct main"
     description:
@@ -1022,6 +1030,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.24.1"
+  maplibre_ios:
+    dependency: transitive
+    description:
+      name: maplibre_ios
+      sha256: "789e7c366bff2390e77787cee56187d96c6cf9fab82ac9ddc700e52fdb876815"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.1"
   matcher:
     dependency: transitive
     description:
@@ -1134,6 +1150,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.0"
+  objective_c:
+    dependency: transitive
+    description:
+      name: objective_c
+      sha256: "87103d96b19be76dc34b5ef859fecae78561d49779d5480b73c23b4dec8b9ec4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "8.1.0"
   package_config:
     dependency: transitive
     description:
@@ -2164,5 +2188,5 @@ packages:
     source: hosted
     version: "2.1.0"
 sdks:
-  dart: ">=3.8.0 <4.0.0"
+  dart: ">=3.9.0 <4.0.0"
   flutter: ">=3.35.1"

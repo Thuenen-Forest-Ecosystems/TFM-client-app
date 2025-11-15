@@ -1,19 +1,39 @@
 import 'package:flutter/foundation.dart';
-import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:maplibre_gl/maplibre_gl.dart' as maplibre;
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 
 class MapControllerProvider with ChangeNotifier {
-  MapLibreMapController? _controller;
-  Line? _distanceLine;
+  maplibre.MapLibreMapController? _controller;
+  maplibre.Line? _distanceLine;
 
-  MapLibreMapController? get controller => _controller;
-  Line? get distanceLine => _distanceLine;
+  // Focus bounds for flutter_map
+  LatLngBounds? _focusBounds;
+  DateTime? _focusTimestamp;
 
-  void setController(MapLibreMapController? controller) {
+  maplibre.MapLibreMapController? get controller => _controller;
+  maplibre.Line? get distanceLine => _distanceLine;
+  LatLngBounds? get focusBounds => _focusBounds;
+  DateTime? get focusTimestamp => _focusTimestamp;
+
+  void setController(maplibre.MapLibreMapController? controller) {
     _controller = controller;
     notifyListeners();
   }
 
-  Future<void> showDistanceLine(LatLng from, LatLng to) async {
+  void setFocusBounds(LatLngBounds bounds) {
+    _focusBounds = bounds;
+    _focusTimestamp = DateTime.now();
+    debugPrint('Focus bounds set: SW(${bounds.south}, ${bounds.west}) NE(${bounds.north}, ${bounds.east})');
+    notifyListeners();
+  }
+
+  void clearFocusBounds() {
+    _focusBounds = null;
+    _focusTimestamp = null;
+    notifyListeners();
+  }
+
+  Future<void> showDistanceLine(maplibre.LatLng from, maplibre.LatLng to) async {
     if (_controller == null) {
       debugPrint('Map controller not available, cannot show distance line');
       return;
@@ -24,7 +44,7 @@ class MapControllerProvider with ChangeNotifier {
       await clearDistanceLine();
 
       // Add new line
-      _distanceLine = await _controller!.addLine(LineOptions(geometry: [from, to], lineColor: '#FF5722', lineWidth: 3.0, lineOpacity: 0.8));
+      _distanceLine = await _controller!.addLine(maplibre.LineOptions(geometry: [from, to], lineColor: '#FF5722', lineWidth: 3.0, lineOpacity: 0.8));
 
       debugPrint('Distance line added from $from to $to');
       notifyListeners();

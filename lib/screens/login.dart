@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 //import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
@@ -67,9 +68,22 @@ class _LoginState extends State<Login> {
 
     print('Login: Attempting login for email: $email');
 
+    // Capture ScaffoldMessenger before async operation
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
       await _authProvider.login(email, password);
+
+      // Check if still mounted after async operation
+      if (!mounted) {
+        print('Login: Widget unmounted after login attempt');
+        return;
+      }
+
       print('Login: Login successful');
+
+      // Notify Android autofill service that login was successful
+      TextInput.finishAutofillContext();
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
@@ -94,11 +108,8 @@ class _LoginState extends State<Login> {
 
       print('Login: Showing error message: $errorMessage');
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
-      } else {
-        print('Login: Widget not mounted, cannot show error');
-      }
+      // Show error using captured ScaffoldMessenger (works even if widget is unmounted)
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
     }
   }
 
@@ -134,6 +145,7 @@ class _LoginState extends State<Login> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50.0)))),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -151,6 +163,7 @@ class _LoginState extends State<Login> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
+                          autofillHints: const [AutofillHints.password],
                           decoration: InputDecoration(
                             labelText: 'Passwort',
                             prefixIcon: const Icon(Icons.lock),
