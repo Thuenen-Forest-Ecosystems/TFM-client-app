@@ -75,22 +75,28 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     }
   }
 
-  Future<void> _startBLEScan() async {
+  Future<bool> _checkBluetoothAvailable() async {
     try {
       // Check if Bluetooth is available
       if (await ble.FlutterBluePlus.isSupported == false) {
-        _showErrorDialog('BLE is not supported on this device');
-        return;
+        return false;
       }
 
       // Check if Bluetooth is on
       final adapterState = await ble.FlutterBluePlus.adapterState.first;
       if (adapterState != ble.BluetoothAdapterState.on) {
-        _showErrorDialog('Please turn on Bluetooth');
-        setState(() => _isScanning = false);
-        return;
+        return false;
       }
 
+      return true;
+    } catch (e) {
+      debugPrint('Error checking Bluetooth availability: $e');
+      return false;
+    }
+  }
+
+  Future<void> _startBLEScan() async {
+    try {
       // Start BLE scanning
       await ble.FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
 
@@ -179,10 +185,15 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     _showErrorDialog('Please pair with "${device.name ?? "this device"}" through your device\'s Bluetooth settings');
   }
 
-  void _showDeviceMenu() {
-    // Auto-start scan when opening modal if not already scanning and no GPS connected
+  void _showDeviceMenu() async {
+    // Check if Bluetooth is available before showing modal
+    final isBluetoothAvailable = await _checkBluetoothAvailable();
+
+    if (!mounted) return;
+
+    // Auto-start scan when opening modal if bluetooth is available and not already scanning
     final gpsProvider = context.read<GpsPositionProvider>();
-    if (!_isScanning && gpsProvider.connectedDevice == null && _connectedClassicDevice == null) {
+    if (isBluetoothAvailable && !_isScanning && gpsProvider.connectedDevice == null && _connectedClassicDevice == null) {
       _startScan();
     }
 
@@ -235,19 +246,29 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                         const Text('Bluetooth Devices', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         if (_isScanning) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                         if (!_isScanning)
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: () {
-                              _startScan();
+                          FutureBuilder<bool>(
+                            future: _checkBluetoothAvailable(),
+                            builder: (context, snapshot) {
+                              final isAvailable = snapshot.data ?? false;
+                              if (!isAvailable) {
+                                return const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Text('Bluetooth Off', style: TextStyle(color: Colors.orange, fontSize: 12)));
+                              }
+                              return IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: () {
+                                  _startScan();
+                                },
+                              );
                             },
                           ),
                       ],
                     ),
                     const SizedBox(height: 16),
 
-                    // Show connected GPS device
+                    // Show connected GPS device or internal GPS
                     Consumer<GpsPositionProvider>(
                       builder: (context, gpsProvider, child) {
+                        // Show bluetooth GPS if connected
                         if (gpsProvider.connectedDevice != null) {
                           final device = gpsProvider.connectedDevice!;
                           final nmea = gpsProvider.currentNMEA;
@@ -275,10 +296,42 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                                   icon: const Icon(Icons.close),
                                   onPressed: () {
                                     gpsProvider.stopAll();
-                                    _startScan();
-                                    //Navigator.pop(context);
+                                    gpsProvider.startInternalGps();
                                   },
                                 ),
+                              ),
+                              const Divider(),
+                            ],
+                          );
+                        }
+                        // Show internal GPS if it's active
+                        else if (gpsProvider.listeningPosition) {
+                          final lastPos = gpsProvider.lastPosition;
+                          final hasValidPosition = lastPos != null;
+
+                          return Column(
+                            children: [
+                              ListTile(
+                                leading: Icon(Icons.smartphone, color: hasValidPosition ? Colors.green : Colors.orange),
+                                title: const Text('Internal GPS'),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Device internal GPS sensor'),
+                                    if (hasValidPosition) ...[
+                                      Text('Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('Lat: ${lastPos.latitude.toStringAsFixed(6)}, Lon: ${lastPos.longitude.toStringAsFixed(6)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    ] else ...[
+                                      const Text('Waiting for GPS position...', style: TextStyle(fontSize: 11, color: Colors.orange)),
+                                    ],
+                                  ],
+                                ),
+                                /*trailing: IconButton(
+                                  icon: const Icon(Icons.refresh),
+                                  onPressed: () {
+                                    _startScan();
+                                  },
+                                ),*/
                               ),
                               const Divider(),
                             ],
@@ -351,19 +404,27 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     final hasGPSConnection = gpsProvider.connectedDevice != null;
     final isGPSConnecting = gpsProvider.isConnecting;
     final nmea = gpsProvider.currentNMEA;
+    final isInternalGPS = gpsProvider.listeningPosition && !hasGPSConnection;
+    final lastPos = gpsProvider.lastPosition;
 
     // GPS has valid position if connected AND has valid lat/lon coordinates
-    final hasValidPosition = hasGPSConnection && nmea != null && nmea.latitude != null && nmea.longitude != null;
+    final hasValidPosition = (hasGPSConnection && nmea != null && nmea.latitude != null && nmea.longitude != null) || (isInternalGPS && lastPos != null);
+
+    // Choose icon based on GPS source
+    //final icon = isInternalGPS ? Icons.smartphone : (hasValidPosition ? Icons.bluetooth_connected : Icons.bluetooth);
+    final icon = Icons.satellite_alt;
 
     return IconButton(
-      icon: Icon(hasValidPosition ? Icons.bluetooth_connected : Icons.bluetooth, color: hasValidPosition ? Colors.green : (hasGPSConnection || isGPSConnecting ? Colors.orange : null)),
+      icon: Icon(icon, color: hasValidPosition ? Colors.green : (hasGPSConnection || isGPSConnecting || isInternalGPS ? Colors.orange : null)),
       tooltip:
           hasValidPosition
-              ? 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea.satellites ?? 0} sats)'
+              ? (isInternalGPS ? 'Internal GPS: ${lastPos!.accuracy.toStringAsFixed(1)}m' : 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea!.satellites ?? 0} sats)')
               : hasGPSConnection
               ? 'GPS connected - waiting for position...'
               : isGPSConnecting
               ? 'Connecting to GPS...'
+              : isInternalGPS
+              ? 'Internal GPS active'
               : 'Bluetooth GPS',
       onPressed: _showDeviceMenu,
     );

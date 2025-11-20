@@ -101,15 +101,24 @@ class ValidationService {
       final jsCode = '''
         (function() {
           try {
-            const ajv = new window.ajv7();
+            const ajv = new window.ajv7({ 
+              allErrors: true,
+              strict: false,
+              validateFormats: false
+            });
             const validate = ajv.compile($schemaJson);
             const valid = validate($dataJson);
+            
+            console.log('Validation result:', valid);
+            console.log('Validation errors:', JSON.stringify(validate.errors));
+            console.log('Number of errors:', validate.errors ? validate.errors.length : 0);
             
             return {
               valid: valid,
               errors: validate.errors || []
             };
           } catch (error) {
+            console.error('Validation exception:', error);
             return {
               valid: false,
               errors: [{ message: error.toString() }]
@@ -120,11 +129,18 @@ class ValidationService {
 
       final result = await _webViewController!.evaluateJavascript(source: jsCode);
 
+      print('Raw validation result: $result');
+      print('Result type: ${result.runtimeType}');
+
       if (result == null) {
         return ValidationResult(isValid: false, errors: [ValidationError(message: 'Validation returned null')]);
       }
 
       final resultMap = result is String ? jsonDecode(result) : result;
+
+      print('Result map: $resultMap');
+      print('Valid: ${resultMap['valid']}');
+      print('Errors: ${resultMap['errors']}');
 
       return ValidationResult(isValid: resultMap['valid'] ?? false, errors: (resultMap['errors'] as List?)?.map((e) => ValidationError.fromJson(e)).toList() ?? []);
     } catch (e) {
@@ -157,8 +173,9 @@ class ValidationError {
   final String? keyword;
   final String message;
   final Map<String, dynamic>? params;
+  final Map<String, dynamic> rawError;
 
-  ValidationError({this.instancePath, this.schemaPath, this.keyword, required this.message, this.params});
+  ValidationError({this.instancePath, this.schemaPath, this.keyword, required this.message, this.params, Map<String, dynamic>? rawError}) : rawError = rawError ?? {};
 
   factory ValidationError.fromJson(Map<String, dynamic> json) {
     return ValidationError(
@@ -167,11 +184,12 @@ class ValidationError {
       keyword: json['keyword'] as String?,
       message: json['message'] as String? ?? 'Unknown error',
       params: json['params'] as Map<String, dynamic>?,
+      rawError: json,
     );
   }
 
   @override
   String toString() {
-    return 'ValidationError(path: $instancePath, message: $message)';
+    return 'ValidationError(path: $instancePath, message: $message, rawError: $rawError)';
   }
 }

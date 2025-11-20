@@ -1,12 +1,17 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
+
 import 'package:terrestrial_forest_monitor/widgets/form-elements/form-wrapper.dart';
+import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -31,12 +36,23 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   ValidationResult? _validationResult;
   bool _isValidating = false;
   StreamSubscription? _gpsSubscription;
+  late SchemaRepository schemaRepository;
 
   @override
   void initState() {
     super.initState();
-    _loadSchema();
-    _loadRecord();
+    schemaRepository = SchemaRepository();
+    _loadRecord().then((_) {
+      // Load schema after record is loaded to get the interval name
+      if (_record != null) {
+        _loadSchema(_record!.schemaName).then((_) {
+          // validate initial form data after schema is loaded
+          if (_formData != null) {
+            _onFormDataChanged(_formData!);
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -74,7 +90,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         final to = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
 
         mapProvider.showDistanceLine(from, to);
-        debugPrint('Distance line updated');
       }
     } catch (e) {
       debugPrint('Error updating distance line: $e');
@@ -97,14 +112,81 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     super.dispose();
   }
 
-  Future<void> _loadSchema() async {
-    // load jsonschema from assets/schema/validation.json
-    final schemaString = await DefaultAssetBundle.of(context).loadString('assets/schema/validation.json');
-    // parse the schemaString if needed, e.g., using jsonDecode
-    final Map<String, dynamic> schemaJson = jsonDecode(schemaString);
-    setState(() {
-      _jsonSchema = schemaJson['properties']['plot']['items']['properties'];
-    });
+  Future<void> _loadSchema(String intervalName) async {
+    try {
+      // Get the latest schema for this interval from PowerSync
+      final latestSchema = await schemaRepository.getLatestForInterval(intervalName);
+
+      if (latestSchema == null) {
+        debugPrint('No schema found for interval: $intervalName');
+        setState(() {
+          _error = 'Kein Schema gefunden für: $intervalName';
+        });
+        return;
+      }
+
+      debugPrint('Found schema: ${latestSchema.title} (version: ${latestSchema.version})');
+
+      // Check if schema has a directory for validation files
+      if (latestSchema.directory == null || latestSchema.directory!.isEmpty) {
+        debugPrint('Schema has no directory, using embedded schema');
+        // Use the embedded schema from the database
+        if (latestSchema.schemaData != null) {
+          setState(() {
+            _jsonSchema = latestSchema.schemaData!['properties']['plot']['items'];
+          });
+        }
+        return;
+      }
+
+      // Load validation.json from downloaded directory
+      final directory = latestSchema.directory!;
+      debugPrint('Loading validation.json from directory: $directory');
+
+      try {
+        final appDirectory = await getApplicationDocumentsDirectory();
+        final validationFilePath = '${appDirectory.path}/TFM/validation/$directory/validation.json';
+        final validationFile = File(validationFilePath);
+
+        if (!await validationFile.exists()) {
+          debugPrint('validation.json not found at: $validationFilePath');
+          debugPrint('Falling back to embedded schema');
+
+          // Fallback to embedded schema
+          if (latestSchema.schemaData != null) {
+            setState(() {
+              _jsonSchema = latestSchema.schemaData!['properties']['plot']['items'];
+            });
+          }
+          return;
+        }
+
+        // Read and parse validation.json
+        final validationContent = await validationFile.readAsString();
+        final Map<String, dynamic> validationJson = jsonDecode(validationContent);
+
+        debugPrint('Successfully loaded validation.json from: $validationFilePath');
+
+        setState(() {
+          _jsonSchema = validationJson['properties']['plot']['items'];
+        });
+      } catch (e) {
+        debugPrint('Error loading validation.json file: $e');
+        debugPrint('Falling back to embedded schema');
+
+        // Fallback to embedded schema from database
+        if (latestSchema.schemaData != null) {
+          setState(() {
+            _jsonSchema = latestSchema.schemaData!['properties']['plot']['items'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading schema: $e');
+      setState(() {
+        _error = 'Fehler beim Laden des Schemas: $e';
+      });
+    }
   }
 
   Future<void> _loadRecord() async {
@@ -114,7 +196,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     });
 
     try {
-      final records = await RecordsRepository().getRecordsByClusterAndPlot(widget.clusterName, widget.plotName);
+      final records = await RecordsRepository().getRecordsByClusterAndPlot(
+        widget.clusterName,
+        widget.plotName,
+      );
       _formData = records.isNotEmpty ? records.first.properties : null;
       _previousFormData = records.isNotEmpty ? records.first.previousProperties : null;
       if (mounted) {
@@ -129,6 +214,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // Update distance line after record is loaded
         if (_record != null) {
           _updateDistanceLine();
+          // Validate initial form data
+          if (_formData != null) {
+            _onFormDataChanged(_formData!);
+          }
         }
       }
     } catch (e) {
@@ -141,12 +230,39 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
-  void saveRecord() {
+  void saveRecord() async {
+    await _onFormDataChanged(_formData ?? {});
+
+    // Check validation before saving
+    if (_validationResult != null && !_validationResult!.isValid) {
+      // print validation errors
+      debugPrint(
+        'Cannot save, validation errors present: ${_validationResult!.errors.map((e) => e.message).join(", ")}',
+      );
+      final shouldSave = await ValidationErrorsDialog.show(context, _validationResult!);
+
+      // If user didn't confirm save from dialog, return
+      if (shouldSave != true) {
+        return;
+      }
+    }
+
     // Implement save logic here
     debugPrint('Saving form data: $_formData');
+
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Datensatz erfolgreich gespeichert'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
-  void _onFormDataChanged(Map<String, dynamic> updatedData) async {
+  Future<void> _onFormDataChanged(Map<String, dynamic> updatedData) async {
     if (_jsonSchema != null) {
       setState(() {
         _isValidating = true;
@@ -159,9 +275,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           setState(() {
             _validationResult = result;
             _isValidating = false;
-            if (result.isValid) {
-              _formData = updatedData;
-            }
+            // Always update form data, regardless of validation result
+            _formData = updatedData;
           });
         }
 
@@ -187,6 +302,77 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
+  void _toRecordSelection(BuildContext context) async {
+    final shouldNavigate = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Zurück zur Auswahl'),
+            content: const Text(
+              'Möchten Sie wirklich zurück zur Trakt-Auswahl gehen? Nicht gespeicherte Änderungen gehen verloren.',
+            ),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Abbrechen'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Zurück'),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldNavigate == true && mounted) {
+      // Get the schema name from the record or use default
+      final intervalName = _record?.schemaName ?? 'BWI';
+      Beamer.of(context).beamToNamed('/records-selection/${Uri.encodeComponent(intervalName)}');
+    }
+  }
+
+  void _showCurrentAsJson() {
+    if (_formData == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No data available')));
+      return;
+    }
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(_formData);
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            child: Column(
+              children: [
+                AppBar(
+                  title: const Text('Current Form Data (JSON)'),
+                  automaticallyImplyLeading: false,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SelectableText(
+                      jsonString,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -198,13 +384,31 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => Beamer.of(context).beamBack()),
-                const SizedBox(width: 8),
-                Expanded(child: Text('${widget.clusterName} - ${widget.plotName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                if (_isValidating) const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
-                if (_validationResult != null && !_validationResult!.isValid) Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: Icon(Icons.error, color: Colors.red, size: 20)),
-                if (_validationResult != null && _validationResult!.isValid) Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: Icon(Icons.check_circle, color: Colors.green, size: 20)),
-                ElevatedButton(onPressed: (_validationResult?.isValid ?? false) ? saveRecord : null, child: const Text('Save')),
+                //IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => _toRecordSelection(context)),
+                //const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${widget.clusterName} - ${widget.plotName}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Badge.count(
+                  count: _validationResult?.errors.length ?? 0,
+                  isLabelVisible: _validationResult != null && !_validationResult!.isValid,
+                  child: ElevatedButton(
+                    onPressed: _jsonSchema != null ? saveRecord : null,
+                    child:
+                        _isValidating
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                            : const Text('FERTIG'),
+                  ),
+                ),
+                IconButton(onPressed: _showCurrentAsJson, icon: Icon(Icons.javascript)),
               ],
             ),
           ),
@@ -215,11 +419,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     ? const Center(child: CircularProgressIndicator())
                     : _error != null
                     ? Center(
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(_error!, style: const TextStyle(color: Colors.red)), const SizedBox(height: 16), ElevatedButton(onPressed: _loadRecord, child: const Text('Retry'))]),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_error!, style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
+                        ],
+                      ),
                     )
                     : _record == null
                     ? const Center(child: Text('No record found'))
-                    : FormWrapper(jsonSchema: _jsonSchema, formData: _formData, previousFormData: _previousFormData, onFormDataChanged: _onFormDataChanged),
+                    : FormWrapper(
+                      jsonSchema: _jsonSchema,
+                      formData: _formData,
+                      previousFormData: _previousFormData,
+                      onFormDataChanged: _onFormDataChanged,
+                      validationResult: _validationResult,
+                    ),
           ),
         ],
       ),

@@ -91,7 +91,15 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               connectDevice(device);
               break; // Connect to the first found device
             }
+          } else {
+            // No saved bluetooth device, use internal GPS
+            debugPrint('No bluetooth device configured, starting internal GPS');
+            startInternalGps();
           }
+        } else {
+          // No settings found, use internal GPS
+          debugPrint('No GPS settings found, starting internal GPS');
+          startInternalGps();
         }
       });
     }

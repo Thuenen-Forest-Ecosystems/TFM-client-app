@@ -118,7 +118,7 @@ class SchemaRepository {
            SELECT MAX(s2.created_at) 
            FROM schemas s2 
            WHERE s2.interval_name = s1.interval_name
-         )
+         ) AND s1.is_visible = 1
          ORDER BY s1.interval_name DESC''')
         .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }

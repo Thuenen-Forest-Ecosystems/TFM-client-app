@@ -55,12 +55,42 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
     locationBuilder:
         RoutesLocationBuilder(
           routes: {
-            '/login': (context, state, data) => BeamPage(key: ValueKey('login-${DateTime.now()}'), title: 'Login', child: Login(), type: BeamPageType.noTransition),
-            '/': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Schema(), type: BeamPageType.noTransition),
+            '/login':
+                (context, state, data) => BeamPage(
+                  key: ValueKey('login-${DateTime.now()}'),
+                  title: 'Login',
+                  child: Login(),
+                  type: BeamPageType.noTransition,
+                ),
+            '/':
+                (context, state, data) => BeamPage(
+                  key: ValueKey('start-${DateTime.now()}'),
+                  title: 'TFM',
+                  child: Schema(),
+                  type: BeamPageType.noTransition,
+                ),
             //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-            '/records-selection/:intervalName': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-            '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-            '/profile': (context, state, data) => BeamPage(key: ValueKey('profile-${DateTime.now()}'), title: 'Profile', child: Profile(), type: BeamPageType.noTransition),
+            '/records-selection/:intervalName':
+                (context, state, data) => BeamPage(
+                  key: ValueKey('start-${DateTime.now()}'),
+                  title: 'TFM',
+                  child: Start(),
+                  type: BeamPageType.noTransition,
+                ),
+            '/properties-edit/:clusterName/:plotName':
+                (context, state, data) => BeamPage(
+                  key: ValueKey('start-${DateTime.now()}'),
+                  title: 'TFM',
+                  child: Start(),
+                  type: BeamPageType.noTransition,
+                ),
+            '/profile':
+                (context, state, data) => BeamPage(
+                  key: ValueKey('profile-${DateTime.now()}'),
+                  title: 'Profile',
+                  child: Profile(),
+                  type: BeamPageType.noTransition,
+                ),
             //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
             //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
             //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
@@ -77,7 +107,8 @@ void main() async {
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
-  final ThemeMode initialThemeMode = brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
+  final ThemeMode initialThemeMode =
+      brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
 
   try {
     await dotenv.load(fileName: '.env');
@@ -171,9 +202,21 @@ class Layout extends StatelessWidget {
         scaffoldBackgroundColor: Color(0xFFeeeeee),
         // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
         pageTransitionsTheme: PageTransitionsTheme(
-          builders: kIsWeb ? {for (final platform in TargetPlatform.values) platform: const NoTransitionsBuilder()} : {TargetPlatform.android: ZoomPageTransitionsBuilder(), TargetPlatform.iOS: CupertinoPageTransitionsBuilder()},
+          builders:
+              kIsWeb
+                  ? {
+                    for (final platform in TargetPlatform.values)
+                      platform: const NoTransitionsBuilder(),
+                  }
+                  : {
+                    TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  },
         ),
-        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.light),
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.green,
+          brightness: Brightness.light,
+        ).copyWith(error: Colors.red.shade700),
         primaryColor: const Color(0xFFC3E399),
         appBarTheme: AppBarTheme(color: const Color(0xFFC3E399)),
         useMaterial3: true,
@@ -181,10 +224,20 @@ class Layout extends StatelessWidget {
 
       darkTheme: ThemeData(
         scaffoldBackgroundColor: Color(0xFF333333),
-        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.green,
+          brightness: Brightness.dark,
+        ).copyWith(error: Colors.red.shade400),
         primaryColor: const Color(0xFFC3E399),
-        appBarTheme: AppBarTheme(color: const Color.fromARGB(255, 224, 241, 203), foregroundColor: Colors.black), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
-        bottomNavigationBarTheme: BottomNavigationBarThemeData(backgroundColor: const Color(0xFFC3E399), selectedItemColor: Colors.black, unselectedItemColor: Colors.black),
+        appBarTheme: AppBarTheme(
+          color: const Color.fromARGB(255, 224, 241, 203),
+          foregroundColor: Colors.black,
+        ), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: const Color(0xFFC3E399),
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.black,
+        ),
         useMaterial3: true,
         /* dark theme settings */
       ),

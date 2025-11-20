@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'dart:async';
 
 class AuthProvider extends ChangeNotifier {
@@ -7,6 +8,7 @@ class AuthProvider extends ChangeNotifier {
   String? _userEmail;
   String? _userId;
   bool _loggingIn = false;
+  bool _loggedOut = false;
   StreamSubscription<AuthState>? _authSubscription;
 
   bool get isAuthenticated => _isAuthenticated;
@@ -18,6 +20,7 @@ class AuthProvider extends ChangeNotifier {
     // Safely listen to auth state changes only if Supabase is initialized
     try {
       _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+        print('AuthProvider: Auth state changed - event: ${data.event}, user: ${data.session?.user.email}');
         _loggingIn = false;
         _getUser();
       });
@@ -32,10 +35,12 @@ class AuthProvider extends ChangeNotifier {
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user != null) {
+      print('AuthProvider: User authenticated - email: ${user.email}, id: ${user.id}');
       _isAuthenticated = true;
       _userEmail = user.email;
       _userId = user.id;
     } else {
+      print('AuthProvider: No authenticated user');
       _isAuthenticated = false;
       _userEmail = null;
       _userId = null;
@@ -46,13 +51,17 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> login(String email, String password) async {
     try {
+      print('AuthProvider: Starting login for $email');
       _loggingIn = true;
       notifyListeners();
 
-      await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
+      final response = await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
+
+      print('AuthProvider: Login response - user: ${response.user?.email}, session: ${response.session != null}');
 
       // User will be updated via the auth state listener
     } catch (e) {
+      print('AuthProvider: Login failed - $e');
       _loggingIn = false;
       notifyListeners();
       rethrow;
@@ -61,6 +70,9 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
+      // Clear selected organization before logging out
+      await OrganizationSelectionService().clearSelectedOrganization();
+
       await Supabase.instance.client.auth.signOut();
       // User will be cleared via the auth state listener
     } catch (e) {

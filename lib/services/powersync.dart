@@ -180,6 +180,109 @@ Future downloadFile(fileName, {force = false}) async {
   }
 }
 
+/// Download all validation files from a specific directory in Supabase storage
+/// Returns a map with {success: bool, downloadedFiles: List<String>, errors: List<String>}
+Future<Map<String, dynamic>> downloadValidationFiles(String directory, {force = false, Function(int, int)? onProgress}) async {
+  List<String> downloadedFiles = [];
+  List<String> errors = [];
+
+  try {
+    final appDirectory = await getApplicationDocumentsDirectory();
+    String applicationDirectory = '${appDirectory.path}/TFM/validation/$directory';
+
+    // Create validation directory if it doesn't exist
+    final validationDir = Directory(applicationDirectory);
+    if (!await validationDir.exists()) {
+      await validationDir.create(recursive: true);
+    }
+
+    // Static list of expected validation files in each directory
+    final List<String> expectedFiles = ['bundle.cjs.js', 'bundle.esm.js', 'bundle.umd.js', 'validation.json'];
+
+    int totalFiles = expectedFiles.length;
+    int downloadedCount = 0;
+
+    for (var fileName in expectedFiles) {
+      try {
+        final filePath = '$applicationDirectory/$fileName';
+        final file = File(filePath);
+
+        // Skip if file exists and force is false
+        if (file.existsSync() && !force) {
+          print('Skipping existing file: $fileName');
+          downloadedFiles.add(fileName);
+          downloadedCount++;
+          onProgress?.call(downloadedCount, totalFiles);
+          continue;
+        }
+
+        // Download file from Supabase storage
+        final Uint8List fileData = await Supabase.instance.client.storage.from('validation').download('$directory/$fileName');
+
+        await file.writeAsBytes(fileData);
+        downloadedFiles.add(fileName);
+        downloadedCount++;
+        onProgress?.call(downloadedCount, totalFiles);
+        print('Downloaded: $fileName');
+      } catch (e) {
+        print('Error downloading $fileName: $e');
+        errors.add('$fileName: $e');
+      }
+    }
+
+    return {'success': errors.isEmpty, 'downloadedFiles': downloadedFiles, 'errors': errors, 'totalFiles': totalFiles, 'downloadedCount': downloadedCount};
+  } catch (e) {
+    print('Error downloading validation files: $e');
+    return {
+      'success': false,
+      'downloadedFiles': downloadedFiles,
+      'errors': ['Failed to download files: $e'],
+      'totalFiles': 0,
+      'downloadedCount': 0,
+    };
+  }
+}
+
+/// Download validation files for all schemas with directories
+/// This should be called after sync completes to ensure all validation files are available
+Future<Map<String, dynamic>> downloadAllValidationFiles({force = false}) async {
+  List<String> successfulDirectories = [];
+  List<String> failedDirectories = [];
+  int totalFilesDownloaded = 0;
+
+  try {
+    // Get all schemas with non-null directories from the database
+    final results = await db.getAll("SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' AND is_visible = 1");
+
+    if (results.isEmpty) {
+      print('No schemas with directories found');
+      return {'success': true, 'successfulDirectories': [], 'failedDirectories': [], 'totalFilesDownloaded': 0, 'message': 'No validation directories to download'};
+    }
+
+    final directories = results.map((row) => row['directory'] as String).toSet().toList();
+    print('Found ${directories.length} unique validation directories to download');
+
+    for (var directory in directories) {
+      print('Downloading validation files for directory: $directory');
+      final result = await downloadValidationFiles(directory, force: force);
+
+      if (result['success']) {
+        successfulDirectories.add(directory);
+        totalFilesDownloaded += (result['downloadedCount'] as int?) ?? 0;
+        print('Successfully downloaded ${result['downloadedCount']} files for $directory');
+      } else {
+        failedDirectories.add(directory);
+        print('Failed to download files for $directory: ${result['errors']}');
+      }
+    }
+
+    return {'success': failedDirectories.isEmpty, 'successfulDirectories': successfulDirectories, 'failedDirectories': failedDirectories, 'totalFilesDownloaded': totalFilesDownloaded, 'totalDirectories': directories.length};
+  } catch (e) {
+    print('Error downloading all validation files: $e');
+    return {'success': false, 'successfulDirectories': successfulDirectories, 'failedDirectories': failedDirectories, 'totalFilesDownloaded': totalFilesDownloaded, 'error': e.toString()};
+  }
+}
+
 Future<PowerSyncDatabase> openDatabase() async {
   bool isSyncMode = true;
 
@@ -238,6 +341,35 @@ Future<PowerSyncDatabase> openDatabase() async {
     } catch (e) {
       print('Error handling auth state change: $e');
       rethrow;
+    }
+  });
+
+  // Listen to sync status and download validation files after sync completes
+  bool _isDownloadingValidation = false;
+  SyncStatus? _previousStatus;
+
+  db.statusStream.listen((status) async {
+    // Check if sync just completed (was downloading, now not downloading)
+    final syncJustCompleted = _previousStatus?.downloading == true && !status.downloading;
+    _previousStatus = status;
+
+    if (syncJustCompleted && !_isDownloadingValidation) {
+      _isDownloadingValidation = true;
+      print('Sync completed, downloading validation files...');
+
+      try {
+        final result = await downloadAllValidationFiles(force: false);
+        if (result['success']) {
+          print('Successfully downloaded validation files for ${result['successfulDirectories'].length} directories');
+          print('Total files downloaded: ${result['totalFilesDownloaded']}');
+        } else {
+          print('Failed to download validation files for some directories: ${result['failedDirectories']}');
+        }
+      } catch (e) {
+        print('Error during automatic validation file download: $e');
+      } finally {
+        _isDownloadingValidation = false;
+      }
     }
   });
 

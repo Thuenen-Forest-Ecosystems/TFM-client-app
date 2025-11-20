@@ -65,8 +65,10 @@ Schema schema = Schema(([
   const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
 
   const Table('users_profile', [Column.integer('is_organization_admin'), Column.integer('is_database_admin'), Column.integer('is_admin'), Column.text('organization_id'), Column.text('email')]),
+  const Table('users_permissions', [Column.text('created_at'), Column.text('user_id'), Column.text('organization_id'), Column.integer('is_organization_admin')]),
   const Table('schemas', [
     Column.text('created_at'),
+    Column.text('updated_at'),
     Column.text('interval_name'),
     Column.integer('is_visible'),
     Column.text('title'),
@@ -74,6 +76,8 @@ Schema schema = Schema(([
     Column.text('bucket_schema_file_name'),
     Column.text('bucket_plausability_file_name'),
     Column.text('schema'),
+    Column.integer('version'),
+    Column.text('directory'),
   ]),
   const Table('records', [
     Column.text('properties'),
@@ -96,6 +100,7 @@ Schema schema = Schema(([
     Column.text('created_at'),
     Column.text('created_by'),
     Column.text('name'),
+    Column.text('description'),
     Column.integer('state_responsible'),
     Column.text('parent_organization_id'),
     Column.integer('can_admin_organization'),
