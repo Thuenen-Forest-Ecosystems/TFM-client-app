@@ -42,7 +42,10 @@ class _LoginState extends State<Login> {
   }
 
   void _validateForm() {
-    final isValid = _emailController.text.isNotEmpty && _emailController.text.contains('@') && _passwordController.text.length >= 6;
+    final isValid =
+        _emailController.text.isNotEmpty &&
+        _emailController.text.contains('@') &&
+        _passwordController.text.length >= 6;
 
     if (isValid != _isFormValid) {
       setState(() {
@@ -98,19 +101,31 @@ class _LoginState extends State<Login> {
           case 'Invalid login credentials':
             errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.';
           case 'Email not confirmed':
-            errorMessage = 'E-Mail-Adresse wurde noch nicht bestätigt. Bitte überprüfen Sie Ihr Postfach.';
+            errorMessage =
+                'E-Mail-Adresse wurde noch nicht bestätigt. Bitte überprüfen Sie Ihr Postfach.';
           default:
             errorMessage = 'Anmeldefehler: ${e.message}';
         }
       } else {
         print('Login: Non-AuthException error - $e');
-        errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
+
+        // Check for certificate/SSL errors
+        if (e.toString().contains('HandshakeException') ||
+            e.toString().contains('CERTIFICATE_VERIFY_FAILED') ||
+            e.toString().contains('unable to get local certificate')) {
+          errorMessage =
+              'Verbindungsfehler: Bitte überprüfen Sie Ihre Internetverbindung und stellen Sie sicher, dass Datum und Uhrzeit korrekt eingestellt sind.';
+        } else {
+          errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
+        }
       }
 
       print('Login: Showing error message: $errorMessage');
 
       // Show error using captured ScaffoldMessenger (works even if widget is unmounted)
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)));
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(errorMessage), duration: const Duration(seconds: 6)),
+      );
     }
   }
 
@@ -138,7 +153,11 @@ class _LoginState extends State<Login> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text('Für die Nutzung ist eine Einladung durch das Thünen Institut erforderlich.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            const Text(
+                              'Für die Nutzung ist eine Einladung durch das Thünen Institut erforderlich.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
                             const Spacer(),
                             const Image(image: AssetImage('assets/logo/tfm.png'), height: 100),
                             const SizedBox(height: 10),
@@ -146,7 +165,13 @@ class _LoginState extends State<Login> {
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               autofillHints: const [AutofillHints.email],
-                              decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50.0)))),
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
+                                ),
+                              ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Bitte geben Sie Ihre E-Mail-Adresse ein';
@@ -165,9 +190,13 @@ class _LoginState extends State<Login> {
                               decoration: InputDecoration(
                                 labelText: 'Passwort',
                                 prefixIcon: const Icon(Icons.lock),
-                                border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50.0))),
+                                border: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
+                                ),
                                 suffixIcon: IconButton(
-                                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                  icon: Icon(
+                                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                  ),
                                   onPressed: () {
                                     setState(() {
                                       _obscurePassword = !_obscurePassword;
@@ -187,22 +216,41 @@ class _LoginState extends State<Login> {
                             ),
                             const SizedBox(height: 24),
                             ElevatedButton(
-                              onPressed: _isFormValid && !authProvider.loggingIn ? _handleLogin : null,
-                              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                              child: authProvider.loggingIn ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Anmelden'),
+                              onPressed:
+                                  _isFormValid && !authProvider.loggingIn ? _handleLogin : null,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child:
+                                  authProvider.loggingIn
+                                      ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                      : const Text('Anmelden'),
                             ),
                             const SizedBox(height: 24),
                             TextButton(
                               onPressed: () {
-                                launchUrl(Uri.parse('https://thuenen-forest-ecosystems.github.io/TFM-Documentation/authentication/sign-in'));
+                                launchUrl(
+                                  Uri.parse(
+                                    'https://thuenen-forest-ecosystems.github.io/TFM-Documentation/authentication/sign-in',
+                                  ),
+                                );
                               },
                               child: const Text('Passwort vergessen?'),
                             ),
                             NetworkWrapper(
                               child: const SizedBox.shrink(),
                               offlineChild: Chip(
-                                label: const Text('keine Internetverbindung', style: TextStyle(color: Colors.orange)),
-                                shape: StadiumBorder(side: BorderSide(color: Colors.orange.shade400, width: 1.5)),
+                                label: const Text(
+                                  'keine Internetverbindung',
+                                  style: TextStyle(color: Colors.orange),
+                                ),
+                                shape: StadiumBorder(
+                                  side: BorderSide(color: Colors.orange.shade400, width: 1.5),
+                                ),
                                 backgroundColor: Colors.orange.withOpacity(0.1),
                               ),
                             ),
@@ -216,23 +264,39 @@ class _LoginState extends State<Login> {
                                       onPressed: () {
                                         launchUrl(Uri.parse('https://www.thuenen.de/de/impressum'));
                                       },
-                                      child: const Text('Impressum', style: TextStyle(fontSize: 12)),
+                                      child: const Text(
+                                        'Impressum',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     const Text('|', style: TextStyle(color: Colors.grey)),
                                     TextButton(
                                       onPressed: () {
-                                        launchUrl(Uri.parse('https://www.thuenen.de/de/datenschutzerklaerung'));
+                                        launchUrl(
+                                          Uri.parse(
+                                            'https://www.thuenen.de/de/datenschutzerklaerung',
+                                          ),
+                                        );
                                       },
-                                      child: const Text('Datenschutzbestimmungen', style: TextStyle(fontSize: 12)),
+                                      child: const Text(
+                                        'Datenschutzbestimmungen',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ],
                                 ),
                                 FutureBuilder<PackageInfo>(
                                   future: PackageInfo.fromPlatform(),
                                   builder: (context, snapshot) {
-                                    if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+                                    if (snapshot.connectionState == ConnectionState.done &&
+                                        snapshot.hasData) {
                                       final packageInfo = snapshot.data!;
-                                      return Center(child: Text('App Version: ${packageInfo.version} (${packageInfo.buildNumber})', style: const TextStyle(fontSize: 12, color: Colors.grey)));
+                                      return Center(
+                                        child: Text(
+                                          'App Version: ${packageInfo.version} (${packageInfo.buildNumber})',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      );
                                     } else {
                                       return const SizedBox.shrink();
                                     }

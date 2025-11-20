@@ -63,7 +63,7 @@ android {
         applicationId = "de.thuenen.terrestrial_forest_monitor"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24  // Android 7.0+ required for modern SSL/TLS support
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName

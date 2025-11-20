@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
 
@@ -257,31 +256,28 @@ class _StartState extends State<Start> {
       minChildSize: _minChildSize,
       maxChildSize: _maxChildSize,
       builder: (BuildContext context, ScrollController scrollController) {
-        return ChangeNotifierProvider<ScrollController>.value(
-          value: scrollController,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              boxShadow: [BoxShadow(blurRadius: 5)],
-            ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              child: CustomScrollView(
-                controller: scrollController,
-                slivers: [
-                  // Drag Handle as a pinned header
-                  SliverPersistentHeader(pinned: true, delegate: _DragHandleDelegate()),
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+            boxShadow: [BoxShadow(blurRadius: 5)],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                // Drag Handle as a pinned header
+                SliverPersistentHeader(pinned: true, delegate: _DragHandleDelegate()),
 
-                  // Content Area with Beamer routing
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: maxHeight - 28, // Subtract drag handle height
-                      child: Beamer(routerDelegate: _beamerDelegate),
-                    ),
+                // Content Area with Beamer routing
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: maxHeight - 28, // Subtract drag handle height
+                    child: Beamer(routerDelegate: _beamerDelegate),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );

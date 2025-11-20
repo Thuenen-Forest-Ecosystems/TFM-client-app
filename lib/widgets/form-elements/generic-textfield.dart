@@ -9,7 +9,14 @@ class GenericTextField extends StatefulWidget {
   final List<ValidationError> errors;
   final Function(dynamic)? onChanged;
 
-  const GenericTextField({super.key, required this.fieldName, required this.fieldSchema, this.value, this.errors = const [], this.onChanged});
+  const GenericTextField({
+    super.key,
+    required this.fieldName,
+    required this.fieldSchema,
+    this.value,
+    this.errors = const [],
+    this.onChanged,
+  });
 
   @override
   State<GenericTextField> createState() => _GenericTextFieldState();
@@ -80,8 +87,21 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_getLabel() ?? '', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: hasErrors ? Colors.red : null)),
-                    if (_getDescription() != null) ...[const SizedBox(height: 4), Text(_getDescription()!, style: TextStyle(fontSize: 12, color: Colors.grey[600]))],
+                    Text(
+                      _getLabel() ?? '',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: hasErrors ? Colors.red : null,
+                      ),
+                    ),
+                    if (_getDescription() != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _getDescription()!,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -96,7 +116,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
               ),
             ],
           ),
-          if (hasErrors) ...[const SizedBox(height: 4), Text(_getErrorText() ?? '', style: const TextStyle(fontSize: 12, color: Colors.red))],
+          if (hasErrors) ...[
+            const SizedBox(height: 4),
+            Text(_getErrorText() ?? '', style: const TextStyle(fontSize: 12, color: Colors.red)),
+          ],
         ],
       );
     }
@@ -123,7 +146,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
       return TextField(
         readOnly: true,
-        decoration: InputDecoration(labelText: _getLabel(), helperText: _getDescription(), errorText: _getErrorText(), border: const OutlineInputBorder(), suffixIcon: const Icon(Icons.arrow_drop_down)),
+        decoration: InputDecoration(
+          labelText: _getLabel(),
+          helperText: _getDescription(),
+          errorText: _getErrorText(),
+          border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+        ),
         controller: TextEditingController(text: getDisplayText(widget.value)),
         onTap: () async {
           final selected = await showDialog<dynamic>(
@@ -142,7 +171,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
                         if (nameDe != null && index < nameDe.length) {
                           final germanName = nameDe[index];
-                          displayText = germanName != null ? '$germanName ($enumValue)' : enumValue.toString();
+                          displayText =
+                              germanName != null
+                                  ? '$germanName ($enumValue)'
+                                  : enumValue.toString();
                         } else {
                           displayText = enumValue.toString();
                         }
@@ -160,7 +192,12 @@ class _GenericTextFieldState extends State<GenericTextField> {
                       },
                     ),
                   ),
-                  actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Abbrechen'))],
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                  ],
                 ),
           );
 
@@ -175,9 +212,20 @@ class _GenericTextFieldState extends State<GenericTextField> {
     if (type == 'number' || type == 'integer') {
       return TextField(
         controller: _controller,
-        decoration: InputDecoration(labelText: _getLabel(), helperText: _getDescription(), errorText: _getErrorText(), border: const OutlineInputBorder()),
-        keyboardType: type == 'integer' ? TextInputType.number : const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: type == 'integer' ? [FilteringTextInputFormatter.digitsOnly] : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+        decoration: InputDecoration(
+          labelText: _getLabel(),
+          helperText: _getDescription(),
+          errorText: _getErrorText(),
+          border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        ),
+        keyboardType:
+            type == 'integer'
+                ? TextInputType.number
+                : const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters:
+            type == 'integer'
+                ? [FilteringTextInputFormatter.digitsOnly]
+                : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
         onChanged: (value) {
           if (value.isEmpty) {
             widget.onChanged?.call(null);
@@ -198,8 +246,16 @@ class _GenericTextFieldState extends State<GenericTextField> {
     // Handle string (default)
     return TextField(
       controller: _controller,
-      decoration: InputDecoration(labelText: _getLabel(), helperText: _getDescription(), errorText: _getErrorText(), border: const OutlineInputBorder()),
-      maxLines: widget.fieldSchema['maxLength'] != null && (widget.fieldSchema['maxLength'] as int) > 100 ? 3 : 1,
+      decoration: InputDecoration(
+        labelText: _getLabel(),
+        helperText: _getDescription(),
+        errorText: _getErrorText(),
+        border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      maxLines:
+          widget.fieldSchema['maxLength'] != null && (widget.fieldSchema['maxLength'] as int) > 100
+              ? 3
+              : 1,
       onChanged: (value) {
         widget.onChanged?.call(value.isEmpty ? null : value);
       },
