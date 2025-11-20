@@ -86,13 +86,13 @@ jobs:
         run: flutter build windows --release
 
       - name: Build x64 MSIX Installer
-        run: dart run msix:create --build-windows false
+        run: dart run msix:create --build-windows false --install-certificate false
 
       - name: Build ARM64 Windows Release
         run: flutter build windows --release --target-platform windows-arm64
 
       - name: Build ARM64 MSIX Installer
-        run: dart run msix:create --build-windows false --arch arm64
+        run: dart run msix:create --build-windows false --arch arm64 --install-certificate false
 
       - name: Archive x64 Release (Portable)
         uses: thedoctor0/zip-release@master
