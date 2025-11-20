@@ -82,23 +82,17 @@ jobs:
           New-Item -Path . -Name ".env" -ItemType "file" -Force
           Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
 
-      - name: Build x64 Windows Release
+      - name: Build Windows Release
         run: flutter build windows --release
 
-      - name: Build x64 MSIX Installer
+      - name: Build MSIX Installer
         run: dart run msix:create --build-windows false --install-certificate false
 
-      - name: Build ARM64 Windows Release
-        run: flutter build windows --release --target-platform windows-arm64
-
-      - name: Build ARM64 MSIX Installer
-        run: dart run msix:create --build-windows false --arch arm64 --install-certificate false
-
-      - name: Archive x64 Release (Portable)
+      - name: Archive Release (Portable)
         uses: thedoctor0/zip-release@master
         with:
           type: "zip"
-          filename: TFM-windows-x64.zip
+          filename: TFM-windows.zip
           directory: build/windows/x64/runner/release
 
       - name: Windows Release
@@ -107,7 +101,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            build/windows/x64/runner/release/TFM-windows-x64.zip
+            build/windows/x64/runner/release/TFM-windows.zip
             build/windows/x64/runner/Release/*.msix
 
   #build-and-release-macos:
