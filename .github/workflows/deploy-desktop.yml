@@ -85,8 +85,11 @@ jobs:
       - name: Build Windows Release
         run: flutter build windows --release
 
-      - name: Build MSIX Installer
-        run: dart run msix:create --build-windows false --install-certificate false
+      - name: Build MSIX Installer (Sideload)
+        run: dart run msix:create --build-windows false --store false --install-certificate false
+
+      - name: Build MSIX for Store
+        run: dart run msix:create --build-windows false --store
 
       - name: Archive Release (Portable)
         uses: thedoctor0/zip-release@master
