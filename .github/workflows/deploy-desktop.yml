@@ -1,10 +1,8 @@
 name: Flutter Desktop CI
-#
 
 on:
-  push:
-    tags:
-      - "*"
+  release:
+    types: [published]
 
 jobs:
   #  build-and-release-linux:
@@ -82,29 +80,42 @@ jobs:
       - name: Enable windows build
         run: flutter config --enable-windows-desktop
 
-      - name: "Create env file"
-        run: touch .env
+      - name: "Create .env file from secrets"
+        run: |
+          New-Item -Path . -Name ".env" -ItemType "file" -Force
+          Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
 
-      - name: Build artifacts
+      - name: Build x64 Windows Release
         run: flutter build windows --release
 
-      - name: Archive Release
+      - name: Build x64 MSIX Installer
+        run: dart run msix:create --build-windows false
+
+      - name: Build ARM64 Windows Release
+        run: flutter build windows --release --target-platform windows-arm64
+
+      - name: Build ARM64 MSIX Installer
+        run: dart run msix:create --build-windows false --arch arm64
+
+      - name: Archive x64 Release (Portable)
         uses: thedoctor0/zip-release@master
         with:
           type: "zip"
-          filename: TFM-${{github.ref_name}}-windows.zip
+          filename: TFM-windows-x64.zip
           directory: build/windows/x64/runner/release
 
       - name: Windows Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: build/windows/x64/runner/release/TFM-${{github.ref_name}}-windows.zip
+          files: |
+            build/windows/x64/runner/release/TFM-windows-x64.zip
+            build/windows/x64/runner/Release/*.msix
 
   #build-and-release-macos:
   #  runs-on: macos-latest
+
 #
 #  steps:
 #    - uses: actions/checkout@v2
