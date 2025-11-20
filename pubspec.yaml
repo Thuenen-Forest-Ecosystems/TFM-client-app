@@ -195,9 +195,9 @@ flutter_launcher_icons:
 msix_config:
   display_name: Terrestrial Forest Monitor
   publisher: CN=36C12301-AD65-4721-A104-94EB08618727
-  publisher_display_name: Johann Heinrich von Thuenen-Institut
+  publisher_display_name: Grünecho e.U.
   identity_name: Grnechoe.U.TerrestrialForestMonitor
-  msix_version: 1.0.0.22
+  msix_version: 1.0.22.0
   logo_path: assets/logo/tfm.png
   capabilities: internetClient, location
   store: true

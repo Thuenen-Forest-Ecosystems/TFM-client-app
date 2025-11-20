@@ -88,8 +88,21 @@ jobs:
       - name: Build MSIX Installer (Sideload)
         run: dart run msix:create --build-windows false --store false --install-certificate false
 
+      - name: Rename Sideload MSIX
+        run: |
+          $sideloadMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Select-Object -First 1
+          Rename-Item $sideloadMsix.FullName -NewName "terrestrial_forest_monitor_sideload.msix"
+
       - name: Build MSIX for Store
         run: dart run msix:create --build-windows false --store
+
+      - name: Install Microsoft Store CLI
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Publish to Microsoft Store
+        run: |
+          $storeMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Where-Object { $_.Name -notlike "*sideload*" } | Select-Object -First 1
+          msstore publish --path "$($storeMsix.FullName)" --productId ${{ secrets.MS_PRODUCT_ID }} --tenantId ${{ secrets.MS_TENANT_ID }} --clientId ${{ secrets.MS_CLIENT_ID }} --clientSecret ${{ secrets.MS_CLIENT_SECRET }}
 
       - name: Archive Release (Portable)
         uses: thedoctor0/zip-release@master
