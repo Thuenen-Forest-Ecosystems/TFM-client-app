@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/widgets/network-wrapper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -196,6 +197,14 @@ class _LoginState extends State<Login> {
                                 launchUrl(Uri.parse('https://thuenen-forest-ecosystems.github.io/TFM-Documentation/authentication/sign-in'));
                               },
                               child: const Text('Passwort vergessen?'),
+                            ),
+                            NetworkWrapper(
+                              child: const SizedBox.shrink(),
+                              offlineChild: Chip(
+                                label: const Text('keine Internetverbindung', style: TextStyle(color: Colors.orange)),
+                                shape: StadiumBorder(side: BorderSide(color: Colors.orange.shade400, width: 1.5)),
+                                backgroundColor: Colors.orange.withOpacity(0.1),
+                              ),
                             ),
                             const Spacer(),
                             Column(
