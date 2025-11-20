@@ -1,4 +1,4 @@
-name: Flutter Deployment
+name: Google Play Deployment
 
 on:
   release:
@@ -82,30 +82,19 @@ jobs:
           keyPassword: ${{ secrets.KEYSTORE_PASSWORD }}
         run: flutter build appbundle
 
-      #- name: Build with Test Keystore
-      #  run: |
-      #    flutter build appbundle --release --no-watch \
-      #      -PkeyStorePath=test-keystore.jks \
-      #      -PkeyStorePassword=android \
-      #      -PkeyAlias=androidkey \
-      #      -PkeyPassword=android
-      #
-      # - name: Build Signed AAB
-      #   run: |
-      #     flutter build appbundle --release --no-watch \
-      #       --verbose \
-      #       -PkeyStorePath=keystore.jks \
-      #       -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
-      #       -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
-      #       -PkeyPassword=${{ secrets.KEY_PASSWORD }}
+      - name: Build Release APK
+        env:
+          storePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias: ${{ secrets.KEYSTORE_ALIAS }}
+          keyPassword: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: flutter build apk --release
 
-      #- name: Build Signed AAB
-      #  env:
-      #    KEYSTORE_PATH: keystore.jks
-      #    KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
-      #    KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      #    KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      #  run: flutter build appbundle --release
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Google Play Service Account
         run: |
