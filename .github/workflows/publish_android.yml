@@ -1,124 +1,122 @@
 name: Flutter Deployment
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
 
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.35.1'
-        channel: 'stable'
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.1"
+          channel: "stable"
 
-    - name: Install Dependencies
-      run: flutter pub get
-    
-    - name: 'Create .env file from secrets'
-      run: |
-        touch .env
-        echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
+      - name: Install Dependencies
+        run: flutter pub get
 
-    #- name: Run Tests
-    #  run: flutter test
+      - name: "Create .env file from secrets"
+        run: |
+          touch .env
+          echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
 
-    - name: Decode Keystore File
-      run: echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/keystore.jks
-    
-    # Optional: Add step to clean Gradle cache
-    - name: Clean Gradle Cache
-      run: |
-        rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
-        rm -rf $HOME/.gradle/caches/*/plugin-resolution/
+      #- name: Run Tests
+      #  run: flutter test
 
-    # Optional: Add step to clean Gradle cache
-    - name: Clean Gradle Cache
-      run: |
-        rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
-        rm -rf $HOME/.gradle/caches/*/plugin-resolution/
+      - name: Decode Keystore File
+        run: echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/keystore.jks
 
-    - name: Debug Keystore
-      run: |
-        echo "Current directory: $(pwd)"
-        find . -name "keystore.jks" | xargs ls -la
-        ls -la android/app/
+      # Optional: Add step to clean Gradle cache
+      - name: Clean Gradle Cache
+        run: |
+          rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
+          rm -rf $HOME/.gradle/caches/*/plugin-resolution/
 
-    - name: Verify Signing Inputs
-      run: |
-        echo "--- Verifying Signing Inputs ---"
-        echo "Checking existence and size of android/app/keystore.jks:"
-        ls -l android/app/keystore.jks || echo "Keystore file not found!"
-        echo "KEYSTORE_ALIAS is set: ${{ secrets.KEYSTORE_ALIAS != '' }}"
-        echo "KEYSTORE_PASSWORD is set: ${{ secrets.KEYSTORE_PASSWORD != '' }}"
-        echo "KEY_PASSWORD is set: ${{ secrets.KEY_PASSWORD != '' }}"
-        echo "--- End Verification ---"
+      # Optional: Add step to clean Gradle cache
+      - name: Clean Gradle Cache
+        run: |
+          rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
+          rm -rf $HOME/.gradle/caches/*/plugin-resolution/
 
-    - name: Verify Keystore File Integrity
-      run: |
-        echo "Checking keystore validity:"
-        keytool -list -v -keystore android/app/keystore.jks -storepass ${{ secrets.KEYSTORE_PASSWORD }} || echo "Keystore validation failed"
-    
-    - name: Create Test Keystore
-      run: |
-        keytool -genkey -v -keystore android/app/test-keystore.jks -storepass android -alias androidkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Test,O=Android,C=US"
-    
-    - name: Build Release AppBundle
-      env:
-        storePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-        keyAlias: ${{ secrets.KEYSTORE_ALIAS }}
-        keyPassword: ${{ secrets.KEYSTORE_PASSWORD }} 
-      run: flutter build appbundle
-    
+      - name: Debug Keystore
+        run: |
+          echo "Current directory: $(pwd)"
+          find . -name "keystore.jks" | xargs ls -la
+          ls -la android/app/
 
-    #- name: Build with Test Keystore
-    #  run: |
-    #    flutter build appbundle --release --no-watch \
-    #      -PkeyStorePath=test-keystore.jks \
-    #      -PkeyStorePassword=android \
-    #      -PkeyAlias=androidkey \
-    #      -PkeyPassword=android
-#
-    # - name: Build Signed AAB
-    #   run: |
-    #     flutter build appbundle --release --no-watch \
-    #       --verbose \
-    #       -PkeyStorePath=keystore.jks \
-    #       -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
-    #       -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
-    #       -PkeyPassword=${{ secrets.KEY_PASSWORD }}
-    
-    #- name: Build Signed AAB
-    #  env:
-    #    KEYSTORE_PATH: keystore.jks
-    #    KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
-    #    KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-    #    KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-    #  run: flutter build appbundle --release
+      - name: Verify Signing Inputs
+        run: |
+          echo "--- Verifying Signing Inputs ---"
+          echo "Checking existence and size of android/app/keystore.jks:"
+          ls -l android/app/keystore.jks || echo "Keystore file not found!"
+          echo "KEYSTORE_ALIAS is set: ${{ secrets.KEYSTORE_ALIAS != '' }}"
+          echo "KEYSTORE_PASSWORD is set: ${{ secrets.KEYSTORE_PASSWORD != '' }}"
+          echo "KEY_PASSWORD is set: ${{ secrets.KEY_PASSWORD != '' }}"
+          echo "--- End Verification ---"
 
-    - name: Setup Google Play Service Account
-      run: |
-        echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > service-account.json
+      - name: Verify Keystore File Integrity
+        run: |
+          echo "Checking keystore validity:"
+          keytool -list -v -keystore android/app/keystore.jks -storepass ${{ secrets.KEYSTORE_PASSWORD }} || echo "Keystore validation failed"
 
-    - name: Deploy to Google Play
-      uses: r0adkll/upload-google-play@v1
-      with:
-        serviceAccountJson: service-account.json
-        # serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
-        packageName: de.thuenen.terrestrial_forest_monitor
-        releaseFiles: build/app/outputs/bundle/release/app-release.aab
-        track: internal
-        status: draft # completed: if status of app is production
+      - name: Create Test Keystore
+        run: |
+          keytool -genkey -v -keystore android/app/test-keystore.jks -storepass android -alias androidkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Test,O=Android,C=US"
+
+      - name: Build Release AppBundle
+        env:
+          storePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias: ${{ secrets.KEYSTORE_ALIAS }}
+          keyPassword: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: flutter build appbundle
+
+      #- name: Build with Test Keystore
+      #  run: |
+      #    flutter build appbundle --release --no-watch \
+      #      -PkeyStorePath=test-keystore.jks \
+      #      -PkeyStorePassword=android \
+      #      -PkeyAlias=androidkey \
+      #      -PkeyPassword=android
+      #
+      # - name: Build Signed AAB
+      #   run: |
+      #     flutter build appbundle --release --no-watch \
+      #       --verbose \
+      #       -PkeyStorePath=keystore.jks \
+      #       -PkeyStorePassword=${{ secrets.KEYSTORE_PASSWORD }} \
+      #       -PkeyAlias=${{ secrets.KEYSTORE_ALIAS }} \
+      #       -PkeyPassword=${{ secrets.KEY_PASSWORD }}
+
+      #- name: Build Signed AAB
+      #  env:
+      #    KEYSTORE_PATH: keystore.jks
+      #    KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+      #    KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      #    KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      #  run: flutter build appbundle --release
+
+      - name: Setup Google Play Service Account
+        run: |
+          echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > service-account.json
+
+      - name: Deploy to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: service-account.json
+          # serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          packageName: de.thuenen.terrestrial_forest_monitor
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: draft # completed: if status of app is production

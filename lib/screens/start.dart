@@ -14,8 +14,8 @@ import 'package:terrestrial_forest_monitor/widgets/map_widget.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/records-selection.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/properties-edit.dart';
+import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 //import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
-import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 
 class Start extends StatefulWidget {
   const Start({super.key});
@@ -50,20 +50,32 @@ class _StartState extends State<Start> {
           '/records-selection/:intervalName': (context, state, data) {
             final intervalName = state.pathParameters['intervalName'];
             if (intervalName == null || intervalName.isEmpty) {
-              return BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection());
+              return BeamPage(
+                key: const ValueKey('schema-selection'),
+                child: const SchemaSelection(),
+              );
             }
             final decodedIntervalName = Uri.decodeComponent(intervalName);
-            return BeamPage(key: ValueKey('records-selection-$decodedIntervalName'), child: RecordsSelection(intervalName: decodedIntervalName));
+            return BeamPage(
+              key: ValueKey('records-selection-$decodedIntervalName'),
+              child: RecordsSelection(intervalName: decodedIntervalName),
+            );
           },
           '/properties-edit/:clusterName/:plotName': (context, state, data) {
             final clusterName = state.pathParameters['clusterName'];
             final plotName = state.pathParameters['plotName'];
             if (clusterName == null || plotName == null) {
-              return BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection());
+              return BeamPage(
+                key: const ValueKey('schema-selection'),
+                child: const SchemaSelection(),
+              );
             }
             final decodedClusterName = Uri.decodeComponent(clusterName);
             final decodedPlotName = Uri.decodeComponent(plotName);
-            return BeamPage(key: ValueKey('properties-edit-$decodedClusterName-$decodedPlotName'), child: PropertiesEdit(clusterName: decodedClusterName, plotName: decodedPlotName));
+            return BeamPage(
+              key: ValueKey('properties-edit-$decodedClusterName-$decodedPlotName'),
+              child: PropertiesEdit(clusterName: decodedClusterName, plotName: decodedPlotName),
+            );
           },
         },
       ),
@@ -86,7 +98,10 @@ class _StartState extends State<Start> {
     return Container(
       // add scaffold background color and rounded corners
       height: 60,
-      decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(30))),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.all(Radius.circular(30)),
+      ),
       padding: EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         children: [
@@ -117,7 +132,11 @@ class _StartState extends State<Start> {
           // Background Map (Fixed Height) - Move up based on sheet position
           // The map center should align with the center of visible area (above the sheet)
           Positioned(
-            top: -(_currentSheetSize - _initialChildSize) * MediaQuery.of(context).size.height * 0.5 - MediaQuery.of(context).padding.top,
+            top:
+                -(_currentSheetSize - _initialChildSize) *
+                    MediaQuery.of(context).size.height *
+                    0.5 -
+                MediaQuery.of(context).padding.top,
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
@@ -132,24 +151,79 @@ class _StartState extends State<Start> {
               child: Row(
                 children: [
                   Container(
-                    decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.only(topRight: Radius.circular(30), bottomRight: Radius.circular(30))),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
+                    ),
                     child: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () {
                         SchedulerBinding.instance.addPostFrameCallback((_) async {
-                          final shouldNavigate = await showDialog<bool>(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: const Text('Zurückgehen bestätigen'),
-                                  content: const Text('Sind Sie sicher, dass Sie zurück zur Inventur-Auswahl gehen möchten?'),
-                                  actionsAlignment: MainAxisAlignment.spaceBetween,
-                                  actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Abbrechen')), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Ja'))],
-                                ),
-                          );
+                          final currentPath =
+                              _beamerDelegate.currentBeamLocation.state.routeInformation.uri.path;
+
+                          String title = 'Zurückgehen bestätigen';
+                          bool? shouldNavigate = true;
+
+                          if (currentPath.startsWith('/properties-edit')) {
+                            title = 'Aufnahme abbrechen';
+
+                            shouldNavigate = await showDialog<bool>(
+                              context: context,
+                              builder:
+                                  (context) => AlertDialog(
+                                    title: Text(title),
+                                    content: const Text(
+                                      'Möchten Sie die Aufnahme wirklich abbrechen? Alle ungespeicherten Änderungen gehen verloren.',
+                                    ),
+                                    actionsAlignment: MainAxisAlignment.spaceBetween,
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('zurück'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Theme.of(context).colorScheme.error,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Aufnahme abbrechen'),
+                                      ),
+                                    ],
+                                  ),
+                            );
+                          }
                           if (shouldNavigate == true) {
-                            // Navigate to root in main router, not nested Beamer
-                            Beamer.of(context, root: true).beamToNamed('/');
+                            // If on properties-edit, navigate back to records-selection with intervalName
+                            if (currentPath.startsWith('/properties-edit')) {
+                              // Extract clusterName and plotName from URI path: /properties-edit/:clusterName/:plotName
+                              final pathSegments = Uri.parse(currentPath).pathSegments;
+                              if (pathSegments.length >= 3) {
+                                final clusterName = Uri.decodeComponent(pathSegments[1]);
+                                final plotName = Uri.decodeComponent(pathSegments[2]);
+
+                                // Load the record to get the schemaName/intervalName
+                                final recordsRepository = RecordsRepository();
+                                final records = await recordsRepository.getRecordsByClusterAndPlot(
+                                  clusterName,
+                                  plotName,
+                                );
+
+                                if (records.isNotEmpty) {
+                                  final intervalName = records.first.schemaName;
+                                  _beamerDelegate.beamToNamed(
+                                    '/records-selection/${Uri.encodeComponent(intervalName)}',
+                                  );
+                                  return;
+                                }
+                              }
+                            } else {
+                              Beamer.of(context, root: true).beamToNamed('/');
+                            }
                           }
                         });
                       },
@@ -186,7 +260,11 @@ class _StartState extends State<Start> {
         return ChangeNotifierProvider<ScrollController>.value(
           value: scrollController,
           child: Container(
-            decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), boxShadow: [BoxShadow(blurRadius: 5)]),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              boxShadow: [BoxShadow(blurRadius: 5)],
+            ),
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
               child: CustomScrollView(
@@ -233,7 +311,16 @@ class _DragHandleDelegate extends SliverPersistentHeaderDelegate {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
     );
   }
 

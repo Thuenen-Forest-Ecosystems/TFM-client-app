@@ -47,7 +47,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
           if (user == null) {
             return SizedBox();
           }
-          return _makeIconButton(context, _connectionState);
+          return _buildStatusChip(context, _connectionState);
         } else {
           return SizedBox();
         }
@@ -56,11 +56,21 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   }
 }
 
-Widget _makeIconButton(BuildContext context, SyncStatus status) {
+Widget _buildStatusChip(BuildContext context, SyncStatus status) {
   final iconData = _getStatusIconData(status);
   final statusText = _getStatusText(status);
+  //final statusColor = _getStatusColor(status);
 
-  return IconButton(onPressed: () => _showStatusDialog(context, status), tooltip: statusText, icon: Icon(iconData));
+  return ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 150),
+    child: InputChip(
+      avatar: Icon(iconData, size: 18),
+      label: Text(statusText, overflow: TextOverflow.ellipsis, maxLines: 1),
+      shape: const StadiumBorder(),
+      onPressed: () => _showStatusDialog(context, status),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    ),
+  );
 }
 
 IconData _getStatusIconData(SyncStatus status) {
@@ -85,13 +95,25 @@ IconData _getStatusIconData(SyncStatus status) {
   }
 }
 
-String _getStatusText(SyncStatus status) {
+Color _getStatusColor(SyncStatus status) {
   if (status.anyError != null) {
-    return status.anyError!.toString();
+    return Colors.red.shade600;
+  } else if (!status.connected) {
+    return Colors.orange.shade700;
+  } else if (status.connecting || status.uploading || status.downloading) {
+    return Colors.blue.shade600;
+  } else {
+    return Colors.green.shade600;
+  }
+}
+
+String _getStatusText(SyncStatus status) {
+  if (!status.connected) {
+    return 'Offline';
+  } else if (status.anyError != null) {
+    return 'Error';
   } else if (status.connecting) {
     return 'Connecting';
-  } else if (!status.connected) {
-    return 'Not connected';
   } else if (status.uploading && status.downloading) {
     return 'Uploading and downloading';
   } else if (status.uploading) {

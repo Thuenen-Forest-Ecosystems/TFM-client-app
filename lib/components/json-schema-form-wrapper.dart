@@ -15,13 +15,20 @@ class JsonSchemaFormWrapper extends StatefulWidget {
   final Map<String, dynamic> formData;
   final Map<String, dynamic>? previousData;
 
-  const JsonSchemaFormWrapper({super.key, required this.recordsId, required this.schema, required this.formData, this.previousData});
+  const JsonSchemaFormWrapper({
+    super.key,
+    required this.recordsId,
+    required this.schema,
+    required this.formData,
+    this.previousData,
+  });
 
   @override
   State<JsonSchemaFormWrapper> createState() => _JsonSchemaFormWrapperState();
 }
 
-class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with SingleTickerProviderStateMixin {
+class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic> _formData = {};
   Map<String, dynamic> formErrors = {};
   List<ValidationError> validationErrors = [];
@@ -168,11 +175,17 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       if (record.isNotEmpty) {
         print('Record exists, updating...');
         // Update the record
-        await db.execute('UPDATE records SET properties = ? WHERE id = ?', [jsonEncode(_formData), widget.recordsId]);
+        await db.execute('UPDATE records SET properties = ? WHERE id = ?', [
+          jsonEncode(_formData),
+          widget.recordsId,
+        ]);
       } else {
         print('Record does not exist, inserting...');
         // Insert a new record
-        await db.execute('INSERT INTO records (properties, schema_id) VALUES (?, ?)', [jsonEncode(_formData), widget.schema['id']]);
+        await db.execute('INSERT INTO records (properties, schema_id) VALUES (?, ?)', [
+          jsonEncode(_formData),
+          widget.schema['id'],
+        ]);
       }
     } catch (e) {
       print('Error saving form data: $e');
@@ -208,18 +221,24 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
     _tabs['Plot'] = {"name": 'Plot', "path": ""};
     for (var propName in complexProperties.keys) {
       // Use title if available, otherwise capitalize the property name
-      String title = complexProperties[propName]!['title'] as String? ?? propName[0].toUpperCase() + propName.substring(1);
+      String title =
+          complexProperties[propName]!['title'] as String? ??
+          propName[0].toUpperCase() + propName.substring(1);
       _tabs[propName] = {"name": title, "path": propName};
     }
 
     String title = widget.schema['title'] as String? ?? 'Form';
 
-    if (widget.previousData != null && widget.previousData!['previous_properties'] is Map && widget.previousData!['previous_properties']['plot_name'] != null) {
+    if (widget.previousData != null &&
+        widget.previousData!['previous_properties'] is Map &&
+        widget.previousData!['previous_properties']['plot_name'] != null) {
       title += ': ${widget.previousData!['previous_properties']['plot_name']}';
     }
 
     String subTitle = widget.schema['description'] as String? ?? 'Clusters:';
-    if (widget.previousData != null && widget.previousData!['previous_properties'] is Map && widget.previousData!['previous_properties']['cluster_name'] != null) {
+    if (widget.previousData != null &&
+        widget.previousData!['previous_properties'] is Map &&
+        widget.previousData!['previous_properties']['cluster_name'] != null) {
       subTitle += ' ${widget.previousData!['previous_properties']['cluster_name']}';
     }
 
@@ -231,7 +250,11 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
             Beamer.of(context).beamToNamed('/');
           },
         ),
-        title: ListTile(title: Text(title, style: TextStyle(color: Colors.black)), subtitle: Text(subTitle, style: TextStyle(color: Colors.black)), minLeadingWidth: 0),
+        title: ListTile(
+          title: Text(title, style: TextStyle(color: Colors.black)),
+          subtitle: Text(subTitle, style: TextStyle(color: Colors.black)),
+          minLeadingWidth: 0,
+        ),
         backgroundColor: Color.fromARGB(255, 224, 241, 203),
         actions: [
           SizedBox(width: 16),
@@ -243,7 +266,10 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
                 final focusError = await showDialog<ValidationError>(
                   context: context,
                   builder: (context) {
-                    return FormErrorsDialog(validationErrors: validationErrors, schema: widget.schema);
+                    return FormErrorsDialog(
+                      validationErrors: validationErrors,
+                      schema: widget.schema,
+                    );
                   },
                 );
 
@@ -284,9 +310,15 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
                 String? path = tab.value['path'];
 
                 if (tabName == 'Plot') {
-                  errorCount = simpleProperties.keys.where((key) => formErrors.containsKey(key)).length;
+                  errorCount =
+                      simpleProperties.keys.where((key) => formErrors.containsKey(key)).length;
                 } else {
-                  final propName = complexProperties.keys.firstWhere((key) => complexProperties[key]!['title'] == tabName || key[0].toUpperCase() + key.substring(1) == tabName, orElse: () => '');
+                  final propName = complexProperties.keys.firstWhere(
+                    (key) =>
+                        complexProperties[key]!['title'] == tabName ||
+                        key[0].toUpperCase() + key.substring(1) == tabName,
+                    orElse: () => '',
+                  );
                   if (propName.isNotEmpty) {
                     errorCount = formErrors.keys.where((key) => key.startsWith(propName)).length;
                   }
@@ -299,7 +331,18 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
                         tabName,
                         style: TextStyle(color: Colors.black), // Set the text color to black
                       ),
-                      if (errorCount > 0) Padding(padding: const EdgeInsets.only(left: 4.0), child: CircleAvatar(backgroundColor: Colors.red, radius: 10, child: Text(errorCount.toString(), style: TextStyle(color: Colors.white, fontSize: 12)))),
+                      if (errorCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
+                          child: CircleAvatar(
+                            backgroundColor: Colors.red,
+                            radius: 10,
+                            child: Text(
+                              errorCount.toString(),
+                              style: TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 );
@@ -311,15 +354,28 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
         controller: _tabController,
         children: [
           // First tab: Simple properties
-          SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildFormSection(simpleProperties, widget.schema['title'] as String? ?? 'Basic Information')),
+          SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: _buildFormSection(
+              simpleProperties,
+              widget.schema['title'] as String? ?? 'Basic Information',
+            ),
+          ),
 
           // Additional tabs: One per complex property (object or array)
           ...complexProperties.entries.map((entry) {
             final propName = entry.key;
             final propSchema = entry.value;
-            final isArray = propSchema['type'] == 'array' || (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
+            final isArray =
+                propSchema['type'] == 'array' ||
+                (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
 
-            return isArray ? _buildComplexSection(propName, propSchema, false) : SingleChildScrollView(padding: EdgeInsets.all(16), child: _buildComplexSection(propName, propSchema, true));
+            return isArray
+                ? _buildComplexSection(propName, propSchema, false)
+                : SingleChildScrollView(
+                  padding: EdgeInsets.all(16),
+                  child: _buildComplexSection(propName, propSchema, true),
+                );
           }),
         ],
       ),
@@ -334,7 +390,11 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       "type": "object",
       "properties": properties,
       // Copy required fields that are in this section
-      "required": (widget.schema['required'] as List<dynamic>?)?.where((field) => properties.containsKey(field)).toList() ?? [],
+      "required":
+          (widget.schema['required'] as List<dynamic>?)
+              ?.where((field) => properties.containsKey(field))
+              .toList() ??
+          [],
     };
 
     // Extract just the form data for these properties
@@ -379,9 +439,15 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
   }
 
   // Helper method to build a complex property section (object or array)
-  Widget _buildComplexSection(String propName, Map<String, dynamic> propSchema, bool isInScrollView) {
+  Widget _buildComplexSection(
+    String propName,
+    Map<String, dynamic> propSchema,
+    bool isInScrollView,
+  ) {
     // Handle both objects and arrays
-    final isArray = propSchema['type'] == 'array' || (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
+    final isArray =
+        propSchema['type'] == 'array' ||
+        (propSchema['type'] is List && (propSchema['type'] as List).contains('array'));
 
     // Create data and errors for this property
     final Map<String, dynamic> propData = {propName: _formData[propName] ?? (isArray ? [] : {})};
@@ -400,11 +466,16 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       "title": propSchema['title'] ?? propName,
       "type": "object",
       "properties": {propName: propSchema},
-      "required": widget.schema['required'] != null && (widget.schema['required'] as List<dynamic>).contains(propName) ? [propName] : [],
+      "required":
+          widget.schema['required'] != null &&
+                  (widget.schema['required'] as List<dynamic>).contains(propName)
+              ? [propName]
+              : [],
     };
 
     // Extract UI schema for this property
-    final Map<String, dynamic> sectionUiSchema = _getUiSchema() != null ? {propName: _getUiSchema()![propName] ?? {}} : {};
+    final Map<String, dynamic> sectionUiSchema =
+        _getUiSchema() != null ? {propName: _getUiSchema()![propName] ?? {}} : {};
 
     // Add special UI layout for arrays if needed
     if (isArray && !sectionUiSchema.containsKey('ui:layout')) {
@@ -434,7 +505,10 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper> with Sing
       },
     );
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (isInScrollView) formWidget else Expanded(child: formWidget)]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [if (isInScrollView) formWidget else Expanded(child: formWidget)],
+    );
   }
 
   // Helper to extract UI schema for specific fields

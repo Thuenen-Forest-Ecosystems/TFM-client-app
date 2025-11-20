@@ -16,7 +16,12 @@ class PlotEdit extends StatefulWidget {
   final String schemaId;
   final String plotId;
   final String clusterId;
-  const PlotEdit({super.key, required this.schemaId, required this.plotId, required this.clusterId});
+  const PlotEdit({
+    super.key,
+    required this.schemaId,
+    required this.plotId,
+    required this.clusterId,
+  });
 
   @override
   State<PlotEdit> createState() => _PlotEditState();
@@ -41,10 +46,26 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
   void _initTabs(Map plotJson) {
     tabs = [
       {'title': 'Position', 'icon': Icons.blur_circular, 'screen': TIPosition()},
-      {'title': 'Plot', 'icon': Icons.blur_circular, 'screen': TiPlot(plotId: widget.plotId, data: plotJson, onUpdate: _onUpdate)},
-      {'title': 'Ränder', 'icon': Icons.blur_circular, 'screen': TIEdges(plotId: widget.plotId, data: [], previousData: [])},
-      {'title': 'Totholz', 'icon': Icons.blur_circular, 'screen': TIDeadwood(plotId: widget.plotId, data: plotJson['deadwood'])},
-      {'title': 'Winkelzählprobe', 'icon': Icons.blur_circular, 'screen': TIWzp(plotId: widget.plotId, data: plotJson['tree'], onUpdate: _onUpdate)},
+      {
+        'title': 'Plot',
+        'icon': Icons.blur_circular,
+        'screen': TiPlot(plotId: widget.plotId, data: plotJson, onUpdate: _onUpdate),
+      },
+      {
+        'title': 'Ränder',
+        'icon': Icons.blur_circular,
+        'screen': TIEdges(plotId: widget.plotId, data: [], previousData: []),
+      },
+      {
+        'title': 'Totholz',
+        'icon': Icons.blur_circular,
+        'screen': TIDeadwood(plotId: widget.plotId, data: plotJson['deadwood']),
+      },
+      {
+        'title': 'Winkelzählprobe',
+        'icon': Icons.blur_circular,
+        'screen': TIWzp(plotId: widget.plotId, data: plotJson['tree'], onUpdate: _onUpdate),
+      },
       {'title': 'Regeneration', 'icon': Icons.blur_circular, 'screen': TIRegeneration()},
       {'title': 'Struktur', 'icon': Icons.blur_circular, 'screen': TIStructure()},
     ];
@@ -89,11 +110,22 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
       appBar: AppBar(
         leading: IconButton(
           onPressed: () {
-            Beamer.of(context).beamToNamed('/plot/${widget.schemaId}/${widget.clusterId}/${widget.plotId}');
+            Beamer.of(
+              context,
+            ).beamToNamed('/plot/${widget.schemaId}/${widget.clusterId}/${widget.plotId}');
           },
           icon: Icon(Icons.close),
         ),
-        title: ListTile(dense: true, contentPadding: EdgeInsets.all(0), title: Text('Ecke ${widget.plotId}', overflow: TextOverflow.ellipsis, maxLines: 1), subtitle: Text('Trakt: ${widget.clusterId}', overflow: TextOverflow.ellipsis, maxLines: 1)),
+        title: ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.all(0),
+          title: Text('Ecke ${widget.plotId}', overflow: TextOverflow.ellipsis, maxLines: 1),
+          subtitle: Text(
+            'Trakt: ${widget.clusterId}',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         iconTheme: IconThemeData(color: Colors.white),
         bottom: TabBar(
@@ -106,7 +138,22 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
         actions: [
           OutlinedButton.icon(
             label: Text('FERTIG'),
-            icon: Stack(children: [Icon(Icons.circle), Positioned(right: 0, left: 0, top: 0, bottom: 0, child: SizedBox(width: 20, height: 20, child: Text('static', style: TextStyle(fontSize: 10, color: Colors.white))))]),
+            icon: Stack(
+              children: [
+                Icon(Icons.circle),
+                Positioned(
+                  right: 0,
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Text('static', style: TextStyle(fontSize: 10, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
             onPressed: () {},
           ),
           SizedBox(width: 10),

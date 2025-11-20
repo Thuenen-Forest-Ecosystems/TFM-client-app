@@ -196,7 +196,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     });
 
     try {
-      final records = await RecordsRepository().getRecordsByClusterAndPlot(widget.clusterName, widget.plotName);
+      final records = await RecordsRepository().getRecordsByClusterAndPlot(
+        widget.clusterName,
+        widget.plotName,
+      );
       _formData = records.isNotEmpty ? records.first.properties : null;
       _previousFormData = records.isNotEmpty ? records.first.previousProperties : null;
       if (mounted) {
@@ -233,7 +236,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Check validation before saving
     if (_validationResult != null && !_validationResult!.isValid) {
       // print validation errors
-      debugPrint('Cannot save, validation errors present: ${_validationResult!.errors.map((e) => e.message).join(", ")}');
+      debugPrint(
+        'Cannot save, validation errors present: ${_validationResult!.errors.map((e) => e.message).join(", ")}',
+      );
       final shouldSave = await ValidationErrorsDialog.show(context, _validationResult!);
 
       // If user didn't confirm save from dialog, return
@@ -247,7 +252,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
     // Show success message
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datensatz erfolgreich gespeichert'), backgroundColor: Colors.green, duration: Duration(seconds: 2)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Datensatz erfolgreich gespeichert'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -297,9 +308,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       builder:
           (context) => AlertDialog(
             title: const Text('Zurück zur Auswahl'),
-            content: const Text('Möchten Sie wirklich zurück zur Trakt-Auswahl gehen? Nicht gespeicherte Änderungen gehen verloren.'),
+            content: const Text(
+              'Möchten Sie wirklich zurück zur Trakt-Auswahl gehen? Nicht gespeicherte Änderungen gehen verloren.',
+            ),
             actionsAlignment: MainAxisAlignment.spaceBetween,
-            actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Abbrechen')), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Zurück'))],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Abbrechen'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Zurück'),
+              ),
+            ],
           ),
     );
 
@@ -312,7 +334,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   void _showCurrentAsJson() {
     if (_formData == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No data available')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No data available')));
       return;
     }
 
@@ -324,8 +348,25 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           (context) => Dialog(
             child: Column(
               children: [
-                AppBar(title: const Text('Current Form Data (JSON)'), automaticallyImplyLeading: false, actions: [IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop())]),
-                Expanded(child: SingleChildScrollView(padding: const EdgeInsets.all(16.0), child: SelectableText(jsonString, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)))),
+                AppBar(
+                  title: const Text('Current Form Data (JSON)'),
+                  automaticallyImplyLeading: false,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SelectableText(
+                      jsonString,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -343,13 +384,29 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => _toRecordSelection(context)),
-                const SizedBox(width: 8),
-                Expanded(child: Text('${widget.clusterName} - ${widget.plotName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                //IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => _toRecordSelection(context)),
+                //const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${widget.clusterName} - ${widget.plotName}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 Badge.count(
                   count: _validationResult?.errors.length ?? 0,
                   isLabelVisible: _validationResult != null && !_validationResult!.isValid,
-                  child: ElevatedButton(onPressed: _jsonSchema != null ? saveRecord : null, child: _isValidating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('FERTIG')),
+                  child: ElevatedButton(
+                    onPressed: _jsonSchema != null ? saveRecord : null,
+                    child:
+                        _isValidating
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                            : const Text('FERTIG'),
+                  ),
                 ),
                 IconButton(onPressed: _showCurrentAsJson, icon: Icon(Icons.javascript)),
               ],
@@ -362,11 +419,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     ? const Center(child: CircularProgressIndicator())
                     : _error != null
                     ? Center(
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(_error!, style: const TextStyle(color: Colors.red)), const SizedBox(height: 16), ElevatedButton(onPressed: _loadRecord, child: const Text('Retry'))]),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_error!, style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
+                        ],
+                      ),
                     )
                     : _record == null
                     ? const Center(child: Text('No record found'))
-                    : FormWrapper(jsonSchema: _jsonSchema, formData: _formData, previousFormData: _previousFormData, onFormDataChanged: _onFormDataChanged, validationResult: _validationResult),
+                    : FormWrapper(
+                      jsonSchema: _jsonSchema,
+                      formData: _formData,
+                      previousFormData: _previousFormData,
+                      onFormDataChanged: _onFormDataChanged,
+                      validationResult: _validationResult,
+                    ),
           ),
         ],
       ),
