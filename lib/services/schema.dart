@@ -68,6 +68,7 @@ Schema schema = Schema(([
   const Table('users_permissions', [Column.text('created_at'), Column.text('user_id'), Column.text('organization_id'), Column.integer('is_organization_admin')]),
   const Table('schemas', [
     Column.text('created_at'),
+    Column.text('updated_at'),
     Column.text('interval_name'),
     Column.integer('is_visible'),
     Column.text('title'),
@@ -75,6 +76,8 @@ Schema schema = Schema(([
     Column.text('bucket_schema_file_name'),
     Column.text('bucket_plausability_file_name'),
     Column.text('schema'),
+    Column.integer('version'),
+    Column.text('directory'),
   ]),
   const Table('records', [
     Column.text('properties'),

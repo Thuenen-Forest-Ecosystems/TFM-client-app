@@ -188,7 +188,13 @@ class _SchemaCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(padding: EdgeInsets.all(20.0), child: Text(schema.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Padding(padding: const EdgeInsets.all(20.0), child: Text(schema.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+              IconButton(icon: const Icon(Icons.arrow_forward), onPressed: onTap, tooltip: 'Schema auswählen'),
+            ],
+          ),
           Divider(height: 1),
 
           // Show permissions only if user is logged in

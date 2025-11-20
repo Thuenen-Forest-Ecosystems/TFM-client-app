@@ -23,7 +23,7 @@ class RecordsSelection extends StatefulWidget {
 }
 
 class _RecordsSelectionState extends State<RecordsSelection> {
-  ClusterOrderBy _orderBy = ClusterOrderBy.clusterName;
+  ClusterOrderBy _orderBy = ClusterOrderBy.distance;
   ClusterFilter _filter = const ClusterFilter();
   Position? _currentPosition;
   bool _isLoadingLocation = false;
@@ -168,8 +168,17 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             _isLoadingLocation = false;
           });
 
-          // Cache the position
-          provider.setCurrentPosition(lastPosition);
+          // Cache the position after build completes
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              provider.setCurrentPosition(lastPosition);
+            }
+          });
+
+          // Reload data with distance ordering if we just got GPS position
+          if (_orderBy == ClusterOrderBy.distance && _allRecords.isEmpty) {
+            _loadInitialData();
+          }
         }
       } else {
         // No GPS position available yet
@@ -339,7 +348,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                 if (_isLoadingLocation) ...[const SizedBox(width: 8), const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))],
                 //align right
                 Expanded(child: Container()),
-                OrderClusterBy(
+                /*OrderClusterBy(
                   initialOrderBy: _orderBy,
                   onOrderChanged: (order) {
                     setState(() {
@@ -363,7 +372,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       _loadInitialData();
                     }
                   },
-                ),
+                ),*/
                 FilterClusterBy(
                   initialFilter: _filter,
                   onFilterChanged: (filter) {
@@ -397,6 +406,28 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                         final clusterName = clusterNames[index];
                         final clusterRecords = groupedRecords[clusterName]!;
 
+                        // Calculate distance to cluster center
+                        String? distanceText;
+                        if (_currentPosition != null) {
+                          double sumLat = 0.0;
+                          double sumLng = 0.0;
+                          int count = 0;
+                          for (final record in clusterRecords) {
+                            final coords = record.getCoordinates();
+                            if (coords != null) {
+                              sumLat += coords['latitude']!;
+                              sumLng += coords['longitude']!;
+                              count++;
+                            }
+                          }
+                          if (count > 0) {
+                            final centerLat = sumLat / count;
+                            final centerLng = sumLng / count;
+                            final distance = _calculateDistance(_currentPosition!.latitude, _currentPosition!.longitude, centerLat, centerLng);
+                            distanceText = '${distance.toStringAsFixed(1)} km';
+                          }
+                        }
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           elevation: 2,
@@ -408,7 +439,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                                 // Cluster name header with focus button
                                 Row(
                                   children: [
-                                    Expanded(child: Text(clusterName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [Text(clusterName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), if (distanceText != null) Text(distanceText, style: TextStyle(fontSize: 14, color: Colors.grey[600]))],
+                                      ),
+                                    ),
                                     IconButton(
                                       icon: const Icon(Icons.map),
                                       tooltip: 'Focus on map',
@@ -454,10 +490,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
   void _focusClusterOnMap(List<Record> clusterRecords) {
     // Calculate bounds for all records in this cluster
-    double minLat = double.infinity;
-    double maxLat = -double.infinity;
-    double minLng = double.infinity;
-    double maxLng = -double.infinity;
+    double? minLat;
+    double? maxLat;
+    double? minLng;
+    double? maxLng;
 
     for (final record in clusterRecords) {
       final coords = record.getCoordinates();
@@ -465,18 +501,20 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         final lat = coords['latitude'];
         final lng = coords['longitude'];
         if (lat != null && lng != null) {
-          if (lat < minLat) minLat = lat;
-          if (lat > maxLat) maxLat = lat;
-          if (lng < minLng) minLng = lng;
-          if (lng > maxLng) maxLng = lng;
+          minLat = (minLat == null) ? lat : (lat < minLat ? lat : minLat);
+          maxLat = (maxLat == null) ? lat : (lat > maxLat ? lat : maxLat);
+          minLng = (minLng == null) ? lng : (lng < minLng ? lng : minLng);
+          maxLng = (maxLng == null) ? lng : (lng > maxLng ? lng : maxLng);
         }
       }
     }
 
-    if (minLat != double.infinity && maxLat != -double.infinity) {
-      // Add padding (10% of the range)
-      final latPadding = (maxLat - minLat) * 0.1;
-      final lngPadding = (maxLng - minLng) * 0.1;
+    if (minLat != null && maxLat != null && minLng != null && maxLng != null) {
+      // Add padding (10% of the range, minimum 0.001 degrees)
+      final latRange = maxLat - minLat;
+      final lngRange = maxLng - minLng;
+      final latPadding = latRange > 0 ? latRange * 0.1 : 0.001;
+      final lngPadding = lngRange > 0 ? lngRange * 0.1 : 0.001;
 
       final bounds = LatLngBounds(LatLng(minLat - latPadding, minLng - lngPadding), LatLng(maxLat + latPadding, maxLng + lngPadding));
 
@@ -485,6 +523,8 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       mapControllerProvider.setFocusBounds(bounds);
 
       debugPrint('Focus bounds set for cluster with ${clusterRecords.length} records');
+    } else {
+      debugPrint('No valid coordinates found for cluster');
     }
   }
 

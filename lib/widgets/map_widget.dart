@@ -60,8 +60,9 @@ class _MapWidgetState extends State<MapWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isDisposed && mounted) {
         try {
-          // Note: MapControllerProvider might need to be updated to support flutter_map's MapController
-          debugPrint('Map controller ready for registration');
+          final mapControllerProvider = context.read<MapControllerProvider>();
+          mapControllerProvider.setFlutterMapController(_mapController);
+          debugPrint('Flutter map controller registered with provider');
         } catch (e) {
           debugPrint('MapControllerProvider not found: $e');
         }
@@ -245,8 +246,6 @@ class _MapWidgetState extends State<MapWidget> {
             _currentPosition = LatLng(position.latitude, position.longitude);
             _currentAccuracy = position.accuracy;
           });
-
-          debugPrint('Location updated: $_currentPosition, accuracy: $_currentAccuracy');
         },
         onError: (error) {
           debugPrint('❌ GPS stream error: $error');
@@ -371,12 +370,12 @@ class _MapWidgetState extends State<MapWidget> {
       final lat = coords['latitude']!;
       final lng = coords['longitude']!;
 
-      final label = '${record.clusterName}\n${record.plotName}';
+      final label = '${record.clusterName} | ${record.plotName}';
 
       return Marker(
         point: LatLng(lat, lng),
-        width: 120,
-        height: 50,
+        width: 90,
+        height: 25,
         alignment: Alignment.topCenter,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -556,6 +555,11 @@ class _MapWidgetState extends State<MapWidget> {
     final initialZoom = widget.initialZoom ?? 5.5;
     final markers = _buildMarkers(_records);
 
+    // Watch for distance line updates from provider
+    final mapControllerProvider = context.watch<MapControllerProvider>();
+    final distanceLineFrom = mapControllerProvider.distanceLineFrom;
+    final distanceLineTo = mapControllerProvider.distanceLineTo;
+
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
@@ -608,8 +612,16 @@ class _MapWidgetState extends State<MapWidget> {
         // Clustered Markers from records
         if (markers.isNotEmpty) MarkerClusterLayerWidget(options: MarkerClusterLayerOptions(maxClusterRadius: 50, size: const Size(40, 40), markers: markers, builder: _buildClusterMarker)),
 
-        // Record Labels (shown at zoom 13+)
-        if (_currentZoom >= 13 && _records.isNotEmpty) MarkerLayer(markers: _buildLabelMarkers(_records)),
+        // Distance line (from navigation element)
+        if (distanceLineFrom != null && distanceLineTo != null)
+          PolylineLayer(
+            polylines: [
+              Polyline(points: [distanceLineFrom, distanceLineTo], color: Colors.orange, strokeWidth: 3.0),
+            ],
+          ),
+
+        // Record Labels (shown at zoom 14+)
+        if (_currentZoom >= 14 && _records.isNotEmpty) MarkerLayer(markers: _buildLabelMarkers(_records)),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

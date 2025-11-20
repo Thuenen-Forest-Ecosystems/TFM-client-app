@@ -5655,6 +5655,7 @@
                             "integer",
                             "null"
                         ],
+                        "readOnly": true,
                         "enum": [
                             null,
                             1,
@@ -5676,6 +5677,7 @@
                             9
                         ],
                         "$tfm": {
+
                             "name_de": [
                                 null,
                                 "produktiver Wald, Holzboden",

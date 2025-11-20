@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
+import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 
 class ArrayElementSyncfusion extends StatefulWidget {
   final Map<String, dynamic> jsonSchema;
   final List<dynamic> data;
+  final ValidationResult? validationResult;
+  final String? propertyName;
   final Function(List<dynamic>)? onDataChanged;
 
-  const ArrayElementSyncfusion({super.key, required this.jsonSchema, required this.data, this.onDataChanged});
+  const ArrayElementSyncfusion({super.key, required this.jsonSchema, required this.data, this.propertyName, this.validationResult, this.onDataChanged});
   @override
   State<ArrayElementSyncfusion> createState() => _ArrayElementSyncfusionState();
 }
@@ -81,8 +85,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
         return; // Skip this column
       }
 
-      print('Adding column: $key ($title)');
-      columns.add(GridColumn(columnName: key, label: Container(padding: const EdgeInsets.all(8.0), alignment: Alignment.center, child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))));
+      columns.add(GridColumn(columnName: key, label: Container(padding: const EdgeInsets.all(16.0), alignment: Alignment.center, child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))));
     });
 
     return columns;
@@ -119,6 +122,12 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
         type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
       }
 
+      // set default value from schema if available
+      if (propertySchema.containsKey('default')) {
+        newRow[key] = propertySchema['default'];
+        return;
+      }
+
       // Set default values based on type
       switch (type) {
         case 'string':
@@ -126,7 +135,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           break;
         case 'number':
         case 'integer':
-          newRow[key] = 0;
+          newRow[key] = null;
           break;
         case 'boolean':
           newRow[key] = false;
@@ -183,41 +192,52 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           children: [
             // DataGrid
             Expanded(
-              child:
-                  _rows.isEmpty
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.table_chart, size: 48, color: Colors.grey),
-                            const SizedBox(height: 16),
-                            const Text('No data available', style: TextStyle(color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(onPressed: _addRow, icon: const Icon(Icons.add), label: const Text('Add First Row')),
-                          ],
-                        ),
-                      )
-                      : Theme(
-                        data: Theme.of(context).copyWith(
-                          // Disable background color when editing
-                          colorScheme: Theme.of(context).colorScheme.copyWith(primary: Colors.transparent),
-                        ),
-                        child: SfDataGrid(
-                          source: _dataGridSource,
-                          columns: _columns,
-                          allowEditing: true,
-                          allowSorting: true,
-                          selectionMode: SelectionMode.single,
-                          navigationMode: GridNavigationMode.cell,
-                          columnWidthMode: ColumnWidthMode.auto,
-                          editingGestureType: EditingGestureType.tap,
-                          gridLinesVisibility: GridLinesVisibility.both,
-                          headerGridLinesVisibility: GridLinesVisibility.both,
-                          horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-                          verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-                          selectionManager: SelectionManagerBase(),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  // Disable background color when editing
+                  colorScheme: Theme.of(context).colorScheme.copyWith(primary: Colors.transparent),
+                  dividerColor: Colors.grey.withAlpha((0.2 * 255).toInt()),
+                ),
+                child: Stack(
+                  children: [
+                    SfDataGrid(
+                      source: _dataGridSource,
+                      columns: _columns,
+                      allowEditing: true,
+                      allowSorting: false,
+                      allowColumnsResizing: true,
+                      allowColumnsDragging: true,
+                      selectionMode: SelectionMode.single,
+                      navigationMode: GridNavigationMode.cell,
+                      columnWidthMode: ColumnWidthMode.auto,
+                      editingGestureType: EditingGestureType.tap,
+                      gridLinesVisibility: GridLinesVisibility.both,
+                      headerGridLinesVisibility: GridLinesVisibility.both,
+                      horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
+                      verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
+                      selectionManager: SelectionManagerBase(),
+                      rowHeight: 56.0,
+                      headerRowHeight: 56.0,
+                    ),
+                    if (_rows.isEmpty)
+                      Positioned.fill(
+                        top: 56.0, // Position below header
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.table_chart, size: 48, color: Colors.grey),
+                              const SizedBox(height: 16),
+                              const Text('No data available', style: TextStyle(color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(onPressed: _addRow, icon: const Icon(Icons.add), label: const Text('Add First Row')),
+                            ],
+                          ),
                         ),
                       ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -312,7 +332,7 @@ class _ArrayDataSource extends DataGridSource {
             // Default display for non-enum fields with unit
             final cellValueStr = cell.value?.toString() ?? '';
             final displayText = cellValueStr.isNotEmpty && unit != null ? '$cellValueStr $unit' : cellValueStr;
-            return Container(alignment: alignment, padding: const EdgeInsets.all(8.0), child: Text(displayText, overflow: TextOverflow.ellipsis));
+            return Container(alignment: alignment, padding: const EdgeInsets.all(12.0), child: Text(displayText, overflow: TextOverflow.ellipsis));
           }).toList(),
     );
   }
@@ -377,6 +397,16 @@ class _ArrayDataSource extends DataGridSource {
   Widget _buildTextField(DataGridRow dataGridRow, RowColumnIndex rowColumnIndex, GridColumn column, CellSubmit submitCell, dynamic cellValue) {
     final TextEditingController editingController = TextEditingController(text: cellValue?.toString() ?? '');
 
+    // Get column schema to determine field type
+    final columnSchema = _schema[column.columnName] as Map<String, dynamic>?;
+    final typeValue = columnSchema?['type'];
+    String? fieldType;
+    if (typeValue is String) {
+      fieldType = typeValue;
+    } else if (typeValue is List) {
+      fieldType = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+    }
+
     return Container(
       padding: const EdgeInsets.all(8.0),
       alignment: Alignment.centerLeft,
@@ -384,7 +414,29 @@ class _ArrayDataSource extends DataGridSource {
         autofocus: true,
         controller: editingController,
         textAlign: TextAlign.left,
-        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.zero),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          suffixIcon: SpeechToTextButton(
+            controller: editingController,
+            fieldType: fieldType,
+            onTextChanged: () {
+              final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
+              if (dataRowIndex != -1) {
+                dynamic value = editingController.text;
+                // Convert to appropriate type
+                if (fieldType == 'integer') {
+                  value = int.tryParse(editingController.text) ?? editingController.text;
+                } else if (fieldType == 'number') {
+                  value = double.tryParse(editingController.text) ?? editingController.text;
+                }
+                _rows[dataRowIndex][column.columnName] = value;
+                _buildDataGridRows();
+                onCellUpdate(dataRowIndex, column.columnName, value);
+              }
+            },
+          ),
+        ),
         onSubmitted: (String value) {
           final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
           if (dataRowIndex != -1) {
@@ -416,26 +468,29 @@ class _ArrayDataSource extends DataGridSource {
     return Container(
       padding: const EdgeInsets.all(4.0),
       alignment: Alignment.centerLeft,
-      child: DropdownButton<dynamic>(
-        value: cellValue,
-        isExpanded: true,
-        underline: const SizedBox(),
-        items:
-            uniqueValues.map<DropdownMenuItem<dynamic>>((value) {
-              final index = enumValues.indexOf(value);
-              final label = namesDe != null && index < namesDe.length ? namesDe[index]?.toString() ?? value?.toString() ?? 'null' : value?.toString() ?? 'null';
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 200),
+        child: DropdownButton<dynamic>(
+          value: cellValue,
+          isExpanded: true,
+          underline: const SizedBox(),
+          items:
+              uniqueValues.map<DropdownMenuItem<dynamic>>((value) {
+                final index = enumValues.indexOf(value);
+                final label = namesDe != null && index < namesDe.length ? namesDe[index]?.toString() ?? value?.toString() ?? 'null' : value?.toString() ?? 'null';
 
-              return DropdownMenuItem<dynamic>(value: value, child: Text(label, overflow: TextOverflow.ellipsis));
-            }).toList(),
-        onChanged: (newValue) {
-          final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
-          if (dataRowIndex != -1) {
-            _rows[dataRowIndex][column.columnName] = newValue;
-            _buildDataGridRows();
-            onCellUpdate(dataRowIndex, column.columnName, newValue);
-          }
-          submitCell();
-        },
+                return DropdownMenuItem<dynamic>(value: value, child: Text(label, overflow: TextOverflow.ellipsis));
+              }).toList(),
+          onChanged: (newValue) {
+            final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
+            if (dataRowIndex != -1) {
+              _rows[dataRowIndex][column.columnName] = newValue;
+              _buildDataGridRows();
+              onCellUpdate(dataRowIndex, column.columnName, newValue);
+            }
+            submitCell();
+          },
+        ),
       ),
     );
   }

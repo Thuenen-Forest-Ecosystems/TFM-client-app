@@ -16,7 +16,7 @@ class AppConfig {
       'supabaseUrl': 'https://ci.thuenen.de',
       'anonKey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQ1NzkxMjAwLCJleHAiOjE5MDM1NTc2MDB9.hXiYlA_168hHZ6fk3zPgABQUpEcqkYRMzu0A5W5PtYU',
       'powersyncUrl': 'https://ci.thuenen.de/sync/',
-      'supabaseStorageBucket': 'tfm',
+      'supabaseStorageBucket': 'validation',
       'database': 'postgres',
     },
   ];
