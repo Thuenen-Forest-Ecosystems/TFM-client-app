@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- System certificates (default Android trust store) -->
+            <certificates src="system" />
+            <!-- Custom GEANT TLS certificate for ci.thuenen.de -->
+            <certificates src="@raw/geant_tls_rsa_1" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
