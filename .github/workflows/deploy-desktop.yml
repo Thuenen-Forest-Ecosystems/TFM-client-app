@@ -99,10 +99,14 @@ jobs:
       - name: Install Microsoft Store CLI
         uses: microsoft/setup-msstore-cli@v1
 
+      - name: Configure Microsoft Store CLI
+        run: |
+          msstore settings --tenantId ${{ secrets.MS_TENANT_ID }} --sellerId ${{ secrets.MS_SELLER_ID }} --clientId ${{ secrets.MS_CLIENT_ID }} --clientSecret ${{ secrets.MS_CLIENT_SECRET }}
+
       - name: Publish to Microsoft Store
         run: |
           $storeMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Where-Object { $_.Name -notlike "*sideload*" } | Select-Object -First 1
-          msstore publish --path "$($storeMsix.FullName)" --productId ${{ secrets.MS_PRODUCT_ID }} --tenantId ${{ secrets.MS_TENANT_ID }} --clientId ${{ secrets.MS_CLIENT_ID }} --clientSecret ${{ secrets.MS_CLIENT_SECRET }} --sellerId ${{ secrets.MS_SELLER_ID }}
+          msstore publish --path "$($storeMsix.FullName)" --productId ${{ secrets.MS_PRODUCT_ID }}
 
       - name: Archive Release (Portable)
         uses: thedoctor0/zip-release@master
