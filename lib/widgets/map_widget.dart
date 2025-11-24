@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // Add for compute
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
@@ -35,7 +37,9 @@ class _MapWidgetState extends State<MapWidget> {
   DateTime? _lastFocusTimestamp;
   LatLng? _currentPosition;
   double? _currentAccuracy;
-  String _selectedBasemap = 'osm'; // 'osm', 'satellite', or other basemap options
+  Set<String> _selectedBasemaps = {
+    'topo_offline',
+  }; // Can select multiple: 'osm', 'topo_offline', 'dop'
   double _currentZoom = 5.5;
   LatLngBounds? _lastBounds;
 
@@ -115,12 +119,12 @@ class _MapWidgetState extends State<MapWidget> {
   Future<void> _loadMapSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedBasemap = prefs.getString('map_basemap');
-      if (savedBasemap != null) {
+      final savedBasemaps = prefs.getStringList('map_basemaps');
+      if (savedBasemaps != null && savedBasemaps.isNotEmpty) {
         setState(() {
-          _selectedBasemap = savedBasemap;
+          _selectedBasemaps = savedBasemaps.toSet();
         });
-        debugPrint('Loaded saved basemap: $savedBasemap');
+        debugPrint('Loaded saved basemaps: $savedBasemaps');
       }
     } catch (e) {
       debugPrint('Error loading map settings: $e');
@@ -130,8 +134,8 @@ class _MapWidgetState extends State<MapWidget> {
   Future<void> _saveMapSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('map_basemap', _selectedBasemap);
-      debugPrint('Saved basemap preference: $_selectedBasemap');
+      await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
+      debugPrint('Saved basemap preferences: $_selectedBasemaps');
     } catch (e) {
       debugPrint('Error saving map settings: $e');
     }
@@ -164,10 +168,14 @@ class _MapWidgetState extends State<MapWidget> {
       if (focusBounds != null && timestamp != null && timestamp != _lastFocusTimestamp) {
         _lastFocusTimestamp = timestamp;
 
-        debugPrint('Focusing map on bounds: SW(${focusBounds.south}, ${focusBounds.west}) NE(${focusBounds.north}, ${focusBounds.east})');
+        debugPrint(
+          'Focusing map on bounds: SW(${focusBounds.south}, ${focusBounds.west}) NE(${focusBounds.north}, ${focusBounds.east})',
+        );
 
         // Fit camera to the requested bounds
-        _mapController.fitCamera(CameraFit.bounds(bounds: focusBounds, padding: const EdgeInsets.all(50)));
+        _mapController.fitCamera(
+          CameraFit.bounds(bounds: focusBounds, padding: const EdgeInsets.all(50)),
+        );
 
         // Clear the focus bounds after applying
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -283,7 +291,10 @@ class _MapWidgetState extends State<MapWidget> {
           final lng = coords['longitude'];
           if (lat == null || lng == null) return false;
 
-          return lat >= bounds.south && lat <= bounds.north && lng >= bounds.west && lng <= bounds.east;
+          return lat >= bounds.south &&
+              lat <= bounds.north &&
+              lng >= bounds.west &&
+              lng <= bounds.east;
         }).toList();
 
     debugPrint('Updated visible records: ${_visibleRecords.length} out of ${_records.length}');
@@ -320,12 +331,17 @@ class _MapWidgetState extends State<MapWidget> {
 
       debugPrint('Bounding box: SW($minLng, $minLat) NE($maxLng, $maxLat)');
 
-      final bounds = LatLngBounds(LatLng(minLat - latPadding, minLng - lngPadding), LatLng(maxLat + latPadding, maxLng + lngPadding));
+      final bounds = LatLngBounds(
+        LatLng(minLat - latPadding, minLng - lngPadding),
+        LatLng(maxLat + latPadding, maxLng + lngPadding),
+      );
 
       // Fit camera to bounds
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_isDisposed && mounted) {
-          _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)));
+          _mapController.fitCamera(
+            CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
+          );
           debugPrint('Camera moved to fit all markers');
         }
       });
@@ -352,7 +368,15 @@ class _MapWidgetState extends State<MapWidget> {
           onTap: () {
             _onMarkerTapped(record);
           },
-          child: Container(width: 16, height: 16, decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+          ),
         ),
       );
     }).toList();
@@ -379,8 +403,18 @@ class _MapWidgetState extends State<MapWidget> {
         alignment: Alignment.topCenter,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.black54, width: 1)),
-          child: Text(label, style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, maxLines: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.black54, width: 1),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
         ),
       );
     }).toList();
@@ -464,8 +498,19 @@ class _MapWidgetState extends State<MapWidget> {
       child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(color: markerColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-        child: Center(child: Text(displayText, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis)),
+        decoration: BoxDecoration(
+          color: markerColor,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: Center(
+          child: Text(
+            displayText,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     );
   }
@@ -482,41 +527,55 @@ class _MapWidgetState extends State<MapWidget> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Karteneinstellungen', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const Text('Basiskarte', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  const Text(
+                    'Karteneinstellungen',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
-                  RadioListTile<String>(
-                    title: const Text('OpenStreetMap (online)'),
-                    value: 'osm',
-                    groupValue: _selectedBasemap,
+
+                  CheckboxListTile(
+                    title: const Text('Luftbilder (offline)'),
+                    subtitle: const Text('nur höchste Zoomstufen'),
+                    value: _selectedBasemaps.contains('dop'),
                     onChanged: (value) {
                       setState(() {
-                        _selectedBasemap = value!;
+                        if (value == true) {
+                          _selectedBasemaps.add('dop');
+                        } else {
+                          _selectedBasemaps.remove('dop');
+                        }
                       });
                       setModalState(() {});
                       _saveMapSettings();
                     },
                   ),
-                  RadioListTile<String>(
-                    title: const Text('Satellit (Esri) (online)'),
-                    value: 'satellite',
-                    groupValue: _selectedBasemap,
+                  CheckboxListTile(
+                    title: const Text('Topografische Karte (offline)'),
+                    subtitle: const Text('Mittlere Zoomstufen'),
+                    value: _selectedBasemaps.contains('topo_offline'),
                     onChanged: (value) {
                       setState(() {
-                        _selectedBasemap = value!;
+                        if (value == true) {
+                          _selectedBasemaps.add('topo_offline');
+                        } else {
+                          _selectedBasemaps.remove('topo_offline');
+                        }
                       });
                       setModalState(() {});
                       _saveMapSettings();
                     },
                   ),
-                  RadioListTile<String>(
-                    title: const Text('OpenTopoMap (online)'),
-                    value: 'topo',
-                    groupValue: _selectedBasemap,
+                  CheckboxListTile(
+                    title: const Text('Open Street Map (online)'),
+                    subtitle: const Text('mobiles Datennetz erforderlich'),
+                    value: _selectedBasemaps.contains('osm'),
                     onChanged: (value) {
                       setState(() {
-                        _selectedBasemap = value!;
+                        if (value == true) {
+                          _selectedBasemaps.add('osm');
+                        } else {
+                          _selectedBasemaps.remove('osm');
+                        }
                       });
                       setModalState(() {});
                       _saveMapSettings();
@@ -565,7 +624,11 @@ class _MapWidgetState extends State<MapWidget> {
       options: MapOptions(
         initialCenter: initialCenter,
         initialZoom: initialZoom,
-        interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+        minZoom: 4.0,
+        maxZoom: 19.0,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
         onMapReady: () {
           setState(() {
             _isMapReady = true;
@@ -601,37 +664,107 @@ class _MapWidgetState extends State<MapWidget> {
         },
       ),
       children: [
-        // Tile Layer based on selected basemap
-        if (_selectedBasemap == 'osm')
-          TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor')
-        else if (_selectedBasemap == 'satellite')
-          TileLayer(urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor')
-        else if (_selectedBasemap == 'topo')
-          TileLayer(urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor', subdomains: const ['a', 'b', 'c']),
+        // Tile Layers - rendered in order: OSM (bottom) → OpenTopoMap → DOP (top)
+
+        // Layer 1: OpenStreetMap (online base layer)
+        if (_selectedBasemaps.contains('osm'))
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+          ),
+
+        // Layer 2: OpenTopoMap (offline, covers zoom 4-14)
+        if (_selectedBasemaps.contains('topo_offline'))
+          TileLayer(
+            urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            subdomains: const ['a', 'b', 'c'],
+            tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
+            maxZoom:
+                _selectedBasemaps.contains('dop') ? 14 : 19, // Limit to zoom 14 if DOP is enabled
+            maxNativeZoom: 14,
+            tileProvider: FMTCStore('opentopomap').getTileProvider(
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheOnly),
+            ),
+          ),
+
+        // Layer 3: DOP (offline aerial imagery, zoom 15-19)
+        if (_selectedBasemaps.contains('dop'))
+          TileLayer(
+            wmsOptions: WMSTileLayerOptions(
+              baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
+              layers: const ['rgb'],
+              format: 'image/jpeg',
+            ),
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
+            minZoom: 15, // Only show from zoom 15 onwards
+            maxNativeZoom: 19,
+            tileProvider: FMTCStore('wms_dop__').getTileProvider(
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheOnly),
+            ),
+          ),
 
         // Clustered Markers from records
-        if (markers.isNotEmpty) MarkerClusterLayerWidget(options: MarkerClusterLayerOptions(maxClusterRadius: 50, size: const Size(40, 40), markers: markers, builder: _buildClusterMarker)),
+        if (markers.isNotEmpty)
+          MarkerClusterLayerWidget(
+            options: MarkerClusterLayerOptions(
+              maxClusterRadius: 50,
+              size: const Size(40, 40),
+              markers: markers,
+              builder: _buildClusterMarker,
+            ),
+          ),
 
         // Distance line (from navigation element)
         if (distanceLineFrom != null && distanceLineTo != null)
           PolylineLayer(
             polylines: [
-              Polyline(points: [distanceLineFrom, distanceLineTo], color: Colors.orange, strokeWidth: 3.0),
+              Polyline(
+                points: [distanceLineFrom, distanceLineTo],
+                color: Colors.orange,
+                strokeWidth: 3.0,
+              ),
             ],
           ),
 
         // Record Labels (shown at zoom 14+)
-        if (_currentZoom >= 14 && _records.isNotEmpty) MarkerLayer(markers: _buildLabelMarkers(_records)),
+        if (_currentZoom >= 14 && _records.isNotEmpty)
+          MarkerLayer(markers: _buildLabelMarkers(_records)),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)
           CircleLayer(
-            circles: [CircleMarker(point: _currentPosition!, radius: _currentAccuracy! < 5 ? 5.0 : _currentAccuracy!, useRadiusInMeter: true, color: Colors.blue.withOpacity(0.2), borderColor: Colors.blue.withOpacity(0.5), borderStrokeWidth: 1)],
+            circles: [
+              CircleMarker(
+                point: _currentPosition!,
+                radius: _currentAccuracy! < 5 ? 5.0 : _currentAccuracy!,
+                useRadiusInMeter: true,
+                color: Colors.blue.withOpacity(0.2),
+                borderColor: Colors.blue.withOpacity(0.5),
+                borderStrokeWidth: 1,
+              ),
+            ],
           ),
 
         // GPS Location Marker (center dot)
         if (_currentPosition != null)
-          MarkerLayer(markers: [Marker(point: _currentPosition!, width: 12, height: 12, child: Container(decoration: BoxDecoration(color: Colors.blue, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))))]),
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: _currentPosition!,
+                width: 12,
+                height: 12,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }

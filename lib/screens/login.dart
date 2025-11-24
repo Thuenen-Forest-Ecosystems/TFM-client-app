@@ -8,6 +8,7 @@ import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/widgets/network-wrapper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -22,6 +23,9 @@ class _LoginState extends State<Login> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isFormValid = false;
+  bool _isOffline = false;
+  bool _hasPreviousLogin = false;
+  String? _cachedEmail;
   late AuthProvider _authProvider;
 
   @override
@@ -33,6 +37,40 @@ class _LoginState extends State<Login> {
     // Store reference to AuthProvider to avoid context access in dispose
     _authProvider = context.read<AuthProvider>();
     _authProvider.addListener(_onAuthStateChanged);
+
+    // Check connectivity and previous login
+    _checkConnectivityAndCache();
+
+    // Listen to connectivity changes
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      if (mounted) {
+        setState(() {
+          _isOffline = results.every((result) => result == ConnectivityResult.none);
+        });
+      }
+    });
+  }
+
+  Future<void> _checkConnectivityAndCache() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    final isOffline = connectivityResult.every((result) => result == ConnectivityResult.none);
+    final hasPreviousLogin = await _authProvider.hasPreviousLogin();
+    final cachedEmail = await _authProvider.getCachedEmail();
+
+    print(
+      'Login: Connectivity check - isOffline: $isOffline, hasPreviousLogin: $hasPreviousLogin, cachedEmail: $cachedEmail',
+    );
+
+    if (mounted) {
+      setState(() {
+        _isOffline = isOffline;
+        _hasPreviousLogin = hasPreviousLogin;
+        _cachedEmail = cachedEmail;
+        if (_cachedEmail != null && _emailController.text.isEmpty) {
+          _emailController.text = _cachedEmail!;
+        }
+      });
+    }
   }
 
   void _onAuthStateChanged() {
@@ -129,6 +167,62 @@ class _LoginState extends State<Login> {
     }
   }
 
+  void _handleOfflineLogin() async {
+    // Always validate first
+    if (!_formKey.currentState!.validate()) {
+      print('Login: Form validation failed');
+      return;
+    }
+
+    // Prevent double-clicks
+    if (_authProvider.loggingIn) {
+      print('Login: Already logging in, ignoring');
+      return;
+    }
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    print('Login: Attempting offline login for email: $email');
+
+    // Capture ScaffoldMessenger before async operation
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      await _authProvider.loginOffline(email, password);
+
+      // Check if still mounted after async operation
+      if (!mounted) {
+        print('Login: Widget unmounted after offline login attempt');
+        return;
+      }
+
+      print('Login: Offline login successful');
+
+      // Notify Android autofill service that login was successful
+      TextInput.finishAutofillContext();
+
+      // Navigation will be handled by the auth state listener
+    } catch (e) {
+      print('Login: Offline login error occurred: $e');
+
+      String errorMessage = 'Offline-Anmeldung fehlgeschlagen';
+
+      if (e is Exception) {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      } else {
+        errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
+      }
+
+      print('Login: Showing offline error message: $errorMessage');
+
+      // Show error using captured ScaffoldMessenger
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(errorMessage), duration: const Duration(seconds: 6)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // We use _authProvider for loggingIn, but still watch for rebuilds if needed
@@ -215,21 +309,95 @@ class _LoginState extends State<Login> {
                               },
                             ),
                             const SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed:
-                                  _isFormValid && !authProvider.loggingIn ? _handleLogin : null,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            // Online Login Button
+                            if (!_isOffline)
+                              ElevatedButton(
+                                onPressed:
+                                    _isFormValid && !authProvider.loggingIn ? _handleLogin : null,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                child:
+                                    authProvider.loggingIn
+                                        ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                        : const Text('Anmelden'),
                               ),
-                              child:
-                                  authProvider.loggingIn
-                                      ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                      : const Text('Anmelden'),
-                            ),
+                            // Offline Login Button
+                            if (_isOffline && _hasPreviousLogin)
+                              Column(
+                                children: [
+                                  ElevatedButton(
+                                    onPressed:
+                                        _isFormValid && !authProvider.loggingIn
+                                            ? _handleOfflineLogin
+                                            : null,
+                                    child:
+                                        authProvider.loggingIn
+                                            ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                            : const Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [Text('Anmelden')],
+                                            ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Offline-Modus: Keine Internetverbindung',
+                                    style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                                  ),
+                                ],
+                              ),
+                            // No credentials message
+                            if (_isOffline && !_hasPreviousLogin)
+                              Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.orange.shade300),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.wifi_off,
+                                          size: 48,
+                                          color: Colors.orange.shade700,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'Keine Internetverbindung',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.orange.shade900,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Bitte stellen Sie eine Internetverbindung her, um sich zum ersten Mal anzumelden.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.orange.shade800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             const SizedBox(height: 24),
                             TextButton(
                               onPressed: () {
@@ -240,19 +408,6 @@ class _LoginState extends State<Login> {
                                 );
                               },
                               child: const Text('Passwort vergessen?'),
-                            ),
-                            NetworkWrapper(
-                              child: const SizedBox.shrink(),
-                              offlineChild: Chip(
-                                label: const Text(
-                                  'keine Internetverbindung',
-                                  style: TextStyle(color: Colors.orange),
-                                ),
-                                shape: StadiumBorder(
-                                  side: BorderSide(color: Colors.orange.shade400, width: 1.5),
-                                ),
-                                backgroundColor: Colors.orange.withOpacity(0.1),
-                              ),
                             ),
                             const Spacer(),
                             Column(

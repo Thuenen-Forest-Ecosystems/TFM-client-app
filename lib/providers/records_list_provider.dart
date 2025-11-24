@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
+//import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 
 class RecordsListProvider extends ChangeNotifier {
   // Cache for records list
@@ -35,7 +35,13 @@ class RecordsListProvider extends ChangeNotifier {
   }
 
   // Cache records for an interval and order
-  void cacheRecords(String intervalName, ClusterOrderBy orderBy, List<Map<String, dynamic>> records, int page, bool hasMore) {
+  void cacheRecords(
+    String intervalName,
+    ClusterOrderBy orderBy,
+    List<Map<String, dynamic>> records,
+    int page,
+    bool hasMore,
+  ) {
     final key = _getCacheKey(intervalName, orderBy);
     _recordsCache[key] = records;
     _currentPageCache[key] = page;
@@ -44,7 +50,13 @@ class RecordsListProvider extends ChangeNotifier {
   }
 
   // Append more records to cache
-  void appendRecords(String intervalName, ClusterOrderBy orderBy, List<Map<String, dynamic>> newRecords, int page, bool hasMore) {
+  void appendRecords(
+    String intervalName,
+    ClusterOrderBy orderBy,
+    List<Map<String, dynamic>> newRecords,
+    int page,
+    bool hasMore,
+  ) {
     final key = _getCacheKey(intervalName, orderBy);
     final existing = _recordsCache[key] ?? [];
     _recordsCache[key] = [...existing, ...newRecords];

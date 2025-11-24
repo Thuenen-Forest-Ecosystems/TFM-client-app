@@ -63,8 +63,33 @@ bool isLoggedIn() {
 }
 
 /// id of the user currently logged in
+/// Note: This function now requires a BuildContext to support offline mode.
+/// For offline authentication, use getUserIdFromContext(context) instead.
 String? getUserId() {
   return Supabase.instance.client.auth.currentSession?.user.id;
+}
+
+/// Get user ID from either Supabase (online) or AuthProvider (offline)
+/// This function supports both online and offline authentication modes
+String? getUserIdFromContext(dynamic context) {
+  // Try to get from Supabase first (online mode)
+  final supabaseUserId = getUserId();
+  if (supabaseUserId != null) {
+    return supabaseUserId;
+  }
+
+  // If no Supabase user, try to get from AuthProvider (offline mode)
+  try {
+    // Import at runtime to avoid circular dependencies
+    final authProvider = context.read<dynamic>();
+    if (authProvider.runtimeType.toString() == 'AuthProvider') {
+      return authProvider.userId as String?;
+    }
+  } catch (e) {
+    print('getUserIdFromContext: Could not get userId from AuthProvider - $e');
+  }
+
+  return null;
 }
 
 /// id of the user currently logged in
@@ -105,10 +130,18 @@ Future getPlotsNestedJson() async {
     db
         .get('SELECT id FROM plot_nested_json WHERE id = ?', [row['id']])
         .then((value) {
-          db.execute('UPDATE plot_nested_json SET plot = ?, cluster_id = ? WHERE id = ?', [jsonEncode(row['plot'] ?? []), row['cluster_id'], row['id']]);
+          db.execute('UPDATE plot_nested_json SET plot = ?, cluster_id = ? WHERE id = ?', [
+            jsonEncode(row['plot'] ?? []),
+            row['cluster_id'],
+            row['id'],
+          ]);
         })
         .catchError((e) {
-          db.execute('INSERT INTO plot_nested_json (id, plot, cluster_id) VALUES (?, ?, ?);', [row['id'], jsonEncode(row['plot'] ?? []), row['cluster_id']]);
+          db.execute('INSERT INTO plot_nested_json (id, plot, cluster_id) VALUES (?, ?, ?);', [
+            row['id'],
+            jsonEncode(row['plot'] ?? []),
+            row['cluster_id'],
+          ]);
         });
   }
 
@@ -119,7 +152,10 @@ Future getPlotsNestedJson() async {
 /// Returns the user if successful, otherwise throws an error.
 Future<User> signUp(String email, String password) async {
   try {
-    AuthResponse response = await Supabase.instance.client.auth.signUp(email: email, password: password);
+    AuthResponse response = await Supabase.instance.client.auth.signUp(
+      email: email,
+      password: password,
+    );
     return response.user!;
   } catch (e) {
     rethrow;
@@ -130,7 +166,10 @@ Future<User> signUp(String email, String password) async {
 /// Returns the user if successful, otherwise throws an error.
 Future<User> login(String email, String password) async {
   try {
-    AuthResponse response = await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
+    AuthResponse response = await Supabase.instance.client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
     return response.user!;
   } catch (e) {
     print('Error logging in: $e');
@@ -182,7 +221,11 @@ Future downloadFile(fileName, {force = false}) async {
 
 /// Download all validation files from a specific directory in Supabase storage
 /// Returns a map with {success: bool, downloadedFiles: List<String>, errors: List<String>}
-Future<Map<String, dynamic>> downloadValidationFiles(String directory, {force = false, Function(int, int)? onProgress}) async {
+Future<Map<String, dynamic>> downloadValidationFiles(
+  String directory, {
+  force = false,
+  Function(int, int)? onProgress,
+}) async {
   List<String> downloadedFiles = [];
   List<String> errors = [];
 
@@ -197,7 +240,12 @@ Future<Map<String, dynamic>> downloadValidationFiles(String directory, {force = 
     }
 
     // Static list of expected validation files in each directory
-    final List<String> expectedFiles = ['bundle.cjs.js', 'bundle.esm.js', 'bundle.umd.js', 'validation.json'];
+    final List<String> expectedFiles = [
+      'bundle.cjs.js',
+      'bundle.esm.js',
+      'bundle.umd.js',
+      'validation.json',
+    ];
 
     int totalFiles = expectedFiles.length;
     int downloadedCount = 0;
@@ -217,7 +265,9 @@ Future<Map<String, dynamic>> downloadValidationFiles(String directory, {force = 
         }
 
         // Download file from Supabase storage
-        final Uint8List fileData = await Supabase.instance.client.storage.from('validation').download('$directory/$fileName');
+        final Uint8List fileData = await Supabase.instance.client.storage
+            .from('validation')
+            .download('$directory/$fileName');
 
         await file.writeAsBytes(fileData);
         downloadedFiles.add(fileName);
@@ -230,7 +280,13 @@ Future<Map<String, dynamic>> downloadValidationFiles(String directory, {force = 
       }
     }
 
-    return {'success': errors.isEmpty, 'downloadedFiles': downloadedFiles, 'errors': errors, 'totalFiles': totalFiles, 'downloadedCount': downloadedCount};
+    return {
+      'success': errors.isEmpty,
+      'downloadedFiles': downloadedFiles,
+      'errors': errors,
+      'totalFiles': totalFiles,
+      'downloadedCount': downloadedCount,
+    };
   } catch (e) {
     print('Error downloading validation files: $e');
     return {
@@ -252,11 +308,19 @@ Future<Map<String, dynamic>> downloadAllValidationFiles({force = false}) async {
 
   try {
     // Get all schemas with non-null directories from the database
-    final results = await db.getAll("SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' AND is_visible = 1");
+    final results = await db.getAll(
+      "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' AND is_visible = 1",
+    );
 
     if (results.isEmpty) {
       print('No schemas with directories found');
-      return {'success': true, 'successfulDirectories': [], 'failedDirectories': [], 'totalFilesDownloaded': 0, 'message': 'No validation directories to download'};
+      return {
+        'success': true,
+        'successfulDirectories': [],
+        'failedDirectories': [],
+        'totalFilesDownloaded': 0,
+        'message': 'No validation directories to download',
+      };
     }
 
     final directories = results.map((row) => row['directory'] as String).toSet().toList();
@@ -276,10 +340,22 @@ Future<Map<String, dynamic>> downloadAllValidationFiles({force = false}) async {
       }
     }
 
-    return {'success': failedDirectories.isEmpty, 'successfulDirectories': successfulDirectories, 'failedDirectories': failedDirectories, 'totalFilesDownloaded': totalFilesDownloaded, 'totalDirectories': directories.length};
+    return {
+      'success': failedDirectories.isEmpty,
+      'successfulDirectories': successfulDirectories,
+      'failedDirectories': failedDirectories,
+      'totalFilesDownloaded': totalFilesDownloaded,
+      'totalDirectories': directories.length,
+    };
   } catch (e) {
     print('Error downloading all validation files: $e');
-    return {'success': false, 'successfulDirectories': successfulDirectories, 'failedDirectories': failedDirectories, 'totalFilesDownloaded': totalFilesDownloaded, 'error': e.toString()};
+    return {
+      'success': false,
+      'successfulDirectories': successfulDirectories,
+      'failedDirectories': failedDirectories,
+      'totalFilesDownloaded': totalFilesDownloaded,
+      'error': e.toString(),
+    };
   }
 }
 
@@ -344,6 +420,11 @@ Future<PowerSyncDatabase> openDatabase() async {
     }
   });
 
+  // Note: For offline-authenticated users, PowerSync will work in offline-only mode
+  // The local SQLite database remains accessible, but no sync will occur until
+  // the user logs in online again
+  print('PowerSync: Database ready for offline-first operation');
+
   // Listen to sync status and download validation files after sync completes
   bool _isDownloadingValidation = false;
   SyncStatus? _previousStatus;
@@ -360,10 +441,14 @@ Future<PowerSyncDatabase> openDatabase() async {
       try {
         final result = await downloadAllValidationFiles(force: false);
         if (result['success']) {
-          print('Successfully downloaded validation files for ${result['successfulDirectories'].length} directories');
+          print(
+            'Successfully downloaded validation files for ${result['successfulDirectories'].length} directories',
+          );
           print('Total files downloaded: ${result['totalFilesDownloaded']}');
         } else {
-          print('Failed to download validation files for some directories: ${result['failedDirectories']}');
+          print(
+            'Failed to download validation files for some directories: ${result['failedDirectories']}',
+          );
         }
       } catch (e) {
         print('Error during automatic validation file download: $e');
@@ -467,10 +552,18 @@ class SupabaseConnector extends PowerSyncBackendConnector {
 
     // userId and expiresAt are for debugging purposes only
     final userId = session.user.id;
-    final expiresAt = session.expiresAt == null ? null : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
+    final expiresAt =
+        session.expiresAt == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
 
     var config = await getServerConfig();
-    return PowerSyncCredentials(endpoint: config['powersyncUrl'] ?? '', token: token, userId: userId, expiresAt: expiresAt);
+    return PowerSyncCredentials(
+      endpoint: config['powersyncUrl'] ?? '',
+      token: token,
+      userId: userId,
+      expiresAt: expiresAt,
+    );
   }
 
   @override
@@ -486,6 +579,9 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     //
     // Timeout the refresh call to avoid waiting for long retries,
     // and ignore any errors. Errors will surface as expired tokens.
-    _refreshFuture = Supabase.instance.client.auth.refreshSession().timeout(const Duration(seconds: 5)).then((response) => null, onError: (error) => null);
+    _refreshFuture = Supabase.instance.client.auth
+        .refreshSession()
+        .timeout(const Duration(seconds: 5))
+        .then((response) => null, onError: (error) => null);
   }
 }

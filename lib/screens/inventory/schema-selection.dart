@@ -6,6 +6,8 @@ import 'package:powersync/powersync.dart' hide Column;
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/permissions-selection.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/map-tiles-download.dart';
 
 class SchemaSelection extends StatefulWidget {
   const SchemaSelection({super.key});
@@ -30,7 +32,14 @@ class _SchemaSelectionState extends State<SchemaSelection> {
 
         if (snapshot.hasError) {
           return Center(
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.error_outline, size: 64, color: Colors.red[300]), const SizedBox(height: 16), Text('Fehler: ${snapshot.error}', style: const TextStyle(fontSize: 16))]),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                Text('Fehler: ${snapshot.error}', style: const TextStyle(fontSize: 16)),
+              ],
+            ),
           );
         }
 
@@ -49,7 +58,10 @@ class _SchemaSelectionState extends State<SchemaSelection> {
           addRepaintBoundaries: true,
           itemBuilder: (context, index) {
             final schema = schemas[index];
-            return _SchemaCard(schema: schema, onTap: () => _handleSchemaSelection(context, schema));
+            return _SchemaCard(
+              schema: schema,
+              onTap: () => _handleSchemaSelection(context, schema),
+            );
           },
         );
       },
@@ -69,9 +81,18 @@ class _EmptyStateWithProgress extends StatefulWidget {
   State<_EmptyStateWithProgress> createState() => _EmptyStateWithProgressState();
 }
 
-class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress> with SingleTickerProviderStateMixin {
+class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress>
+    with SingleTickerProviderStateMixin {
   // add funny loading messages
-  List<String> loopLoadingMessage = ["Bitte warten...", "Es kann einen Moment dauern...", "... es dauert nicht mehr lange...", "Fast geschafft...", "Noch ein bisschen Geduld...", "Daten werden synchronisiert...", "Fast fertig..."];
+  List<String> loopLoadingMessage = [
+    "Bitte warten...",
+    "Es kann einen Moment dauern...",
+    "... es dauert nicht mehr lange...",
+    "Fast geschafft...",
+    "Noch ein bisschen Geduld...",
+    "Daten werden synchronisiert...",
+    "Fast fertig...",
+  ];
 
   int _currentMessageIndex = 0;
   Timer? _messageTimer;
@@ -130,19 +151,36 @@ class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress> with S
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        SizedBox(width: 80, height: 80, child: CircularProgressIndicator(value: downloadProgress > 0 ? downloadProgress / 100 : null, strokeWidth: 6)),
-                        if (downloadProgress > 0) Text('${downloadProgress.toStringAsFixed(0)}%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: CircularProgressIndicator(
+                            value: downloadProgress > 0 ? downloadProgress / 100 : null,
+                            strokeWidth: 6,
+                          ),
+                        ),
+                        if (downloadProgress > 0)
+                          Text(
+                            '${downloadProgress.toStringAsFixed(0)}%',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(loopLoadingMessage[_currentMessageIndex], style: const TextStyle(fontSize: 18)),
+                  Text(
+                    loopLoadingMessage[_currentMessageIndex],
+                    style: const TextStyle(fontSize: 18),
+                  ),
                 ] else ...[
                   Icon(Icons.folder_open, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   const Text('Keine Schemas verfügbar', style: TextStyle(fontSize: 18)),
                   const SizedBox(height: 8),
-                  Text('Bitte synchronisieren Sie die Daten', style: TextStyle(color: Colors.grey[600])),
+                  Text(
+                    'Bitte synchronisieren Sie die Daten',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
                 ],
               ],
             ),
@@ -179,28 +217,44 @@ class _SchemaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get the current user ID from Supabase
-    final userId = getUserId();
+    // Get the current user ID from Supabase (online) or AuthProvider (offline)
+    final authProvider = context.watch<AuthProvider>();
+    final userId = authProvider.userId ?? getUserId();
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      children: [
+        const MapTilesDownload(),
+        Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(padding: const EdgeInsets.all(20.0), child: Text(schema.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-              IconButton(icon: const Icon(Icons.arrow_forward), onPressed: onTap, tooltip: 'Schema auswählen'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Text(
+                      schema.title,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  /*IconButton(
+                    icon: const Icon(Icons.arrow_forward),
+                    onPressed: onTap,
+                    tooltip: 'Schema auswählen',
+                  ),*/
+                ],
+              ),
+              Divider(height: 1),
+
+              // Show permissions only if user is logged in
+              if (userId != null) PermissionsSelection(userId: userId, schemaId: schema.id),
             ],
           ),
-          Divider(height: 1),
-
-          // Show permissions only if user is logged in
-          if (userId != null) PermissionsSelection(userId: userId, schemaId: schema.id),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -10,7 +10,14 @@ class ArrayElementSyncfusion extends StatefulWidget {
   final String? propertyName;
   final Function(List<dynamic>)? onDataChanged;
 
-  const ArrayElementSyncfusion({super.key, required this.jsonSchema, required this.data, this.propertyName, this.validationResult, this.onDataChanged});
+  const ArrayElementSyncfusion({
+    super.key,
+    required this.jsonSchema,
+    required this.data,
+    this.propertyName,
+    this.validationResult,
+    this.onDataChanged,
+  });
   @override
   State<ArrayElementSyncfusion> createState() => _ArrayElementSyncfusionState();
 }
@@ -23,10 +30,6 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   @override
   void initState() {
     super.initState();
-    print('ArrayElementSyncfusion initialized');
-    print('jsonSchema: ${widget.jsonSchema}');
-    print('data: ${widget.data}');
-    print('data length: ${widget.data.length}');
     _initializeGrid();
   }
 
@@ -39,7 +42,9 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   }
 
   void _initializeGrid() {
-    _rows = List<Map<String, dynamic>>.from(widget.data.map((item) => Map<String, dynamic>.from(item is Map ? item : {})));
+    _rows = List<Map<String, dynamic>>.from(
+      widget.data.map((item) => Map<String, dynamic>.from(item is Map ? item : {})),
+    );
     print('Initialized ${_rows.length} rows');
     _columns = _buildColumns();
     print('Initialized ${_columns.length} columns');
@@ -48,7 +53,12 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
-    _dataGridSource = _ArrayDataSource(rows: _rows, columns: _columns, schema: properties ?? {}, onCellUpdate: _onCellUpdate);
+    _dataGridSource = _ArrayDataSource(
+      rows: _rows,
+      columns: _columns,
+      schema: properties ?? {},
+      onCellUpdate: _onCellUpdate,
+    );
   }
 
   List<GridColumn> _buildColumns() {
@@ -85,7 +95,20 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
         return; // Skip this column
       }
 
-      columns.add(GridColumn(columnName: key, label: Container(padding: const EdgeInsets.all(16.0), alignment: Alignment.center, child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))));
+      columns.add(
+        GridColumn(
+          columnName: key,
+          label: Container(
+            padding: const EdgeInsets.all(16.0),
+            alignment: Alignment.center,
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      );
     });
 
     return columns;
@@ -158,7 +181,12 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
       final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
-      _dataGridSource = _ArrayDataSource(rows: _rows, columns: _columns, schema: properties ?? {}, onCellUpdate: _onCellUpdate);
+      _dataGridSource = _ArrayDataSource(
+        rows: _rows,
+        columns: _columns,
+        schema: properties ?? {},
+        onCellUpdate: _onCellUpdate,
+      );
     });
 
     widget.onDataChanged?.call(_rows);
@@ -173,7 +201,12 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
         final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
         final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
-        _dataGridSource = _ArrayDataSource(rows: _rows, columns: _columns, schema: properties ?? {}, onCellUpdate: _onCellUpdate);
+        _dataGridSource = _ArrayDataSource(
+          rows: _rows,
+          columns: _columns,
+          schema: properties ?? {},
+          onCellUpdate: _onCellUpdate,
+        );
       });
 
       widget.onDataChanged?.call(_rows);
@@ -230,7 +263,11 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                               const SizedBox(height: 16),
                               const Text('No data available', style: TextStyle(color: Colors.grey)),
                               const SizedBox(height: 8),
-                              ElevatedButton.icon(onPressed: _addRow, icon: const Icon(Icons.add), label: const Text('Add First Row')),
+                              ElevatedButton.icon(
+                                onPressed: _addRow,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Add First Row'),
+                              ),
                             ],
                           ),
                         ),
@@ -242,14 +279,23 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           ],
         ),
         // Floating Action Button
-        Positioned(right: 16, bottom: 16, child: FloatingActionButton(onPressed: _addRow, child: const Icon(Icons.add))),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(onPressed: _addRow, child: const Icon(Icons.add)),
+        ),
       ],
     );
   }
 }
 
 class _ArrayDataSource extends DataGridSource {
-  _ArrayDataSource({required List<Map<String, dynamic>> rows, required List<GridColumn> columns, required Map<String, dynamic> schema, required this.onCellUpdate}) {
+  _ArrayDataSource({
+    required List<Map<String, dynamic>> rows,
+    required List<GridColumn> columns,
+    required Map<String, dynamic> schema,
+    required this.onCellUpdate,
+  }) {
     _rows = rows;
     _columns = columns;
     _schema = schema;
@@ -283,7 +329,8 @@ class _ArrayDataSource extends DataGridSource {
     return DataGridRowAdapter(
       cells:
           row.getCells().map<Widget>((cell) {
-            final columnName = _columns.firstWhere((col) => col.columnName == cell.columnName).columnName;
+            final columnName =
+                _columns.firstWhere((col) => col.columnName == cell.columnName).columnName;
             final columnSchema = _schema[columnName] as Map<String, dynamic>?;
 
             // Determine alignment based on type
@@ -294,7 +341,9 @@ class _ArrayDataSource extends DataGridSource {
               if (typeValue is String) {
                 type = typeValue;
               } else if (typeValue is List) {
-                type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+                type =
+                    typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null)
+                        as String?;
               }
 
               // Set alignment based on type
@@ -323,22 +372,36 @@ class _ArrayDataSource extends DataGridSource {
                 final index = enumValues.indexOf(cellValue);
                 if (index >= 0 && index < namesDe.length) {
                   final name = namesDe[index]?.toString() ?? cellValue?.toString() ?? '';
-                  final displayText = '$name (${cellValue?.toString() ?? ''})${unit != null ? ' $unit' : ''}';
-                  return Container(alignment: alignment, padding: const EdgeInsets.all(8.0), child: Text(displayText, overflow: TextOverflow.ellipsis));
+                  final displayText =
+                      '$name (${cellValue?.toString() ?? ''})${unit != null ? ' $unit' : ''}';
+                  return Container(
+                    alignment: alignment,
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(displayText, overflow: TextOverflow.ellipsis),
+                  );
                 }
               }
             }
 
             // Default display for non-enum fields with unit
             final cellValueStr = cell.value?.toString() ?? '';
-            final displayText = cellValueStr.isNotEmpty && unit != null ? '$cellValueStr $unit' : cellValueStr;
-            return Container(alignment: alignment, padding: const EdgeInsets.all(12.0), child: Text(displayText, overflow: TextOverflow.ellipsis));
+            final displayText =
+                cellValueStr.isNotEmpty && unit != null ? '$cellValueStr $unit' : cellValueStr;
+            return Container(
+              alignment: alignment,
+              padding: const EdgeInsets.all(12.0),
+              child: Text(displayText, overflow: TextOverflow.ellipsis),
+            );
           }).toList(),
     );
   }
 
   @override
-  Future<void> onCellSubmit(DataGridRow dataGridRow, RowColumnIndex rowColumnIndex, GridColumn column) async {
+  Future<void> onCellSubmit(
+    DataGridRow dataGridRow,
+    RowColumnIndex rowColumnIndex,
+    GridColumn column,
+  ) async {
     final dynamic oldValue = dataGridRow.getCells()[rowColumnIndex.columnIndex].value;
     final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
 
@@ -360,7 +423,12 @@ class _ArrayDataSource extends DataGridSource {
   }
 
   @override
-  Widget? buildEditWidget(DataGridRow dataGridRow, RowColumnIndex rowColumnIndex, GridColumn column, CellSubmit submitCell) {
+  Widget? buildEditWidget(
+    DataGridRow dataGridRow,
+    RowColumnIndex rowColumnIndex,
+    GridColumn column,
+    CellSubmit submitCell,
+  ) {
     final dynamic cellValue = dataGridRow.getCells()[rowColumnIndex.columnIndex].value;
     final columnName = column.columnName;
 
@@ -382,7 +450,14 @@ class _ArrayDataSource extends DataGridSource {
 
     // Check if it has enum (dropdown)
     if (columnSchema.containsKey('enum')) {
-      return _buildDropdown(dataGridRow, rowColumnIndex, column, submitCell, cellValue, columnSchema);
+      return _buildDropdown(
+        dataGridRow,
+        rowColumnIndex,
+        column,
+        submitCell,
+        cellValue,
+        columnSchema,
+      );
     }
 
     // Check if it's boolean (switch)
@@ -394,8 +469,16 @@ class _ArrayDataSource extends DataGridSource {
     return _buildTextField(dataGridRow, rowColumnIndex, column, submitCell, cellValue);
   }
 
-  Widget _buildTextField(DataGridRow dataGridRow, RowColumnIndex rowColumnIndex, GridColumn column, CellSubmit submitCell, dynamic cellValue) {
-    final TextEditingController editingController = TextEditingController(text: cellValue?.toString() ?? '');
+  Widget _buildTextField(
+    DataGridRow dataGridRow,
+    RowColumnIndex rowColumnIndex,
+    GridColumn column,
+    CellSubmit submitCell,
+    dynamic cellValue,
+  ) {
+    final TextEditingController editingController = TextEditingController(
+      text: cellValue?.toString() ?? '',
+    );
 
     // Get column schema to determine field type
     final columnSchema = _schema[column.columnName] as Map<String, dynamic>?;
@@ -404,7 +487,8 @@ class _ArrayDataSource extends DataGridSource {
     if (typeValue is String) {
       fieldType = typeValue;
     } else if (typeValue is List) {
-      fieldType = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+      fieldType =
+          typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
     }
 
     return Container(
@@ -450,7 +534,14 @@ class _ArrayDataSource extends DataGridSource {
     );
   }
 
-  Widget _buildDropdown(DataGridRow dataGridRow, RowColumnIndex rowColumnIndex, GridColumn column, CellSubmit submitCell, dynamic cellValue, Map<String, dynamic> schema) {
+  Widget _buildDropdown(
+    DataGridRow dataGridRow,
+    RowColumnIndex rowColumnIndex,
+    GridColumn column,
+    CellSubmit submitCell,
+    dynamic cellValue,
+    Map<String, dynamic> schema,
+  ) {
     final enumValues = schema['enum'] as List;
     final tfm = schema['\$tfm'] as Map<String, dynamic>?;
     final namesDe = tfm?['name_de'] as List?;
@@ -477,9 +568,15 @@ class _ArrayDataSource extends DataGridSource {
           items:
               uniqueValues.map<DropdownMenuItem<dynamic>>((value) {
                 final index = enumValues.indexOf(value);
-                final label = namesDe != null && index < namesDe.length ? namesDe[index]?.toString() ?? value?.toString() ?? 'null' : value?.toString() ?? 'null';
+                final label =
+                    namesDe != null && index < namesDe.length
+                        ? namesDe[index]?.toString() ?? value?.toString() ?? 'null'
+                        : value?.toString() ?? 'null';
 
-                return DropdownMenuItem<dynamic>(value: value, child: Text(label, overflow: TextOverflow.ellipsis));
+                return DropdownMenuItem<dynamic>(
+                  value: value,
+                  child: Text(label, overflow: TextOverflow.ellipsis),
+                );
               }).toList(),
           onChanged: (newValue) {
             final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
@@ -495,7 +592,13 @@ class _ArrayDataSource extends DataGridSource {
     );
   }
 
-  Widget _buildSwitch(DataGridRow dataGridRow, RowColumnIndex rowColumnIndex, GridColumn column, CellSubmit submitCell, dynamic cellValue) {
+  Widget _buildSwitch(
+    DataGridRow dataGridRow,
+    RowColumnIndex rowColumnIndex,
+    GridColumn column,
+    CellSubmit submitCell,
+    dynamic cellValue,
+  ) {
     final boolValue = cellValue == true || cellValue == 1 || cellValue == 'true';
 
     return Container(

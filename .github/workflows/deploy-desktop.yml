@@ -101,7 +101,11 @@ jobs:
 
       - name: Configure Microsoft Store CLI
         run: |
-          msstore settings --tenantId ${{ secrets.MS_TENANT_ID }} --sellerId ${{ secrets.MS_SELLER_ID }} --clientId ${{ secrets.MS_CLIENT_ID }} --clientSecret ${{ secrets.MS_CLIENT_SECRET }}
+          $tenant = '${{ secrets.MS_TENANT_ID }}'
+          $seller = '${{ secrets.MS_SELLER_ID }}'
+          $clientId = '${{ secrets.MS_CLIENT_ID }}'
+          $clientSecret = '${{ secrets.MS_CLIENT_SECRET }}'
+          msstore settings --tenantId $tenant --sellerId $seller --clientId $clientId --clientSecret $clientSecret
 
       - name: Show msstore settings (debug)
         run: msstore settings show
