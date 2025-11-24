@@ -6,7 +6,12 @@ class SpeechToTextButton extends StatefulWidget {
   final VoidCallback? onTextChanged;
   final String? fieldType;
 
-  const SpeechToTextButton({super.key, required this.controller, this.onTextChanged, this.fieldType});
+  const SpeechToTextButton({
+    super.key,
+    required this.controller,
+    this.onTextChanged,
+    this.fieldType,
+  });
 
   @override
   State<SpeechToTextButton> createState() => _SpeechToTextButtonState();
@@ -41,7 +46,9 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
 
   Future<void> _toggleListening() async {
     if (!_isAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Speech recognition not available')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Speech recognition not available')));
       return;
     }
 
@@ -73,7 +80,9 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
             }
 
             widget.controller.text = newText;
-            widget.controller.selection = TextSelection.fromPosition(TextPosition(offset: newText.length));
+            widget.controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: newText.length),
+            );
 
             widget.onTextChanged?.call();
           }
@@ -91,6 +100,13 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(icon: Icon(_isListening ? Icons.mic : Icons.mic_none, color: _isListening ? Colors.red : null), onPressed: _isAvailable ? _toggleListening : null, tooltip: _isListening ? 'Stop listening' : 'Start speech recognition');
+    return IconButton(
+      icon: Icon(
+        _isListening ? Icons.mic : Icons.mic_none,
+        color: _isListening ? Colors.green : null,
+      ),
+      onPressed: _isAvailable ? _toggleListening : null,
+      tooltip: _isListening ? 'Stop listening' : 'Start speech recognition',
+    );
   }
 }

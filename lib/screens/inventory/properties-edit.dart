@@ -215,6 +215,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // Update distance line after record is loaded
         if (_record != null) {
           _updateDistanceLine();
+          _focusRecord(context);
           // Validate initial form data
           if (_formData != null) {
             _onFormDataChanged(_formData!);
@@ -333,6 +334,22 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
+  void _focusRecord(BuildContext context) {
+    try {
+      final mapProvider = context.read<MapControllerProvider>();
+      final recordCoords = _record?.getCoordinates();
+
+      if (recordCoords != null) {
+        final latLng = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
+        mapProvider.moveToLocation(latLng, zoom: 19.0);
+      } else {
+        debugPrint('Record has no coordinates to focus on');
+      }
+    } catch (e) {
+      debugPrint('Error focusing on record: $e');
+    }
+  }
+
   void _showCurrentAsJson() {
     if (_formData == null) {
       ScaffoldMessenger.of(
@@ -385,11 +402,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                //IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => _toRecordSelection(context)),
+                IconButton(
+                  icon: const Icon(Icons.map, size: 20),
+                  onPressed: () => _focusRecord(context),
+                ),
                 //const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${widget.clusterName} - ${widget.plotName}',
+                    '${widget.clusterName} | ${widget.plotName}',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),

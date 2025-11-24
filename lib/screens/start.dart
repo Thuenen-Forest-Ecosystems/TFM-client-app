@@ -31,7 +31,7 @@ class _StartState extends State<Start> {
   // Initial position of bottom sheet (25% of screen height)
   final double _initialChildSize = 0.25;
   final double _minChildSize = 0.15;
-  double _maxChildSize = 0.9; // Will be calculated in build
+  double _maxChildSize = 1; // Will be calculated in build
 
   @override
   void initState() {
@@ -93,6 +93,14 @@ class _StartState extends State<Start> {
     }
   }
 
+  @override
+  void dispose() {
+    _sheetController.removeListener(_onSheetChanged);
+    _beamerDelegate.dispose();
+    _sheetController.dispose();
+    super.dispose();
+  }
+
   Widget _buildTopBar() {
     return Container(
       // add scaffold background color and rounded corners
@@ -132,9 +140,7 @@ class _StartState extends State<Start> {
           // The map center should align with the center of visible area (above the sheet)
           Positioned(
             top:
-                -(_currentSheetSize - _initialChildSize) *
-                    MediaQuery.of(context).size.height *
-                    0.5 -
+                -(_currentSheetSize - _minChildSize) * MediaQuery.of(context).size.height * 0.5 -
                 MediaQuery.of(context).padding.top,
             left: 0,
             right: 0,
@@ -176,7 +182,7 @@ class _StartState extends State<Start> {
                                   (context) => AlertDialog(
                                     title: Text(title),
                                     content: const Text(
-                                      'Möchten Sie die Aufnahme wirklich abbrechen? Alle ungespeicherten Änderungen gehen verloren.',
+                                      'Ungespeicherten Änderungen gehen verloren.',
                                     ),
                                     actionsAlignment: MainAxisAlignment.spaceBetween,
                                     actions: [
@@ -190,7 +196,7 @@ class _StartState extends State<Start> {
                                           backgroundColor: Theme.of(context).colorScheme.error,
                                           foregroundColor: Colors.white,
                                         ),
-                                        child: const Text('Aufnahme abbrechen'),
+                                        child: const Text('Änderungen verwerfen'),
                                       ),
                                     ],
                                   ),
@@ -247,7 +253,7 @@ class _StartState extends State<Start> {
   Widget _buildBottomSheet() {
     // Calculate maxChildSize based on screen height minus 100px
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxHeight = screenHeight - 120;
+    final maxHeight = screenHeight - 20;
     _maxChildSize = maxHeight / screenHeight;
 
     return DraggableScrollableSheet(
@@ -264,17 +270,32 @@ class _StartState extends State<Start> {
           ),
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                // Drag Handle as a pinned header
-                SliverPersistentHeader(pinned: true, delegate: _DragHandleDelegate()),
-
+            child: Column(
+              children: [
+                // Drag Handle
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
                 // Content Area with Beamer routing
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: maxHeight - 28, // Subtract drag handle height
-                    child: Beamer(routerDelegate: _beamerDelegate),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * _maxChildSize - 28,
+                        child: Beamer(routerDelegate: _beamerDelegate),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -284,42 +305,4 @@ class _StartState extends State<Start> {
       },
     );
   }
-
-  @override
-  void dispose() {
-    _sheetController.removeListener(_onSheetChanged);
-    _beamerDelegate.dispose();
-    _sheetController.dispose();
-    super.dispose();
-  }
-}
-
-// Delegate for the drag handle that stays pinned at the top
-class _DragHandleDelegate extends SliverPersistentHeaderDelegate {
-  @override
-  double get minExtent => 28.0;
-
-  @override
-  double get maxExtent => 28.0;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Center(
-        child: Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => false;
 }

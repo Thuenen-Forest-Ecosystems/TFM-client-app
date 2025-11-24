@@ -125,6 +125,14 @@ class _MapWidgetState extends State<MapWidget> {
           _selectedBasemaps = savedBasemaps.toSet();
         });
         debugPrint('Loaded saved basemaps: $savedBasemaps');
+      } else {
+        // First installation: select all basemaps by default
+        setState(() {
+          _selectedBasemaps = {'osm', 'topo_offline', 'dop'};
+        });
+        // Save the default selection
+        await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
+        debugPrint('First installation: enabled all basemaps by default');
       }
     } catch (e) {
       debugPrint('Error loading map settings: $e');

@@ -56,16 +56,46 @@ const listOfLookupTables = [
   'lookup_accessibility',
 ];
 
-const lookupTemplate = [Column.text('name_de'), Column.text('name_en'), Column.text('interval'), Column.integer('sort'), Column.text('code')];
+const lookupTemplate = [
+  Column.text('name_de'),
+  Column.text('name_en'),
+  Column.text('interval'),
+  Column.integer('sort'),
+  Column.text('code'),
+];
 
 Schema schema = Schema(([
   const Table.localOnly('device_settings', [Column.text('key'), Column.text('value')]),
-  const Table.localOnly('user_settings', [Column.text('value'), Column.text('key'), Column.text('user_id')]),
-  const Table.localOnly('settings', [Column.text('sortGeneral'), Column.text('user_id'), Column.text('language')]),
-  const Table.localOnly('plot_nested_json', [Column.text('cluster_id'), Column.text('plot'), Column.text('tree'), Column.text('deadwood')]),
+  const Table.localOnly('user_settings', [
+    Column.text('value'),
+    Column.text('key'),
+    Column.text('user_id'),
+  ]),
+  const Table.localOnly('settings', [
+    Column.text('sortGeneral'),
+    Column.text('user_id'),
+    Column.text('language'),
+  ]),
+  const Table.localOnly('plot_nested_json', [
+    Column.text('cluster_id'),
+    Column.text('plot'),
+    Column.text('tree'),
+    Column.text('deadwood'),
+  ]),
 
-  const Table('users_profile', [Column.integer('is_organization_admin'), Column.integer('is_database_admin'), Column.integer('is_admin'), Column.text('organization_id'), Column.text('email')]),
-  const Table('users_permissions', [Column.text('created_at'), Column.text('user_id'), Column.text('organization_id'), Column.integer('is_organization_admin')]),
+  const Table('users_profile', [
+    Column.integer('is_organization_admin'),
+    Column.integer('is_database_admin'),
+    Column.integer('is_admin'),
+    Column.text('organization_id'),
+    Column.text('email'),
+  ]),
+  const Table('users_permissions', [
+    Column.text('created_at'),
+    Column.text('user_id'),
+    Column.text('organization_id'),
+    Column.integer('is_organization_admin'),
+  ]),
   const Table('schemas', [
     Column.text('created_at'),
     Column.text('updated_at'),
@@ -94,6 +124,9 @@ Schema schema = Schema(([
     Column.text('responsible_provider'),
     Column.text('responsible_state'),
     Column.text('responsible_troop'),
+    Column.text('completed_at_state'),
+    Column.text('completed_at_troop'),
+    Column.text('completed_at_administration'),
   ]),
   const Table('organizations', [
     Column.text('apex_domain'),
@@ -106,7 +139,13 @@ Schema schema = Schema(([
     Column.integer('can_admin_organization'),
     Column.integer('can_admin_troop'),
   ]),
-  const Table('troop', [Column.text('plot_ids'), Column.text('name'), Column.text('supervisor_id'), Column.text('user_ids'), Column.text('organization_id')]),
+  const Table('troop', [
+    Column.text('plot_ids'),
+    Column.text('name'),
+    Column.text('supervisor_id'),
+    Column.text('user_ids'),
+    Column.text('organization_id'),
+  ]),
 
   ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),

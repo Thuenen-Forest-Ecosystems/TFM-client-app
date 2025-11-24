@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 
 class GenericTextField extends StatefulWidget {
   final String fieldName;
@@ -36,12 +38,23 @@ class _GenericTextFieldState extends State<GenericTextField> {
   void didUpdateWidget(GenericTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      _initializeControllers();
+      _updateControllers();
     }
   }
 
+  String? _getType() {
+    final typeValue = widget.fieldSchema['type'];
+    if (typeValue is String) {
+      return typeValue;
+    } else if (typeValue is List) {
+      // Get the first non-null type from the list
+      return typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+    }
+    return null;
+  }
+
   void _initializeControllers() {
-    final type = widget.fieldSchema['type'];
+    final type = _getType();
 
     if (type == 'boolean') {
       _boolValue = widget.value == true;
@@ -50,16 +63,37 @@ class _GenericTextFieldState extends State<GenericTextField> {
     }
   }
 
+  void _updateControllers() {
+    final type = _getType();
+    final newValue = widget.value?.toString() ?? '';
+
+    if (type == 'boolean') {
+      _boolValue = widget.value == true;
+    } else {
+      // Only update controller text if it's different to avoid cursor position reset
+      if (_controller.text != newValue) {
+        _controller.text = newValue;
+      }
+    }
+  }
+
   @override
   void dispose() {
-    if (widget.fieldSchema['type'] != 'boolean') {
+    if (_getType() != 'boolean') {
       _controller.dispose();
     }
     super.dispose();
   }
 
   String? _getLabel() {
-    return widget.fieldSchema['title'] as String? ?? widget.fieldName;
+    final title = widget.fieldSchema['title'] as String? ?? widget.fieldName;
+    final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+    final unit = tfmData?['unit_short'] as String?;
+
+    if (unit != null && unit.isNotEmpty) {
+      return '$title [$unit]';
+    }
+    return title;
   }
 
   String? _getDescription() {
@@ -73,7 +107,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final type = widget.fieldSchema['type'];
+    final type = _getType();
     final hasErrors = widget.errors.isNotEmpty;
 
     // Handle boolean with Switch
@@ -139,7 +173,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
         if (nameDe != null && index < nameDe.length) {
           final germanName = nameDe[index];
-          return germanName != null ? '$germanName ($value)' : value.toString();
+          return germanName != null ? '$value | $germanName' : value.toString();
         }
         return value.toString();
       }
@@ -155,50 +189,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
         ),
         controller: TextEditingController(text: getDisplayText(widget.value)),
         onTap: () async {
-          final selected = await showDialog<dynamic>(
+          final selected = await GenericEnumDialog.show(
             context: context,
-            builder:
-                (context) => AlertDialog(
-                  title: Text(_getLabel() ?? widget.fieldName),
-                  content: SizedBox(
-                    width: double.maxFinite,
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: enumValues.length,
-                      itemBuilder: (context, index) {
-                        final enumValue = enumValues[index];
-                        String displayText;
-
-                        if (nameDe != null && index < nameDe.length) {
-                          final germanName = nameDe[index];
-                          displayText =
-                              germanName != null
-                                  ? '$germanName ($enumValue)'
-                                  : enumValue.toString();
-                        } else {
-                          displayText = enumValue.toString();
-                        }
-
-                        final isSelected = widget.value == enumValue;
-
-                        return ListTile(
-                          title: Text(displayText),
-                          selected: isSelected,
-                          trailing: isSelected ? const Icon(Icons.check) : null,
-                          onTap: () {
-                            Navigator.of(context).pop(enumValue);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Abbrechen'),
-                    ),
-                  ],
-                ),
+            fieldName: widget.fieldName,
+            fieldSchema: widget.fieldSchema,
+            currentValue: widget.value,
+            enumValues: enumValues,
+            nameDe: nameDe,
           );
 
           if (selected != null) {
@@ -212,11 +209,31 @@ class _GenericTextFieldState extends State<GenericTextField> {
     if (type == 'number' || type == 'integer') {
       return TextField(
         controller: _controller,
+        textAlign: TextAlign.right,
         decoration: InputDecoration(
           labelText: _getLabel(),
           helperText: _getDescription(),
           errorText: _getErrorText(),
           border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          suffixIcon: SpeechToTextButton(
+            controller: _controller,
+            fieldType: type,
+            onTextChanged: () {
+              final value = _controller.text;
+              if (value.isEmpty) {
+                widget.onChanged?.call(null);
+                return;
+              }
+
+              if (type == 'integer') {
+                final intValue = int.tryParse(value);
+                widget.onChanged?.call(intValue);
+              } else {
+                final doubleValue = double.tryParse(value);
+                widget.onChanged?.call(doubleValue);
+              }
+            },
+          ),
         ),
         keyboardType:
             type == 'integer'
@@ -251,6 +268,14 @@ class _GenericTextFieldState extends State<GenericTextField> {
         helperText: _getDescription(),
         errorText: _getErrorText(),
         border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        suffixIcon: SpeechToTextButton(
+          controller: _controller,
+          fieldType: 'string',
+          onTextChanged: () {
+            final value = _controller.text;
+            widget.onChanged?.call(value.isEmpty ? null : value);
+          },
+        ),
       ),
       maxLines:
           widget.fieldSchema['maxLength'] != null && (widget.fieldSchema['maxLength'] as int) > 100

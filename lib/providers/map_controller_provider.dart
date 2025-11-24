@@ -41,10 +41,18 @@ class MapControllerProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void moveToLocation(LatLng location, {double zoom = 15.0}) {
+    if (_flutterMapController != null) {
+      _flutterMapController!.move(location, zoom);
+      debugPrint('Map moved to: ${location.latitude}, ${location.longitude} at zoom $zoom');
+    } else {
+      debugPrint('Cannot move map: controller not initialized');
+    }
+  }
+
   void showDistanceLine(LatLng from, LatLng to) {
     _distanceLineFrom = from;
     _distanceLineTo = to;
-    debugPrint('Distance line set from $from to $to');
     notifyListeners();
   }
 

@@ -126,7 +126,13 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
         // Update cache
         final provider = context.read<RecordsListProvider>();
-        provider.cacheRecords(widget.intervalName, _orderBy, _allRecords, _currentPage, _hasMoreData);
+        provider.cacheRecords(
+          widget.intervalName,
+          _orderBy,
+          _allRecords,
+          _currentPage,
+          _hasMoreData,
+        );
       }
     } catch (e) {
       print('Error loading more data: $e');
@@ -205,11 +211,18 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       case ClusterOrderBy.distance:
         if (_currentPosition == null) {
           // Fallback to name ordering if no location
-          records = await RecordsRepository().getRecordsGroupedByCluster(orderBy: 'cluster_name', offset: offset, limit: limit);
+          records = await RecordsRepository().getRecordsGroupedByCluster(
+            orderBy: 'cluster_name',
+            offset: offset,
+            limit: limit,
+          );
         } else {
           // For distance ordering, we need to fetch all and sort in Dart, then paginate
           // This is a limitation of calculating distance in Dart
-          final allRecords = await RecordsRepository().getRecordsGroupedByClusterOrderedByDistance(latitude: _currentPosition!.latitude, longitude: _currentPosition!.longitude);
+          final allRecords = await RecordsRepository().getRecordsGroupedByClusterOrderedByDistance(
+            latitude: _currentPosition!.latitude,
+            longitude: _currentPosition!.longitude,
+          );
           // Apply filters before pagination
           final filteredRecords = _applyFilters(allRecords);
           // Paginate the sorted results
@@ -221,7 +234,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           return records.map((record) {
             final coords = record.getCoordinates();
             if (coords != null) {
-              final distance = _calculateDistance(_currentPosition!.latitude, _currentPosition!.longitude, coords['latitude']!, coords['longitude']!);
+              final distance = _calculateDistance(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+                coords['latitude']!,
+                coords['longitude']!,
+              );
               return {'record': record, 'metadata': '${distance.toStringAsFixed(1)} km'};
             }
             return {'record': record, 'metadata': null};
@@ -233,7 +251,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       case ClusterOrderBy.updatedAt:
         records = await RecordsRepository().getAllRecords();
         records = _applyFilters(records);
-        return records.map((r) => {'record': r, 'metadata': _formatDate(r.properties['updated_at'])}).toList();
+        return records
+            .map((r) => {'record': r, 'metadata': _formatDate(r.properties['updated_at'])})
+            .toList();
 
       case ClusterOrderBy.clusterName:
         records = await RecordsRepository().getAllRecords();
@@ -268,7 +288,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     const earthRadiusKm = 6371.0;
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) + math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.sin(dLon / 2) * math.sin(dLon / 2);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadiusKm * c;
   }
@@ -315,7 +340,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final latitude = centerCoords['latitude'];
       final longitude = centerCoords['longitude'];
 
-      final uri = Uri.parse('geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encodeComponent(clusterName)})');
+      final uri = Uri.parse(
+        'geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encodeComponent(clusterName)})',
+      );
 
       launchUrl(uri);
     }
@@ -345,7 +372,14 @@ class _RecordsSelectionState extends State<RecordsSelection> {
               children: [
                 const SizedBox(width: 5),
                 Text('${clusterNames.length} Trakte'), // Show number of clusters and records
-                if (_isLoadingLocation) ...[const SizedBox(width: 8), const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))],
+                if (_isLoadingLocation) ...[
+                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ],
                 //align right
                 Expanded(child: Container()),
                 /*OrderClusterBy(
@@ -400,7 +434,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       itemBuilder: (context, index) {
                         // Show loading indicator at the end
                         if (index == clusterNames.length) {
-                          return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
                         }
 
                         final clusterName = clusterNames[index];
@@ -423,58 +462,102 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                           if (count > 0) {
                             final centerLat = sumLat / count;
                             final centerLng = sumLng / count;
-                            final distance = _calculateDistance(_currentPosition!.latitude, _currentPosition!.longitude, centerLat, centerLng);
+                            final distance = _calculateDistance(
+                              _currentPosition!.latitude,
+                              _currentPosition!.longitude,
+                              centerLat,
+                              centerLng,
+                            );
                             distanceText = '${distance.toStringAsFixed(1)} km';
                           }
                         }
 
+                        // Get plot names for title
+                        final plotNames = clusterRecords.map((r) => r.plotName).join(', ');
+
+                        // Check if any record in cluster has completed_at_troop set
+                        final isCompleted = clusterRecords.any((record) {
+                          final completedAtTroop = record.properties['completed_at_troop'];
+                          return completedAtTroop != null && completedAtTroop.toString().isNotEmpty;
+                        });
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          child: InkWell(
+                            onTap:
+                                clusterRecords.length == 1
+                                    ? () {
+                                      final record = clusterRecords.first;
+                                      Beamer.of(context).beamToNamed(
+                                        '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
+                                      );
+                                    }
+                                    : null,
+                            child: Row(
                               children: [
-                                // Cluster name header with focus button
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [Text(clusterName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), if (distanceText != null) Text(distanceText, style: TextStyle(fontSize: 14, color: Colors.grey[600]))],
-                                      ),
+                                // Status indicator
+                                Container(
+                                  width: 4,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: isCompleted ? Colors.green : Colors.red,
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(4),
+                                      bottomLeft: Radius.circular(4),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.map),
-                                      tooltip: 'Focus on map',
-                                      onPressed: () {
-                                        _focusClusterOnMap(clusterRecords);
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.directions_car),
-                                      tooltip: 'Open native navigation',
-                                      onPressed: () {
-                                        _openNativeNavigation(clusterRecords);
-                                      },
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                // Plot names as chips
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children:
-                                      clusterRecords.map((record) {
-                                        return ActionChip(
-                                          label: Text(record.plotName),
-                                          onPressed: () {
-                                            Beamer.of(context).beamToNamed('/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}');
-                                          },
-                                        );
-                                      }).toList(),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Cluster name header with plot numbers
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    '$clusterName | $plotNames',
+                                                    style: const TextStyle(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  if (distanceText != null)
+                                                    Text(
+                                                      distanceText,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.map),
+                                              tooltip: 'Focus on map',
+                                              onPressed: () {
+                                                _focusClusterOnMap(clusterRecords);
+                                              },
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.directions_car),
+                                              tooltip: 'Open native navigation',
+                                              onPressed: () {
+                                                _openNativeNavigation(clusterRecords);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -516,7 +599,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final latPadding = latRange > 0 ? latRange * 0.1 : 0.001;
       final lngPadding = lngRange > 0 ? lngRange * 0.1 : 0.001;
 
-      final bounds = LatLngBounds(LatLng(minLat - latPadding, minLng - lngPadding), LatLng(maxLat + latPadding, maxLng + lngPadding));
+      final bounds = LatLngBounds(
+        LatLng(minLat - latPadding, minLng - lngPadding),
+        LatLng(maxLat + latPadding, maxLng + lngPadding),
+      );
 
       // Set focus bounds in provider (MapWidget will respond)
       final mapControllerProvider = context.read<MapControllerProvider>();

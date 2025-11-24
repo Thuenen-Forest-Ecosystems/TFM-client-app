@@ -30,7 +30,11 @@ class ValidationService {
 
       // Initialize headless WebView with inline AJV
       _headlessWebView = HeadlessInAppWebView(
-        initialSettings: InAppWebViewSettings(javaScriptEnabled: true, allowUniversalAccessFromFileURLs: true, allowFileAccessFromFileURLs: true),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          allowUniversalAccessFromFileURLs: true,
+          allowFileAccessFromFileURLs: true,
+        ),
         initialData: InAppWebViewInitialData(
           data: '''
             <!DOCTYPE html>
@@ -133,19 +137,25 @@ class ValidationService {
       print('Result type: ${result.runtimeType}');
 
       if (result == null) {
-        return ValidationResult(isValid: false, errors: [ValidationError(message: 'Validation returned null')]);
+        return ValidationResult(
+          isValid: false,
+          errors: [ValidationError(message: 'Validation returned null')],
+        );
       }
 
       final resultMap = result is String ? jsonDecode(result) : result;
 
-      print('Result map: $resultMap');
-      print('Valid: ${resultMap['valid']}');
-      print('Errors: ${resultMap['errors']}');
-
-      return ValidationResult(isValid: resultMap['valid'] ?? false, errors: (resultMap['errors'] as List?)?.map((e) => ValidationError.fromJson(e)).toList() ?? []);
+      return ValidationResult(
+        isValid: resultMap['valid'] ?? false,
+        errors:
+            (resultMap['errors'] as List?)?.map((e) => ValidationError.fromJson(e)).toList() ?? [],
+      );
     } catch (e) {
       print('Validation error: $e');
-      return ValidationResult(isValid: false, errors: [ValidationError(message: 'Validation exception: $e')]);
+      return ValidationResult(
+        isValid: false,
+        errors: [ValidationError(message: 'Validation exception: $e')],
+      );
     }
   }
 
@@ -175,7 +185,14 @@ class ValidationError {
   final Map<String, dynamic>? params;
   final Map<String, dynamic> rawError;
 
-  ValidationError({this.instancePath, this.schemaPath, this.keyword, required this.message, this.params, Map<String, dynamic>? rawError}) : rawError = rawError ?? {};
+  ValidationError({
+    this.instancePath,
+    this.schemaPath,
+    this.keyword,
+    required this.message,
+    this.params,
+    Map<String, dynamic>? rawError,
+  }) : rawError = rawError ?? {};
 
   factory ValidationError.fromJson(Map<String, dynamic> json) {
     return ValidationError(

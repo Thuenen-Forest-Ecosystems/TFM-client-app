@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 
 class ArrayElementSyncfusion extends StatefulWidget {
   final Map<String, dynamic> jsonSchema;
@@ -26,6 +27,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   late DataGridSource _dataGridSource;
   late List<GridColumn> _columns;
   late List<Map<String, dynamic>> _rows;
+  final DataGridController _dataGridController = DataGridController();
 
   @override
   void initState() {
@@ -36,7 +38,9 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   @override
   void didUpdateWidget(ArrayElementSyncfusion oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.data != oldWidget.data || widget.jsonSchema != oldWidget.jsonSchema) {
+    // Only reinitialize if schema changes
+    // Don't reinitialize on data changes during validation as this resets user edits
+    if (widget.jsonSchema != oldWidget.jsonSchema) {
       _initializeGrid();
     }
   }
@@ -58,6 +62,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       columns: _columns,
       schema: properties ?? {},
       onCellUpdate: _onCellUpdate,
+      context: context,
     );
   }
 
@@ -186,9 +191,9 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
         columns: _columns,
         schema: properties ?? {},
         onCellUpdate: _onCellUpdate,
+        context: context,
       );
     });
-
     widget.onDataChanged?.call(_rows);
   }
 
@@ -206,6 +211,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           columns: _columns,
           schema: properties ?? {},
           onCellUpdate: _onCellUpdate,
+          context: context,
         );
       });
 
@@ -235,6 +241,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                   children: [
                     SfDataGrid(
                       source: _dataGridSource,
+                      controller: _dataGridController,
                       columns: _columns,
                       allowEditing: true,
                       allowSorting: false,
@@ -248,7 +255,12 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                       headerGridLinesVisibility: GridLinesVisibility.both,
                       horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
                       verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-                      selectionManager: SelectionManagerBase(),
+                      onCellTap: (DataGridCellTapDetails details) {
+                        // Automatically start editing on first tap (not header row)
+                        if (details.rowColumnIndex.rowIndex > 0) {
+                          _dataGridController.beginEdit(details.rowColumnIndex);
+                        }
+                      },
                       rowHeight: 56.0,
                       headerRowHeight: 56.0,
                     ),
@@ -256,19 +268,28 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                       Positioned.fill(
                         top: 56.0, // Position below header
                         child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.table_chart, size: 48, color: Colors.grey),
-                              const SizedBox(height: 16),
-                              const Text('No data available', style: TextStyle(color: Colors.grey)),
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: _addRow,
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add First Row'),
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.table_chart, size: 48, color: Colors.grey),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No data available',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: _addRow,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Add First Row'),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -277,12 +298,6 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
               ),
             ),
           ],
-        ),
-        // Floating Action Button
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton(onPressed: _addRow, child: const Icon(Icons.add)),
         ),
       ],
     );
@@ -295,6 +310,7 @@ class _ArrayDataSource extends DataGridSource {
     required List<GridColumn> columns,
     required Map<String, dynamic> schema,
     required this.onCellUpdate,
+    required this.context,
   }) {
     _rows = rows;
     _columns = columns;
@@ -307,6 +323,7 @@ class _ArrayDataSource extends DataGridSource {
   List<DataGridRow> _dataGridRows = [];
   Map<String, dynamic> _schema = {};
   final Function(int rowIndex, String columnName, dynamic newValue) onCellUpdate;
+  final BuildContext context;
 
   void _buildDataGridRows() {
     _dataGridRows =
@@ -546,47 +563,48 @@ class _ArrayDataSource extends DataGridSource {
     final tfm = schema['\$tfm'] as Map<String, dynamic>?;
     final namesDe = tfm?['name_de'] as List?;
 
-    // Remove duplicate values while preserving order
-    final uniqueValues = <dynamic>[];
-    final seen = <dynamic>{};
-    for (var value in enumValues) {
-      if (!seen.contains(value)) {
-        uniqueValues.add(value);
-        seen.add(value);
+    // Get display text for current value
+    String getDisplayText(dynamic value) {
+      if (value == null) return '';
+      final index = enumValues.indexOf(value);
+      if (index == -1) return value.toString();
+
+      if (namesDe != null && index < namesDe.length) {
+        final germanName = namesDe[index];
+        return germanName != null ? '$germanName ($value)' : value.toString();
       }
+      return value.toString();
     }
 
     return Container(
-      padding: const EdgeInsets.all(4.0),
+      padding: const EdgeInsets.all(8.0),
       alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 200),
-        child: DropdownButton<dynamic>(
-          value: cellValue,
-          isExpanded: true,
-          underline: const SizedBox(),
-          items:
-              uniqueValues.map<DropdownMenuItem<dynamic>>((value) {
-                final index = enumValues.indexOf(value);
-                final label =
-                    namesDe != null && index < namesDe.length
-                        ? namesDe[index]?.toString() ?? value?.toString() ?? 'null'
-                        : value?.toString() ?? 'null';
+      child: InkWell(
+        onTap: () async {
+          final selected = await GenericEnumDialog.show(
+            context: context,
+            fieldName: column.columnName,
+            fieldSchema: schema,
+            currentValue: cellValue,
+            enumValues: enumValues,
+            nameDe: namesDe,
+          );
 
-                return DropdownMenuItem<dynamic>(
-                  value: value,
-                  child: Text(label, overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
-          onChanged: (newValue) {
+          if (selected != null) {
             final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
             if (dataRowIndex != -1) {
-              _rows[dataRowIndex][column.columnName] = newValue;
+              _rows[dataRowIndex][column.columnName] = selected;
               _buildDataGridRows();
-              onCellUpdate(dataRowIndex, column.columnName, newValue);
+              onCellUpdate(dataRowIndex, column.columnName, selected);
             }
             submitCell();
-          },
+          }
+        },
+        child: Row(
+          children: [
+            Expanded(child: Text(getDisplayText(cellValue), overflow: TextOverflow.ellipsis)),
+            const Icon(Icons.arrow_drop_down, size: 20),
+          ],
         ),
       ),
     );
