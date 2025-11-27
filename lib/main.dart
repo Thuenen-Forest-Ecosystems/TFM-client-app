@@ -28,6 +28,8 @@ import 'package:intl/intl.dart';
 import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
+import 'package:terrestrial_forest_monitor/services/app_lifecycle_manager.dart';
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
 
 // NEW SCREENS -----
@@ -116,6 +118,9 @@ void main() async {
     print('Error loading .env file: $e');
   }
 
+  // Initialize background sync service
+  await BackgroundSyncService.initialize();
+
   // Save Map offline
   if (!kIsWeb) {
     print('Offline Map Cache');
@@ -134,6 +139,9 @@ void main() async {
 
     // Initialize validation service
     await ValidationService.instance.initialize();
+
+    // Initialize app lifecycle manager to keep sync running in background
+    await appLifecycleManager.initialize();
   } catch (e) {
     print('Error opening database: $e');
     // Rethrow to prevent app from continuing with broken state

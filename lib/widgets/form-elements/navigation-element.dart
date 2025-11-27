@@ -4,6 +4,8 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'dart:math' as math;
 
+import 'package:terrestrial_forest_monitor/widgets/form-elements/record-position.dart';
+
 class NavigationElement extends StatefulWidget {
   final Map<String, dynamic>? jsonSchema;
   final Map<String, dynamic>? data;
@@ -12,13 +14,24 @@ class NavigationElement extends StatefulWidget {
   final ValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
 
-  const NavigationElement({super.key, this.jsonSchema, this.data, this.previous_properties, this.propertyName, this.validationResult, this.onDataChanged});
+  const NavigationElement({
+    super.key,
+    this.jsonSchema,
+    this.data,
+    this.previous_properties,
+    this.propertyName,
+    this.validationResult,
+    this.onDataChanged,
+  });
 
   @override
   State<NavigationElement> createState() => _NavigationElementState();
 }
 
-class _NavigationElementState extends State<NavigationElement> {
+class _NavigationElementState extends State<NavigationElement> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   double? _extractDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
@@ -32,7 +45,12 @@ class _NavigationElementState extends State<NavigationElement> {
     const earthRadiusMeters = 6371000.0;
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) + math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.sin(dLon / 2) * math.sin(dLon / 2);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadiusMeters * c;
   }
@@ -41,7 +59,9 @@ class _NavigationElementState extends State<NavigationElement> {
   double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {
     final dLon = _toRadians(lon2 - lon1);
     final y = math.sin(dLon) * math.cos(_toRadians(lat2));
-    final x = math.cos(_toRadians(lat1)) * math.sin(_toRadians(lat2)) - math.sin(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.cos(dLon);
+    final x =
+        math.cos(_toRadians(lat1)) * math.sin(_toRadians(lat2)) -
+        math.sin(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.cos(dLon);
     final bearingRadians = math.atan2(y, x);
     final bearingDegrees = _toDegrees(bearingRadians);
     // Convert to 0-360 range
@@ -60,12 +80,22 @@ class _NavigationElementState extends State<NavigationElement> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
     // Watch GPS provider to automatically rebuild when position changes
     final gpsProvider = context.watch<GpsPositionProvider>();
     final userPosition = gpsProvider.lastPosition;
 
     if (widget.previous_properties?['plot_coordinates'] == null) {
-      return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('No plot coordinates available for navigation.', style: TextStyle(color: Colors.grey[600], fontSize: 16))));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            'No plot coordinates available for navigation.',
+            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+          ),
+        ),
+      );
     }
 
     // Calculate navigation in build method
@@ -82,7 +112,9 @@ class _NavigationElementState extends State<NavigationElement> {
           final centerLocation = plotCoordinates['center_location'];
           if (centerLocation != null) {
             // Handle GeoJSON Point format
-            if (centerLocation is Map && centerLocation['type'] == 'Point' && centerLocation['coordinates'] is List) {
+            if (centerLocation is Map &&
+                centerLocation['type'] == 'Point' &&
+                centerLocation['coordinates'] is List) {
               final coords = centerLocation['coordinates'] as List;
               if (coords.length >= 2) {
                 targetLng = _extractDouble(coords[0]);
@@ -91,8 +123,18 @@ class _NavigationElementState extends State<NavigationElement> {
             }
 
             if (targetLat != null && targetLng != null) {
-              distance = _calculateDistance(userPosition.latitude, userPosition.longitude, targetLat, targetLng);
-              bearing = _calculateBearing(userPosition.latitude, userPosition.longitude, targetLat, targetLng);
+              distance = _calculateDistance(
+                userPosition.latitude,
+                userPosition.longitude,
+                targetLat,
+                targetLng,
+              );
+              bearing = _calculateBearing(
+                userPosition.latitude,
+                userPosition.longitude,
+                targetLat,
+                targetLng,
+              );
             }
           }
         }
@@ -102,32 +144,62 @@ class _NavigationElementState extends State<NavigationElement> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text('Datenaufnahme Position', style: Theme.of(context).textTheme.titleMedium),
+          RecordPosition(
+            data: widget.data,
+            previous_properties: widget.previous_properties,
+            propertyName: widget.propertyName,
+            onDataChanged: widget.onDataChanged,
+            validationResult: widget.validationResult,
+            jsonSchema: widget.jsonSchema,
+          ),
+          const SizedBox(height: 12),
+          Text('Navigation', style: Theme.of(context).textTheme.titleMedium),
           Card(
-            elevation: 4,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(children: [const Text('Navigation')]),
                   if (distance != null && bearing != null) ...[
-                    _buildNavigationItem(icon: Icons.straighten, label: 'Distanz', value: _formatDistance(distance)),
-                    const SizedBox(height: 12),
-                    _buildNavigationItem(icon: Icons.explore, label: 'Richtung', value: '${bearing.toStringAsFixed(1)} gon'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          child: _buildNavigationItem(
+                            icon: Icons.straighten,
+                            label: 'Distanz',
+                            value: _formatDistance(distance),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildNavigationItem(
+                            icon: Icons.explore,
+                            label: 'Richtung',
+                            value: '${bearing.toStringAsFixed(1)} gon',
+                          ),
+                        ),
+                      ],
+                    ),
                   ] else ...[
                     Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(10),
                         child: Column(
                           children: [
                             Icon(Icons.location_searching, size: 48, color: Colors.grey[400]),
                             const SizedBox(height: 8),
-                            Text('Waiting for GPS position...', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                            Text(
+                              'Waiting for GPS position...',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                            ),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
                               onPressed: () {
@@ -141,8 +213,16 @@ class _NavigationElementState extends State<NavigationElement> {
                               label: const Text('Start GPS'),
                             ),
                             const SizedBox(height: 8),
-                            if (userPosition == null && widget.data != null) Text('GPS position is null', style: TextStyle(color: Colors.red[400], fontSize: 12)),
-                            if (userPosition != null && widget.data == null) Text('Data is null', style: TextStyle(color: Colors.red[400], fontSize: 12)),
+                            if (userPosition == null && widget.data != null)
+                              Text(
+                                'GPS position is null',
+                                style: TextStyle(color: Colors.red[400], fontSize: 12),
+                              ),
+                            if (userPosition != null && widget.data == null)
+                              Text(
+                                'Data is null',
+                                style: TextStyle(color: Colors.red[400], fontSize: 12),
+                              ),
                           ],
                         ),
                       ),
@@ -152,7 +232,7 @@ class _NavigationElementState extends State<NavigationElement> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          /*const SizedBox(height: 12),
           Card(
             elevation: 4,
             child: Padding(
@@ -163,7 +243,11 @@ class _NavigationElementState extends State<NavigationElement> {
                   Row(children: [const Text('Plot Coordinates')]),
                   const SizedBox(height: 12),
                   if (targetLat != null && targetLng != null)
-                    _buildNavigationItem(icon: Icons.map, label: 'Koordinaten', value: '${targetLat.toStringAsFixed(6)}, ${targetLng.toStringAsFixed(6)}')
+                    _buildNavigationItem(
+                      icon: Icons.map,
+                      label: 'Koordinaten',
+                      value: '${targetLat.toStringAsFixed(6)}, ${targetLng.toStringAsFixed(6)}',
+                    )
                   else
                     _buildNavigationItem(icon: Icons.map, label: 'Koordinaten', value: 'N/A'),
                 ],
@@ -181,38 +265,75 @@ class _NavigationElementState extends State<NavigationElement> {
                   Row(children: [const Text('Current Position')]),
                   const SizedBox(height: 12),
                   if (userPosition != null) ...[
-                    _buildNavigationItem(icon: Icons.my_location, label: 'Koordinaten', value: '${userPosition.latitude.toStringAsFixed(6)}, ${userPosition.longitude.toStringAsFixed(6)}'),
+                    _buildNavigationItem(
+                      icon: Icons.my_location,
+                      label: 'Koordinaten',
+                      value:
+                          '${userPosition.latitude.toStringAsFixed(6)}, ${userPosition.longitude.toStringAsFixed(6)}',
+                    ),
                     const SizedBox(height: 12),
-                    _buildNavigationItem(icon: Icons.speed, label: 'Genauigkeit', value: '${userPosition.accuracy.toStringAsFixed(1)} m'),
+                    _buildNavigationItem(
+                      icon: Icons.speed,
+                      label: 'Genauigkeit',
+                      value: '${userPosition.accuracy.toStringAsFixed(1)} m',
+                    ),
                     if (gpsProvider.currentNMEA != null) ...[
                       const SizedBox(height: 12),
-                      _buildNavigationItem(icon: Icons.satellite_alt, label: 'Satelliten', value: '${gpsProvider.currentNMEA!.satellites ?? 'N/A'}'),
-                      if (gpsProvider.currentNMEA!.hdop != null) ...[const SizedBox(height: 12), _buildNavigationItem(icon: Icons.tune, label: 'HDOP', value: gpsProvider.currentNMEA!.hdop!.toStringAsFixed(2))],
-                      if (gpsProvider.currentNMEA!.altitude != null) ...[const SizedBox(height: 12), _buildNavigationItem(icon: Icons.terrain, label: 'Höhe', value: '${gpsProvider.currentNMEA!.altitude!.toStringAsFixed(1)} m')],
+                      _buildNavigationItem(
+                        icon: Icons.satellite_alt,
+                        label: 'Satelliten',
+                        value: '${gpsProvider.currentNMEA!.satellites ?? 'N/A'}',
+                      ),
+                      if (gpsProvider.currentNMEA!.hdop != null) ...[
+                        const SizedBox(height: 12),
+                        _buildNavigationItem(
+                          icon: Icons.tune,
+                          label: 'HDOP',
+                          value: gpsProvider.currentNMEA!.hdop!.toStringAsFixed(2),
+                        ),
+                      ],
+                      if (gpsProvider.currentNMEA!.altitude != null) ...[
+                        const SizedBox(height: 12),
+                        _buildNavigationItem(
+                          icon: Icons.terrain,
+                          label: 'Höhe',
+                          value: '${gpsProvider.currentNMEA!.altitude!.toStringAsFixed(1)} m',
+                        ),
+                      ],
                     ],
                   ] else
-                    _buildNavigationItem(icon: Icons.my_location, label: 'Koordinaten', value: 'N/A'),
+                    _buildNavigationItem(
+                      icon: Icons.my_location,
+                      label: 'Koordinaten',
+                      value: 'N/A',
+                    ),
                 ],
               ),
             ),
-          ),
+          ),*/
         ],
       ),
     );
   }
 
-  Widget _buildNavigationItem({required IconData icon, required String label, required String value}) {
+  Widget _buildNavigationItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)), const SizedBox(height: 4), Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))],
-            ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
           ),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ],
       ),
     );

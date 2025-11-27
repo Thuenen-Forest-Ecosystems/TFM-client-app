@@ -28,16 +28,20 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     super.initState();
     _connectionState = db.currentStatus;
     _syncStatusSubscription = db.statusStream.listen((event) {
-      setState(() {
-        _connectionState = db.currentStatus;
-      });
+      if (mounted) {
+        setState(() {
+          _connectionState = db.currentStatus;
+        });
+      }
     });
 
     // Listen to network connectivity changes
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
-      setState(() {
-        _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
-      });
+      if (mounted) {
+        setState(() {
+          _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
+        });
+      }
     });
 
     // Check initial connectivity
@@ -46,9 +50,11 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
 
   Future<void> _checkInitialConnectivity() async {
     final results = await Connectivity().checkConnectivity();
-    setState(() {
-      _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
-    });
+    if (mounted) {
+      setState(() {
+        _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
+      });
+    }
   }
 
   @override
@@ -146,18 +152,6 @@ IconData _getStatusIconData(SyncStatus status) {
   }
 }
 
-Color _getStatusColor(SyncStatus status) {
-  if (status.anyError != null) {
-    return Colors.red.shade600;
-  } else if (!status.connected) {
-    return Colors.orange.shade700;
-  } else if (status.connecting || status.uploading || status.downloading) {
-    return Colors.blue.shade600;
-  } else {
-    return Colors.green.shade600;
-  }
-}
-
 String _getStatusText(SyncStatus status) {
   if (!status.connected) {
     return 'Offline';
@@ -202,6 +196,25 @@ void _showStatusDialog(BuildContext context, SyncStatus status) {
                 const SizedBox(height: 4),
                 Text(status.anyError.toString(), style: const TextStyle(fontSize: 12)),
               ],
+              const Divider(),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.sync, size: 18, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Background Sync Active',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Sync continues even when app is in background or device is sleeping.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ),
         ),
@@ -253,6 +266,30 @@ void _showOfflineDialog(BuildContext context, bool networkAvailable) {
                   'synchronisiert, sobald Sie wieder online sind.',
                 ),
               ],
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Hintergrund-Synchronisierung',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Die Synchronisierung läuft auch weiter, wenn:\n'
+                '• Die App im Hintergrund ist\n'
+                '• Das Gerät schläft\n'
+                '• Eine andere App im Fokus ist\n\n'
+                'Die App muss nur geöffnet bleiben (nicht geschlossen werden).',
+                style: TextStyle(fontSize: 12),
+              ),
             ],
           ),
         ),

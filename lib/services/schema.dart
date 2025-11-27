@@ -84,11 +84,12 @@ Schema schema = Schema(([
   ]),
 
   const Table('users_profile', [
-    Column.integer('is_organization_admin'),
+    //Column.integer('is_organization_admin'),
     Column.integer('is_database_admin'),
     Column.integer('is_admin'),
     Column.text('organization_id'),
     Column.text('email'),
+    Column.text('user_name'),
   ]),
   const Table('users_permissions', [
     Column.text('created_at'),

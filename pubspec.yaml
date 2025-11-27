@@ -109,6 +109,8 @@ dependencies:
 
   flutter_secure_storage: ^9.2.4 # For encrypted credential storage (compatible with maplibre_gl)
   local_auth: ^2.3.0 # Optional: for biometric authentication
+  workmanager: ^0.9.0+3
+  wakelock_plus: ^1.4.0
 
 dependency_overrides:
   # because of https://github.com/jpnurmi/flutter_libserialport/issues/128

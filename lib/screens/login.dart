@@ -247,11 +247,11 @@ class _LoginState extends State<Login> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
-                              'Für die Nutzung ist eine Einladung durch das Thünen Institut erforderlich.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
+                            //const Text(
+                            //  'Für die Nutzung ist eine Einladung durch das Thünen Institut erforderlich.',
+                            //  textAlign: TextAlign.center,
+                            //  style: TextStyle(fontSize: 12, color: Colors.grey),
+                            //),
                             const Spacer(),
                             const Image(image: AssetImage('assets/logo/tfm.png'), height: 100),
                             const SizedBox(height: 10),

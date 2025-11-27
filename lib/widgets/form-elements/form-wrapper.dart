@@ -52,7 +52,7 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>;
     final tabs = <String>[];
 
-    if (schemaProperties.containsKey('plot_coordinates')) {
+    if (schemaProperties.containsKey('position')) {
       tabs.add('Position');
     }
     tabs.add('Trakt');
@@ -188,7 +188,7 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     String propertyName;
     switch (tab) {
       case 'Position':
-        propertyName = 'plot_coordinates';
+        propertyName = 'position';
         break;
       case 'Tree':
         propertyName = 'tree';
@@ -286,13 +286,13 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
                 _tabs.map((tab) {
                   if (tab == 'Position') {
                     return NavigationElement(
-                      jsonSchema: schemaProperties['plot_coordinates'],
+                      jsonSchema: schemaProperties['position'],
                       data: _localFormData,
                       propertyName: 'position',
                       previous_properties: _previousProperties,
                       validationResult: widget.validationResult,
                       onDataChanged: (updatedData) {
-                        _updateField('plot_coordinates', updatedData);
+                        _updateField('position', updatedData);
                       },
                     );
                   } else if (tab == 'Trakt') {

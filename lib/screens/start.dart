@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
+import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
 
 //import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
@@ -14,6 +15,8 @@ import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.da
 import 'package:terrestrial_forest_monitor/screens/inventory/records-selection.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/properties-edit.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
+import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 //import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
 
 class Start extends StatefulWidget {
@@ -27,6 +30,7 @@ class _StartState extends State<Start> {
   final DraggableScrollableController _sheetController = DraggableScrollableController();
   late final BeamerDelegate _beamerDelegate;
   double _currentSheetSize = 0.25; // Track current sheet size
+  bool _isLoadingData = true;
 
   // Initial position of bottom sheet (25% of screen height)
   final double _initialChildSize = 0.25;
@@ -40,12 +44,16 @@ class _StartState extends State<Start> {
     // Listen to sheet controller changes
     _sheetController.addListener(_onSheetChanged);
 
+    // Preload all records data into cache
+    _preloadRecordsData();
+
     _beamerDelegate = BeamerDelegate(
       initialPath: '/',
       locationBuilder: RoutesLocationBuilder(
         routes: {
-          //'/': (context, state, data) => BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection()),
-          //'/schema-selection': (context, state, data) => BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection()),
+          '/':
+              (context, state, data) =>
+                  BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection()),
           '/records-selection/:intervalName': (context, state, data) {
             final intervalName = state.pathParameters['intervalName'];
             if (intervalName == null || intervalName.isEmpty) {
@@ -93,6 +101,74 @@ class _StartState extends State<Start> {
     }
   }
 
+  Future<void> _preloadRecordsData() async {
+    int retryCount = 0;
+    const maxRetries = 2;
+
+    while (retryCount < maxRetries) {
+      try {
+        debugPrint('Start: Preloading all records data (attempt ${retryCount + 1}/$maxRetries)...');
+
+        // Load all records from database with longer timeout for initial load
+        final records = await RecordsRepository().getAllRecords();
+        debugPrint('Start: Loaded ${records.length} records');
+
+        if (!mounted) return;
+
+        // Only cache if we actually got records
+        if (records.isNotEmpty) {
+          // Store in provider cache as if it came from records-selection
+          // This way both map and list can use the same data
+          final recordsWithMetadata =
+              records.map((record) {
+                return {'record': record, 'metadata': null};
+              }).toList();
+
+          // Cache in provider with a generic key that map can find
+          final provider = context.read<RecordsListProvider>();
+          provider.cacheRecords(
+            'all', // Generic key
+            ClusterOrderBy.clusterName, // Default order
+            recordsWithMetadata,
+            0, // page
+            false, // hasMore
+          );
+
+          debugPrint('Start: Successfully cached ${records.length} records in provider');
+
+          if (mounted) {
+            setState(() {
+              _isLoadingData = false;
+            });
+          }
+          return; // Success, exit
+        } else {
+          debugPrint('Start: Query returned 0 records, will retry...');
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await Future.delayed(Duration(seconds: 2)); // Wait before retry
+          }
+        }
+      } catch (e) {
+        debugPrint('Start: Error preloading data (attempt ${retryCount + 1}): $e');
+        retryCount++;
+        if (retryCount < maxRetries) {
+          await Future.delayed(Duration(seconds: 2)); // Wait before retry
+        }
+      }
+    }
+
+    // All retries failed, still allow app to load
+    debugPrint(
+      'Start: Failed to preload data after $maxRetries attempts, continuing without cache',
+    );
+    if (mounted) {
+      setState(() {
+        _isLoadingData = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _sheetController.removeListener(_onSheetChanged);
@@ -121,9 +197,82 @@ class _StartState extends State<Start> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading screen while preloading data
+    if (_isLoadingData) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Lade Aufnahmepunkte...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     return BackButtonListener(
       onBackButtonPressed: () async {
         final currentPath = _beamerDelegate.currentBeamLocation.state.routeInformation.uri.path;
+
+        // If on properties-edit, show confirmation dialog before navigating back
+        if (currentPath.startsWith('/properties-edit')) {
+          final shouldNavigate = await showDialog<bool>(
+            context: context,
+            builder:
+                (context) => AlertDialog(
+                  title: const Text('Aufnahme abbrechen'),
+                  content: const Text('Ungespeicherten Änderungen gehen verloren.'),
+                  actionsAlignment: MainAxisAlignment.spaceBetween,
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('zurück'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Änderungen verwerfen'),
+                    ),
+                  ],
+                ),
+          );
+
+          if (shouldNavigate == true) {
+            final pathSegments = Uri.parse(currentPath).pathSegments;
+            if (pathSegments.length >= 3) {
+              final clusterName = Uri.decodeComponent(pathSegments[1]);
+              final plotName = Uri.decodeComponent(pathSegments[2]);
+
+              // Load the record to get the schemaName/intervalName
+              try {
+                final recordsRepository = RecordsRepository();
+                final records = await recordsRepository.getRecordsByClusterAndPlot(
+                  clusterName,
+                  plotName,
+                );
+
+                if (records.isNotEmpty) {
+                  final intervalName = records.first.schemaName;
+                  _beamerDelegate.beamToNamed(
+                    '/records-selection/${Uri.encodeComponent(intervalName)}',
+                  );
+                  return true;
+                }
+              } catch (e) {
+                debugPrint('Error loading record for back navigation: $e');
+              }
+            }
+            // Fallback to schema-selection if we can't determine intervalName
+            _beamerDelegate.beamToNamed('/');
+          }
+          return true; // Always consume the back button on properties-edit
+        }
 
         // If on records-selection, go back to schema-selection
         if (currentPath.startsWith('/records-selection')) {

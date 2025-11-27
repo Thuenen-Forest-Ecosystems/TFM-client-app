@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'package:terrestrial_forest_monitor/services/offline_auth_service.dart';
+import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
 import 'dart:async';
 
 class AuthProvider extends ChangeNotifier {
@@ -142,6 +143,13 @@ class AuthProvider extends ChangeNotifier {
                   : null,
         );
         print('AuthProvider: Credentials saved for offline use');
+
+        // Register background sync after successful login (runs every hour)
+        await BackgroundSyncService.registerPeriodicSync();
+
+        // Trigger an immediate one-time sync after login
+        await BackgroundSyncService.registerOneTimeSync(delay: const Duration(seconds: 5));
+        print('AuthProvider: Background sync registered (periodic + immediate)');
       }
 
       // User will be updated via the auth state listener
@@ -187,6 +195,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       // Clear selected organization before logging out
       await OrganizationSelectionService().clearSelectedOrganization();
+
+      // Cancel background sync when logging out
+      await BackgroundSyncService.cancelAll();
+      print('AuthProvider: Background sync cancelled');
 
       // DO NOT clear offline credentials - keep them for future offline login
       // Users should be able to log back in offline with the same credentials

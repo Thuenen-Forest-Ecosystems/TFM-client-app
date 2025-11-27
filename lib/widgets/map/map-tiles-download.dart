@@ -55,18 +55,24 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   }
 
   Future<void> _checkMissingTiles() async {
+    if (!mounted) return;
+
     setState(() {
       _isCheckingTiles = true;
     });
 
     try {
       final records = await RecordsRepository().getAllRecords();
+      if (!mounted) return;
+
       setState(() {
         _missingTilesCount = records.isNotEmpty ? -1 : 0; // -1 = ready to download
         _isCheckingTiles = false;
       });
     } catch (e) {
       print('[Check] Error checking records: $e');
+      if (!mounted) return;
+
       setState(() {
         _missingTilesCount = 0;
         _isCheckingTiles = false;
@@ -482,38 +488,41 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ListTile(
-          leading:
-              _isDownloading
-                  ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Icon(Icons.download),
-          title: const Text('Karten herunterladen'),
-          subtitle:
-              _isDownloading
-                  ? Text(
-                    '${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
-                    '(${(_downloadProgress * 100).toStringAsFixed(1)}%)',
-                  )
-                  : _isCheckingTiles
-                  ? const Text('Prüfe Aufnahmepunkte...')
-                  : _missingTilesCount == -1
-                  ? const Text('Bereit zum Herunterladen der Karten.')
-                  : const Text('Keine Aufnahmepunkte gefunden.'),
-          onTap: (_isDownloading || _isCheckingTiles) ? null : _downloadMapTilesFromRecordsBBox,
-          enabled: !_isDownloading && !_isCheckingTiles,
-        ),
-        if (_isDownloading)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: LinearProgressIndicator(value: _downloadProgress),
+    return Material(
+      color: Colors.transparent,
+      child: Column(
+        children: [
+          ListTile(
+            leading:
+                _isDownloading
+                    ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.download),
+            title: const Text('Karten herunterladen'),
+            subtitle:
+                _isDownloading
+                    ? Text(
+                      '${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
+                      '(${(_downloadProgress * 100).toStringAsFixed(1)}%)',
+                    )
+                    : _isCheckingTiles
+                    ? const Text('Prüfe Aufnahmepunkte...')
+                    : _missingTilesCount == -1
+                    ? const Text('Bereit zum Herunterladen der Karten.')
+                    : const Text('Keine Aufnahmepunkte gefunden.'),
+            onTap: (_isDownloading || _isCheckingTiles) ? null : _downloadMapTilesFromRecordsBBox,
+            enabled: !_isDownloading && !_isCheckingTiles,
           ),
-      ],
+          if (_isDownloading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: LinearProgressIndicator(value: _downloadProgress),
+            ),
+        ],
+      ),
     );
   }
 }

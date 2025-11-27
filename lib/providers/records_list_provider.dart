@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:geolocator/geolocator.dart';
-//import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
+import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 
 class RecordsListProvider extends ChangeNotifier {
   // Cache for records list
@@ -10,6 +10,38 @@ class RecordsListProvider extends ChangeNotifier {
   final Map<String, bool> _hasMoreDataCache = {};
 
   Position? _currentPosition;
+  String? _currentPermissionId;
+
+  RecordsListProvider() {
+    _initializePermissionListener();
+  }
+
+  void _initializePermissionListener() {
+    // Register listener for permission changes
+    OrganizationSelectionService().addPermissionChangeListener(_onPermissionChanged);
+
+    // Load current permission ID
+    OrganizationSelectionService().getSelectedPermissionId().then((permissionId) {
+      _currentPermissionId = permissionId;
+    });
+  }
+
+  void _onPermissionChanged(String newPermissionId) {
+    print('RecordsListProvider: Permission changed to $newPermissionId, clearing cache');
+
+    // Only clear if permission actually changed
+    if (_currentPermissionId != newPermissionId) {
+      _currentPermissionId = newPermissionId;
+      clearAllCache();
+      print('RecordsListProvider: Cache cleared due to permission change');
+    }
+  }
+
+  @override
+  void dispose() {
+    OrganizationSelectionService().removePermissionChangeListener(_onPermissionChanged);
+    super.dispose();
+  }
 
   // Get cached data for an interval and order
   List<Map<String, dynamic>>? getCachedRecords(String intervalName, ClusterOrderBy orderBy) {
@@ -83,7 +115,9 @@ class RecordsListProvider extends ChangeNotifier {
   }
 
   String _getCacheKey(String intervalName, ClusterOrderBy orderBy) {
-    return '$intervalName-${orderBy.name}';
+    // Include permission ID in cache key to isolate cache per permission
+    final permissionPart = _currentPermissionId ?? 'no-permission';
+    return '$permissionPart-$intervalName-${orderBy.name}';
   }
 
   // Check if we should invalidate cache (e.g., after sync)

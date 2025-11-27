@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // Add for compute
 import 'package:flutter_map/flutter_map.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -32,9 +34,11 @@ class _MapWidgetState extends State<MapWidget> {
   bool _markersLoaded = false;
   bool _isDisposed = false;
   bool _isMapReady = false;
+  bool _waitingForCache = false;
   StreamSubscription? _gpsSubscription;
   Timer? _debounceTimer;
   DateTime? _lastFocusTimestamp;
+  DateTime? _lastManualFocusTime;
   LatLng? _currentPosition;
   double? _currentAccuracy;
   Set<String> _selectedBasemaps = {
@@ -42,6 +46,9 @@ class _MapWidgetState extends State<MapWidget> {
   }; // Can select multiple: 'osm', 'topo_offline', 'dop'
   double _currentZoom = 5.5;
   LatLngBounds? _lastBounds;
+  bool _storesInitialized = false;
+  Record? _focusedRecord;
+  List<Map<String, dynamic>> _treePositions = [];
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -57,6 +64,9 @@ class _MapWidgetState extends State<MapWidget> {
   void initState() {
     super.initState();
 
+    // Initialize FMTC stores
+    _initializeTileStores();
+
     // Load saved basemap preference
     _loadMapSettings();
 
@@ -71,9 +81,6 @@ class _MapWidgetState extends State<MapWidget> {
           debugPrint('MapControllerProvider not found: $e');
         }
 
-        // Listen for updates from RecordsSelection
-        _checkForProviderUpdates();
-
         // Set up listener for MapControllerProvider focus bounds
         final mapControllerProvider = context.read<MapControllerProvider>();
         mapControllerProvider.addListener(_onMapControllerProviderChanged);
@@ -84,34 +91,120 @@ class _MapWidgetState extends State<MapWidget> {
   void _onMapControllerProviderChanged() {
     if (!_isDisposed && mounted && _isMapReady) {
       _checkForFocusBounds();
+      _checkForManualMove();
+      _checkForFocusedRecord();
     }
   }
 
-  void _checkForProviderUpdates() {
-    // Periodically check if provider has new data
-    if (!_isDisposed && mounted) {
-      final provider = context.read<RecordsListProvider>();
-      final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
+  void _checkForManualMove() {
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final manualMoveTimestamp = mapControllerProvider.lastManualMoveTimestamp;
 
-      if (cachedData != null && cachedData.isNotEmpty) {
-        final recordCount = cachedData.length;
+      if (manualMoveTimestamp != null && manualMoveTimestamp != _lastManualFocusTime) {
+        _lastManualFocusTime = manualMoveTimestamp;
+        debugPrint('Manual move detected at ${manualMoveTimestamp}');
+      }
+    } catch (e) {
+      debugPrint('Error checking manual move: $e');
+    }
+  }
 
-        // Update if we have different data
-        if (recordCount != _records.length) {
-          _loadRecordsFromProvider().then((_) {
-            // Trigger a rebuild to show new markers
-            if (mounted && !_isDisposed && _isMapReady) {
-              setState(() {});
-            }
+  void _checkForFocusedRecord() {
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final focusedRecord = mapControllerProvider.focusedRecord;
+
+      if (focusedRecord != _focusedRecord) {
+        setState(() {
+          _focusedRecord = focusedRecord;
+          _treePositions = focusedRecord != null ? _calculateTreePositions(focusedRecord) : [];
+        });
+        debugPrint(
+          'Focused record changed: ${focusedRecord?.plotName ?? "none"} with ${_treePositions.length} trees',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking focused record: $e');
+    }
+  }
+
+  List<Map<String, dynamic>> _calculateTreePositions(Record record) {
+    final List<Map<String, dynamic>> positions = [];
+    final recordCoords = record.getCoordinates();
+
+    if (recordCoords == null) return positions;
+
+    final centerLat = recordCoords['latitude']!;
+    final centerLng = recordCoords['longitude']!;
+
+    try {
+      final properties = record.properties;
+
+      // Check if trees data exists in properties
+      final trees = properties['trees'];
+      if (trees == null || trees is! List) return positions;
+
+      // Calculate position for each tree based on azimuth and distance
+      for (var tree in trees) {
+        if (tree is! Map) continue;
+
+        final azimuth = tree['azimuth'];
+        final distance = tree['distance'];
+        final treeNumber = tree['tree_number'];
+
+        if (azimuth != null && distance != null) {
+          // Calculate lat/lng offset
+          // 1 degree latitude ≈ 111km
+          // 1 degree longitude ≈ 111km * cos(latitude)
+          final distanceKm = distance / 1000.0;
+          final azimuthRad = azimuth * pi / 180.0;
+          final latOffset = distanceKm * (1.0 / 111.0) * cos(azimuthRad);
+          final lngOffset =
+              distanceKm * (1.0 / (111.0 * cos(centerLat * pi / 180.0))) * sin(azimuthRad);
+
+          positions.add({
+            'lat': centerLat + latOffset,
+            'lng': centerLng + lngOffset,
+            'tree_number': treeNumber,
+            'azimuth': azimuth,
+            'distance': distance,
+            'data': tree,
           });
         }
       }
+    } catch (e) {
+      debugPrint('Error calculating tree positions: $e');
+    }
 
-      // Check again after a delay (only if not disposed)
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!_isDisposed && mounted) {
-          _checkForProviderUpdates();
-        }
+    return positions;
+  }
+
+  Future<void> _initializeTileStores() async {
+    try {
+      // Initialize OpenTopoMap store
+      final openTopoStore = FMTCStore('opentopomap');
+      if (!(await openTopoStore.manage.ready)) {
+        await openTopoStore.manage.create();
+        debugPrint('Created opentopomap tile store');
+      }
+
+      // Initialize DOP store
+      final dopStore = FMTCStore('wms_dop__');
+      if (!(await dopStore.manage.ready)) {
+        await dopStore.manage.create();
+        debugPrint('Created wms_dop__ tile store');
+      }
+
+      setState(() {
+        _storesInitialized = true;
+      });
+      debugPrint('Tile stores initialized successfully');
+    } catch (e) {
+      debugPrint('Error initializing tile stores: $e');
+      // Set flag anyway to allow app to continue
+      setState(() {
+        _storesInitialized = true;
       });
     }
   }
@@ -175,6 +268,7 @@ class _MapWidgetState extends State<MapWidget> {
       // Only focus if this is a new request (timestamp changed)
       if (focusBounds != null && timestamp != null && timestamp != _lastFocusTimestamp) {
         _lastFocusTimestamp = timestamp;
+        _lastManualFocusTime = DateTime.now(); // Track manual focus
 
         debugPrint(
           'Focusing map on bounds: SW(${focusBounds.south}, ${focusBounds.west}) NE(${focusBounds.north}, ${focusBounds.east})',
@@ -198,42 +292,27 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   Future<void> _loadRecordsFromProvider() async {
-    final provider = context.read<RecordsListProvider>();
+    try {
+      final provider = context.read<RecordsListProvider>();
 
-    // Try to get cached records (shared with RecordsSelection)
-    final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
+      // Get cached records from provider (preloaded in start.dart)
+      final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
 
-    if (cachedData != null && cachedData.isNotEmpty) {
-      // Extract Record objects from cached data
-      final records = cachedData.map((item) => item['record'] as Record).toList();
-
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _records = records;
-          _markersLoaded = true;
-        });
-
-        debugPrint('MapWidget: Using ${records.length} cached records from provider');
-
-        // Update visible records and fit camera
-        if (_isMapReady) {
-          _updateVisibleRecords();
-        }
-        _fitCameraToMarkers();
-      }
-    } else {
-      // No cached data yet - load directly from database
-      debugPrint('MapWidget: Cache empty, loading records from database');
-      try {
-        final records = await RecordsRepository().getAllRecords();
+      if (cachedData != null && cachedData.isNotEmpty) {
+        // Extract Record objects from cached data and filter to only those with coordinates
+        final records =
+            cachedData
+                .map((item) => item['record'] as Record)
+                .where((record) => record.getCoordinates() != null)
+                .toList();
+        debugPrint('MapWidget: Using ${records.length} cached records with coordinates');
 
         if (mounted && !_isDisposed) {
           setState(() {
             _records = records;
             _markersLoaded = true;
+            _waitingForCache = false;
           });
-
-          debugPrint('MapWidget: Loaded ${records.length} records from database');
 
           // Update visible records and fit camera
           if (_isMapReady) {
@@ -241,9 +320,24 @@ class _MapWidgetState extends State<MapWidget> {
           }
           _fitCameraToMarkers();
         }
-      } catch (e) {
-        debugPrint('MapWidget: Error loading records: $e');
+      } else {
+        debugPrint('MapWidget: No cached records found, waiting for preload...');
+
+        // Set waiting flag and retry after a delay
+        if (mounted && !_isDisposed && !_waitingForCache) {
+          setState(() {
+            _waitingForCache = true;
+          });
+
+          // Retry after 500ms
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted && !_isDisposed) {
+            _loadRecordsFromProvider();
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('MapWidget: Error loading records: $e');
     }
   }
 
@@ -310,6 +404,17 @@ class _MapWidgetState extends State<MapWidget> {
 
   void _fitCameraToMarkers() {
     if (_records.isEmpty) return;
+
+    // Skip auto-fit if there was a recent manual focus (within 5 seconds)
+    if (_lastManualFocusTime != null) {
+      final timeSinceManualFocus = DateTime.now().difference(_lastManualFocusTime!);
+      if (timeSinceManualFocus.inSeconds < 5) {
+        debugPrint(
+          'Skipping auto-fit due to recent manual focus (${timeSinceManualFocus.inSeconds}s ago)',
+        );
+        return;
+      }
+    }
 
     final recordsWithCoords = _records.where((record) => record.getCoordinates() != null).toList();
     if (recordsWithCoords.isEmpty) return;
@@ -406,22 +511,32 @@ class _MapWidgetState extends State<MapWidget> {
 
       return Marker(
         point: LatLng(lat, lng),
-        width: 90,
-        height: 25,
-        alignment: Alignment.topCenter,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.black54, width: 1),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 2,
+        width: 85,
+        height: 20,
+        alignment: Alignment.bottomCenter,
+
+        child: GestureDetector(
+          onTap: () {
+            _onMarkerTapped(record);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.black54, width: 1),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
           ),
         ),
       );
@@ -430,7 +545,10 @@ class _MapWidgetState extends State<MapWidget> {
 
   void _onMarkerTapped(Record record) {
     debugPrint('Marker tapped: ${record.clusterName} - ${record.plotName}');
-    // Add your custom logic here for when a marker is clicked
+    // Navigate to the plot edit screen
+    Beamer.of(context).beamToNamed(
+      '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
+    );
   }
 
   void _onClusterTapped(List<Marker> markers) {
@@ -445,38 +563,13 @@ class _MapWidgetState extends State<MapWidget> {
   Widget _buildClusterMarker(BuildContext context, List<Marker> markers) {
     final pointCount = markers.length;
 
-    // Extract cluster names from all markers in this cluster
-    String displayText = '';
-    /*if (pointCount <= 4) {
-      // For small clusters, try to find the common cluster_name
-      final Set<String> clusterNames = {};
-
-      for (final marker in markers) {
-        // Find the record that corresponds to this marker
-        final record = _records.firstWhere((r) {
-          final coords = r.getCoordinates();
-          if (coords == null) return false;
-          final lat = coords['latitude'];
-          final lng = coords['longitude'];
-          return lat == marker.point.latitude && lng == marker.point.longitude;
-        }, orElse: () => _records.first);
-
-        if (record.clusterName.isNotEmpty) {
-          clusterNames.add(record.clusterName);
-          displayText = record.clusterName;
-          break;
-        }
-      }
-    }*/
+    // Show count instead of empty text
+    String displayText = pointCount.toString();
 
     // Determine color based on point count
     Color markerColor;
     if (pointCount <= 4) {
-      markerColor = Colors.black;
-      //} else if (pointCount < 50) {
-      //  markerColor = aggregatedMarkerColors[0];
-      //} else if (pointCount < 100) {
-      //  markerColor = aggregatedMarkerColors[1];
+      markerColor = Colors.red;
     } else if (pointCount < 250) {
       markerColor = aggregatedMarkerColors[2];
     } else if (pointCount < 500) {
@@ -492,13 +585,13 @@ class _MapWidgetState extends State<MapWidget> {
     // Determine size based on point count
     double size;
     if (pointCount <= 4) {
-      size = 60; // Larger for cluster names
-    } else if (pointCount < 100) {
       size = 40;
+    } else if (pointCount < 100) {
+      size = 50;
     } else if (pointCount < 750) {
       size = 60;
     } else {
-      size = 80;
+      size = 70;
     }
 
     return GestureDetector(
@@ -514,11 +607,80 @@ class _MapWidgetState extends State<MapWidget> {
         child: Center(
           child: Text(
             displayText,
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
+      ),
+    );
+  }
+
+  List<Marker> _buildTreePositionMarkers(List<Map<String, dynamic>> treePositions) {
+    return treePositions.map((tree) {
+      final lat = tree['lat'] as double;
+      final lng = tree['lng'] as double;
+      final treeNumber = tree['tree_number'];
+
+      return Marker(
+        point: LatLng(lat, lng),
+        width: 30,
+        height: 30,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.8),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: Center(
+            child: Text(
+              treeNumber?.toString() ?? '?',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  List<Polyline> _buildTreeLines(Record record, List<Map<String, dynamic>> treePositions) {
+    final recordCoords = record.getCoordinates();
+    if (recordCoords == null) return [];
+
+    final centerPoint = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
+
+    return treePositions.map((tree) {
+      final treePoint = LatLng(tree['lat'] as double, tree['lng'] as double);
+      return Polyline(
+        points: [centerPoint, treePoint],
+        color: Colors.green.withOpacity(0.5),
+        strokeWidth: 1.5,
+      );
+    }).toList();
+  }
+
+  Marker _buildFocusedRecordMarker(Record record) {
+    final coords = record.getCoordinates()!;
+    final lat = coords['latitude']!;
+    final lng = coords['longitude']!;
+
+    return Marker(
+      point: LatLng(lat, lng),
+      width: 40,
+      height: 40,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.orange,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: [
+            BoxShadow(color: Colors.orange.withOpacity(0.5), blurRadius: 10, spreadRadius: 2),
+          ],
+        ),
+        child: const Center(child: Icon(Icons.location_on, color: Colors.white, size: 24)),
       ),
     );
   }
@@ -605,12 +767,12 @@ class _MapWidgetState extends State<MapWidget> {
     _gpsSubscription?.cancel();
     _gpsSubscription = null;
 
-    // Remove listener
+    // Remove listeners
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.removeListener(_onMapControllerProviderChanged);
     } catch (e) {
-      debugPrint('Error removing listener: $e');
+      debugPrint('Error removing listeners: $e');
     }
 
     super.dispose();
@@ -682,7 +844,7 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Layer 2: OpenTopoMap (offline, covers zoom 4-14)
-        if (_selectedBasemaps.contains('topo_offline'))
+        if (_selectedBasemaps.contains('topo_offline') && _storesInitialized)
           TileLayer(
             urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
@@ -692,12 +854,12 @@ class _MapWidgetState extends State<MapWidget> {
                 _selectedBasemaps.contains('dop') ? 14 : 19, // Limit to zoom 14 if DOP is enabled
             maxNativeZoom: 14,
             tileProvider: FMTCStore('opentopomap').getTileProvider(
-              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheOnly),
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
           ),
 
         // Layer 3: DOP (offline aerial imagery, zoom 15-19)
-        if (_selectedBasemaps.contains('dop'))
+        if (_selectedBasemaps.contains('dop') && _storesInitialized)
           TileLayer(
             wmsOptions: WMSTileLayerOptions(
               baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
@@ -709,7 +871,7 @@ class _MapWidgetState extends State<MapWidget> {
             minZoom: 15, // Only show from zoom 15 onwards
             maxNativeZoom: 19,
             tileProvider: FMTCStore('wms_dop__').getTileProvider(
-              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheOnly),
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
           ),
 
@@ -737,8 +899,20 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Record Labels (shown at zoom 14+)
-        if (_currentZoom >= 14 && _records.isNotEmpty)
+        if (_currentZoom > 14 && _records.isNotEmpty)
           MarkerLayer(markers: _buildLabelMarkers(_records)),
+
+        // Tree positions for focused record
+        if (_focusedRecord != null && _treePositions.isNotEmpty)
+          MarkerLayer(markers: _buildTreePositionMarkers(_treePositions)),
+
+        // Line from center to trees
+        if (_focusedRecord != null && _treePositions.isNotEmpty)
+          PolylineLayer(polylines: _buildTreeLines(_focusedRecord!, _treePositions)),
+
+        // Focused record center marker (highlighted)
+        if (_focusedRecord != null)
+          MarkerLayer(markers: [_buildFocusedRecordMarker(_focusedRecord!)]),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

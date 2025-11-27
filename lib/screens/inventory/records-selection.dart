@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
-import 'package:terrestrial_forest_monitor/widgets/cluster/filter-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -24,46 +23,30 @@ class RecordsSelection extends StatefulWidget {
 
 class _RecordsSelectionState extends State<RecordsSelection> {
   ClusterOrderBy _orderBy = ClusterOrderBy.distance;
-  ClusterFilter _filter = const ClusterFilter();
   Position? _currentPosition;
   bool _isLoadingLocation = false;
 
-  // Pagination variables
-  final List<Map<String, dynamic>> _allRecords = [];
-  int _currentPage = 0;
-  final int _pageSize = 100;
-  bool _isLoadingMore = false;
-  bool _hasMoreData = true;
+  // Display variables
+  final List<Map<String, dynamic>> _allRecords = []; // All loaded records
+  final List<Map<String, dynamic>> _displayedRecords = []; // Records currently displayed
+  final int _displayPageSize = 50; // Show 50 records at a time
+  bool _isLoading = false;
   ScrollController? _scrollController;
   bool _createdOwnController = false;
+
+  // Search functionality
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
-    // Try to load from cache first
+    // Load data
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadFromCacheOrFetch();
-    });
-  }
-
-  void _loadFromCacheOrFetch() {
-    final provider = context.read<RecordsListProvider>();
-    final cachedRecords = provider.getCachedRecords(widget.intervalName, _orderBy);
-
-    if (cachedRecords != null && cachedRecords.isNotEmpty) {
-      // Load from cache
-      setState(() {
-        _allRecords.clear();
-        _allRecords.addAll(cachedRecords);
-        _currentPage = provider.getCachedPage(widget.intervalName, _orderBy);
-        _hasMoreData = provider.getHasMoreData(widget.intervalName, _orderBy);
-        _currentPosition = provider.currentPosition;
-      });
-    } else {
-      // Load fresh data
       _loadInitialData();
-    }
+    });
   }
 
   @override
@@ -86,62 +69,169 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   void _onScroll() {
     if (_scrollController == null) return;
     if (_scrollController!.position.pixels >= _scrollController!.position.maxScrollExtent - 200) {
-      // Load more when 200 pixels from bottom
-      if (!_isLoadingMore && _hasMoreData) {
-        _loadMoreData();
-      }
+      // Display more when 200 pixels from bottom
+      _displayMoreRecords();
     }
   }
 
   Future<void> _loadInitialData() async {
+    if (_isLoading) return;
+
     setState(() {
+      _isLoading = true;
       _allRecords.clear();
-      _currentPage = 0;
-      _hasMoreData = true;
-    });
-    await _loadMoreData();
-
-    // Cache the loaded data
-    final provider = context.read<RecordsListProvider>();
-    provider.cacheRecords(widget.intervalName, _orderBy, _allRecords, _currentPage, _hasMoreData);
-  }
-
-  Future<void> _loadMoreData() async {
-    if (_isLoadingMore || !_hasMoreData) return;
-
-    setState(() {
-      _isLoadingMore = true;
+      _displayedRecords.clear();
     });
 
     try {
-      final newRecords = await _fetchRecordsWithMetadata(_currentPage * _pageSize, _pageSize);
+      final provider = context.read<RecordsListProvider>();
+
+      // First try to get cached data (preloaded in start.dart)
+      final cachedRecords = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
+
+      List<Map<String, dynamic>> records;
+
+      if (cachedRecords != null && cachedRecords.isNotEmpty) {
+        print('RecordsSelection: Using ${cachedRecords.length} cached records from start.dart');
+        // Apply filtering, sorting, and metadata to cached records
+        records = await _processRecords(
+          cachedRecords.map((item) => item['record'] as Record).toList(),
+        );
+      } else {
+        print('RecordsSelection: No cache found, loading fresh data');
+        records = await _fetchAllRecordsWithMetadata();
+      }
 
       if (mounted) {
         setState(() {
-          _allRecords.addAll(newRecords);
-          _currentPage++;
-          _hasMoreData = newRecords.length == _pageSize;
-          _isLoadingMore = false;
+          _allRecords.addAll(records);
+          _isLoading = false;
         });
 
-        // Update cache
-        final provider = context.read<RecordsListProvider>();
-        provider.cacheRecords(
-          widget.intervalName,
-          _orderBy,
-          _allRecords,
-          _currentPage,
-          _hasMoreData,
-        );
+        // Display first batch
+        _displayMoreRecords();
+
+        // Update cache with processed data
+        provider.cacheRecords(widget.intervalName, _orderBy, _allRecords, 0, false);
       }
     } catch (e) {
-      print('Error loading more data: $e');
+      print('Error loading data: $e');
       if (mounted) {
         setState(() {
-          _isLoadingMore = false;
+          _isLoading = false;
         });
       }
     }
+  }
+
+  // Process records: filter, sort, and add metadata
+  Future<List<Map<String, dynamic>>> _processRecords(List<Record> records) async {
+    // Filter by search query if provided
+    if (_searchQuery.isNotEmpty) {
+      records =
+          records.where((record) {
+            return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
+          }).toList();
+    }
+
+    // Sort records based on order preference
+    switch (_orderBy) {
+      case ClusterOrderBy.distance:
+        if (_currentPosition != null) {
+          // Sort by distance
+          records.sort((a, b) {
+            final coordsA = a.getCoordinates();
+            final coordsB = b.getCoordinates();
+
+            // Records without coordinates go to the end
+            if (coordsA == null && coordsB == null) return 0;
+            if (coordsA == null) return 1;
+            if (coordsB == null) return -1;
+
+            final distA = _calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              coordsA['latitude']!,
+              coordsA['longitude']!,
+            );
+            final distB = _calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              coordsB['latitude']!,
+              coordsB['longitude']!,
+            );
+
+            return distA.compareTo(distB);
+          });
+        }
+        break;
+
+      case ClusterOrderBy.updatedAt:
+        records.sort((a, b) {
+          final dateA = a.properties['updated_at'];
+          final dateB = b.properties['updated_at'];
+          if (dateA == null && dateB == null) return 0;
+          if (dateA == null) return 1;
+          if (dateB == null) return -1;
+          return DateTime.parse(dateB.toString()).compareTo(DateTime.parse(dateA.toString()));
+        });
+        break;
+
+      case ClusterOrderBy.clusterName:
+        records.sort((a, b) {
+          final comparison = a.clusterName.compareTo(b.clusterName);
+          if (comparison != 0) return comparison;
+          return a.plotName.compareTo(b.plotName);
+        });
+        break;
+    }
+
+    // Add metadata to all records
+    return records.map((record) {
+      String? metadata;
+
+      switch (_orderBy) {
+        case ClusterOrderBy.distance:
+          if (_currentPosition != null) {
+            final coords = record.getCoordinates();
+            if (coords != null) {
+              final distance = _calculateDistance(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+                coords['latitude']!,
+                coords['longitude']!,
+              );
+              metadata = '${distance.toStringAsFixed(1)} km';
+            }
+          }
+          break;
+
+        case ClusterOrderBy.updatedAt:
+          metadata = _formatDate(record.properties['updated_at']);
+          break;
+
+        case ClusterOrderBy.clusterName:
+          // No metadata for name ordering
+          break;
+      }
+
+      return {'record': record, 'metadata': metadata};
+    }).toList();
+  }
+
+  void _displayMoreRecords() {
+    if (_displayedRecords.length >= _allRecords.length) {
+      // Already displaying all records
+      return;
+    }
+
+    setState(() {
+      final nextBatchEnd = (_displayedRecords.length + _displayPageSize).clamp(
+        0,
+        _allRecords.length,
+      );
+      _displayedRecords.addAll(_allRecords.sublist(_displayedRecords.length, nextBatchEnd));
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -204,34 +294,77 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchRecordsWithMetadata(int offset, int limit) async {
-    List<Record> records;
+  Future<List<Map<String, dynamic>>> _fetchAllRecordsWithMetadata() async {
+    // Get all records from repository
+    List<Record> records = await RecordsRepository().getAllRecords();
 
+    // Filter by search query if provided
+    if (_searchQuery.isNotEmpty) {
+      records =
+          records.where((record) {
+            return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
+          }).toList();
+    }
+
+    // Sort records based on order preference
     switch (_orderBy) {
       case ClusterOrderBy.distance:
-        if (_currentPosition == null) {
-          // Fallback to name ordering if no location
-          records = await RecordsRepository().getRecordsGroupedByCluster(
-            orderBy: 'cluster_name',
-            offset: offset,
-            limit: limit,
-          );
-        } else {
-          // For distance ordering, we need to fetch all and sort in Dart, then paginate
-          // This is a limitation of calculating distance in Dart
-          final allRecords = await RecordsRepository().getRecordsGroupedByClusterOrderedByDistance(
-            latitude: _currentPosition!.latitude,
-            longitude: _currentPosition!.longitude,
-          );
-          // Apply filters before pagination
-          final filteredRecords = _applyFilters(allRecords);
-          // Paginate the sorted results
-          records = filteredRecords.skip(offset).take(limit).toList();
-        }
-
-        // Calculate distances for display
         if (_currentPosition != null) {
-          return records.map((record) {
+          // Sort by distance
+          records.sort((a, b) {
+            final coordsA = a.getCoordinates();
+            final coordsB = b.getCoordinates();
+
+            // Records without coordinates go to the end
+            if (coordsA == null && coordsB == null) return 0;
+            if (coordsA == null) return 1;
+            if (coordsB == null) return -1;
+
+            final distA = _calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              coordsA['latitude']!,
+              coordsA['longitude']!,
+            );
+            final distB = _calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              coordsB['latitude']!,
+              coordsB['longitude']!,
+            );
+
+            return distA.compareTo(distB);
+          });
+        }
+        break;
+
+      case ClusterOrderBy.updatedAt:
+        records.sort((a, b) {
+          final dateA = a.properties['updated_at'];
+          final dateB = b.properties['updated_at'];
+          if (dateA == null && dateB == null) return 0;
+          if (dateA == null) return 1;
+          if (dateB == null) return -1;
+          return DateTime.parse(dateB.toString()).compareTo(DateTime.parse(dateA.toString()));
+        });
+        break;
+
+      case ClusterOrderBy.clusterName:
+        records.sort((a, b) {
+          final comparison = a.clusterName.compareTo(b.clusterName);
+          if (comparison != 0) return comparison;
+          return a.plotName.compareTo(b.plotName);
+        });
+        break;
+    }
+
+    // Add metadata to all records
+    return records.map((record) {
+      String? metadata;
+
+      switch (_orderBy) {
+        case ClusterOrderBy.distance:
+          if (_currentPosition != null) {
             final coords = record.getCoordinates();
             if (coords != null) {
               final distance = _calculateDistance(
@@ -240,47 +373,21 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                 coords['latitude']!,
                 coords['longitude']!,
               );
-              return {'record': record, 'metadata': '${distance.toStringAsFixed(1)} km'};
+              metadata = '${distance.toStringAsFixed(1)} km';
             }
-            return {'record': record, 'metadata': null};
-          }).toList();
-        } else {
-          return records.map((r) => {'record': r, 'metadata': null}).toList();
-        }
+          }
+          break;
 
-      case ClusterOrderBy.updatedAt:
-        records = await RecordsRepository().getAllRecords();
-        records = _applyFilters(records);
-        return records
-            .map((r) => {'record': r, 'metadata': _formatDate(r.properties['updated_at'])})
-            .toList();
+        case ClusterOrderBy.updatedAt:
+          metadata = _formatDate(record.properties['updated_at']);
+          break;
 
-      case ClusterOrderBy.clusterName:
-        records = await RecordsRepository().getAllRecords();
-        records = _applyFilters(records);
-        return records.map((r) => {'record': r, 'metadata': null}).toList();
-    }
-  }
-
-  List<Record> _applyFilters(List<Record> records) {
-    if (!_filter.isActive) return records;
-
-    return records.where((record) {
-      // Filter by cluster name
-      if (_filter.clusterNameFilter != null && _filter.clusterNameFilter!.isNotEmpty) {
-        if (!record.clusterName.toLowerCase().contains(_filter.clusterNameFilter!.toLowerCase())) {
-          return false;
-        }
+        case ClusterOrderBy.clusterName:
+          // No metadata for name ordering
+          break;
       }
 
-      // Filter by plot name
-      if (_filter.plotNameFilters.isNotEmpty) {
-        if (!_filter.plotNameFilters.contains(record.plotName)) {
-          return false;
-        }
-      }
-
-      return true;
+      return {'record': record, 'metadata': metadata};
     }).toList();
   }
 
@@ -312,188 +419,122 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     }
   }
 
-  void _openNativeNavigation(List<Record> clusterRecords) {
-    // Find the nearest record with valid coordinates
-    if (clusterRecords.isEmpty) return;
+  void _openNativeNavigationForRecord(Record record) {
+    final coords = record.getCoordinates();
+    if (coords == null) return;
 
-    String clusterName = clusterRecords.first.clusterName;
+    final latitude = coords['latitude'];
+    final longitude = coords['longitude'];
+    final recordName = '${record.clusterName} | ${record.plotName}';
 
-    // calculate center of clusterRecords using turf
-    double sumLat = 0.0;
-    double sumLng = 0.0;
-    int count = 0;
-    for (final record in clusterRecords) {
-      final coords = record.getCoordinates();
-      if (coords != null) {
-        sumLat += coords['latitude']!;
-        sumLng += coords['longitude']!;
-        count++;
-      }
-    }
+    final uri = Uri.parse(
+      'geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encodeComponent(recordName)})',
+    );
 
-    Map<String, double>? centerCoords;
-    if (count > 0) {
-      centerCoords = {'latitude': sumLat / count, 'longitude': sumLng / count};
-    }
-
-    if (centerCoords != null) {
-      final latitude = centerCoords['latitude'];
-      final longitude = centerCoords['longitude'];
-
-      final uri = Uri.parse(
-        'geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encodeComponent(clusterName)})',
-      );
-
-      launchUrl(uri);
-    }
+    launchUrl(uri);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Group records by cluster name
-    final Map<String, List<Record>> groupedRecords = {};
-    for (final item in _allRecords) {
-      final record = item['record'] as Record;
-      if (!groupedRecords.containsKey(record.clusterName)) {
-        groupedRecords[record.clusterName] = [];
-      }
-      groupedRecords[record.clusterName]!.add(record);
-    }
-
-    final clusterNames = groupedRecords.keys.toList();
-
     return Scaffold(
       body: Column(
         children: [
           // Custom AppBar
-          Container(
-            height: 40.0,
-            child: Row(
-              children: [
-                const SizedBox(width: 5),
-                Text('${clusterNames.length} Trakte'), // Show number of clusters and records
-                if (_isLoadingLocation) ...[
-                  const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ],
-                //align right
-                Expanded(child: Container()),
-                /*OrderClusterBy(
-                  initialOrderBy: _orderBy,
-                  onOrderChanged: (order) {
-                    setState(() {
-                      _orderBy = order;
-                    });
-
-                    // Check if we have cached data for this order
-                    final provider = context.read<RecordsListProvider>();
-                    final cachedRecords = provider.getCachedRecords(widget.intervalName, order);
-
-                    if (cachedRecords != null && cachedRecords.isNotEmpty) {
-                      // Use cached data
-                      setState(() {
-                        _allRecords.clear();
-                        _allRecords.addAll(cachedRecords);
-                        _currentPage = provider.getCachedPage(widget.intervalName, order);
-                        _hasMoreData = provider.getHasMoreData(widget.intervalName, order);
-                      });
-                    } else {
-                      // Reload data with new ordering
-                      _loadInitialData();
-                    }
-                  },
-                ),*/
-                FilterClusterBy(
-                  initialFilter: _filter,
-                  onFilterChanged: (filter) {
-                    setState(() {
-                      _filter = filter;
-                    });
-                    // Reload data with new filter
+          ListTile(
+            title:
+                _isSearching
+                    ? TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Search by cluster name...',
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                        _loadInitialData();
+                      },
+                    )
+                    : const Text(
+                      'Ecken',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+            trailing: IconButton(
+              icon: Icon(_isSearching ? Icons.close : Icons.search),
+              onPressed: () {
+                setState(() {
+                  _isSearching = !_isSearching;
+                  if (!_isSearching) {
+                    _searchController.clear();
+                    _searchQuery = '';
                     _loadInitialData();
-                  },
-                ),
-              ],
+                  }
+                });
+              },
             ),
           ),
           // Body
           Expanded(
             child:
-                _allRecords.isEmpty && !_isLoadingMore
+                _isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : _allRecords.isEmpty
+                    : _displayedRecords.isEmpty
                     ? const Center(child: Text('No records found'))
                     : ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(16),
-                      itemCount: clusterNames.length + (_hasMoreData ? 1 : 0),
+                      itemCount:
+                          _displayedRecords.length +
+                          (_displayedRecords.length < _allRecords.length ? 1 : 0),
                       itemBuilder: (context, index) {
-                        // Show loading indicator at the end
-                        if (index == clusterNames.length) {
-                          return const Center(
+                        // Show loading indicator at the end if more records available
+                        if (index == _displayedRecords.length) {
+                          return Center(
                             child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: CircularProgressIndicator(),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                'Showing ${_displayedRecords.length} of ${_allRecords.length} records',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
                             ),
                           );
                         }
 
-                        final clusterName = clusterNames[index];
-                        final clusterRecords = groupedRecords[clusterName]!;
+                        final item = _displayedRecords[index];
+                        final record = item['record'] as Record;
+                        final metadata = item['metadata'] as String?;
 
-                        // Calculate distance to cluster center
-                        String? distanceText;
-                        if (_currentPosition != null) {
-                          double sumLat = 0.0;
-                          double sumLng = 0.0;
-                          int count = 0;
-                          for (final record in clusterRecords) {
-                            final coords = record.getCoordinates();
-                            if (coords != null) {
-                              sumLat += coords['latitude']!;
-                              sumLng += coords['longitude']!;
-                              count++;
-                            }
-                          }
-                          if (count > 0) {
-                            final centerLat = sumLat / count;
-                            final centerLng = sumLng / count;
+                        // Calculate distance if not already in metadata
+                        String? distanceText = metadata;
+                        if (distanceText == null && _currentPosition != null) {
+                          final coords = record.getCoordinates();
+                          if (coords != null) {
                             final distance = _calculateDistance(
                               _currentPosition!.latitude,
                               _currentPosition!.longitude,
-                              centerLat,
-                              centerLng,
+                              coords['latitude']!,
+                              coords['longitude']!,
                             );
                             distanceText = '${distance.toStringAsFixed(1)} km';
                           }
                         }
 
-                        // Get plot names for title
-                        final plotNames = clusterRecords.map((r) => r.plotName).join(', ');
-
-                        // Check if any record in cluster has completed_at_troop set
-                        final isCompleted = clusterRecords.any((record) {
-                          final completedAtTroop = record.properties['completed_at_troop'];
-                          return completedAtTroop != null && completedAtTroop.toString().isNotEmpty;
-                        });
+                        // Check if record has completed_at_troop set
+                        final completedAtTroop = record.properties['completed_at_troop'];
+                        final isCompleted =
+                            completedAtTroop != null && completedAtTroop.toString().isNotEmpty;
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           elevation: 2,
                           child: InkWell(
-                            onTap:
-                                clusterRecords.length == 1
-                                    ? () {
-                                      final record = clusterRecords.first;
-                                      Beamer.of(context).beamToNamed(
-                                        '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
-                                      );
-                                    }
-                                    : null,
+                            onTap: () {
+                              Beamer.of(context).beamToNamed(
+                                '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
+                              );
+                            },
                             child: Row(
                               children: [
                                 // Status indicator
@@ -514,7 +555,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        // Cluster name header with plot numbers
+                                        // Record header
                                         Row(
                                           children: [
                                             Expanded(
@@ -522,7 +563,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    '$clusterName | $plotNames',
+                                                    '${record.clusterName} | ${record.plotName}',
                                                     style: const TextStyle(
                                                       fontSize: 18,
                                                       fontWeight: FontWeight.bold,
@@ -543,14 +584,14 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                                               icon: const Icon(Icons.map),
                                               tooltip: 'Focus on map',
                                               onPressed: () {
-                                                _focusClusterOnMap(clusterRecords);
+                                                _focusRecordOnMap(record);
                                               },
                                             ),
                                             IconButton(
                                               icon: const Icon(Icons.directions_car),
                                               tooltip: 'Open native navigation',
                                               onPressed: () {
-                                                _openNativeNavigation(clusterRecords);
+                                                _openNativeNavigationForRecord(record);
                                               },
                                             ),
                                           ],
@@ -571,51 +612,38 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     );
   }
 
-  void _focusClusterOnMap(List<Record> clusterRecords) {
-    // Calculate bounds for all records in this cluster
-    double? minLat;
-    double? maxLat;
-    double? minLng;
-    double? maxLng;
-
-    for (final record in clusterRecords) {
-      final coords = record.getCoordinates();
-      if (coords != null) {
-        final lat = coords['latitude'];
-        final lng = coords['longitude'];
-        if (lat != null && lng != null) {
-          minLat = (minLat == null) ? lat : (lat < minLat ? lat : minLat);
-          maxLat = (maxLat == null) ? lat : (lat > maxLat ? lat : maxLat);
-          minLng = (minLng == null) ? lng : (lng < minLng ? lng : minLng);
-          maxLng = (maxLng == null) ? lng : (lng > maxLng ? lng : maxLng);
-        }
-      }
+  void _focusRecordOnMap(Record record) {
+    final coords = record.getCoordinates();
+    if (coords == null) {
+      debugPrint('No valid coordinates found for record');
+      return;
     }
 
-    if (minLat != null && maxLat != null && minLng != null && maxLng != null) {
-      // Add padding (10% of the range, minimum 0.001 degrees)
-      final latRange = maxLat - minLat;
-      final lngRange = maxLng - minLng;
-      final latPadding = latRange > 0 ? latRange * 0.1 : 0.001;
-      final lngPadding = lngRange > 0 ? lngRange * 0.1 : 0.001;
+    final lat = coords['latitude'];
+    final lng = coords['longitude'];
 
-      final bounds = LatLngBounds(
-        LatLng(minLat - latPadding, minLng - lngPadding),
-        LatLng(maxLat + latPadding, maxLng + lngPadding),
-      );
-
-      // Set focus bounds in provider (MapWidget will respond)
-      final mapControllerProvider = context.read<MapControllerProvider>();
-      mapControllerProvider.setFocusBounds(bounds);
-
-      debugPrint('Focus bounds set for cluster with ${clusterRecords.length} records');
-    } else {
-      debugPrint('No valid coordinates found for cluster');
+    if (lat == null || lng == null) {
+      debugPrint('Invalid coordinates for record');
+      return;
     }
+
+    // Create bounds with padding around the single point
+    const padding = 0.001; // Small padding for single point
+    final bounds = LatLngBounds(
+      LatLng(lat - padding, lng - padding),
+      LatLng(lat + padding, lng + padding),
+    );
+
+    // Set focus bounds in provider (MapWidget will respond)
+    final mapControllerProvider = context.read<MapControllerProvider>();
+    mapControllerProvider.setFocusBounds(bounds);
+
+    debugPrint('Focus bounds set for record at $lat, $lng');
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _scrollController?.removeListener(_onScroll);
     // Only dispose if we created the controller ourselves
     if (_createdOwnController && _scrollController != null) {

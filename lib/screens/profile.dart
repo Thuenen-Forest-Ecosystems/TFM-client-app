@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
+import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
@@ -21,69 +23,45 @@ class Profile extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // User Avatar
             //Center(child: CircleAvatar(radius: 50, backgroundColor: Theme.of(context).primaryColor, child: Text(user?.email?.substring(0, 1).toUpperCase() ?? 'U', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)))),
-            //const SizedBox(height: 24),
-            Card(child: MapAdmin()),
-
-            // User Information Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Nutzer Information',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const Divider(height: 24),
-                    _buildInfoRow('E-Mail', user?.email ?? 'N/A'),
-                    _buildInfoRow('Benutzer-ID', user?.id ?? 'N/A'),
-                    _buildInfoRow(
-                      'Erstellt am',
-                      _formatDate(
-                        user?.createdAt == null ? null : DateTime.parse(user!.createdAt!),
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
+                'Kartenverwaltung',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(height: 16),
+            Card(child: MapAdmin()),
 
-            // Session Information Card
-            if (session != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Session Informationen',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const Divider(height: 24),
-                      _buildInfoRow('Access Token Typ', session.tokenType ?? 'N/A'),
-                      _buildInfoRow(
-                        'Läuft ab am',
-                        _formatDate(DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000)),
-                      ),
-                      _buildInfoRow(
-                        'Refresh Token',
-                        session.refreshToken != null && session.refreshToken!.length > 20
-                            ? '${session.refreshToken!.substring(0, 20)}...'
-                            : session.refreshToken ?? 'N/A',
-                      ),
-                    ],
-                  ),
-                ),
+            const SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
+                'Layout-Einstellungen',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
+            ),
+            Card(child: ThemeSettings()),
+
+            const SizedBox(height: 16),
+            // In your profile or settings screen
+            ElevatedButton(
+              onPressed: () async {
+                await BackgroundSyncService.registerOneTimeSync(delay: const Duration(seconds: 5));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Background sync will run in 5 seconds')),
+                );
+              },
+              child: const Text('Test Background Sync'),
+            ),
+
+            // User Information Card
             const SizedBox(height: 32),
 
             // Logout Button
@@ -93,8 +71,8 @@ class Profile extends StatelessWidget {
                       ? null
                       : () async {
                         // Disconnect and clear PowerSync database
-                        // await db.disconnectAndClear();
-                        await db.disconnect();
+                        await db.disconnectAndClear();
+                        //await db.disconnect();
                         // Logout from Supabase
                         await authProvider.logout();
                         if (context.mounted) {

@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart';
@@ -38,6 +39,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   bool _isValidating = false;
   StreamSubscription? _gpsSubscription;
   late SchemaRepository schemaRepository;
+  MapControllerProvider? _mapProvider;
 
   @override
   void initState() {
@@ -59,6 +61,16 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Store map provider reference while context is valid
+    if (_mapProvider == null) {
+      try {
+        _mapProvider = context.read<MapControllerProvider>();
+      } catch (e) {
+        debugPrint('MapControllerProvider not available: $e');
+      }
+    }
+
     _updateDistanceLine();
     _subscribeToGPS();
   }
@@ -101,13 +113,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   void dispose() {
     _gpsSubscription?.cancel();
 
-    // Clear distance line when leaving the page
-    try {
-      final mapProvider = context.read<MapControllerProvider>();
-      mapProvider.clearDistanceLine();
-      debugPrint('Distance line cleared on dispose');
-    } catch (e) {
-      debugPrint('Error clearing distance line: $e');
+    // Clear distance line and focused record when leaving the page
+    // Schedule after frame to avoid calling notifyListeners during widget tree lock
+    if (_mapProvider != null) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _mapProvider?.clearDistanceLine();
+        _mapProvider?.clearFocusedRecord();
+        debugPrint('Distance line and focused record cleared on dispose');
+      });
     }
 
     super.dispose();
@@ -215,6 +228,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // Update distance line after record is loaded
         if (_record != null) {
           _updateDistanceLine();
+          _setFocusedRecord(context);
           _focusRecord(context);
           // Validate initial form data
           if (_formData != null) {
@@ -331,6 +345,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Get the schema name from the record or use default
       final intervalName = _record?.schemaName ?? 'BWI';
       Beamer.of(context).beamToNamed('/records-selection/${Uri.encodeComponent(intervalName)}');
+    }
+  }
+
+  void _setFocusedRecord(BuildContext context) {
+    try {
+      final mapProvider = context.read<MapControllerProvider>();
+      mapProvider.setFocusedRecord(_record);
+    } catch (e) {
+      debugPrint('Error setting focused record: $e');
     }
   }
 
