@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:geolocator/geolocator.dart';
@@ -23,6 +24,7 @@ class RecordsListProvider extends ChangeNotifier {
     // Load current permission ID
     OrganizationSelectionService().getSelectedPermissionId().then((permissionId) {
       _currentPermissionId = permissionId;
+      debugPrint('RecordsListProvider: Permission ID loaded: $permissionId');
     });
   }
 
@@ -46,6 +48,9 @@ class RecordsListProvider extends ChangeNotifier {
   // Get cached data for an interval and order
   List<Map<String, dynamic>>? getCachedRecords(String intervalName, ClusterOrderBy orderBy) {
     final key = _getCacheKey(intervalName, orderBy);
+    debugPrint(
+      'RecordsListProvider: getCachedRecords with key: $key (found: ${_recordsCache[key]?.length ?? 0} items)',
+    );
     return _recordsCache[key];
   }
 
@@ -61,6 +66,8 @@ class RecordsListProvider extends ChangeNotifier {
 
   Position? get currentPosition => _currentPosition;
 
+  bool get isPermissionIdLoaded => _currentPermissionId != null;
+
   void setCurrentPosition(Position? position) {
     _currentPosition = position;
     notifyListeners();
@@ -75,6 +82,9 @@ class RecordsListProvider extends ChangeNotifier {
     bool hasMore,
   ) {
     final key = _getCacheKey(intervalName, orderBy);
+    debugPrint(
+      'RecordsListProvider: cacheRecords with key: $key (storing ${records.length} items)',
+    );
     _recordsCache[key] = records;
     _currentPageCache[key] = page;
     _hasMoreDataCache[key] = hasMore;

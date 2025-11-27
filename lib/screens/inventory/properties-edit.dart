@@ -215,6 +215,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         widget.plotName,
       );
       _formData = records.isNotEmpty ? records.first.properties : null;
+      // print _formData.plot_coordinates to debug console
+      debugPrint('Loaded form data: ${_formData?['plot_coordinates']}');
       _previousFormData = records.isNotEmpty ? records.first.previousProperties : null;
       if (mounted) {
         setState(() {
@@ -421,8 +423,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         children: [
           // Custom AppBar
           Container(
-            height: 40.0,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            clipBehavior: Clip.none,
             child: Row(
               children: [
                 IconButton(

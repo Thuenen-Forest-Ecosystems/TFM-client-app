@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-syncfusion.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
@@ -25,11 +26,18 @@ class FormWrapper extends StatefulWidget {
   State<FormWrapper> createState() => _FormWrapperState();
 }
 
+class FormTab {
+  final String id;
+  final String label;
+
+  FormTab({required this.id, required this.label});
+}
+
 class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStateMixin {
   late Map<String, dynamic> _localFormData;
   late Map<String, dynamic> _previousProperties;
   TabController? _tabController;
-  List<String> _tabs = [];
+  List<FormTab> _tabs = [];
   int? _previousTabIndex;
 
   @override
@@ -46,33 +54,33 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     }
   }
 
-  List<String> _buildTabsList() {
-    if (widget.jsonSchema == null) return [];
+  List<FormTab> _buildTabsList() {
+    if (widget.jsonSchema == null) return <FormTab>[];
 
     final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>;
-    final tabs = <String>[];
+    final tabs = <FormTab>[];
 
     if (schemaProperties.containsKey('position')) {
-      tabs.add('Position');
+      tabs.add(FormTab(id: 'position', label: 'Position'));
     }
-    tabs.add('Trakt');
+    tabs.add(FormTab(id: 'info', label: 'Trakt'));
     if (schemaProperties.containsKey('tree')) {
-      tabs.add('Tree');
+      tabs.add(FormTab(id: 'tree', label: 'Bäume'));
     }
     if (schemaProperties.containsKey('edges')) {
-      tabs.add('Edges');
+      tabs.add(FormTab(id: 'edges', label: 'Ecken'));
     }
     if (schemaProperties.containsKey('structure_lt4m')) {
-      tabs.add('structure_lt4m');
+      tabs.add(FormTab(id: 'structure_lt4m', label: 'Struktur <4m'));
     }
     if (schemaProperties.containsKey('structure_gt4m')) {
-      tabs.add('structure_gt4m');
+      tabs.add(FormTab(id: 'structure_gt4m', label: 'Struktur >4m'));
     }
     if (schemaProperties.containsKey('regeneration')) {
-      tabs.add('regeneration');
+      tabs.add(FormTab(id: 'regeneration', label: 'Verjüngung'));
     }
     if (schemaProperties.containsKey('deadwood')) {
-      tabs.add('deadwood');
+      tabs.add(FormTab(id: 'deadwood', label: 'Totholz'));
     }
 
     return tabs;
@@ -122,13 +130,13 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
       debugPrint('Already active tab tapped: $index');
 
       if (index < _tabs.length) {
-        final tabName = _tabs[index];
+        final tabId = _tabs[index].id;
 
         // Check if there are validation errors for this tab
         if (widget.validationResult != null && !widget.validationResult!.isValid) {
           final tabErrors =
               widget.validationResult!.errors.where((error) {
-                return _isErrorForTab(error, tabName);
+                return _isErrorForTab(error, tabId);
               }).toList();
 
           if (tabErrors.isNotEmpty) {
@@ -161,59 +169,34 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
   }
 
-  bool _hasErrorsForTab(String tab) {
+  bool _hasErrorsForTab(String tabId) {
     if (widget.validationResult == null || widget.validationResult!.isValid) {
       return false;
     }
 
     return widget.validationResult!.errors.any((error) {
-      return _isErrorForTab(error, tab);
+      return _isErrorForTab(error, tabId);
     });
   }
 
-  int _getErrorCountForTab(String tab) {
+  int _getErrorCountForTab(String tabId) {
     if (widget.validationResult == null || widget.validationResult!.isValid) {
       return 0;
     }
 
     return widget.validationResult!.errors.where((error) {
-      return _isErrorForTab(error, tab);
+      return _isErrorForTab(error, tabId);
     }).length;
   }
 
-  bool _isErrorForTab(ValidationError error, String tab) {
+  bool _isErrorForTab(ValidationError error, String tabId) {
     final path = error.instancePath ?? '';
 
-    // Map tab names to their corresponding property names in the schema
-    String propertyName;
-    switch (tab) {
-      case 'Position':
-        propertyName = 'position';
-        break;
-      case 'Tree':
-        propertyName = 'tree';
-        break;
-      case 'Edges':
-        propertyName = 'edges';
-        break;
-      case 'structure_lt4m':
-        propertyName = 'structure_lt4m';
-        break;
-      case 'structure_gt4m':
-        propertyName = 'structure_gt4m';
-        break;
-      case 'regeneration':
-        propertyName = 'regeneration';
-        break;
-      case 'deadwood':
-        propertyName = 'deadwood';
-        break;
-      default:
-        return false;
-    }
+    // Use tabId directly as property name (except for 'info' tab)
+    String propertyName = tabId == 'info' ? '' : tabId;
 
     // Check if error path starts with the property name
-    if (path.startsWith('/$propertyName')) {
+    if (propertyName.isNotEmpty && path.startsWith('/$propertyName')) {
       return true;
     }
 
@@ -223,10 +206,15 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
       if (missingProperty == propertyName) {
         return true;
       }
-      // Special case for Position tab which can also have 'position' errors
-      if (tab == 'Position' && missingProperty == 'position') {
+      // Special case for position tab
+      if (tabId == 'position' && missingProperty == 'position') {
         return true;
       }
+    }
+
+    // For 'info' tab, show errors that don't belong to other specific tabs
+    if (tabId == 'info' && path.isEmpty) {
+      return true;
     }
 
     return false;
@@ -252,19 +240,19 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
           onTap: _onTabTapped,
           tabs:
               _tabs.map((tab) {
-                final hasErrors = _hasErrorsForTab(tab);
+                final hasErrors = _hasErrorsForTab(tab.id);
                 return Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(tab),
+                      Text(tab.label),
                       if (hasErrors) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                           child: Text(
-                            '${_getErrorCountForTab(tab)}',
+                            '${_getErrorCountForTab(tab.id)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -284,90 +272,92 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
             physics: const NeverScrollableScrollPhysics(),
             children:
                 _tabs.map((tab) {
-                  if (tab == 'Position') {
-                    return NavigationElement(
-                      jsonSchema: schemaProperties['position'],
-                      data: _localFormData,
-                      propertyName: 'position',
-                      previous_properties: _previousProperties,
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('position', updatedData);
-                      },
-                    );
-                  } else if (tab == 'Trakt') {
-                    return GenericForm(
-                      jsonSchema: schemaProperties,
-                      data: _localFormData,
-                      propertyName: null,
-                      previous_properties: _previousProperties,
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('', updatedData);
-                      },
-                    );
-                  } else if (tab == 'Tree') {
-                    return ArrayElementSyncfusion(
-                      jsonSchema: schemaProperties['tree'],
-                      data: _localFormData['tree'] ?? [],
-                      propertyName: 'tree',
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('tree', updatedData);
-                      },
-                    );
-                  } else if (tab == 'Edges') {
-                    return ArrayElementSyncfusion(
-                      jsonSchema: schemaProperties['edges'],
-                      data: _localFormData['edges'] ?? [],
-                      propertyName: 'edges',
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('edges', updatedData);
-                      },
-                    );
-                  } else if (tab == 'structure_lt4m') {
-                    return ArrayElementSyncfusion(
-                      jsonSchema: schemaProperties['structure_lt4m'],
-                      data: _localFormData['structure_lt4m'] ?? [],
-                      propertyName: 'structure_lt4m',
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('structure_lt4m', updatedData);
-                      },
-                    );
-                  } else if (tab == 'structure_gt4m') {
-                    return ArrayElementSyncfusion(
-                      jsonSchema: schemaProperties['structure_gt4m'],
-                      data: _localFormData['structure_gt4m'] ?? [],
-                      propertyName: 'structure_gt4m',
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('structure_gt4m', updatedData);
-                      },
-                    );
-                  } else if (tab == 'regeneration') {
-                    return ArrayElementSyncfusion(
-                      jsonSchema: schemaProperties['regeneration'],
-                      data: _localFormData['regeneration'] ?? [],
-                      propertyName: 'regeneration',
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('regeneration', updatedData);
-                      },
-                    );
-                  } else if (tab == 'deadwood') {
-                    return ArrayElementSyncfusion(
-                      jsonSchema: schemaProperties['deadwood'],
-                      data: _localFormData['deadwood'] ?? [],
-                      propertyName: 'deadwood',
-                      validationResult: widget.validationResult,
-                      onDataChanged: (updatedData) {
-                        _updateField('deadwood', updatedData);
-                      },
-                    );
+                  switch (tab.id) {
+                    case 'position':
+                      return NavigationElement(
+                        jsonSchema: schemaProperties['position'],
+                        data: _localFormData,
+                        propertyName: 'position',
+                        previous_properties: _previousProperties,
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('position', updatedData);
+                        },
+                      );
+                    case 'info':
+                      return GenericForm(
+                        jsonSchema: schemaProperties,
+                        data: _localFormData,
+                        propertyName: null,
+                        previous_properties: _previousProperties,
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('', updatedData);
+                        },
+                      );
+                    case 'tree':
+                      return ArrayElementTrina(
+                        jsonSchema: schemaProperties['tree'],
+                        data: _localFormData['tree'],
+                        propertyName: 'tree',
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('tree', updatedData);
+                        },
+                      );
+                    case 'edges':
+                      return ArrayElementTrina(
+                        jsonSchema: schemaProperties['edges'],
+                        data: _localFormData['edges'],
+                        propertyName: 'edges',
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('edges', updatedData);
+                        },
+                      );
+                    case 'structure_lt4m':
+                      return ArrayElementTrina(
+                        jsonSchema: schemaProperties['structure_lt4m'],
+                        data: _localFormData['structure_lt4m'],
+                        propertyName: 'structure_lt4m',
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('structure_lt4m', updatedData);
+                        },
+                      );
+                    case 'structure_gt4m':
+                      return ArrayElementTrina(
+                        jsonSchema: schemaProperties['structure_gt4m'],
+                        data: _localFormData['structure_gt4m'],
+                        propertyName: 'structure_gt4m',
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('structure_gt4m', updatedData);
+                        },
+                      );
+                    case 'regeneration':
+                      return ArrayElementTrina(
+                        jsonSchema: schemaProperties['regeneration'],
+                        data: _localFormData['regeneration'],
+                        propertyName: 'regeneration',
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('regeneration', updatedData);
+                        },
+                      );
+                    case 'deadwood':
+                      return ArrayElementTrina(
+                        jsonSchema: schemaProperties['deadwood'],
+                        data: _localFormData['deadwood'],
+                        propertyName: 'deadwood',
+                        validationResult: widget.validationResult,
+                        onDataChanged: (updatedData) {
+                          _updateField('deadwood', updatedData);
+                        },
+                      );
+                    default:
+                      return Center(child: Text('${tab.label} Form'));
                   }
-                  return Center(child: Text('$tab Form'));
                 }).toList(),
           ),
         ),

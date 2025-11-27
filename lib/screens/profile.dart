@@ -7,6 +7,7 @@ import 'package:terrestrial_forest_monitor/services/background_sync_service.dart
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
+import 'package:terrestrial_forest_monitor/widgets/download-schemas-btn.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
@@ -17,8 +18,6 @@ class Profile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final user = Supabase.instance.client.auth.currentUser;
-    final session = Supabase.instance.client.auth.currentSession;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -48,6 +47,16 @@ class Profile extends StatelessWidget {
               ),
             ),
             Card(child: ThemeSettings()),
+
+            const SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
+                'Download all Schemas',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Card(child: DownloadSchemasBtn()),
 
             const SizedBox(height: 16),
             // In your profile or settings screen

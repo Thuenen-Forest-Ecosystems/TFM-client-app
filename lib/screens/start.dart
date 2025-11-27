@@ -105,6 +105,20 @@ class _StartState extends State<Start> {
     int retryCount = 0;
     const maxRetries = 2;
 
+    // Wait for provider to initialize and load permission ID
+    if (!mounted) return;
+
+    final provider = context.read<RecordsListProvider>();
+
+    // Wait for permission ID to be loaded (up to 2 seconds)
+    int waitCount = 0;
+    while (!provider.isPermissionIdLoaded && waitCount < 20) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      waitCount++;
+    }
+
+    debugPrint('Start: Permission ID ready, proceeding with preload');
+
     while (retryCount < maxRetries) {
       try {
         debugPrint('Start: Preloading all records data (attempt ${retryCount + 1}/$maxRetries)...');
@@ -125,7 +139,6 @@ class _StartState extends State<Start> {
               }).toList();
 
           // Cache in provider with a generic key that map can find
-          final provider = context.read<RecordsListProvider>();
           provider.cacheRecords(
             'all', // Generic key
             ClusterOrderBy.clusterName, // Default order
@@ -439,6 +452,7 @@ class _StartState extends State<Start> {
                 Expanded(
                   child: ListView(
                     controller: scrollController,
+                    padding: EdgeInsets.zero,
                     children: [
                       SizedBox(
                         height: MediaQuery.of(context).size.height * _maxChildSize - 28,

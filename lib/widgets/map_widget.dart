@@ -34,7 +34,6 @@ class _MapWidgetState extends State<MapWidget> {
   bool _markersLoaded = false;
   bool _isDisposed = false;
   bool _isMapReady = false;
-  bool _waitingForCache = false;
   StreamSubscription? _gpsSubscription;
   Timer? _debounceTimer;
   DateTime? _lastFocusTimestamp;
@@ -248,12 +247,24 @@ class _MapWidgetState extends State<MapWidget> {
 
     // Load records from provider cache (shared with RecordsSelection)
     if (!_markersLoaded && !_isDisposed) {
+      // Listen for when records are cached by start.dart
+      final provider = context.read<RecordsListProvider>();
+      provider.addListener(_onProviderChanged);
+
+      // Initial load attempt
       _loadRecordsFromProvider();
     }
 
     // Subscribe to GPS updates
     if (_gpsSubscription == null && !_isDisposed) {
       _subscribeToGPS();
+    }
+  }
+
+  void _onProviderChanged() {
+    if (!_markersLoaded && !_isDisposed && mounted) {
+      debugPrint('MapWidget: Provider notified of changes, attempting to load records');
+      _loadRecordsFromProvider();
     }
   }
 
@@ -298,6 +309,8 @@ class _MapWidgetState extends State<MapWidget> {
       // Get cached records from provider (preloaded in start.dart)
       final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
 
+      debugPrint('MapWidget: Checking cache, found: ${cachedData?.length ?? 0} items');
+
       if (cachedData != null && cachedData.isNotEmpty) {
         // Extract Record objects from cached data and filter to only those with coordinates
         final records =
@@ -311,7 +324,6 @@ class _MapWidgetState extends State<MapWidget> {
           setState(() {
             _records = records;
             _markersLoaded = true;
-            _waitingForCache = false;
           });
 
           // Update visible records and fit camera
@@ -321,20 +333,8 @@ class _MapWidgetState extends State<MapWidget> {
           _fitCameraToMarkers();
         }
       } else {
-        debugPrint('MapWidget: No cached records found, waiting for preload...');
-
-        // Set waiting flag and retry after a delay
-        if (mounted && !_isDisposed && !_waitingForCache) {
-          setState(() {
-            _waitingForCache = true;
-          });
-
-          // Retry after 500ms
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (mounted && !_isDisposed) {
-            _loadRecordsFromProvider();
-          }
-        }
+        debugPrint('MapWidget: No cached records found, will be notified when available');
+        // Don't retry - we'll be notified via the provider listener when data arrives
       }
     } catch (e) {
       debugPrint('MapWidget: Error loading records: $e');
@@ -771,6 +771,9 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.removeListener(_onMapControllerProviderChanged);
+
+      final recordsProvider = context.read<RecordsListProvider>();
+      recordsProvider.removeListener(_onProviderChanged);
     } catch (e) {
       debugPrint('Error removing listeners: $e');
     }
