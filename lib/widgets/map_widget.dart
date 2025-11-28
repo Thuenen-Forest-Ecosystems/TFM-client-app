@@ -109,37 +109,50 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
-  void _checkForFocusedRecord() {
+  Future<void> _checkForFocusedRecord() async {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       final focusedRecord = mapControllerProvider.focusedRecord;
 
       if (focusedRecord != _focusedRecord) {
-        setState(() {
-          _focusedRecord = focusedRecord;
-          _treePositions = focusedRecord != null ? _calculateTreePositions(focusedRecord) : [];
-        });
-        debugPrint(
-          'Focused record changed: ${focusedRecord?.plotName ?? "none"} with ${_treePositions.length} trees',
-        );
+        final treePositions = focusedRecord != null
+            ? await _calculateTreePositions(focusedRecord)
+            : <Map<String, dynamic>>[];
+
+        if (!_isDisposed && mounted) {
+          setState(() {
+            _focusedRecord = focusedRecord;
+            _treePositions = treePositions;
+          });
+          debugPrint(
+            'Focused record changed: ${focusedRecord?.plotName ?? "none"} with ${_treePositions.length} trees',
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error checking focused record: $e');
     }
   }
 
-  List<Map<String, dynamic>> _calculateTreePositions(Record record) {
+  Future<List<Map<String, dynamic>>> _calculateTreePositions(Record record) async {
+    // Offload tree position calculations to isolate
+    return compute(_computeTreePositions, {
+      'recordCoords': record.getCoordinates(),
+      'properties': record.properties,
+    });
+  }
+
+  static List<Map<String, dynamic>> _computeTreePositions(Map<String, dynamic> params) {
     final List<Map<String, dynamic>> positions = [];
-    final recordCoords = record.getCoordinates();
+    final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
+    final properties = params['properties'] as Map<String, dynamic>;
 
     if (recordCoords == null) return positions;
 
-    final centerLat = recordCoords['latitude']!;
-    final centerLng = recordCoords['longitude']!;
+    final centerLat = recordCoords['latitude'] as double;
+    final centerLng = recordCoords['longitude'] as double;
 
     try {
-      final properties = record.properties;
-
       // Check if trees data exists in properties
       final trees = properties['trees'];
       if (trees == null || trees is! List) return positions;
@@ -313,11 +326,10 @@ class _MapWidgetState extends State<MapWidget> {
 
       if (cachedData != null && cachedData.isNotEmpty) {
         // Extract Record objects from cached data and filter to only those with coordinates
-        final records =
-            cachedData
-                .map((item) => item['record'] as Record)
-                .where((record) => record.getCoordinates() != null)
-                .toList();
+        final records = cachedData
+            .map((item) => item['record'] as Record)
+            .where((record) => record.getCoordinates() != null)
+            .toList();
         debugPrint('MapWidget: Using ${records.length} cached records with coordinates');
 
         if (mounted && !_isDisposed) {
@@ -369,7 +381,7 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
-  void _updateVisibleRecords() {
+  Future<void> _updateVisibleRecords() async {
     if (!_isMapReady) return;
 
     final bounds = _mapController.camera.visibleBounds;
@@ -384,22 +396,41 @@ class _MapWidgetState extends State<MapWidget> {
     }
 
     _lastBounds = bounds;
-    _visibleRecords =
-        _records.where((record) {
-          final coords = record.getCoordinates();
-          if (coords == null) return false;
 
-          final lat = coords['latitude'];
-          final lng = coords['longitude'];
-          if (lat == null || lng == null) return false;
+    // Offload filtering to isolate for large datasets
+    final visibleRecords = await compute(_filterVisibleRecords, {
+      'records': _records,
+      'south': bounds.south,
+      'north': bounds.north,
+      'west': bounds.west,
+      'east': bounds.east,
+    });
 
-          return lat >= bounds.south &&
-              lat <= bounds.north &&
-              lng >= bounds.west &&
-              lng <= bounds.east;
-        }).toList();
+    if (!_isDisposed && mounted) {
+      setState(() {
+        _visibleRecords = visibleRecords;
+      });
+      debugPrint('Updated visible records: ${_visibleRecords.length} out of ${_records.length}');
+    }
+  }
 
-    debugPrint('Updated visible records: ${_visibleRecords.length} out of ${_records.length}');
+  static List<Record> _filterVisibleRecords(Map<String, dynamic> params) {
+    final records = params['records'] as List<Record>;
+    final south = params['south'] as double;
+    final north = params['north'] as double;
+    final west = params['west'] as double;
+    final east = params['east'] as double;
+
+    return records.where((record) {
+      final coords = record.getCoordinates();
+      if (coords == null) return false;
+
+      final lat = coords['latitude'];
+      final lng = coords['longitude'];
+      if (lat == null || lng == null) return false;
+
+      return lat >= south && lat <= north && lng >= west && lng <= east;
+    }).toList();
   }
 
   void _fitCameraToMarkers() {
@@ -604,13 +635,13 @@ class _MapWidgetState extends State<MapWidget> {
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
         ),
-        child: Center(
-          child: Text(
-            displayText,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-        ),
+        //child: Center(
+        //  child: Text(
+        //    displayText,
+        //    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+        //    textAlign: TextAlign.center,
+        //  ),
+        //),
       ),
     );
   }
@@ -828,7 +859,7 @@ class _MapWidgetState extends State<MapWidget> {
 
           // Debounce viewport updates to avoid rebuilding on every frame
           _debounceTimer?.cancel();
-          _debounceTimer = Timer(const Duration(milliseconds: 150), () {
+          _debounceTimer = Timer(const Duration(milliseconds: 200), () {
             if (!_isDisposed && mounted) {
               _updateVisibleRecords();
               setState(() {});
@@ -853,8 +884,9 @@ class _MapWidgetState extends State<MapWidget> {
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             subdomains: const ['a', 'b', 'c'],
             tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
-            maxZoom:
-                _selectedBasemaps.contains('dop') ? 14 : 19, // Limit to zoom 14 if DOP is enabled
+            maxZoom: _selectedBasemaps.contains('dop')
+                ? 14
+                : 19, // Limit to zoom 14 if DOP is enabled
             maxNativeZoom: 14,
             tileProvider: FMTCStore('opentopomap').getTileProvider(
               settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),

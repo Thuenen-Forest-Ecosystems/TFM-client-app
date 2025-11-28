@@ -49,3 +49,5 @@ upload-keystore.jks
 android/key.properties
 service-account.json
 service-account.json.base64
+
+.tmp

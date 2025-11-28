@@ -6,7 +6,6 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
@@ -40,6 +39,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   StreamSubscription? _gpsSubscription;
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
+  int? _loadedSchemaVersion;
 
   @override
   void initState() {
@@ -48,7 +48,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _loadRecord().then((_) {
       // Load schema after record is loaded to get the interval name
       if (_record != null) {
-        _loadSchema(_record!.schemaName).then((_) {
+        _loadSchema(_record!.schemaName, schemaIdValidatedBy: _record!.schemaIdValidatedBy).then((
+          _,
+        ) {
           // validate initial form data after schema is loaded
           if (_formData != null) {
             _onFormDataChanged(_formData!);
@@ -71,7 +73,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
     }
 
-    _updateDistanceLine();
+    // Schedule updates after frame to avoid calling notifyListeners during build
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _updateDistanceLine();
+    });
     _subscribeToGPS();
   }
 
@@ -126,10 +131,23 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     super.dispose();
   }
 
-  Future<void> _loadSchema(String intervalName) async {
+  Future<void> _loadSchema(String intervalName, {String? schemaIdValidatedBy}) async {
     try {
-      // Get the latest schema for this interval from PowerSync
-      final latestSchema = await schemaRepository.getLatestForInterval(intervalName);
+      // Prefer validated schema if available, otherwise get latest
+      SchemaModel? latestSchema;
+
+      if (schemaIdValidatedBy != null) {
+        debugPrint('Loading validated schema: $schemaIdValidatedBy');
+        latestSchema = await schemaRepository.getById(schemaIdValidatedBy);
+
+        if (latestSchema == null) {
+          debugPrint('Validated schema not found, falling back to latest');
+          latestSchema = await schemaRepository.getLatestForInterval(intervalName);
+        }
+      } else {
+        debugPrint('No validated schema ID, loading latest for interval: $intervalName');
+        latestSchema = await schemaRepository.getLatestForInterval(intervalName);
+      }
 
       if (latestSchema == null) {
         debugPrint('No schema found for interval: $intervalName');
@@ -141,13 +159,18 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       debugPrint('Found schema: ${latestSchema.title} (version: ${latestSchema.version})');
 
+      // Store loaded schema version for display
+      setState(() {
+        _loadedSchemaVersion = latestSchema!.version;
+      });
+
       // Check if schema has a directory for validation files
       if (latestSchema.directory == null || latestSchema.directory!.isEmpty) {
         debugPrint('Schema has no directory, using embedded schema');
         // Use the embedded schema from the database
         if (latestSchema.schemaData != null) {
           setState(() {
-            _jsonSchema = latestSchema.schemaData!['properties']['plot']['items'];
+            _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
           });
         }
         return;
@@ -169,7 +192,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           // Fallback to embedded schema
           if (latestSchema.schemaData != null) {
             setState(() {
-              _jsonSchema = latestSchema.schemaData!['properties']['plot']['items'];
+              _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
             });
           }
           return;
@@ -191,7 +214,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // Fallback to embedded schema from database
         if (latestSchema.schemaData != null) {
           setState(() {
-            _jsonSchema = latestSchema.schemaData!['properties']['plot']['items'];
+            _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
           });
         }
       }
@@ -320,36 +343,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
-  void _toRecordSelection(BuildContext context) async {
-    final shouldNavigate = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Zurück zur Auswahl'),
-            content: const Text(
-              'Möchten Sie wirklich zurück zur Trakt-Auswahl gehen? Nicht gespeicherte Änderungen gehen verloren.',
-            ),
-            actionsAlignment: MainAxisAlignment.spaceBetween,
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Abbrechen'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Zurück'),
-              ),
-            ],
-          ),
-    );
-
-    if (shouldNavigate == true && mounted) {
-      // Get the schema name from the record or use default
-      final intervalName = _record?.schemaName ?? 'BWI';
-      Beamer.of(context).beamToNamed('/records-selection/${Uri.encodeComponent(intervalName)}');
-    }
-  }
-
   void _setFocusedRecord(BuildContext context) {
     try {
       final mapProvider = context.read<MapControllerProvider>();
@@ -387,84 +380,140 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            child: Column(
-              children: [
-                AppBar(
-                  title: const Text('Current Form Data (JSON)'),
-                  automaticallyImplyLeading: false,
-                  actions: [
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: SelectableText(
-                      jsonString,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
-                  ),
+      builder: (context) => Dialog(
+        child: Column(
+          children: [
+            AppBar(
+              title: const Text('Current Form Data (JSON)'),
+              automaticallyImplyLeading: false,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-          ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: SelectableText(
+                  jsonString,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCurrentSchema() {
+    if (_jsonSchema == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No schema available')));
+      return;
+    }
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(_jsonSchema);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Column(
+          children: [
+            AppBar(
+              title: const Text('Current Schema (JSON)'),
+              automaticallyImplyLeading: false,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: SelectableText(
+                  jsonString,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // Custom AppBar
-          Container(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            clipBehavior: Clip.none,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.map, size: 20),
-                  onPressed: () => _focusRecord(context),
-                ),
-                //const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${widget.clusterName} | ${widget.plotName}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: Column(
+          children: [
+            // Custom AppBar
+            Container(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              clipBehavior: Clip.none,
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.map, size: 20),
+                    onPressed: () => _focusRecord(context),
                   ),
-                ),
-                Badge.count(
-                  count: _validationResult?.errors.length ?? 0,
-                  isLabelVisible: _validationResult != null && !_validationResult!.isValid,
-                  child: ElevatedButton(
-                    onPressed: _jsonSchema != null ? saveRecord : null,
-                    child:
-                        _isValidating
-                            ? const SizedBox(
+                  //const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Trakt: ${widget.clusterName}, Ecke: ${widget.plotName}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (_loadedSchemaVersion != null)
+                          Text(
+                            'Schema Version: $_loadedSchemaVersion',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.grey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  Badge.count(
+                    count: _validationResult?.errors.length ?? 0,
+                    isLabelVisible: _validationResult != null && !_validationResult!.isValid,
+                    child: ElevatedButton(
+                      onPressed: _jsonSchema != null ? saveRecord : null,
+                      child: _isValidating
+                          ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                            : const Text('FERTIG'),
+                          : const Text('FERTIG'),
+                    ),
                   ),
-                ),
-                IconButton(onPressed: _showCurrentAsJson, icon: Icon(Icons.javascript)),
-              ],
+                  IconButton(onPressed: _showCurrentAsJson, icon: Icon(Icons.javascript)),
+                  IconButton(onPressed: _showCurrentSchema, icon: Icon(Icons.schema)),
+                ],
+              ),
             ),
-          ),
-          // Validation errors banner
-          Expanded(
-            child:
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                    ? Center(
+            // Validation errors banner
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -474,17 +523,18 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                         ],
                       ),
                     )
-                    : _record == null
-                    ? const Center(child: Text('No record found'))
-                    : FormWrapper(
+                  : _record == null
+                  ? const Center(child: Text('No record found'))
+                  : FormWrapper(
                       jsonSchema: _jsonSchema,
                       formData: _formData,
                       previousFormData: _previousFormData,
                       onFormDataChanged: _onFormDataChanged,
                       validationResult: _validationResult,
                     ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

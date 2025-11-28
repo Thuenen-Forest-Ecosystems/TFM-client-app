@@ -54,51 +54,45 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
         beamToNamed: (origin, target) => '/login',
       ),
     ],
-    locationBuilder:
-        RoutesLocationBuilder(
-          routes: {
-            '/login':
-                (context, state, data) => BeamPage(
-                  key: ValueKey('login-${DateTime.now()}'),
-                  title: 'Login',
-                  child: Login(),
-                  type: BeamPageType.noTransition,
-                ),
-            '/':
-                (context, state, data) => BeamPage(
-                  key: ValueKey('start-${DateTime.now()}'),
-                  title: 'TFM',
-                  child: Schema(),
-                  type: BeamPageType.noTransition,
-                ),
-            //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-            '/records-selection/:intervalName':
-                (context, state, data) => BeamPage(
-                  key: ValueKey('start-${DateTime.now()}'),
-                  title: 'TFM',
-                  child: Start(),
-                  type: BeamPageType.noTransition,
-                ),
-            '/properties-edit/:clusterName/:plotName':
-                (context, state, data) => BeamPage(
-                  key: ValueKey('start-${DateTime.now()}'),
-                  title: 'TFM',
-                  child: Start(),
-                  type: BeamPageType.noTransition,
-                ),
-            '/profile':
-                (context, state, data) => BeamPage(
-                  key: ValueKey('profile-${DateTime.now()}'),
-                  title: 'Profile',
-                  child: Profile(),
-                  type: BeamPageType.noTransition,
-                ),
-            //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
-            //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
-            //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
-            //'/headless': (context, state, data) => BeamPage(key: ValueKey('headless-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: StatelessTest(), type: BeamPageType.noTransition),
-          },
-        ).call,
+    locationBuilder: RoutesLocationBuilder(
+      routes: {
+        '/login': (context, state, data) => BeamPage(
+          key: ValueKey('login-${DateTime.now()}'),
+          title: 'Login',
+          child: Login(),
+          type: BeamPageType.noTransition,
+        ),
+        '/': (context, state, data) => BeamPage(
+          key: ValueKey('start-${DateTime.now()}'),
+          title: 'TFM',
+          child: Schema(),
+          type: BeamPageType.noTransition,
+        ),
+        //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
+        '/records-selection/:intervalName': (context, state, data) => BeamPage(
+          key: ValueKey('start-${DateTime.now()}'),
+          title: 'TFM',
+          child: Start(),
+          type: BeamPageType.noTransition,
+        ),
+        '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(
+          key: ValueKey('start-${DateTime.now()}'),
+          title: 'TFM',
+          child: Start(),
+          type: BeamPageType.noTransition,
+        ),
+        '/profile': (context, state, data) => BeamPage(
+          key: ValueKey('profile-${DateTime.now()}'),
+          title: 'Profile',
+          child: Profile(),
+          type: BeamPageType.noTransition,
+        ),
+        //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
+        //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
+        //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
+        //'/headless': (context, state, data) => BeamPage(key: ValueKey('headless-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: StatelessTest(), type: BeamPageType.noTransition),
+      },
+    ).call,
   );
 }
 
@@ -109,8 +103,9 @@ void main() async {
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
-  final ThemeMode initialThemeMode =
-      brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
+  final ThemeMode initialThemeMode = brightness == Brightness.dark
+      ? ThemeMode.dark
+      : ThemeMode.light;
 
   try {
     await dotenv.load(fileName: '.env');
@@ -150,8 +145,8 @@ void main() async {
   //await Repository.configure(databaseFactory);
   //await Repository().initialize();
 
+  // Create GPS provider but don't initialize yet (will be done when Start screen loads)
   final gpsProvider = GpsPositionProvider();
-  gpsProvider.initialize();
 
   final languageProvider = Language(Locale(defaultLocale));
   languageProvider.watchLanguageChange();
@@ -210,16 +205,15 @@ class Layout extends StatelessWidget {
         scaffoldBackgroundColor: Color(0xFFeeeeee),
         // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
         pageTransitionsTheme: PageTransitionsTheme(
-          builders:
-              kIsWeb
-                  ? {
-                    for (final platform in TargetPlatform.values)
-                      platform: const NoTransitionsBuilder(),
-                  }
-                  : {
-                    TargetPlatform.android: ZoomPageTransitionsBuilder(),
-                    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                  },
+          builders: kIsWeb
+              ? {
+                  for (final platform in TargetPlatform.values)
+                    platform: const NoTransitionsBuilder(),
+                }
+              : {
+                  TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                },
         ),
         colorScheme: ColorScheme.fromSwatch(
           primarySwatch: Colors.green,

@@ -10,6 +10,8 @@ class Record {
   final Map<String, dynamic> properties;
   final String schemaName;
   final String schemaId;
+  final String? schemaIdValidatedBy;
+  final int? schemaVersion;
   final String plotId;
   final String clusterId;
   final String plotName;
@@ -26,6 +28,8 @@ class Record {
     required this.properties,
     required this.schemaName,
     required this.schemaId,
+    this.schemaIdValidatedBy,
+    this.schemaVersion,
     required this.plotId,
     required this.clusterId,
     required this.plotName,
@@ -44,14 +48,15 @@ class Record {
       properties: jsonDecode(row['properties'] as String) as Map<String, dynamic>,
       schemaName: row['schema_name'] as String,
       schemaId: row['schema_id'] as String,
+      schemaIdValidatedBy: row['schema_id_validated_by'] as String?,
+      schemaVersion: row['schema_version'] as int?,
       plotId: row['plot_id'] as String,
       clusterId: row['cluster_id'] as String,
       plotName: row['plot_name'] as String,
       clusterName: row['cluster_name'] as String,
-      previousProperties:
-          row['previous_properties'] != null
-              ? jsonDecode(row['previous_properties'] as String) as Map<String, dynamic>
-              : null,
+      previousProperties: row['previous_properties'] != null
+          ? jsonDecode(row['previous_properties'] as String) as Map<String, dynamic>
+          : null,
       isValid: row['is_valid'] as int?,
       responsibleAdministration: row['responsible_administration'] as String?,
       responsibleProvider: row['responsible_provider'] as String?,
@@ -65,6 +70,7 @@ class Record {
       'properties': jsonEncode(properties),
       'schema_name': schemaName,
       'schema_id': schemaId,
+      'schema_id_validated_by': schemaIdValidatedBy,
       'plot_id': plotId,
       'cluster_id': clusterId,
       'plot_name': plotName,
@@ -216,7 +222,10 @@ class RecordsRepository {
   Future<List<Record>> getRecordsByClusterAndPlot(String clusterName, String plotName) async {
     final orgFilter = await _getOrganizationFilter();
     final results = await db.execute(
-      'SELECT * FROM records WHERE cluster_name = ? AND plot_name = ? AND $orgFilter',
+      '''SELECT r.*, s.version as schema_version 
+         FROM records r 
+         LEFT JOIN schemas s ON r.schema_id_validated_by = s.id 
+         WHERE r.cluster_name = ? AND r.plot_name = ? AND $orgFilter''',
       [clusterName, plotName],
     );
     return results.map((row) => Record.fromRow(row)).toList();
@@ -522,7 +531,8 @@ class RecordsRepository {
     int? limit,
   }) async {
     final orgFilter = await _getOrganizationFilter();
-    final query = '''
+    final query =
+        '''
       SELECT *
       FROM records
       WHERE previous_properties IS NOT NULL
@@ -532,10 +542,9 @@ class RecordsRepository {
       ${limit != null ? 'LIMIT ?' : ''}
     ''';
 
-    final params =
-        limit != null
-            ? [southLat, northLat, westLng, eastLng, limit]
-            : [southLat, northLat, westLng, eastLng];
+    final params = limit != null
+        ? [southLat, northLat, westLng, eastLng, limit]
+        : [southLat, northLat, westLng, eastLng];
 
     final results = await db.execute(query, params);
     return results.map((row) => Record.fromRow(row)).toList();

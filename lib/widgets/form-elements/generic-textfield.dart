@@ -10,6 +10,7 @@ class GenericTextField extends StatefulWidget {
   final dynamic value;
   final List<ValidationError> errors;
   final Function(dynamic)? onChanged;
+  final bool compact;
 
   const GenericTextField({
     super.key,
@@ -18,6 +19,7 @@ class GenericTextField extends StatefulWidget {
     this.value,
     this.errors = const [],
     this.onChanged,
+    this.compact = false,
   });
 
   @override
@@ -31,6 +33,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
   @override
   void initState() {
     super.initState();
+    debugPrint(
+      'Errors for field ${widget.fieldName}: ${widget.errors.map((e) => e.message).join(', ')}',
+    );
     _initializeControllers();
   }
 
@@ -87,12 +92,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
   String? _getLabel() {
     final title = widget.fieldSchema['title'] as String? ?? widget.fieldName;
-    final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
-    final unit = tfmData?['unit_short'] as String?;
-
-    if (unit != null && unit.isNotEmpty) {
-      return '$title [$unit]';
-    }
     return title;
   }
 
@@ -109,6 +108,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
   Widget build(BuildContext context) {
     final type = _getType();
     final hasErrors = widget.errors.isNotEmpty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final errorBgColor = hasErrors
+        ? (isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2))
+        : null;
 
     // Handle boolean with Switch
     if (type == 'boolean') {
@@ -184,8 +187,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
           labelText: _getLabel(),
           helperText: _getDescription(),
           errorText: _getErrorText(),
-          border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50))),
           suffixIcon: const Icon(Icons.arrow_drop_down),
+          filled: true,
+          fillColor: Colors.grey.withOpacity(0.1),
         ),
         controller: TextEditingController(text: getDisplayText(widget.value)),
         onTap: () async {
@@ -198,8 +203,16 @@ class _GenericTextFieldState extends State<GenericTextField> {
             nameDe: nameDe,
           );
 
+          // Handle different return values:
+          // - null: dialog was dismissed, don't update
+          // - ClearSelection: user clicked "Leeren", set to null
+          // - other: user selected a value
           if (selected != null) {
-            widget.onChanged?.call(selected);
+            if (selected.runtimeType.toString() == 'ClearSelection') {
+              widget.onChanged?.call(null);
+            } else {
+              widget.onChanged?.call(selected);
+            }
           }
         },
       );
@@ -207,42 +220,57 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     // Handle number and integer types
     if (type == 'number' || type == 'integer') {
+      final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+      final unit = tfmData?['unit_short'] as String?;
+
       return TextField(
         controller: _controller,
         textAlign: TextAlign.right,
-        decoration: InputDecoration(
-          labelText: _getLabel(),
-          helperText: _getDescription(),
-          errorText: _getErrorText(),
-          border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-          suffixIcon: SpeechToTextButton(
-            controller: _controller,
-            fieldType: type,
-            onTextChanged: () {
-              final value = _controller.text;
-              if (value.isEmpty) {
-                widget.onChanged?.call(null);
-                return;
-              }
+        decoration: widget.compact
+            ? InputDecoration(
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
+                isDense: true,
+                filled: hasErrors,
+                fillColor: errorBgColor,
+              )
+            : InputDecoration(
+                labelText: _getLabel(),
+                helperText: _getDescription(),
+                errorText: _getErrorText(),
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(50)),
+                ),
+                filled: true,
+                fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
+                suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
+                suffixIcon: SpeechToTextButton(
+                  controller: _controller,
+                  fieldType: type,
+                  onTextChanged: () {
+                    final value = _controller.text;
+                    if (value.isEmpty) {
+                      widget.onChanged?.call(null);
+                      return;
+                    }
 
-              if (type == 'integer') {
-                final intValue = int.tryParse(value);
-                widget.onChanged?.call(intValue);
-              } else {
-                final doubleValue = double.tryParse(value);
-                widget.onChanged?.call(doubleValue);
-              }
-            },
-          ),
-        ),
-        keyboardType:
-            type == 'integer'
-                ? TextInputType.number
-                : const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters:
-            type == 'integer'
-                ? [FilteringTextInputFormatter.digitsOnly]
-                : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                    if (type == 'integer') {
+                      final intValue = int.tryParse(value);
+                      widget.onChanged?.call(intValue);
+                    } else {
+                      final doubleValue = double.tryParse(value);
+                      widget.onChanged?.call(doubleValue);
+                    }
+                  },
+                ),
+              ),
+        keyboardType: type == 'integer'
+            ? TextInputType.number
+            : const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: type == 'integer'
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
         onChanged: (value) {
           if (value.isEmpty) {
             widget.onChanged?.call(null);
@@ -263,24 +291,34 @@ class _GenericTextFieldState extends State<GenericTextField> {
     // Handle string (default)
     return TextField(
       controller: _controller,
-      decoration: InputDecoration(
-        labelText: _getLabel(),
-        helperText: _getDescription(),
-        errorText: _getErrorText(),
-        border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-        suffixIcon: SpeechToTextButton(
-          controller: _controller,
-          fieldType: 'string',
-          onTextChanged: () {
-            final value = _controller.text;
-            widget.onChanged?.call(value.isEmpty ? null : value);
-          },
-        ),
-      ),
+      decoration: widget.compact
+          ? InputDecoration(
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              isDense: true,
+              filled: hasErrors,
+              fillColor: errorBgColor,
+            )
+          : InputDecoration(
+              labelText: _getLabel(),
+              helperText: _getDescription(),
+              errorText: _getErrorText(),
+              border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              filled: true,
+              fillColor: hasErrors ? errorBgColor : Colors.white.withOpacity(0.1),
+              suffixIcon: SpeechToTextButton(
+                controller: _controller,
+                fieldType: 'string',
+                onTextChanged: () {
+                  final value = _controller.text;
+                  widget.onChanged?.call(value.isEmpty ? null : value);
+                },
+              ),
+            ),
       maxLines:
           widget.fieldSchema['maxLength'] != null && (widget.fieldSchema['maxLength'] as int) > 100
-              ? 3
-              : 1,
+          ? 3
+          : 1,
       onChanged: (value) {
         widget.onChanged?.call(value.isEmpty ? null : value);
       },

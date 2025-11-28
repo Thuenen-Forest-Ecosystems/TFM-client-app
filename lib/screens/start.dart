@@ -16,6 +16,7 @@ import 'package:terrestrial_forest_monitor/screens/inventory/records-selection.d
 import 'package:terrestrial_forest_monitor/screens/inventory/properties-edit.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
+import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 //import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
 
@@ -44,6 +45,14 @@ class _StartState extends State<Start> {
     // Listen to sheet controller changes
     _sheetController.addListener(_onSheetChanged);
 
+    // Initialize GPS provider now that user is authenticated
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final gpsProvider = context.read<GpsPositionProvider>();
+        gpsProvider.initialize();
+      }
+    });
+
     // Preload all records data into cache
     _preloadRecordsData();
 
@@ -51,9 +60,8 @@ class _StartState extends State<Start> {
       initialPath: '/',
       locationBuilder: RoutesLocationBuilder(
         routes: {
-          '/':
-              (context, state, data) =>
-                  BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection()),
+          '/': (context, state, data) =>
+              BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection()),
           '/records-selection/:intervalName': (context, state, data) {
             final intervalName = state.pathParameters['intervalName'];
             if (intervalName == null || intervalName.isEmpty) {
@@ -133,10 +141,9 @@ class _StartState extends State<Start> {
         if (records.isNotEmpty) {
           // Store in provider cache as if it came from records-selection
           // This way both map and list can use the same data
-          final recordsWithMetadata =
-              records.map((record) {
-                return {'record': record, 'metadata': null};
-              }).toList();
+          final recordsWithMetadata = records.map((record) {
+            return {'record': record, 'metadata': null};
+          }).toList();
 
           // Cache in provider with a generic key that map can find
           provider.cacheRecords(
@@ -193,12 +200,10 @@ class _StartState extends State<Start> {
   Widget _buildTopBar() {
     return Container(
       // add scaffold background color and rounded corners
-      height: 60,
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.all(Radius.circular(30)),
       ),
-      padding: EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         children: [
           //const SyncStatusButton(),
@@ -211,7 +216,7 @@ class _StartState extends State<Start> {
   @override
   Widget build(BuildContext context) {
     // Show loading screen while preloading data
-    if (_isLoadingData) {
+    /*if (_isLoadingData) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -224,7 +229,7 @@ class _StartState extends State<Start> {
           ),
         ),
       );
-    }
+    }*/
 
     return BackButtonListener(
       onBackButtonPressed: () async {
@@ -234,26 +239,25 @@ class _StartState extends State<Start> {
         if (currentPath.startsWith('/properties-edit')) {
           final shouldNavigate = await showDialog<bool>(
             context: context,
-            builder:
-                (context) => AlertDialog(
-                  title: const Text('Aufnahme abbrechen'),
-                  content: const Text('Ungespeicherten Änderungen gehen verloren.'),
-                  actionsAlignment: MainAxisAlignment.spaceBetween,
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('zurück'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Änderungen verwerfen'),
-                    ),
-                  ],
+            builder: (context) => AlertDialog(
+              title: const Text('Aufnahme abbrechen'),
+              content: const Text('Ungespeicherten Änderungen gehen verloren.'),
+              actionsAlignment: MainAxisAlignment.spaceBetween,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('zurück'),
                 ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Änderungen verwerfen'),
+                ),
+              ],
+            ),
           );
 
           if (shouldNavigate == true) {
@@ -340,28 +344,25 @@ class _StartState extends State<Start> {
 
                             shouldNavigate = await showDialog<bool>(
                               context: context,
-                              builder:
-                                  (context) => AlertDialog(
-                                    title: Text(title),
-                                    content: const Text(
-                                      'Ungespeicherten Änderungen gehen verloren.',
-                                    ),
-                                    actionsAlignment: MainAxisAlignment.spaceBetween,
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.of(context).pop(false),
-                                        child: const Text('zurück'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.of(context).pop(true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Theme.of(context).colorScheme.error,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        child: const Text('Änderungen verwerfen'),
-                                      ),
-                                    ],
+                              builder: (context) => AlertDialog(
+                                title: Text(title),
+                                content: const Text('Ungespeicherten Änderungen gehen verloren.'),
+                                actionsAlignment: MainAxisAlignment.spaceBetween,
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('zurück'),
                                   ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Theme.of(context).colorScheme.error,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Änderungen verwerfen'),
+                                  ),
+                                ],
+                              ),
                             );
                           }
                           if (shouldNavigate == true) {

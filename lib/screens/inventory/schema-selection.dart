@@ -7,6 +7,7 @@ import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/permissions-selection.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/widgets/auth/user-info-tile.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-tiles-download.dart';
 
 class SchemaSelection extends StatefulWidget {
@@ -223,7 +224,7 @@ class _SchemaCard extends StatelessWidget {
 
     return Column(
       children: [
-        const MapTilesDownload(),
+        UserInfoTile(),
         Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 2,
@@ -240,11 +241,6 @@ class _SchemaCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  /*IconButton(
-                    icon: const Icon(Icons.arrow_forward),
-                    onPressed: onTap,
-                    tooltip: 'Schema auswählen',
-                  ),*/
                 ],
               ),
               Divider(height: 1),
@@ -254,6 +250,7 @@ class _SchemaCard extends StatelessWidget {
             ],
           ),
         ),
+        Card(margin: const EdgeInsets.only(bottom: 16), child: const MapTilesDownload()),
       ],
     );
   }

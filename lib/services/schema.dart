@@ -114,6 +114,7 @@ Schema schema = Schema(([
     Column.text('properties'),
     Column.text('schema_name'),
     Column.text('schema_id'),
+    Column.text('schema_id_validated_by'),
     Column.text('updated_at'),
     Column.text('plot_id'),
     Column.text('cluster_id'),

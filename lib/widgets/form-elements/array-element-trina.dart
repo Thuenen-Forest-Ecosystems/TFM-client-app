@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 
 /// ArrayElementTrina - TrinaGrid-based array data editor widget
 ///
@@ -53,8 +54,13 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
   @override
   void didUpdateWidget(ArrayElementTrina oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.jsonSchema != oldWidget.jsonSchema || widget.data != oldWidget.data) {
+    // Only reinitialize if schema changes
+    if (widget.jsonSchema != oldWidget.jsonSchema) {
       _initializeGrid();
+    }
+    // If validation result changes, force grid to rebuild cells
+    if (widget.validationResult != oldWidget.validationResult) {
+      _stateManager?.notifyListeners();
     }
   }
 
@@ -62,6 +68,29 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     _columns = _buildColumns();
     _columnGroups = _buildColumnGroups();
     _rows = _buildRows();
+  }
+
+  /// Check if a specific cell has validation errors
+  bool _hasValidationError(int rowIndex, String fieldKey) {
+    if (widget.validationResult == null || widget.propertyName == null) {
+      return false;
+    }
+
+    final errors = widget.validationResult!.errors;
+
+    // Check for errors like: "/propertyName/0/fieldKey" or "/propertyName/0"
+    final cellPath = '/${widget.propertyName}/$rowIndex/$fieldKey';
+    final rowPath = '/${widget.propertyName}/$rowIndex';
+
+    return errors.any((error) => error.instancePath == cellPath || error.instancePath == rowPath);
+  }
+
+  /// Get background color for cell based on validation state
+  Color? _getCellBackgroundColor(int rowIndex, String fieldKey, bool isDark) {
+    if (_hasValidationError(rowIndex, fieldKey)) {
+      return isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2); // Light red
+    }
+    return null;
   }
 
   List<TrinaColumn> _buildColumns() {
@@ -143,14 +172,15 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
         columnType = TrinaColumnTypeText();
         isBoolean = true;
       } else if (type == 'integer' || type == 'number') {
-        columnType = TrinaColumnTypeNumber(
+        /*columnType = TrinaColumnTypeNumber(
           negative: true,
           format: type == 'number' ? '#,###.##' : '#,###',
-          applyFormatOnInit: true,
+          applyFormatOnInit: false,
           allowFirstDot: true,
           locale: 'de_DE',
-        );
+        );*/
         isNumeric = true;
+        columnType = TrinaColumnTypeText();
       } else {
         columnType = TrinaColumnTypeText();
       }
@@ -163,12 +193,11 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
       final isReadOnly = propertySchema['readonly'] as bool? ?? false;
 
       // Determine frozen position from pinned value
-      final frozen =
-          pinnedValue == 'left'
-              ? TrinaColumnFrozen.start
-              : pinnedValue == 'right'
-              ? TrinaColumnFrozen.end
-              : TrinaColumnFrozen.none;
+      final frozen = pinnedValue == 'left'
+          ? TrinaColumnFrozen.start
+          : pinnedValue == 'right'
+          ? TrinaColumnFrozen.end
+          : TrinaColumnFrozen.none;
 
       columns.add(
         TrinaColumn(
@@ -181,16 +210,15 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableColumnDrag: false,
           readOnly: isReadOnly,
           // Custom renderer for enum, numeric, boolean, or grouped columns
-          renderer:
-              isEnum
-                  ? (rendererContext) => _buildEnumCell(rendererContext, propertySchema, key)
-                  : isNumeric
-                  ? (rendererContext) => _buildNumericCell(rendererContext, propertySchema)
-                  : isBoolean
-                  ? (rendererContext) => _buildBooleanCell(rendererContext)
-                  : groupName != null
-                  ? (rendererContext) => Text(rendererContext.cell.value?.toString() ?? '')
-                  : null,
+          renderer: isEnum
+              ? (rendererContext) => _buildEnumCell(rendererContext, propertySchema, key)
+              : isNumeric
+              ? (rendererContext) => _buildNumericEditableCell(rendererContext, propertySchema, key)
+              : isBoolean
+              ? (rendererContext) => _buildBooleanCell(rendererContext, key)
+              : groupName != null
+              ? (rendererContext) => _buildTextCell(rendererContext, key)
+              : (rendererContext) => _buildTextCell(rendererContext, key),
         ),
       );
     }
@@ -271,15 +299,32 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     }).toList();
   }
 
+  Widget _buildTextCell(TrinaColumnRendererContext rendererContext, String fieldKey) {
+    final value = rendererContext.cell.value;
+    final rowIndex = rendererContext.rowIdx;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+
+    return Container(
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: bgColor,
+      child: Text(value?.toString() ?? '', overflow: TextOverflow.ellipsis, maxLines: 1),
+    );
+  }
+
   Widget _buildEnumCell(
     TrinaColumnRendererContext rendererContext,
     Map<String, dynamic> propertySchema,
     String fieldKey,
   ) {
     final value = rendererContext.cell.value;
+    final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final nameDe = tfm?['name_de'] as List?;
     final enumValues = propertySchema['enum'] as List?;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     // Get display text
     String displayText = '';
@@ -299,21 +344,49 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
       child: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(displayText),
+        color: bgColor,
+        child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
     );
   }
 
-  Widget _buildNumericCell(
+  Widget _buildNumericEditableCell(
     TrinaColumnRendererContext rendererContext,
     Map<String, dynamic> propertySchema,
+    String fieldKey,
   ) {
     final value = rendererContext.cell.value;
+    final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final unit = tfm?['unit_short'] as String?;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
+    // Check if cell is in edit mode
+    final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
+
+    if (isCurrentCell) {
+      // Edit mode: use GenericTextField in compact mode for grid
+      return Container(
+        color: bgColor,
+        child: GenericTextField(
+          fieldName: fieldKey,
+          fieldSchema: propertySchema,
+          value: value,
+          errors: const [],
+          compact: true,
+          onChanged: (newValue) {
+            rendererContext.cell.value = newValue;
+            _stateManager?.notifyListeners();
+            _notifyDataChanged();
+          },
+        ),
+      );
+    }
+
+    // Display mode: show text
     String displayText = '';
-    if (value != null) {
+    if (value != null && value.toString() != 'null') {
       displayText = value.toString();
       if (unit != null && unit.isNotEmpty) {
         displayText = '$displayText $unit';
@@ -323,17 +396,22 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     return Container(
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Text(displayText),
+      color: bgColor,
+      child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
-  Widget _buildBooleanCell(TrinaColumnRendererContext rendererContext) {
+  Widget _buildBooleanCell(TrinaColumnRendererContext rendererContext, String fieldKey) {
     final value = rendererContext.cell.value;
+    final rowIndex = rendererContext.rowIdx;
     final boolValue = value == true;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: bgColor,
       child: Switch(
         value: boolValue,
         onChanged: (newValue) {
@@ -404,18 +482,16 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
 
       if (autoIncrement && (type == 'integer' || type == 'number')) {
         // Auto-increment: find max value and add 1
-        final existingValues =
-            _rows
-                .map((row) => row.cells[key]?.value)
-                .where((v) => v != null && v is num)
-                .map((v) => (v as num).toInt())
-                .toList();
+        final existingValues = _rows
+            .map((row) => row.cells[key]?.value)
+            .where((v) => v != null && v is num)
+            .map((v) => (v as num).toInt())
+            .toList();
 
         final defaultValue = propertySchema['default'] as int? ?? 1;
-        newRow[key] =
-            existingValues.isEmpty
-                ? defaultValue
-                : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+        newRow[key] = existingValues.isEmpty
+            ? defaultValue
+            : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
       } else {
@@ -449,25 +525,33 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     final newTrinaRow = TrinaRow(cells: cells);
 
-    // Add to internal state
+    // Add to internal state first
     _rows.add(newTrinaRow);
 
-    // Add to state manager if available
-    _stateManager?.insertRows(_rows.length - 1, [newTrinaRow]);
-
-    // Notify parent
-    _notifyDataChanged();
+    if (_stateManager != null) {
+      // Sync to state manager - this should trigger onChanged but it doesn't always
+      _stateManager!.insertRows(_stateManager!.rows.length, [newTrinaRow]);
+      // Explicitly notify parent since onChanged might not fire for insertRows
+      _notifyDataChanged();
+    } else {
+      // If grid not loaded yet (empty state), notify parent directly
+      _notifyDataChanged();
+      // Trigger rebuild to show the grid
+      setState(() {});
+    }
   }
 
   void _notifyDataChanged() {
-    final data =
-        _rows.map((row) {
-          final rowData = <String, dynamic>{};
-          row.cells.forEach((key, cell) {
-            rowData[key] = cell.value;
-          });
-          return rowData;
-        }).toList();
+    // Sync _rows from state manager if available (source of truth)
+    final rowsToUse = _stateManager?.rows ?? _rows;
+
+    final data = rowsToUse.map((row) {
+      final rowData = <String, dynamic>{};
+      row.cells.forEach((key, cell) {
+        rowData[key] = cell.value;
+      });
+      return rowData;
+    }).toList();
 
     widget.onDataChanged?.call(data);
   }
@@ -514,8 +598,12 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
           columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
           onLoaded: (TrinaGridOnLoadedEvent event) {
             _stateManager = event.stateManager;
+            // Sync state manager rows to our _rows list after load
+            _rows = event.stateManager.rows;
           },
           onChanged: (TrinaGridOnChangedEvent event) {
+            // Sync _rows from state manager
+            _rows = _stateManager?.rows ?? _rows;
             _notifyDataChanged();
           },
           onSorted: (TrinaGridOnSortedEvent event) {

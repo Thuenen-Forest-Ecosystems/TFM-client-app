@@ -50,8 +50,9 @@ class _GenericFormState extends State<GenericForm> {
   List<ValidationError> _getErrorsForField(String fieldName) {
     if (widget.validationResult == null) return [];
 
-    final propertyPath =
-        widget.propertyName != null ? '/${widget.propertyName}/$fieldName' : '/$fieldName';
+    final propertyPath = widget.propertyName != null
+        ? '/${widget.propertyName}/$fieldName'
+        : '/$fieldName';
 
     return widget.validationResult!.errors.where((error) {
       final path = error.instancePath ?? '';
@@ -67,10 +68,9 @@ class _GenericFormState extends State<GenericForm> {
     }
 
     // The jsonSchema might already be the properties object, or it might have a 'properties' key
-    final properties =
-        widget.jsonSchema!.containsKey('properties')
-            ? widget.jsonSchema!['properties'] as Map<String, dynamic>?
-            : widget.jsonSchema;
+    final properties = widget.jsonSchema!.containsKey('properties')
+        ? widget.jsonSchema!['properties'] as Map<String, dynamic>?
+        : widget.jsonSchema;
 
     if (properties == null || properties.isEmpty) {
       return const Center(child: Text('No properties in schema'));
@@ -115,23 +115,25 @@ class _GenericFormState extends State<GenericForm> {
 
     return ListView(
       padding: const EdgeInsets.all(16),
-      children:
-          primitiveFields.entries.map((entry) {
-            final fieldName = entry.key;
-            final fieldSchema = entry.value;
-            final fieldErrors = _getErrorsForField(fieldName);
+      children: primitiveFields.entries.map((entry) {
+        final fieldName = entry.key;
+        final fieldSchema = entry.value;
+        final fieldErrors = _getErrorsForField(fieldName);
+        debugPrint(
+          'Building field $fieldName with errors: ${fieldErrors.map((e) => e.message).join(', ')}',
+        );
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 26),
-              child: GenericTextField(
-                fieldName: fieldName,
-                fieldSchema: fieldSchema,
-                value: _localData[fieldName],
-                errors: fieldErrors,
-                onChanged: (value) => _updateField(fieldName, value),
-              ),
-            );
-          }).toList(),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 26),
+          child: GenericTextField(
+            fieldName: fieldName,
+            fieldSchema: fieldSchema,
+            value: _localData[fieldName],
+            errors: fieldErrors,
+            onChanged: (value) => _updateField(fieldName, value),
+          ),
+        );
+      }).toList(),
     );
   }
 }

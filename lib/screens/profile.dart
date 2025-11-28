@@ -9,6 +9,7 @@ import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/download-schemas-btn.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:terrestrial_forest_monitor/widgets/test_trina_grid.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -52,7 +53,7 @@ class Profile extends StatelessWidget {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
               child: Text(
-                'Download all Schemas',
+                'Schemas für Validierung',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -70,32 +71,40 @@ class Profile extends StatelessWidget {
               child: const Text('Test Background Sync'),
             ),
 
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (context) => const TestTrinaGrid()));
+              },
+              child: const Text('Test TrinaGrid'),
+            ),
+
             // User Information Card
             const SizedBox(height: 32),
 
             // Logout Button
             TextButton.icon(
-              onPressed:
-                  authProvider.loggingIn
-                      ? null
-                      : () async {
-                        // Disconnect and clear PowerSync database
-                        await db.disconnectAndClear();
-                        //await db.disconnect();
-                        // Logout from Supabase
-                        await authProvider.logout();
-                        if (context.mounted) {
-                          context.beamToNamed('/login');
-                        }
-                      },
-              icon:
-                  authProvider.loggingIn
-                      ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.logout),
+              onPressed: authProvider.loggingIn
+                  ? null
+                  : () async {
+                      // Disconnect and clear PowerSync database
+                      await db.disconnectAndClear();
+                      //await db.disconnect();
+                      // Logout from Supabase
+                      await authProvider.logout();
+                      if (context.mounted) {
+                        context.beamToNamed('/login');
+                      }
+                    },
+              icon: authProvider.loggingIn
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout),
               label: Text(authProvider.loggingIn ? 'Abmelden...' : 'Abmelden'),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.red,

@@ -15,7 +15,14 @@ class CombinedBluetoothDevice {
   final ble.BluetoothDevice? bleDevice;
   final classic.BluetoothDevice? classicDevice;
 
-  CombinedBluetoothDevice({required this.id, required this.name, this.rssi, required this.isBLE, this.bleDevice, this.classicDevice});
+  CombinedBluetoothDevice({
+    required this.id,
+    required this.name,
+    this.rssi,
+    required this.isBLE,
+    this.bleDevice,
+    this.classicDevice,
+  });
 }
 
 class BluetoothIconCombined extends StatefulWidget {
@@ -130,7 +137,15 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
               // Add to combined list if not already present
               final exists = _combinedDevices.any((d) => d.id == device.address);
               if (!exists) {
-                _combinedDevices.add(CombinedBluetoothDevice(id: device.address, name: device.name ?? 'Unknown Classic Device', rssi: device.rssi, isBLE: false, classicDevice: device));
+                _combinedDevices.add(
+                  CombinedBluetoothDevice(
+                    id: device.address,
+                    name: device.name ?? 'Unknown Classic Device',
+                    rssi: device.rssi,
+                    isBLE: false,
+                    classicDevice: device,
+                  ),
+                );
               }
             });
           }
@@ -166,7 +181,13 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
       if (mounted && context.mounted) {
         // Try to show snackbar, but don't fail if no scaffold
         try {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Connecting to ${device.platformName.isEmpty ? "GPS device" : device.platformName}...')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Connecting to ${device.platformName.isEmpty ? "GPS device" : device.platformName}...',
+              ),
+            ),
+          );
         } catch (e) {
           debugPrint('Could not show snackbar: $e');
         }
@@ -182,7 +203,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   Future<void> _connectToClassicDevice(classic.BluetoothDevice device) async {
     // Note: flutter_blue_classic doesn't support programmatic connection
     // Users typically need to pair through system settings
-    _showErrorDialog('Please pair with "${device.name ?? "this device"}" through your device\'s Bluetooth settings');
+    _showErrorDialog(
+      'Please pair with "${device.name ?? "this device"}" through your device\'s Bluetooth settings',
+    );
   }
 
   void _showDeviceMenu() async {
@@ -193,189 +216,244 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
     // Auto-start scan when opening modal if bluetooth is available and not already scanning
     final gpsProvider = context.read<GpsPositionProvider>();
-    if (isBluetoothAvailable && !_isScanning && gpsProvider.connectedDevice == null && _connectedClassicDevice == null) {
+    if (isBluetoothAvailable &&
+        !_isScanning &&
+        gpsProvider.connectedDevice == null &&
+        _connectedClassicDevice == null) {
       _startScan();
     }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder:
-          (context) => StatefulBuilder(
-            builder: (context, setModalState) {
-              // Update the modal when BLE scan results change
-              _bleScanSubscription?.cancel();
-              _bleScanSubscription = ble.FlutterBluePlus.scanResults.listen((results) {
-                // Update combined list with BLE results
-                final newDevices = <CombinedBluetoothDevice>[];
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          // Update the modal when BLE scan results change
+          _bleScanSubscription?.cancel();
+          _bleScanSubscription = ble.FlutterBluePlus.scanResults.listen((results) {
+            // Update combined list with BLE results
+            final newDevices = <CombinedBluetoothDevice>[];
 
-                // Add BLE devices
-                for (final result in results) {
-                  newDevices.add(CombinedBluetoothDevice(id: result.device.remoteId.toString(), name: result.device.platformName.isEmpty ? 'Unknown BLE Device' : result.device.platformName, rssi: result.rssi, isBLE: true, bleDevice: result.device));
-                }
+            // Add BLE devices
+            for (final result in results) {
+              newDevices.add(
+                CombinedBluetoothDevice(
+                  id: result.device.remoteId.toString(),
+                  name: result.device.platformName.isEmpty
+                      ? 'Unknown BLE Device'
+                      : result.device.platformName,
+                  rssi: result.rssi,
+                  isBLE: true,
+                  bleDevice: result.device,
+                ),
+              );
+            }
 
-                // Add existing Classic devices (maintain them during BLE updates)
-                final classicDevices = _combinedDevices.where((d) => !d.isBLE);
-                newDevices.addAll(classicDevices);
+            // Add existing Classic devices (maintain them during BLE updates)
+            final classicDevices = _combinedDevices.where((d) => !d.isBLE);
+            newDevices.addAll(classicDevices);
 
-                // Only update state if still mounted
-                if (mounted) {
-                  setState(() {
-                    _combinedDevices = newDevices;
-                  });
-                  // Only update modal state if it's still mounted
-                  try {
-                    setModalState(() {}); // Update modal UI
-                  } catch (e) {
-                    // Modal might be disposed, ignore
-                    debugPrint('Modal state update failed: $e');
-                  }
-                }
+            // Only update state if still mounted
+            if (mounted) {
+              setState(() {
+                _combinedDevices = newDevices;
               });
+              // Only update modal state if it's still mounted
+              try {
+                setModalState(() {}); // Update modal UI
+              } catch (e) {
+                // Modal might be disposed, ignore
+                debugPrint('Modal state update failed: $e');
+              }
+            }
+          });
 
-              return Container(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          return Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Bluetooth Devices', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        if (_isScanning) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                        if (!_isScanning)
-                          FutureBuilder<bool>(
-                            future: _checkBluetoothAvailable(),
-                            builder: (context, snapshot) {
-                              final isAvailable = snapshot.data ?? false;
-                              if (!isAvailable) {
-                                return const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Text('Bluetooth Off', style: TextStyle(color: Colors.orange, fontSize: 12)));
-                              }
-                              return IconButton(
-                                icon: const Icon(Icons.refresh),
-                                onPressed: () {
-                                  _startScan();
-                                },
-                              );
-                            },
-                          ),
-                      ],
+                    const Text(
+                      'erreichbare GNSS Geräte',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Show connected GPS device or internal GPS
-                    Consumer<GpsPositionProvider>(
-                      builder: (context, gpsProvider, child) {
-                        // Show bluetooth GPS if connected
-                        if (gpsProvider.connectedDevice != null) {
-                          final device = gpsProvider.connectedDevice!;
-                          final nmea = gpsProvider.currentNMEA;
-
-                          final hasValidPosition = nmea != null && nmea.latitude != null && nmea.longitude != null;
-
-                          return Column(
-                            children: [
-                              ListTile(
-                                leading: Icon(Icons.gps_fixed, color: hasValidPosition ? Colors.green : Colors.orange),
-                                title: Text(device.platformName.isEmpty ? 'GPS Device' : device.platformName),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('${device.remoteId}'),
-                                    if (hasValidPosition) ...[
-                                      Text('Sats: ${nmea.satellites ?? "N/A"} | HDOP: ${nmea.hdop?.toStringAsFixed(1) ?? "N/A"} | PDOP: ${nmea.pdop?.toStringAsFixed(1) ?? "N/A"}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      Text('Lat: ${nmea.latitude!.toStringAsFixed(6)}, Lon: ${nmea.longitude!.toStringAsFixed(6)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                    ] else ...[
-                                      const Text('Waiting for GPS position...', style: TextStyle(fontSize: 11, color: Colors.orange)),
-                                    ],
-                                  ],
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () {
-                                    gpsProvider.stopAll();
-                                    gpsProvider.startInternalGps();
-                                  },
-                                ),
+                    if (_isScanning)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    if (!_isScanning)
+                      FutureBuilder<bool>(
+                        future: _checkBluetoothAvailable(),
+                        builder: (context, snapshot) {
+                          final isAvailable = snapshot.data ?? false;
+                          if (!isAvailable) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Text(
+                                'Bluetooth Off',
+                                style: TextStyle(color: Colors.orange, fontSize: 12),
                               ),
-                              const Divider(),
-                            ],
+                            );
+                          }
+                          return IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: () {
+                              _startScan();
+                            },
                           );
-                        }
-                        // Show internal GPS if it's active
-                        else if (gpsProvider.listeningPosition) {
-                          final lastPos = gpsProvider.lastPosition;
-                          final hasValidPosition = lastPos != null;
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-                          return Column(
-                            children: [
-                              ListTile(
-                                leading: Icon(Icons.smartphone, color: hasValidPosition ? Colors.green : Colors.orange),
-                                title: const Text('Internal GPS'),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Device internal GPS sensor'),
-                                    if (hasValidPosition) ...[
-                                      Text('Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                      Text('Lat: ${lastPos.latitude.toStringAsFixed(6)}, Lon: ${lastPos.longitude.toStringAsFixed(6)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                    ] else ...[
-                                      const Text('Waiting for GPS position...', style: TextStyle(fontSize: 11, color: Colors.orange)),
-                                    ],
-                                  ],
-                                ),
-                                /*trailing: IconButton(
+                // Show connected GPS device or internal GPS
+                Consumer<GpsPositionProvider>(
+                  builder: (context, gpsProvider, child) {
+                    // Show bluetooth GPS if connected
+                    if (gpsProvider.connectedDevice != null) {
+                      final device = gpsProvider.connectedDevice!;
+                      final nmea = gpsProvider.currentNMEA;
+
+                      final hasValidPosition =
+                          nmea != null && nmea.latitude != null && nmea.longitude != null;
+
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: Icon(
+                              Icons.gps_fixed,
+                              color: hasValidPosition ? Colors.green : Colors.orange,
+                            ),
+                            title: Text(
+                              device.platformName.isEmpty ? 'GPS Device' : device.platformName,
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${device.remoteId}'),
+                                if (hasValidPosition) ...[
+                                  Text(
+                                    'Sats: ${nmea.satellites ?? "N/A"} | HDOP: ${nmea.hdop?.toStringAsFixed(1) ?? "N/A"} | PDOP: ${nmea.pdop?.toStringAsFixed(1) ?? "N/A"}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                  Text(
+                                    'Lat: ${nmea.latitude!.toStringAsFixed(6)}, Lon: ${nmea.longitude!.toStringAsFixed(6)}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ] else ...[
+                                  const Text(
+                                    'Waiting for GPS position...',
+                                    style: TextStyle(fontSize: 11, color: Colors.orange),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                gpsProvider.stopAll();
+                                gpsProvider.startInternalGps();
+                              },
+                            ),
+                          ),
+                          const Divider(),
+                        ],
+                      );
+                    }
+                    // Show internal GPS if it's active
+                    else if (gpsProvider.listeningPosition) {
+                      final lastPos = gpsProvider.lastPosition;
+                      final hasValidPosition = lastPos != null;
+
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: Icon(
+                              Icons.smartphone,
+                              color: hasValidPosition ? Colors.green : Colors.orange,
+                            ),
+                            title: const Text('Internal GPS'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Device internal GPS sensor'),
+                                if (hasValidPosition) ...[
+                                  Text(
+                                    'Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                  Text(
+                                    'Lat: ${lastPos.latitude.toStringAsFixed(6)}, Lon: ${lastPos.longitude.toStringAsFixed(6)}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ] else ...[
+                                  const Text(
+                                    'Waiting for GPS position...',
+                                    style: TextStyle(fontSize: 11, color: Colors.orange),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            /*trailing: IconButton(
                                   icon: const Icon(Icons.refresh),
                                   onPressed: () {
                                     _startScan();
                                   },
                                 ),*/
-                              ),
-                              const Divider(),
-                            ],
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-
-                    // Show connected BLE device - removed, only GPS sensors supported now
-
-                    // Device list
-                    Expanded(
-                      child:
-                          _combinedDevices.isEmpty
-                              ? const Center(child: Text('No devices found'))
-                              : ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: _combinedDevices.length,
-                                itemBuilder: (context, index) {
-                                  final device = _combinedDevices[index];
-
-                                  return ListTile(
-                                    leading: Icon(device.isBLE ? Icons.bluetooth : Icons.bluetooth_audio, color: device.isBLE ? Colors.blue[700] : Colors.orange[700]),
-                                    title: Text(device.name),
-                                    subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
-                                    trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
-                                    onTap: () {
-                                      if (device.isBLE && device.bleDevice != null) {
-                                        Navigator.pop(context); // Close modal first
-                                        _connectToBLEDevice(device.bleDevice!, context);
-                                      } else if (device.classicDevice != null) {
-                                        _connectToClassicDevice(device.classicDevice!);
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                    ),
-                  ],
+                          ),
+                          const Divider(),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
-              );
-            },
-          ),
+
+                // Show connected BLE device - removed, only GPS sensors supported now
+
+                // Device list
+                Expanded(
+                  child: _combinedDevices.isEmpty
+                      ? const Center(child: Text('No devices found'))
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _combinedDevices.length,
+                          itemBuilder: (context, index) {
+                            final device = _combinedDevices[index];
+
+                            return ListTile(
+                              leading: Icon(
+                                device.isBLE ? Icons.bluetooth : Icons.bluetooth_audio,
+                                color: device.isBLE ? Colors.blue[700] : Colors.orange[700],
+                              ),
+                              title: Text(device.name),
+                              subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
+                              trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
+                              onTap: () {
+                                if (device.isBLE && device.bleDevice != null) {
+                                  Navigator.pop(context); // Close modal first
+                                  _connectToBLEDevice(device.bleDevice!, context);
+                                } else if (device.classicDevice != null) {
+                                  _connectToClassicDevice(device.classicDevice!);
+                                }
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     ).whenComplete(() {
       // Cancel BLE scan subscription when modal is closed to prevent setState after dispose
       _bleScanSubscription?.cancel();
@@ -385,7 +463,16 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
   void _showErrorDialog(String message) {
     if (mounted) {
-      showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Error'), content: Text(message), actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))]));
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
+          ],
+        ),
+      );
     }
   }
 
@@ -408,24 +495,33 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     final lastPos = gpsProvider.lastPosition;
 
     // GPS has valid position if connected AND has valid lat/lon coordinates
-    final hasValidPosition = (hasGPSConnection && nmea != null && nmea.latitude != null && nmea.longitude != null) || (isInternalGPS && lastPos != null);
+    final hasValidPosition =
+        (hasGPSConnection && nmea != null && nmea.latitude != null && nmea.longitude != null) ||
+        (isInternalGPS && lastPos != null);
 
     // Choose icon based on GPS source
     //final icon = isInternalGPS ? Icons.smartphone : (hasValidPosition ? Icons.bluetooth_connected : Icons.bluetooth);
-    final icon = Icons.satellite_alt;
+    final icon = isInternalGPS ? Icons.smartphone : Icons.satellite_alt;
+    //final icon = Icons.satellite_alt;
 
     return IconButton(
-      icon: Icon(icon, color: hasValidPosition ? Colors.green : (hasGPSConnection || isGPSConnecting || isInternalGPS ? Colors.orange : null)),
-      tooltip:
-          hasValidPosition
-              ? (isInternalGPS ? 'Internal GPS: ${lastPos!.accuracy.toStringAsFixed(1)}m' : 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea!.satellites ?? 0} sats)')
-              : hasGPSConnection
-              ? 'GPS connected - waiting for position...'
-              : isGPSConnecting
-              ? 'Connecting to GPS...'
-              : isInternalGPS
-              ? 'Internal GPS active'
-              : 'Bluetooth GPS',
+      icon: Icon(
+        icon,
+        color: hasValidPosition
+            ? Colors.green
+            : (hasGPSConnection || isGPSConnecting || isInternalGPS ? Colors.orange : null),
+      ),
+      tooltip: hasValidPosition
+          ? (isInternalGPS
+                ? 'Internal GPS: ${lastPos!.accuracy.toStringAsFixed(1)}m'
+                : 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea!.satellites ?? 0} sats)')
+          : hasGPSConnection
+          ? 'GPS connected - waiting for position...'
+          : isGPSConnecting
+          ? 'Connecting to GPS...'
+          : isInternalGPS
+          ? 'Internal GPS active'
+          : 'Bluetooth GPS',
       onPressed: _showDeviceMenu,
     );
   }

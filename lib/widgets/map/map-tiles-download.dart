@@ -286,8 +286,9 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
             // Update cumulative progress
             final totalDownloaded = _cumulativeDownloadedTiles + _downloadedTiles;
-            _downloadProgress =
-                _cumulativeTotalTiles > 0 ? totalDownloaded / _cumulativeTotalTiles : 0.0;
+            _downloadProgress = _cumulativeTotalTiles > 0
+                ? totalDownloaded / _cumulativeTotalTiles
+                : 0.0;
           });
         }
 
@@ -315,10 +316,9 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     await store.manage.create();
     print('[WMS] Store created/verified: $storeName');
 
-    final baseUrl =
-        selectedBasemap == 'DTK25'
-            ? 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?'
-            : 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?';
+    final baseUrl = selectedBasemap == 'DTK25'
+        ? 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?'
+        : 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?';
     final layers = selectedBasemap == 'DTK25' ? ['dtk25'] : ['rgb'];
 
     final region = RectangleRegion(bbox);
@@ -374,8 +374,9 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
             // Update cumulative progress
             final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
-            _downloadProgress =
-                _cumulativeTotalTiles > 0 ? totalProcessed / _cumulativeTotalTiles : 0.0;
+            _downloadProgress = _cumulativeTotalTiles > 0
+                ? totalProcessed / _cumulativeTotalTiles
+                : 0.0;
           });
         }
 
@@ -463,8 +464,9 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
             // Update cumulative progress
             final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
-            _downloadProgress =
-                _cumulativeTotalTiles > 0 ? totalProcessed / _cumulativeTotalTiles : 0.0;
+            _downloadProgress = _cumulativeTotalTiles > 0
+                ? totalProcessed / _cumulativeTotalTiles
+                : 0.0;
           });
         }
 
@@ -493,32 +495,30 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       child: Column(
         children: [
           ListTile(
-            leading:
-                _isDownloading
-                    ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.download),
+            leading: _isDownloading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download),
             title: const Text('Karten herunterladen'),
-            subtitle:
-                _isDownloading
-                    ? Text(
-                      '${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
-                      '(${(_downloadProgress * 100).toStringAsFixed(1)}%)',
-                    )
-                    : _isCheckingTiles
-                    ? const Text('Prüfe Aufnahmepunkte...')
-                    : _missingTilesCount == -1
-                    ? const Text('Bereit zum Herunterladen der Karten.')
-                    : const Text('Keine Aufnahmepunkte gefunden.'),
+            subtitle: _isDownloading
+                ? Text(
+                    '${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
+                    '(${(_downloadProgress * 100).toStringAsFixed(1)}%)',
+                  )
+                : _isCheckingTiles
+                ? const Text('Prüfe Aufnahmepunkte...')
+                : _missingTilesCount == -1
+                ? const Text('Bereit zum Herunterladen der Karten.')
+                : const Text('Keine Aufnahmepunkte gefunden.'),
             onTap: (_isDownloading || _isCheckingTiles) ? null : _downloadMapTilesFromRecordsBBox,
             enabled: !_isDownloading && !_isCheckingTiles,
           ),
           if (_isDownloading)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.all(10),
               child: LinearProgressIndicator(value: _downloadProgress),
             ),
         ],

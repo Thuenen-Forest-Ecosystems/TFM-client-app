@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+28
+version: 1.0.0+29
 
 environment:
   sdk: ">=3.9.2 <4.0.0"
@@ -111,7 +111,7 @@ dependencies:
   local_auth: ^2.3.0 # Optional: for biometric authentication
   workmanager: ^0.9.0+3
   wakelock_plus: ^1.4.0
-  trina_grid: ^2.1.1
+  trina_grid: ^2.1.0
 
 dependency_overrides:
   # because of https://github.com/jpnurmi/flutter_libserialport/issues/128
@@ -182,14 +182,17 @@ flutter:
   # see https://flutter.dev/custom-fonts/#from-packages
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: true
   ios: true
   image_path: "assets/logo/tfm.png"
   min_sdk_android: 24 # android min sdk 24 for SSL/TLS support
+  adaptive_icon_background: "#ffffff" # Background color for Android adaptive icons
+  adaptive_icon_foreground: "assets/logo/adaptive_tfm.png" # Foreground image for Android adaptive icons
+  remove_alpha_ios: true
   web:
     generate: true
     image_path: "assets/logo/tfm.png"
-    background_color: "#ffffff"
+    background_color: "#333333"
     theme_color: "#c3e399"
   windows:
     generate: true
@@ -205,7 +208,7 @@ msix_config:
   publisher: CN=36C12301-AD65-4721-A104-94EB08618727
   publisher_display_name: Grünecho e.U.
   identity_name: Grnechoe.U.TerrestrialForestMonitor
-  msix_version: 1.0.28.0
+  msix_version: 1.0.29.0
   logo_path: assets/logo/tfm.png
   capabilities: internetClient, location
   store: true

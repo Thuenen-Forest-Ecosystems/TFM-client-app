@@ -156,10 +156,9 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                               orgName,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-                            subtitle:
-                                orgDescription != null && orgDescription.isNotEmpty
-                                    ? Text(orgDescription)
-                                    : null,
+                            subtitle: orgDescription != null && orgDescription.isNotEmpty
+                                ? Text(orgDescription)
+                                : null,
                             //trailing: const Icon(Icons.arrow_forward_ios),
                           ),
                           // Show all permissions for this organization
@@ -172,7 +171,6 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                               ],
                             ),
                           ),
-                          const Divider(height: 1),
                         ],
                       );
                     },
@@ -213,8 +211,9 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
       ];
     } else {
       // Show troop memberships
-      final organizationTroops =
-          userTroops.where((troop) => troop.organizationId == permission.organizationId).toList();
+      final organizationTroops = userTroops
+          .where((troop) => troop.organizationId == permission.organizationId)
+          .toList();
 
       if (organizationTroops.isEmpty) {
         return [

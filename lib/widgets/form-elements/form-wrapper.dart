@@ -4,6 +4,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-s
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
+import 'package:terrestrial_forest_monitor/widgets/test_trina_grid.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 
 class FormWrapper extends StatefulWidget {
@@ -61,26 +62,33 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     final tabs = <FormTab>[];
 
     if (schemaProperties.containsKey('position')) {
-      tabs.add(FormTab(id: 'position', label: 'Position'));
+      final title = schemaProperties['position']?['title'] as String?;
+      tabs.add(FormTab(id: 'position', label: title ?? 'Position'));
     }
-    tabs.add(FormTab(id: 'info', label: 'Trakt'));
+    tabs.add(FormTab(id: 'info', label: widget.jsonSchema!['title'] as String? ?? 'Trakt'));
     if (schemaProperties.containsKey('tree')) {
-      tabs.add(FormTab(id: 'tree', label: 'Bäume'));
+      final title = schemaProperties['tree']?['title'] as String?;
+      tabs.add(FormTab(id: 'tree', label: title ?? 'WZP'));
     }
     if (schemaProperties.containsKey('edges')) {
-      tabs.add(FormTab(id: 'edges', label: 'Ecken'));
+      final title = schemaProperties['edges']?['title'] as String?;
+      tabs.add(FormTab(id: 'edges', label: title ?? 'Ecken'));
     }
     if (schemaProperties.containsKey('structure_lt4m')) {
-      tabs.add(FormTab(id: 'structure_lt4m', label: 'Struktur <4m'));
+      final title = schemaProperties['structure_lt4m']?['title'] as String?;
+      tabs.add(FormTab(id: 'structure_lt4m', label: title ?? 'Struktur <4m'));
     }
     if (schemaProperties.containsKey('structure_gt4m')) {
-      tabs.add(FormTab(id: 'structure_gt4m', label: 'Struktur >4m'));
+      final title = schemaProperties['structure_gt4m']?['title'] as String?;
+      tabs.add(FormTab(id: 'structure_gt4m', label: title ?? 'Struktur >4m'));
     }
     if (schemaProperties.containsKey('regeneration')) {
-      tabs.add(FormTab(id: 'regeneration', label: 'Verjüngung'));
+      final title = schemaProperties['regeneration']?['title'] as String?;
+      tabs.add(FormTab(id: 'regeneration', label: title ?? 'Verjüngung'));
     }
     if (schemaProperties.containsKey('deadwood')) {
-      tabs.add(FormTab(id: 'deadwood', label: 'Totholz'));
+      final title = schemaProperties['deadwood']?['title'] as String?;
+      tabs.add(FormTab(id: 'deadwood', label: title ?? 'Totholz'));
     }
 
     return tabs;
@@ -134,10 +142,9 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
 
         // Check if there are validation errors for this tab
         if (widget.validationResult != null && !widget.validationResult!.isValid) {
-          final tabErrors =
-              widget.validationResult!.errors.where((error) {
-                return _isErrorForTab(error, tabId);
-              }).toList();
+          final tabErrors = widget.validationResult!.errors.where((error) {
+            return _isErrorForTab(error, tabId);
+          }).toList();
 
           if (tabErrors.isNotEmpty) {
             // Create a filtered validation result with only tab-specific errors
@@ -162,7 +169,15 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
 
   void _updateField(String key, dynamic value) {
     setState(() {
-      _localFormData[key] = value;
+      if (key.isEmpty) {
+        // For root-level fields (info tab), merge the values into _localFormData
+        if (value is Map<String, dynamic>) {
+          _localFormData.addAll(value);
+        }
+      } else {
+        // For nested properties, set the value directly
+        _localFormData[key] = value;
+      }
     });
 
     // Notify parent of changes
@@ -210,9 +225,49 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
       if (tabId == 'position' && missingProperty == 'position') {
         return true;
       }
+
+      // For 'info' tab, only show required errors for root-level scalar fields
+      // Exclude errors for array/object properties that have their own tabs
+      if (tabId == 'info') {
+        final excludedProperties = [
+          'position',
+          'tree',
+          'edges',
+          'structure_lt4m',
+          'structure_gt4m',
+          'regeneration',
+          'deadwood',
+        ];
+        if (missingProperty != null && !excludedProperties.contains(missingProperty)) {
+          return true;
+        }
+      }
     }
 
-    // For 'info' tab, show errors that don't belong to other specific tabs
+    // For 'info' tab, only show root-level field errors (not nested in arrays/objects)
+    if (tabId == 'info' && path.isNotEmpty) {
+      // Only include errors for direct root fields (e.g., "/fieldName")
+      // Exclude errors in nested structures (e.g., "/tree/0/field", "/position/field")
+      final pathSegments = path.split('/').where((s) => s.isNotEmpty).toList();
+      if (pathSegments.length == 1) {
+        // Single segment means root-level field error
+        final excludedProperties = [
+          'position',
+          'tree',
+          'edges',
+          'structure_lt4m',
+          'structure_gt4m',
+          'regeneration',
+          'deadwood',
+        ];
+        if (!excludedProperties.contains(pathSegments[0])) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // For 'info' tab, show root-level errors only
     if (tabId == 'info' && path.isEmpty) {
       return true;
     }
@@ -238,127 +293,125 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
           controller: _tabController!,
           isScrollable: true,
           onTap: _onTabTapped,
-          tabs:
-              _tabs.map((tab) {
-                final hasErrors = _hasErrorsForTab(tab.id);
-                return Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(tab.label),
-                      if (hasErrors) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                          child: Text(
-                            '${_getErrorCountForTab(tab.id)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+          tabs: _tabs.map((tab) {
+            final hasErrors = _hasErrorsForTab(tab.id);
+            return Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(tab.label),
+                  if (hasErrors) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      child: Text(
+                        '${_getErrorCountForTab(tab.id)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ],
-                  ),
-                );
-              }).toList(),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
         ),
         Expanded(
           child: TabBarView(
             controller: _tabController!,
             physics: const NeverScrollableScrollPhysics(),
-            children:
-                _tabs.map((tab) {
-                  switch (tab.id) {
-                    case 'position':
-                      return NavigationElement(
-                        jsonSchema: schemaProperties['position'],
-                        data: _localFormData,
-                        propertyName: 'position',
-                        previous_properties: _previousProperties,
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('position', updatedData);
-                        },
-                      );
-                    case 'info':
-                      return GenericForm(
-                        jsonSchema: schemaProperties,
-                        data: _localFormData,
-                        propertyName: null,
-                        previous_properties: _previousProperties,
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('', updatedData);
-                        },
-                      );
-                    case 'tree':
-                      return ArrayElementTrina(
-                        jsonSchema: schemaProperties['tree'],
-                        data: _localFormData['tree'],
-                        propertyName: 'tree',
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('tree', updatedData);
-                        },
-                      );
-                    case 'edges':
-                      return ArrayElementTrina(
-                        jsonSchema: schemaProperties['edges'],
-                        data: _localFormData['edges'],
-                        propertyName: 'edges',
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('edges', updatedData);
-                        },
-                      );
-                    case 'structure_lt4m':
-                      return ArrayElementTrina(
-                        jsonSchema: schemaProperties['structure_lt4m'],
-                        data: _localFormData['structure_lt4m'],
-                        propertyName: 'structure_lt4m',
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('structure_lt4m', updatedData);
-                        },
-                      );
-                    case 'structure_gt4m':
-                      return ArrayElementTrina(
-                        jsonSchema: schemaProperties['structure_gt4m'],
-                        data: _localFormData['structure_gt4m'],
-                        propertyName: 'structure_gt4m',
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('structure_gt4m', updatedData);
-                        },
-                      );
-                    case 'regeneration':
-                      return ArrayElementTrina(
-                        jsonSchema: schemaProperties['regeneration'],
-                        data: _localFormData['regeneration'],
-                        propertyName: 'regeneration',
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('regeneration', updatedData);
-                        },
-                      );
-                    case 'deadwood':
-                      return ArrayElementTrina(
-                        jsonSchema: schemaProperties['deadwood'],
-                        data: _localFormData['deadwood'],
-                        propertyName: 'deadwood',
-                        validationResult: widget.validationResult,
-                        onDataChanged: (updatedData) {
-                          _updateField('deadwood', updatedData);
-                        },
-                      );
-                    default:
-                      return Center(child: Text('${tab.label} Form'));
-                  }
-                }).toList(),
+            children: _tabs.map((tab) {
+              switch (tab.id) {
+                case 'position':
+                  return NavigationElement(
+                    jsonSchema: schemaProperties['position'],
+                    data: _localFormData,
+                    propertyName: 'position',
+                    previous_properties: _previousProperties,
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('position', updatedData);
+                    },
+                  );
+                case 'info':
+                  return GenericForm(
+                    jsonSchema: schemaProperties,
+                    data: _localFormData,
+                    propertyName: null,
+                    previous_properties: _previousProperties,
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('', updatedData);
+                    },
+                  );
+                case 'tree':
+                  return ArrayElementTrina(
+                    jsonSchema: schemaProperties['tree'],
+                    data: _localFormData['tree'],
+                    propertyName: 'tree',
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('tree', updatedData);
+                    },
+                  );
+                case 'edges':
+                  return ArrayElementTrina(
+                    jsonSchema: schemaProperties['edges'],
+                    data: _localFormData['edges'],
+                    propertyName: 'edges',
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('edges', updatedData);
+                    },
+                  );
+                case 'structure_lt4m':
+                  return ArrayElementTrina(
+                    jsonSchema: schemaProperties['structure_lt4m'],
+                    data: _localFormData['structure_lt4m'],
+                    propertyName: 'structure_lt4m',
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('structure_lt4m', updatedData);
+                    },
+                  );
+                case 'structure_gt4m':
+                  return ArrayElementTrina(
+                    jsonSchema: schemaProperties['structure_gt4m'],
+                    data: _localFormData['structure_gt4m'],
+                    propertyName: 'structure_gt4m',
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('structure_gt4m', updatedData);
+                    },
+                  );
+                case 'regeneration':
+                  return ArrayElementTrina(
+                    jsonSchema: schemaProperties['regeneration'],
+                    data: _localFormData['regeneration'],
+                    propertyName: 'regeneration',
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('regeneration', updatedData);
+                    },
+                  );
+                case 'deadwood':
+                  return ArrayElementTrina(
+                    jsonSchema: schemaProperties['deadwood'],
+                    data: _localFormData['deadwood'],
+                    propertyName: 'deadwood',
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('deadwood', updatedData);
+                    },
+                  );
+                default:
+                  return Center(child: Text('${tab.label} Form'));
+              }
+            }).toList(),
           ),
         ),
       ],

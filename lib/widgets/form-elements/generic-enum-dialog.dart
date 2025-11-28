@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+// Wrapper class to indicate explicit null selection (clearing the field)
+class ClearSelection {
+  const ClearSelection();
+}
+
 class _GenericEnumDialogWidget extends StatefulWidget {
   final String fieldName;
   final Map<String, dynamic> fieldSchema;
@@ -50,24 +55,29 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
   }
 
   List<int> _getFilteredIndices() {
-    if (_filterText.isEmpty) {
-      return List.generate(widget.enumValues.length, (index) => index);
-    }
-
-    final filterLower = _filterText.toLowerCase();
-    final filteredIndices = <int>[];
+    final indices = <int>[];
 
     for (int i = 0; i < widget.enumValues.length; i++) {
       final enumValue = widget.enumValues[i];
-      final displayText = _getDisplayText(enumValue, i);
 
-      if (displayText.toLowerCase().contains(filterLower) ||
-          enumValue.toString().toLowerCase().contains(filterLower)) {
-        filteredIndices.add(i);
+      // Skip null values
+      if (enumValue == null) continue;
+
+      // Apply text filter if active
+      if (_filterText.isNotEmpty) {
+        final filterLower = _filterText.toLowerCase();
+        final displayText = _getDisplayText(enumValue, i);
+
+        if (displayText.toLowerCase().contains(filterLower) ||
+            enumValue.toString().toLowerCase().contains(filterLower)) {
+          indices.add(i);
+        }
+      } else {
+        indices.add(i);
       }
     }
 
-    return filteredIndices;
+    return indices;
   }
 
   @override
@@ -75,36 +85,44 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     final filteredIndices = _getFilteredIndices();
 
     return AlertDialog(
-      title:
-          _showSearchField
-              ? TextField(
+      titlePadding: EdgeInsets.zero,
+      title: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.1),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+        ),
+        child: _showSearchField
+            ? TextField(
                 controller: _filterController,
                 focusNode: _searchFocusNode,
                 autofocus: true,
                 decoration: InputDecoration(
                   hintText: 'Suchen...',
                   border: InputBorder.none,
-                  suffixIcon:
-                      _filterText.isNotEmpty
-                          ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              setState(() {
-                                _filterController.clear();
-                                _filterText = '';
-                              });
-                            },
-                          )
-                          : IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () {
-                              setState(() {
-                                _showSearchField = false;
-                                _filterController.clear();
-                                _filterText = '';
-                              });
-                            },
-                          ),
+                  suffixIcon: _filterText.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _filterController.clear();
+                              _filterText = '';
+                            });
+                          },
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            setState(() {
+                              _showSearchField = false;
+                              _filterController.clear();
+                              _filterText = '';
+                            });
+                          },
+                        ),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -112,7 +130,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                   });
                 },
               )
-              : ListTile(
+            : ListTile(
                 contentPadding: const EdgeInsets.all(0),
                 title: Text(_getLabel()),
                 subtitle: Text(_getDescription()),
@@ -128,40 +146,65 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                   },
                 ),
               ),
+      ),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Expanded(
-              child:
-                  filteredIndices.isEmpty
-                      ? const Center(child: Text('Keine Ergebnisse gefunden'))
-                      : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: filteredIndices.length,
-                        itemBuilder: (context, listIndex) {
-                          final index = filteredIndices[listIndex];
-                          final enumValue = widget.enumValues[index];
-                          final displayText = _getDisplayText(enumValue, index);
-                          final isSelected = widget.currentValue == enumValue;
+              child: filteredIndices.isEmpty
+                  ? const Center(child: Text('Keine Ergebnisse gefunden'))
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: filteredIndices.length,
+                      itemBuilder: (context, listIndex) {
+                        final index = filteredIndices[listIndex];
+                        final enumValue = widget.enumValues[index];
+                        final displayText = _getDisplayText(enumValue, index);
+                        final isSelected = widget.currentValue == enumValue;
 
-                          return ListTile(
-                            title: Text(displayText),
-                            selected: isSelected,
-                            trailing: isSelected ? const Icon(Icons.check) : null,
-                            onTap: () {
-                              Navigator.of(context).pop(enumValue);
-                            },
-                          );
-                        },
-                      ),
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                          title: Text(displayText),
+                          selected: isSelected,
+                          trailing: isSelected ? const Icon(Icons.check) : null,
+                          onTap: () {
+                            Navigator.of(context).pop(enumValue);
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       ),
+      actionsPadding: EdgeInsets.zero,
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Schließen')),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.1),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(const ClearSelection()),
+                child: const Text('Leeren'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Schließen'),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -178,14 +221,13 @@ class GenericEnumDialog {
   }) {
     return showDialog<dynamic>(
       context: context,
-      builder:
-          (context) => _GenericEnumDialogWidget(
-            fieldName: fieldName,
-            fieldSchema: fieldSchema,
-            currentValue: currentValue,
-            enumValues: enumValues,
-            nameDe: nameDe,
-          ),
+      builder: (context) => _GenericEnumDialogWidget(
+        fieldName: fieldName,
+        fieldSchema: fieldSchema,
+        currentValue: currentValue,
+        enumValues: enumValues,
+        nameDe: nameDe,
+      ),
     );
   }
 }
