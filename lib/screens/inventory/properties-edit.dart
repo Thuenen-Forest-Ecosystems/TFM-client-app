@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
+import 'package:universal_io/io.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -179,6 +180,17 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Load validation.json from downloaded directory
       final directory = latestSchema.directory!;
       debugPrint('Loading validation.json from directory: $directory');
+
+      // On web, validation files aren't downloaded, so use embedded schema
+      if (kIsWeb) {
+        debugPrint('Web platform: using embedded schema instead of downloaded files');
+        if (latestSchema.schemaData != null) {
+          setState(() {
+            _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
+          });
+        }
+        return;
+      }
 
       try {
         final appDirectory = await getApplicationDocumentsDirectory();

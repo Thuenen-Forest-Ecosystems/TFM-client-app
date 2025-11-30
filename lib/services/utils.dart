@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -26,7 +27,10 @@ Future<Map<String, String>> getServerConfig() async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   String? serverName = prefs.getString('selectedServer');
   if (serverName != null) {
-    return AppConfig.servers.firstWhere((element) => serverName == element['supabaseUrl'], orElse: () => AppConfig.servers[0]);
+    return AppConfig.servers.firstWhere(
+      (element) => serverName == element['supabaseUrl'],
+      orElse: () => AppConfig.servers[0],
+    );
   }
   return AppConfig.servers[0];
 }
@@ -40,10 +44,14 @@ void launchStringExternal(String url) async {
 Future<Map> plotAsJson(String plotId) async {
   Map plotRecord = Map.from(await db.get('SELECT * FROM plot WHERE id = ?', [plotId]) as Map);
 
-  List<Map<String, dynamic>> tree = (await db.getAll('SELECT * FROM tree WHERE plot_id=?', [plotId])).map((t) => Map<String, dynamic>.from(t)).toList();
+  List<Map<String, dynamic>> tree = (await db.getAll('SELECT * FROM tree WHERE plot_id=?', [
+    plotId,
+  ])).map((t) => Map<String, dynamic>.from(t)).toList();
   plotRecord['tree'] = tree;
 
-  List<Map<String, dynamic>> deadwood = (await db.getAll('SELECT * FROM deadwood WHERE plot_id=?', [plotId])).map((t) => Map<String, dynamic>.from(t)).toList();
+  List<Map<String, dynamic>> deadwood = (await db.getAll('SELECT * FROM deadwood WHERE plot_id=?', [
+    plotId,
+  ])).map((t) => Map<String, dynamic>.from(t)).toList();
   plotRecord['deadwood'] = deadwood;
 
   return plotRecord;
@@ -70,8 +78,24 @@ List<Map> orderPlotByDistance(ResultSet plots, String locationAttribute, LatLng 
     if (plot[locationAttribute] == null) continue;
     Map plotLocation = jsonDecode(plot[locationAttribute]);
     LatLng plotLatLng = LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]);
-    double distance = Geolocator.distanceBetween(from.latitude, from.longitude, plotLatLng.latitude, plotLatLng.longitude);
-    plotsWithDistance.add({'plot': plot, 'position': plotLatLng, 'distance': distance, 'bearing': Geolocator.bearingBetween(from.latitude, from.longitude, plotLatLng.latitude, plotLatLng.longitude), 'prettyDistance': prettyDistance(distance)});
+    double distance = Geolocator.distanceBetween(
+      from.latitude,
+      from.longitude,
+      plotLatLng.latitude,
+      plotLatLng.longitude,
+    );
+    plotsWithDistance.add({
+      'plot': plot,
+      'position': plotLatLng,
+      'distance': distance,
+      'bearing': Geolocator.bearingBetween(
+        from.latitude,
+        from.longitude,
+        plotLatLng.latitude,
+        plotLatLng.longitude,
+      ),
+      'prettyDistance': prettyDistance(distance),
+    });
   }
 
   plotsWithDistance.sort((m1, m2) {
@@ -117,6 +141,9 @@ LatLng getCenterLocation(ResultSet plots, String locationAttribute) {
 }
 
 Future<String> getUserStorageDirectory() async {
+  if (kIsWeb) {
+    return '/web-storage';
+  }
   final directory = await getApplicationDocumentsDirectory();
   return directory.path;
 }
@@ -132,7 +159,8 @@ Future<String> getLocalUri(String filePath) async {
 }
 
 double? dmsToDecimal(String dms, String direction) {
-  if (dms.isEmpty || (direction != 'N' && direction != 'S' && direction != 'E' && direction != 'W')) {
+  if (dms.isEmpty ||
+      (direction != 'N' && direction != 'S' && direction != 'E' && direction != 'W')) {
     return null; // Invalid input
   }
 
@@ -166,7 +194,8 @@ double? dmsToDecimal(String dms, String direction) {
 }
 
 double? dmsToDecimal_deprecated(String dms, String direction) {
-  if (dms.isEmpty || (direction != 'N' && direction != 'S' && direction != 'E' && direction != 'W')) {
+  if (dms.isEmpty ||
+      (direction != 'N' && direction != 'S' && direction != 'E' && direction != 'W')) {
     return null; // Invalid input
   }
 
@@ -191,11 +220,18 @@ double? dmsToDecimal_deprecated(String dms, String direction) {
 Future<ResultSet> setDeviceSettings(String key, String value) async {
   Map<String, dynamic>? currentValue = await getDeviceSettings(key);
   if (currentValue != null && currentValue['id'] != null) {
-    return db.execute('UPDATE device_settings SET value = ? WHERE id = ?', [value, currentValue['id']]);
+    return db.execute('UPDATE device_settings SET value = ? WHERE id = ?', [
+      value,
+      currentValue['id'],
+    ]);
   } else {
     const uuid = Uuid();
     String settingId = uuid.v4();
-    return db.execute('INSERT INTO device_settings (id, key, value) VALUES (?, ?, ?)', [settingId, key, value]);
+    return db.execute('INSERT INTO device_settings (id, key, value) VALUES (?, ?, ?)', [
+      settingId,
+      key,
+      value,
+    ]);
   }
 }
 
@@ -211,11 +247,19 @@ Future<ResultSet> setSettings(String key, String value) async {
   Map<String, dynamic>? currentValue = await getSettings(key);
 
   if (currentValue != null && currentValue['id'] != null) {
-    return db.execute('UPDATE user_settings SET value = ? WHERE id = ?', [value, currentValue['id']]);
+    return db.execute('UPDATE user_settings SET value = ? WHERE id = ?', [
+      value,
+      currentValue['id'],
+    ]);
   } else {
     const uuid = Uuid();
     String settingId = uuid.v4();
-    return db.execute('INSERT INTO user_settings (id, key, value, user_id) VALUES (?, ?, ?, ?)', [settingId, key, value, getUserId()]);
+    return db.execute('INSERT INTO user_settings (id, key, value, user_id) VALUES (?, ?, ?, ?)', [
+      settingId,
+      key,
+      value,
+      getUserId(),
+    ]);
   }
 }
 
@@ -223,7 +267,10 @@ Future<Map<String, dynamic>?> getSettings(String key) async {
   try {
     // First, try fetching with user_id
     try {
-      return await db.get('SELECT * FROM user_settings WHERE key = ? AND user_id = ?', [key, getUserId()]);
+      return await db.get('SELECT * FROM user_settings WHERE key = ? AND user_id = ?', [
+        key,
+        getUserId(),
+      ]);
     } on StateError {
       // If not found for the specific user, try fetching without user_id (fallback)
       try {
@@ -241,7 +288,10 @@ Future<Map<String, dynamic>?> getSettings(String key) async {
 
 Future<Map<String, dynamic>?> getSettings_deprecated(String key) async {
   try {
-    return await db.get('SELECT * FROM user_settings WHERE key = ? AND user_id = ?', [key, getUserId()]);
+    return await db.get('SELECT * FROM user_settings WHERE key = ? AND user_id = ?', [
+      key,
+      getUserId(),
+    ]);
   } catch (e) {
     // Return null if no setting found
     return await db.get('SELECT * FROM user_settings WHERE key = ?', [key]);
@@ -276,7 +326,12 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
 
           // Extract talker ID (e.g., GNRMC, GNGGA) - handle potential checksum *NN
           String sentenceIdentifier = fields[0];
-          String talkerId = sentenceIdentifier.substring(1, sentenceIdentifier.contains('*') ? sentenceIdentifier.indexOf('*') : sentenceIdentifier.length);
+          String talkerId = sentenceIdentifier.substring(
+            1,
+            sentenceIdentifier.contains('*')
+                ? sentenceIdentifier.indexOf('*')
+                : sentenceIdentifier.length,
+          );
 
           // https://openrtk.readthedocs.io/en/latest/communication_port/nmea.html
           // --- GNRMC ---
@@ -295,7 +350,9 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
                 nmeaState.latitude = dmsToDecimal(latitude, latitudeDirection);
                 nmeaState.longitude = dmsToDecimal(longitude, longitudeDirection);
                 nmeaState.heading = double.tryParse(courseOverGround);
-                nmeaState.speedKnots = double.tryParse(speedOverGroundKnots); // <-- Parse and store speed
+                nmeaState.speedKnots = double.tryParse(
+                  speedOverGroundKnots,
+                ); // <-- Parse and store speed
               }
             }
             // --- GNGGA ---

@@ -257,6 +257,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.11"
+  dev_build:
+    dependency: transitive
+    description:
+      name: dev_build
+      sha256: "1d9aa167c05cbe4be9fbaf863c76dcee9bec302fb861270672beb6d6be0bc8f4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.3+1"
   dylib:
     dependency: transitive
     description:
@@ -282,7 +290,7 @@ packages:
     source: hosted
     version: "1.3.3"
   ffi:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: ffi
       sha256: "16ed7b077ef01ad6170a3d0c57caa4a112a38d7a2ed5602e0aca9ca6f3d98da6"
@@ -1242,10 +1250,10 @@ packages:
     dependency: "direct main"
     description:
       name: powersync
-      sha256: "3b2694bd3b5846b445dcdfcb2b17a6dfe81e0e97d8ed531d9211478587bfda31"
+      sha256: "6856132dcb41a7fa35721d616f4256a9b923be2041ddf186f7c8eea11518cada"
       url: "https://pub.dev"
     source: hosted
-    version: "1.16.1"
+    version: "1.16.2"
   powersync_attachments_helper:
     dependency: "direct main"
     description:
@@ -1258,18 +1266,26 @@ packages:
     dependency: "direct main"
     description:
       name: powersync_core
-      sha256: "878f335489bffa7f92167b42ce4ac2c0895015387a74285d4f2f2a11d47e08d2"
+      sha256: b984a813621c6e13a101bf1b178751eae9061da3c3dcca2bbcf447293efbfd27
       url: "https://pub.dev"
     source: hosted
-    version: "1.6.1"
+    version: "1.6.2"
   powersync_flutter_libs:
     dependency: "direct main"
     description:
       name: powersync_flutter_libs
-      sha256: "6385c74c3537b72086f62becd038e1f4a50bff57783e260de95f89f1c2a16aa2"
+      sha256: "75810a25439ddab613dbb88311c2fcad809376711a991469c05124cecc09d2e1"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.12"
+    version: "0.4.13"
+  process_run:
+    dependency: transitive
+    description:
+      name: process_run
+      sha256: "6ec839cdd3e6de4685318e7686cd4abb523c3d3a55af0e8d32a12ae19bc66622"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.4"
   proj4dart:
     dependency: transitive
     description:
@@ -1298,10 +1314,10 @@ packages:
     dependency: transitive
     description:
       name: pub_semver
-      sha256: "7b3cfbf654f3edd0c6298ecd5be782ce997ddf0e00531b9464b55245185bbbbd"
+      sha256: "5bfcf68ca79ef689f8990d1160781b4bad40a3bd5e5218ad4076ddb7f4081585"
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.5"
+    version: "2.2.0"
   pubspec_parse:
     dependency: transitive
     description:
@@ -1539,6 +1555,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.6"
+  sqflite_common_ffi:
+    dependency: transitive
+    description:
+      name: sqflite_common_ffi
+      sha256: "9faa2fedc5385ef238ce772589f7718c24cdddd27419b609bb9c6f703ea27988"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.6"
+  sqflite_common_ffi_web:
+    dependency: "direct main"
+    description:
+      name: sqflite_common_ffi_web
+      sha256: "45aeed3b367c06f3daf9ba6cdb4bfda1732673263fc9491e40166d2cb5353731"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   sqflite_darwin:
     dependency: transitive
     description:
@@ -1556,7 +1588,7 @@ packages:
     source: hosted
     version: "2.4.0"
   sqlite3:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: sqlite3
       sha256: "3145bd74dcdb4fd6f5c6dda4d4e4490a8087d7f286a14dee5d37087290f0f8a2"
@@ -1564,7 +1596,7 @@ packages:
     source: hosted
     version: "2.9.4"
   sqlite3_flutter_libs:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: sqlite3_flutter_libs
       sha256: "69c80d812ef2500202ebd22002cbfc1b6565e9ff56b2f971e757fac5d42294df"
@@ -1575,18 +1607,18 @@ packages:
     dependency: transitive
     description:
       name: sqlite3_web
-      sha256: "0f6ebcb4992d1892ac5c8b5ecd22a458ab9c5eb6428b11ae5ecb5d63545844da"
+      sha256: "3973adf9ee74e485d5552319e1903129f4ed999fe675aa0b4b5d35d112b2aa1c"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.2"
+    version: "0.4.1"
   sqlite_async:
     dependency: transitive
     description:
       name: sqlite_async
-      sha256: cf1871971324cccc03d26762ff10406fc6384af9a1ea538f12352aa5906164ec
+      sha256: ba3acc93e20a810ce6bde7ba1a3356ca5b162d34906f186374398106f1458f52
       url: "https://pub.dev"
     source: hosted
-    version: "0.12.2"
+    version: "0.13.0"
   stack_trace:
     dependency: transitive
     description:
@@ -1671,10 +1703,10 @@ packages:
     dependency: transitive
     description:
       name: synchronized
-      sha256: "69fe30f3a8b04a0be0c15ae6490fc859a78ef4c43ae2dd5e8a623d45bfcf9225"
+      sha256: c254ade258ec8282947a0acbbc90b9575b4f19673533ee46f2f6e9b3aeefd7c0
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.0+3"
+    version: "3.4.0"
   term_glyph:
     dependency: transitive
     description:
@@ -1763,6 +1795,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.1"
+  universal_io:
+    dependency: "direct main"
+    description:
+      name: universal_io
+      sha256: f63cbc48103236abf48e345e07a03ce5757ea86285ed313a6a032596ed9301e2
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.1"
   uri:
     dependency: transitive
     description:

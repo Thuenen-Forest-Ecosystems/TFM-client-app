@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart';
-import 'package:powersync/sqlite3.dart';
 //import 'package:sqflite/sqlite_api.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'dart:async';

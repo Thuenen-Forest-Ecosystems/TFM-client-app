@@ -57,32 +57,34 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
     locationBuilder: RoutesLocationBuilder(
       routes: {
         '/login': (context, state, data) => BeamPage(
-          key: ValueKey('login-${DateTime.now()}'),
+          key: ValueKey('login'),
           title: 'Login',
           child: Login(),
           type: BeamPageType.noTransition,
         ),
         '/': (context, state, data) => BeamPage(
-          key: ValueKey('start-${DateTime.now()}'),
+          key: ValueKey('home'),
           title: 'TFM',
           child: Schema(),
           type: BeamPageType.noTransition,
         ),
         //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
         '/records-selection/:intervalName': (context, state, data) => BeamPage(
-          key: ValueKey('start-${DateTime.now()}'),
+          key: ValueKey('records-${state.pathParameters['intervalName']}'),
           title: 'TFM',
           child: Start(),
           type: BeamPageType.noTransition,
         ),
         '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(
-          key: ValueKey('start-${DateTime.now()}'),
+          key: ValueKey(
+            'properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}',
+          ),
           title: 'TFM',
           child: Start(),
           type: BeamPageType.noTransition,
         ),
         '/profile': (context, state, data) => BeamPage(
-          key: ValueKey('profile-${DateTime.now()}'),
+          key: ValueKey('profile'),
           title: 'Profile',
           child: Profile(),
           type: BeamPageType.noTransition,
@@ -130,10 +132,16 @@ void main() async {
   try {
     // Initialize database and Supabase FIRST
     await openDatabase();
-    await initializeAttachmentQueue(db);
 
-    // Initialize validation service
-    await ValidationService.instance.initialize();
+    // Skip attachment queue on web (uses file system)
+    if (!kIsWeb) {
+      await initializeAttachmentQueue(db);
+    }
+
+    // Initialize validation service (flutter_inappwebview not supported on web)
+    if (!kIsWeb) {
+      await ValidationService.instance.initialize();
+    }
 
     // Initialize app lifecycle manager to keep sync running in background
     await appLifecycleManager.initialize();

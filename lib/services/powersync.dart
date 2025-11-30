@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -9,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'powersync_io.dart' if (dart.library.html) 'powersync_web.dart';
 
 import 'schema.dart';
 import 'package:logging/logging.dart';
@@ -200,23 +200,7 @@ Future<List> listTables() async {
 }
 
 Future downloadFile(fileName, {force = false}) async {
-  try {
-    final directory = await getApplicationDocumentsDirectory();
-    String applicationDirectory = '${directory.path}/TFM';
-
-    // get Files in Directory
-    //final files = Directory(applicationDirectory).listSync();
-    File path = File('$applicationDirectory/' + fileName);
-
-    if (path.existsSync() && !force) {
-      return path;
-    }
-    final Uint8List file = await Supabase.instance.client.storage.from('tfm').download(fileName);
-    await path.writeAsBytes(file);
-    return path;
-  } catch (e) {
-    print('Error downloading file: $e');
-  }
+  return downloadFileImpl(fileName, force: force);
 }
 
 /// Download all validation files from a specific directory in Supabase storage
@@ -226,76 +210,7 @@ Future<Map<String, dynamic>> downloadValidationFiles(
   force = false,
   Function(int, int)? onProgress,
 }) async {
-  List<String> downloadedFiles = [];
-  List<String> errors = [];
-
-  try {
-    final appDirectory = await getApplicationDocumentsDirectory();
-    String applicationDirectory = '${appDirectory.path}/TFM/validation/$directory';
-
-    // Create validation directory if it doesn't exist
-    final validationDir = Directory(applicationDirectory);
-    if (!await validationDir.exists()) {
-      await validationDir.create(recursive: true);
-    }
-
-    // Static list of expected validation files in each directory
-    final List<String> expectedFiles = [
-      'bundle.cjs.js',
-      'bundle.esm.js',
-      'bundle.umd.js',
-      'validation.json',
-    ];
-
-    int totalFiles = expectedFiles.length;
-    int downloadedCount = 0;
-
-    for (var fileName in expectedFiles) {
-      try {
-        final filePath = '$applicationDirectory/$fileName';
-        final file = File(filePath);
-
-        // Skip if file exists and force is false
-        if (file.existsSync() && !force) {
-          downloadedFiles.add(fileName);
-          downloadedCount++;
-          onProgress?.call(downloadedCount, totalFiles);
-          continue;
-        }
-
-        // Download file from Supabase storage
-        final Uint8List fileData = await Supabase.instance.client.storage
-            .from('validation')
-            .download('$directory/$fileName');
-
-        await file.writeAsBytes(fileData);
-        downloadedFiles.add(fileName);
-        downloadedCount++;
-        onProgress?.call(downloadedCount, totalFiles);
-        print('Downloaded: $fileName');
-      } catch (e) {
-        print('Error downloading $fileName: $e');
-        errors.add('$fileName: $e');
-      }
-    }
-
-    return {
-      'success': errors.isEmpty,
-      'downloadedFiles': downloadedFiles,
-      'errors': errors,
-      'totalFiles': totalFiles,
-      'downloadedCount': downloadedCount,
-    };
-  } catch (e) {
-    print('Error downloading validation files: $e');
-    return {
-      'success': false,
-      'downloadedFiles': downloadedFiles,
-      'errors': ['Failed to download files: $e'],
-      'totalFiles': 0,
-      'downloadedCount': 0,
-    };
-  }
+  return downloadValidationFilesImpl(directory, force: force, onProgress: onProgress);
 }
 
 /// Download validation files for all schemas with directories
@@ -471,14 +386,13 @@ Future<PowerSyncDatabase> openDatabase() async {
           final downloadedFiles = (result['downloadedFiles'] as List<String>?) ?? [];
 
           // Files are "skipped" if they already exist - we check by comparing files actually written
-          final actualNewFiles =
-              downloadedFiles
-                  .where(
-                    (f) =>
-                        result['errors'] == null ||
-                        !(result['errors'] as List).any((e) => e.toString().contains(f)),
-                  )
-                  .length;
+          final actualNewFiles = downloadedFiles
+              .where(
+                (f) =>
+                    result['errors'] == null ||
+                    !(result['errors'] as List).any((e) => e.toString().contains(f)),
+              )
+              .length;
 
           if (actualNewFiles < downloadedCount) {
             skipped += (downloadedCount - actualNewFiles);
@@ -596,10 +510,9 @@ class SupabaseConnector extends PowerSyncBackendConnector {
 
     // userId and expiresAt are for debugging purposes only
     final userId = session.user.id;
-    final expiresAt =
-        session.expiresAt == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
+    final expiresAt = session.expiresAt == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
 
     var config = await getServerConfig();
     return PowerSyncCredentials(
