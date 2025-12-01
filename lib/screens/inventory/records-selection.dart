@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
@@ -23,7 +23,6 @@ class RecordsSelection extends StatefulWidget {
 class _RecordsSelectionState extends State<RecordsSelection> {
   ClusterOrderBy _orderBy = ClusterOrderBy.distance;
   Position? _currentPosition;
-  bool _isLoadingLocation = false;
 
   // Display variables
   final List<Map<String, dynamic>> _allRecords = []; // All loaded records
@@ -32,6 +31,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   bool _isLoading = false;
   ScrollController? _scrollController;
   bool _createdOwnController = false;
+  StreamSubscription? _recordsWatchSubscription;
 
   // Search functionality
   bool _isSearching = false;
@@ -42,7 +42,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   void initState() {
     super.initState();
     _getCurrentLocation();
-    // Load data
+    // Load data and start watching for changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
@@ -83,38 +83,42 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     });
 
     try {
-      final provider = context.read<RecordsListProvider>();
+      // Cancel any existing subscription
+      await _recordsWatchSubscription?.cancel();
 
-      // First try to get cached data (preloaded in start.dart)
-      final cachedRecords = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
+      // Watch records filtered by selected permissions
+      _recordsWatchSubscription = RecordsRepository().watchAllRecords().listen(
+        (records) async {
+          print(
+            'RecordsSelection: Received ${records.length} records from stream (filtered by permissions)',
+          );
 
-      List<Map<String, dynamic>> records;
+          // Process records: filter by search, sort, and add metadata
+          final processedRecords = await _processRecords(records);
 
-      if (cachedRecords != null && cachedRecords.isNotEmpty) {
-        print('RecordsSelection: Using ${cachedRecords.length} cached records from start.dart');
-        // Apply filtering, sorting, and metadata to cached records
-        records = await _processRecords(
-          cachedRecords.map((item) => item['record'] as Record).toList(),
-        );
-      } else {
-        print('RecordsSelection: No cache found, loading fresh data');
-        records = await _fetchAllRecordsWithMetadata();
-      }
+          if (mounted) {
+            setState(() {
+              _allRecords.clear();
+              _allRecords.addAll(processedRecords);
+              _displayedRecords.clear();
+              _isLoading = false;
+            });
 
-      if (mounted) {
-        setState(() {
-          _allRecords.addAll(records);
-          _isLoading = false;
-        });
-
-        // Display first batch
-        _displayMoreRecords();
-
-        // Update cache with processed data
-        provider.cacheRecords(widget.intervalName, _orderBy, _allRecords, 0, false);
-      }
+            // Display first batch
+            _displayMoreRecords();
+          }
+        },
+        onError: (error) {
+          print('Error watching records: $error');
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        },
+      );
     } catch (e) {
-      print('Error loading data: $e');
+      print('Error setting up watch: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -244,12 +248,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isLoadingLocation = true;
-      });
-    }
-
     try {
       // Get position from GPS provider (Bluetooth GPS or internal GPS)
       final gpsProvider = context.read<GpsPositionProvider>();
@@ -259,7 +257,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         if (mounted) {
           setState(() {
             _currentPosition = lastPosition;
-            _isLoadingLocation = false;
           });
 
           // Cache the position after build completes
@@ -274,118 +271,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             _loadInitialData();
           }
         }
-      } else {
-        // No GPS position available yet
-        if (mounted) {
-          setState(() {
-            _isLoadingLocation = false;
-          });
-        }
       }
     } catch (e) {
       print('Error getting GPS position: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingLocation = false;
-        });
-      }
     }
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchAllRecordsWithMetadata() async {
-    // Get all records from repository
-    List<Record> records = await RecordsRepository().getAllRecords();
-
-    // Filter by search query if provided
-    if (_searchQuery.isNotEmpty) {
-      records = records.where((record) {
-        return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
-      }).toList();
-    }
-
-    // Sort records based on order preference
-    switch (_orderBy) {
-      case ClusterOrderBy.distance:
-        if (_currentPosition != null) {
-          // Sort by distance
-          records.sort((a, b) {
-            final coordsA = a.getCoordinates();
-            final coordsB = b.getCoordinates();
-
-            // Records without coordinates go to the end
-            if (coordsA == null && coordsB == null) return 0;
-            if (coordsA == null) return 1;
-            if (coordsB == null) return -1;
-
-            final distA = _calculateDistance(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-              coordsA['latitude']!,
-              coordsA['longitude']!,
-            );
-            final distB = _calculateDistance(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-              coordsB['latitude']!,
-              coordsB['longitude']!,
-            );
-
-            return distA.compareTo(distB);
-          });
-        }
-        break;
-
-      case ClusterOrderBy.updatedAt:
-        records.sort((a, b) {
-          final dateA = a.properties['updated_at'];
-          final dateB = b.properties['updated_at'];
-          if (dateA == null && dateB == null) return 0;
-          if (dateA == null) return 1;
-          if (dateB == null) return -1;
-          return DateTime.parse(dateB.toString()).compareTo(DateTime.parse(dateA.toString()));
-        });
-        break;
-
-      case ClusterOrderBy.clusterName:
-        records.sort((a, b) {
-          final comparison = a.clusterName.compareTo(b.clusterName);
-          if (comparison != 0) return comparison;
-          return a.plotName.compareTo(b.plotName);
-        });
-        break;
-    }
-
-    // Add metadata to all records
-    return records.map((record) {
-      String? metadata;
-
-      switch (_orderBy) {
-        case ClusterOrderBy.distance:
-          if (_currentPosition != null) {
-            final coords = record.getCoordinates();
-            if (coords != null) {
-              final distance = _calculateDistance(
-                _currentPosition!.latitude,
-                _currentPosition!.longitude,
-                coords['latitude']!,
-                coords['longitude']!,
-              );
-              metadata = '${distance.toStringAsFixed(1)} km';
-            }
-          }
-          break;
-
-        case ClusterOrderBy.updatedAt:
-          metadata = _formatDate(record.properties['updated_at']);
-          break;
-
-        case ClusterOrderBy.clusterName:
-          // No metadata for name ordering
-          break;
-      }
-
-      return {'record': record, 'metadata': metadata};
-    }).toList();
   }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -544,6 +433,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   void dispose() {
     _searchController.dispose();
     _scrollController?.removeListener(_onScroll);
+    _recordsWatchSubscription?.cancel();
     // Only dispose if we created the controller ourselves
     if (_createdOwnController && _scrollController != null) {
       _scrollController!.dispose();
