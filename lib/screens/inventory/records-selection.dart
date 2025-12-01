@@ -6,12 +6,11 @@ import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/widgets/records/record_card.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math' as math;
-
-import 'package:url_launcher/url_launcher.dart';
 
 class RecordsSelection extends StatefulWidget {
   final String intervalName;
@@ -128,10 +127,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   Future<List<Map<String, dynamic>>> _processRecords(List<Record> records) async {
     // Filter by search query if provided
     if (_searchQuery.isNotEmpty) {
-      records =
-          records.where((record) {
-            return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
-          }).toList();
+      records = records.where((record) {
+        return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
     }
 
     // Sort records based on order preference
@@ -300,10 +298,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
     // Filter by search query if provided
     if (_searchQuery.isNotEmpty) {
-      records =
-          records.where((record) {
-            return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
-          }).toList();
+      records = records.where((record) {
+        return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
     }
 
     // Sort records based on order preference
@@ -419,21 +416,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     }
   }
 
-  void _openNativeNavigationForRecord(Record record) {
-    final coords = record.getCoordinates();
-    if (coords == null) return;
-
-    final latitude = coords['latitude'];
-    final longitude = coords['longitude'];
-    final recordName = '${record.clusterName} | ${record.plotName}';
-
-    final uri = Uri.parse(
-      'geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encodeComponent(recordName)})',
-    );
-
-    launchUrl(uri);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -441,26 +423,22 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         children: [
           // Custom AppBar
           ListTile(
-            title:
-                _isSearching
-                    ? TextField(
-                      controller: _searchController,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Search by cluster name...',
-                        border: InputBorder.none,
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                        _loadInitialData();
-                      },
-                    )
-                    : const Text(
-                      'Ecken',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            title: _isSearching
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Search by cluster name...',
+                      border: InputBorder.none,
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                      _loadInitialData();
+                    },
+                  )
+                : const Text('Ecken', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             trailing: IconButton(
               icon: Icon(_isSearching ? Icons.close : Icons.search),
               onPressed: () {
@@ -477,135 +455,56 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           ),
           // Body
           Expanded(
-            child:
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _displayedRecords.isEmpty
-                    ? const Center(child: Text('No records found'))
-                    : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount:
-                          _displayedRecords.length +
-                          (_displayedRecords.length < _allRecords.length ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        // Show loading indicator at the end if more records available
-                        if (index == _displayedRecords.length) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                'Showing ${_displayedRecords.length} of ${_allRecords.length} records',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ),
-                          );
-                        }
-
-                        final item = _displayedRecords[index];
-                        final record = item['record'] as Record;
-                        final metadata = item['metadata'] as String?;
-
-                        // Calculate distance if not already in metadata
-                        String? distanceText = metadata;
-                        if (distanceText == null && _currentPosition != null) {
-                          final coords = record.getCoordinates();
-                          if (coords != null) {
-                            final distance = _calculateDistance(
-                              _currentPosition!.latitude,
-                              _currentPosition!.longitude,
-                              coords['latitude']!,
-                              coords['longitude']!,
-                            );
-                            distanceText = '${distance.toStringAsFixed(1)} km';
-                          }
-                        }
-
-                        // Check if record has completed_at_troop set
-                        final completedAtTroop = record.properties['completed_at_troop'];
-                        final isCompleted =
-                            completedAtTroop != null && completedAtTroop.toString().isNotEmpty;
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          elevation: 2,
-                          child: InkWell(
-                            onTap: () {
-                              Beamer.of(context).beamToNamed(
-                                '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
-                              );
-                            },
-                            child: Row(
-                              children: [
-                                // Status indicator
-                                Container(
-                                  width: 4,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: isCompleted ? Colors.green : Colors.red,
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(4),
-                                      bottomLeft: Radius.circular(4),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Record header
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    '${record.clusterName} | ${record.plotName}',
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  if (distanceText != null)
-                                                    Text(
-                                                      distanceText,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: Colors.grey[600],
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.map),
-                                              tooltip: 'Focus on map',
-                                              onPressed: () {
-                                                _focusRecordOnMap(record);
-                                              },
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.directions_car),
-                                              tooltip: 'Open native navigation',
-                                              onPressed: () {
-                                                _openNativeNavigationForRecord(record);
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _displayedRecords.isEmpty
+                ? const Center(child: Text('No records found'))
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount:
+                        _displayedRecords.length +
+                        (_displayedRecords.length < _allRecords.length ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      // Show loading indicator at the end if more records available
+                      if (index == _displayedRecords.length) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              'Showing ${_displayedRecords.length} of ${_allRecords.length} records',
+                              style: TextStyle(color: Colors.grey[600]),
                             ),
                           ),
                         );
-                      },
-                    ),
+                      }
+
+                      final item = _displayedRecords[index];
+                      final record = item['record'] as Record;
+                      final metadata = item['metadata'] as String?;
+
+                      // Calculate distance if not already in metadata
+                      String? distanceText = metadata;
+                      if (distanceText == null && _currentPosition != null) {
+                        final coords = record.getCoordinates();
+                        if (coords != null) {
+                          final distance = _calculateDistance(
+                            _currentPosition!.latitude,
+                            _currentPosition!.longitude,
+                            coords['latitude']!,
+                            coords['longitude']!,
+                          );
+                          distanceText = '${distance.toStringAsFixed(1)} km';
+                        }
+                      }
+
+                      return RecordCard(
+                        record: record,
+                        distanceText: distanceText,
+                        onFocusOnMap: () => _focusRecordOnMap(record),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

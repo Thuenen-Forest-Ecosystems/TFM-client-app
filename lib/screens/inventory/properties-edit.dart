@@ -15,8 +15,11 @@ import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/form-wrapper.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+
+import 'package:beamer/beamer.dart';
 
 class PropertiesEdit extends StatefulWidget {
   final String clusterName;
@@ -182,7 +185,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       debugPrint('Loading validation.json from directory: $directory');
 
       // On web, validation files aren't downloaded, so use embedded schema
-      if (kIsWeb) {
+      /*if (kIsWeb) {
         debugPrint('Web platform: using embedded schema instead of downloaded files');
         if (latestSchema.schemaData != null) {
           setState(() {
@@ -190,15 +193,47 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           });
         }
         return;
-      }
+      }*/
 
       try {
         final appDirectory = await getApplicationDocumentsDirectory();
         final validationFilePath = '${appDirectory.path}/TFM/validation/$directory/validation.json';
         final validationFile = File(validationFilePath);
 
+        // Check if directory exists and list files
+        final validationDir = Directory('${appDirectory.path}/TFM/validation/$directory');
+        if (await validationDir.exists()) {
+          final files = await validationDir.list().toList();
+          debugPrint(
+            'Files in validation directory ($directory): ${files.map((f) => f.path.split('/').last).join(', ')}',
+          );
+        } else {
+          debugPrint('Validation directory does not exist: ${validationDir.path}');
+        }
+
         if (!await validationFile.exists()) {
           debugPrint('validation.json not found at: $validationFilePath');
+          debugPrint('Attempting to download validation files for directory: $directory');
+
+          // Try to download the validation files
+          try {
+            final result = await downloadValidationFiles(directory, force: true);
+            debugPrint('Download result: $result');
+
+            // Check again if file now exists
+            if (await validationFile.exists()) {
+              debugPrint('validation.json successfully downloaded');
+              final validationContent = await validationFile.readAsString();
+              final Map<String, dynamic> validationJson = jsonDecode(validationContent);
+              setState(() {
+                _jsonSchema = validationJson['properties']['plot']['items'];
+              });
+              return;
+            }
+          } catch (downloadError) {
+            debugPrint('Error downloading validation files: $downloadError');
+          }
+
           debugPrint('Falling back to embedded schema');
 
           // Fallback to embedded schema
@@ -300,18 +335,75 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
     }
 
-    // Implement save logic here
-    debugPrint('Saving form data: $_formData');
+    if (_record == null || _formData == null) {
+      debugPrint('Cannot save: record or form data is null');
+      return;
+    }
 
-    // Show success message
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Datensatz erfolgreich gespeichert'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
+    try {
+      debugPrint('Saving form data: $_formData');
+
+      // Set local_updated_at to mark record as having pending changes
+      final now = DateTime.now().toUtc().toIso8601String();
+
+      // Update properties, schemaIdValidatedBy, and local_updated_at in the database
+      await db.execute(
+        'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
+        [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
       );
+
+      // Create updated record for local state
+      final updatedRecord = Record(
+        id: _record!.id,
+        properties: _formData!,
+        schemaName: _record!.schemaName,
+        schemaId: _record!.schemaId,
+        schemaIdValidatedBy: _record!.schemaIdValidatedBy,
+        schemaVersion: _record!.schemaVersion,
+        plotId: _record!.plotId,
+        clusterId: _record!.clusterId,
+        plotName: _record!.plotName,
+        clusterName: _record!.clusterName,
+        previousProperties: _record!.previousProperties,
+        isValid: _record!.isValid,
+        responsibleAdministration: _record!.responsibleAdministration,
+        responsibleProvider: _record!.responsibleProvider,
+        responsibleState: _record!.responsibleState,
+        responsibleTroop: _record!.responsibleTroop,
+        localUpdatedAt: now,
+      );
+
+      debugPrint('Record saved successfully: ${_record!.id}');
+
+      // Update local state
+      setState(() {
+        _record = updatedRecord;
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Datensatz erfolgreich gespeichert'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
+      }
+    } catch (e) {
+      debugPrint('Error saving record: $e');
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Speichern: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 

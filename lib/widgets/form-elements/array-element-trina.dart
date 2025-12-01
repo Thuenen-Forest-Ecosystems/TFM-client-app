@@ -442,8 +442,12 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
 
     if (result != null) {
-      // Update the cell value
-      rendererContext.cell.value = result;
+      // Check if user selected "Leeren" (clear selection)
+      if (result is ClearSelection) {
+        rendererContext.cell.value = null;
+      } else {
+        rendererContext.cell.value = result;
+      }
       _stateManager?.notifyListeners();
       _notifyDataChanged();
     }

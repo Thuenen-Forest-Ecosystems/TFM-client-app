@@ -22,6 +22,7 @@ class Record {
   final String? responsibleProvider;
   final String? responsibleState;
   final String? responsibleTroop;
+  final String? localUpdatedAt;
 
   Record({
     this.id,
@@ -40,6 +41,7 @@ class Record {
     this.responsibleProvider,
     this.responsibleState,
     this.responsibleTroop,
+    this.localUpdatedAt,
   });
 
   factory Record.fromRow(Map<String, dynamic> row) {
@@ -62,6 +64,7 @@ class Record {
       responsibleProvider: row['responsible_provider'] as String?,
       responsibleState: row['responsible_state'] as String?,
       responsibleTroop: row['responsible_troop'] as String?,
+      localUpdatedAt: row['local_updated_at'] as String?,
     );
   }
 

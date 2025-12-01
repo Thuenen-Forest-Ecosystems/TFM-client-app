@@ -40,9 +40,17 @@ Future<Map<String, dynamic>> downloadValidationFilesImpl(
       await validationDir.create(recursive: true);
     }
 
+    print('Listing files in bucket "validation" at path: "$directory"');
     final response = await Supabase.instance.client.storage
-        .from('tfm')
-        .list(path: 'validation/$directory');
+        .from('validation')
+        .list(path: directory);
+
+    print('Response from list(): ${response.length} files found');
+    if (response.isEmpty) {
+      print('No files found in validation/$directory - check Supabase bucket structure');
+    } else {
+      print('Files: ${response.map((f) => f.name).join(', ')}');
+    }
 
     int totalFiles = response.length;
     int processedFiles = 0;
@@ -62,8 +70,8 @@ Future<Map<String, dynamic>> downloadValidationFilesImpl(
         }
 
         final fileData = await Supabase.instance.client.storage
-            .from('tfm')
-            .download('validation/$directory/$fileName');
+            .from('validation')
+            .download('$directory/$fileName');
 
         await file.writeAsBytes(fileData);
         downloadedFiles.add(fileName);

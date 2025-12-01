@@ -21,13 +21,13 @@ class _ThemeSettingsState extends State<ThemeSettings> {
       children: [
         _ThemeOption(
           title: 'Hell',
-          subtitle: 'Helles Farbschema verwenden',
+          subtitle: 'Hohe kontraste an hellen Tagen',
           isSelected: currentMode == ThemeMode.light,
           onTap: () => themeProvider.setTheme(ThemeMode.light),
         ),
         _ThemeOption(
           title: 'Dunkel',
-          subtitle: 'Dunkles Farbschema verwenden',
+          subtitle: 'Energiesparmodus für schattige Umgebungen',
           isSelected: currentMode == ThemeMode.dark,
           onTap: () => themeProvider.setTheme(ThemeMode.dark),
         ),
@@ -66,10 +66,9 @@ class _ThemeOption extends StatelessWidget {
         ),
       ),
       subtitle: Text(subtitle),
-      trailing:
-          isSelected
-              ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
-              : null,
+      trailing: isSelected
+          ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+          : null,
       onTap: onTap,
     );
   }
