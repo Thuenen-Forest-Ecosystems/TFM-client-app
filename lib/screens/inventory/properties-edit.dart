@@ -343,10 +343,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     try {
       debugPrint('Saving form data: $_formData');
 
-      // Set local_updated_at to mark record as having pending changes
+      // Get current timestamp for local_updated_at in UTC (to match server's updated_at timezone)
       final now = DateTime.now().toUtc().toIso8601String();
 
-      // Update properties, schemaIdValidatedBy, and local_updated_at in the database
+      // Update properties, schema_id_validated_by, and local_updated_at
+      // PowerSync will track this change and sync to server
       await db.execute(
         'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
         [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
@@ -370,10 +371,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         responsibleProvider: _record!.responsibleProvider,
         responsibleState: _record!.responsibleState,
         responsibleTroop: _record!.responsibleTroop,
+        updatedAt: _record!.updatedAt,
         localUpdatedAt: now,
+        completedAtState: _record!.completedAtState,
+        completedAtTroop: _record!.completedAtTroop,
+        completedAtAdministration: _record!.completedAtAdministration,
       );
-
-      debugPrint('Record saved successfully: ${_record!.id}');
 
       // Update local state
       setState(() {

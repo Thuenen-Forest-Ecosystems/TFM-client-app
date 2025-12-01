@@ -194,10 +194,8 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
                         padding: const EdgeInsets.all(10),
                         child: Column(
                           children: [
-                            Icon(Icons.location_searching, size: 48, color: Colors.grey[400]),
-                            const SizedBox(height: 8),
                             Text(
-                              'Waiting for GPS position...',
+                              'Keine Navigationsdaten verfügbar, verbinde ein externes GPS oder nutze das interne GPS des Geräts.',
                               style: TextStyle(color: Colors.grey[600], fontSize: 16),
                             ),
                             const SizedBox(height: 16),
@@ -212,17 +210,6 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
                               icon: const Icon(Icons.gps_fixed),
                               label: const Text('Start GPS'),
                             ),
-                            const SizedBox(height: 8),
-                            if (userPosition == null && widget.data != null)
-                              Text(
-                                'GPS position is null',
-                                style: TextStyle(color: Colors.red[400], fontSize: 12),
-                              ),
-                            if (userPosition != null && widget.data == null)
-                              Text(
-                                'Data is null',
-                                style: TextStyle(color: Colors.red[400], fontSize: 12),
-                              ),
                           ],
                         ),
                       ),

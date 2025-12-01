@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
-import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-syncfusion.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
-import 'package:terrestrial_forest_monitor/widgets/test_trina_grid.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 
 class FormWrapper extends StatefulWidget {

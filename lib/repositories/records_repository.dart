@@ -22,7 +22,11 @@ class Record {
   final String? responsibleProvider;
   final String? responsibleState;
   final String? responsibleTroop;
+  final String? updatedAt;
   final String? localUpdatedAt;
+  final String? completedAtState;
+  final String? completedAtTroop;
+  final String? completedAtAdministration;
 
   Record({
     this.id,
@@ -41,7 +45,11 @@ class Record {
     this.responsibleProvider,
     this.responsibleState,
     this.responsibleTroop,
+    this.updatedAt,
     this.localUpdatedAt,
+    this.completedAtState,
+    this.completedAtTroop,
+    this.completedAtAdministration,
   });
 
   factory Record.fromRow(Map<String, dynamic> row) {
@@ -64,7 +72,11 @@ class Record {
       responsibleProvider: row['responsible_provider'] as String?,
       responsibleState: row['responsible_state'] as String?,
       responsibleTroop: row['responsible_troop'] as String?,
+      updatedAt: row['updated_at'] as String?,
       localUpdatedAt: row['local_updated_at'] as String?,
+      completedAtState: row['completed_at_state'] as String?,
+      completedAtTroop: row['completed_at_troop'] as String?,
+      completedAtAdministration: row['completed_at_administration'] as String?,
     );
   }
 
@@ -84,6 +96,11 @@ class Record {
       'responsible_provider': responsibleProvider,
       'responsible_state': responsibleState,
       'responsible_troop': responsibleTroop,
+      'updated_at': updatedAt,
+      'local_updated_at': localUpdatedAt,
+      'completed_at_state': completedAtState,
+      'completed_at_troop': completedAtTroop,
+      'completed_at_administration': completedAtAdministration,
     };
   }
 
@@ -423,7 +440,7 @@ class RecordsRepository {
 
   Future<String> insertRecord(Record record) async {
     await db.execute(
-      'INSERT INTO records (properties, schema_name, schema_id, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO records (properties, schema_name, schema_id, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         record.properties,
         record.schemaName,
@@ -438,6 +455,11 @@ class RecordsRepository {
         record.responsibleProvider,
         record.responsibleState,
         record.responsibleTroop,
+        record.updatedAt,
+        record.localUpdatedAt,
+        record.completedAtState,
+        record.completedAtTroop,
+        record.completedAtAdministration,
       ],
     );
     final idResult = await db.execute('SELECT last_insert_rowid() as id');
