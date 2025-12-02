@@ -203,6 +203,9 @@ class Layout extends StatelessWidget {
 
     return UpgradeAlert(
       upgrader: Upgrader(durationUntilAlertAgain: Duration(days: 1)),
+      dialogStyle: UpgradeDialogStyle.material,
+      showLater: true,
+      showIgnore: false,
       child: MaterialApp.router(
         title: 'Terrestrial Forest Monitor',
 
