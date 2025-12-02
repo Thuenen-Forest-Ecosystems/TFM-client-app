@@ -113,6 +113,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
         ? (isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2))
         : null;
 
+    // Check if field is readonly (JSON Schema standard)
+    final isReadonly = widget.fieldSchema['readonly'] as bool? ?? false;
+
     // Handle boolean with Switch
     if (type == 'boolean') {
       return Column(
@@ -120,36 +123,42 @@ class _GenericTextFieldState extends State<GenericTextField> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _getLabel() ?? '',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: hasErrors ? Colors.red : null,
-                      ),
-                    ),
-                    if (_getDescription() != null) ...[
-                      const SizedBox(height: 4),
+              if (!widget.compact)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        _getDescription()!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        _getLabel() ?? '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: hasErrors ? Colors.red : null,
+                        ),
                       ),
+                      if (_getDescription() != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _getDescription()!,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
               Switch(
                 value: _boolValue,
-                onChanged: (value) {
-                  setState(() {
-                    _boolValue = value;
-                  });
-                  widget.onChanged?.call(value);
-                },
+                activeThumbColor: Theme.of(context).colorScheme.primary,
+                activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                inactiveThumbColor: Colors.grey[400],
+                onChanged: isReadonly
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _boolValue = value;
+                        });
+                        widget.onChanged?.call(value);
+                      },
               ),
             ],
           ),
@@ -183,38 +192,49 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
       return TextField(
         readOnly: true,
-        decoration: InputDecoration(
-          labelText: _getLabel(),
-          helperText: _getDescription(),
-          errorText: _getErrorText(),
-          border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50))),
-          suffixIcon: const Icon(Icons.arrow_drop_down),
-          filled: true,
-          fillColor: Colors.grey.withOpacity(0.1),
-        ),
+        decoration: widget.compact
+            ? InputDecoration(
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                suffixIcon: const Icon(Icons.arrow_drop_down, size: 20),
+                isDense: true,
+                filled: hasErrors,
+                fillColor: errorBgColor,
+              )
+            : InputDecoration(
+                labelText: _getLabel(),
+                helperText: _getDescription(),
+                errorText: _getErrorText(),
+                border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50))),
+                suffixIcon: const Icon(Icons.arrow_drop_down),
+                filled: true,
+                fillColor: Colors.grey.withOpacity(0.1),
+              ),
         controller: TextEditingController(text: getDisplayText(widget.value)),
-        onTap: () async {
-          final selected = await GenericEnumDialog.show(
-            context: context,
-            fieldName: widget.fieldName,
-            fieldSchema: widget.fieldSchema,
-            currentValue: widget.value,
-            enumValues: enumValues,
-            nameDe: nameDe,
-          );
+        onTap: isReadonly
+            ? null
+            : () async {
+                final selected = await GenericEnumDialog.show(
+                  context: context,
+                  fieldName: widget.fieldName,
+                  fieldSchema: widget.fieldSchema,
+                  currentValue: widget.value,
+                  enumValues: enumValues,
+                  nameDe: nameDe,
+                );
 
-          // Handle different return values:
-          // - null: dialog was dismissed, don't update
-          // - ClearSelection: user clicked "Leeren", set to null
-          // - other: user selected a value
-          if (selected != null) {
-            if (selected.runtimeType.toString() == 'ClearSelection') {
-              widget.onChanged?.call(null);
-            } else {
-              widget.onChanged?.call(selected);
-            }
-          }
-        },
+                // Handle different return values:
+                // - null: dialog was dismissed, don't update
+                // - ClearSelection: user clicked "Leeren", set to null
+                // - other: user selected a value
+                if (selected != null) {
+                  if (selected.runtimeType.toString() == 'ClearSelection') {
+                    widget.onChanged?.call(null);
+                  } else {
+                    widget.onChanged?.call(selected);
+                  }
+                }
+              },
       );
     }
 
@@ -225,6 +245,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
       return TextField(
         controller: _controller,
+        readOnly: isReadonly,
         textAlign: TextAlign.right,
         decoration: widget.compact
             ? InputDecoration(
@@ -291,6 +312,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
     // Handle string (default)
     return TextField(
       controller: _controller,
+      readOnly: isReadonly,
       decoration: widget.compact
           ? InputDecoration(
               border: InputBorder.none,

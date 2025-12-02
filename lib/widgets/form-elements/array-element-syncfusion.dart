@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 
 class ArrayElementSyncfusion extends StatefulWidget {
   final Map<String, dynamic> jsonSchema;
@@ -28,6 +29,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   late List<GridColumn> _columns;
   late List<Map<String, dynamic>> _rows;
   final DataGridController _dataGridController = DataGridController();
+  int _frozenColumnsCount = 0;
 
   @override
   void initState() {
@@ -68,6 +70,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
 
   List<GridColumn> _buildColumns() {
     final columns = <GridColumn>[];
+    int frozenColumnsCount = 0;
 
     // The schema IS the array schema, so items is at the root level
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
@@ -84,10 +87,12 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
 
     print('Found ${properties.length} properties in schema');
 
-    // Create column for each property
+    // Separate pinned and unpinned columns
+    final pinnedColumns = <MapEntry<String, dynamic>>[];
+    final unpinnedColumns = <MapEntry<String, dynamic>>[];
+
     properties.forEach((key, value) {
       final propertySchema = value as Map<String, dynamic>;
-      final title = propertySchema['title'] as String? ?? key;
 
       // Check if field should be displayed
       final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
@@ -99,6 +104,21 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
         print('Skipping column $key (display: false)');
         return; // Skip this column
       }
+
+      // Check for pinned attribute
+      final pinned = uiOptions?['pinned'] as String?;
+      if (pinned == 'left') {
+        pinnedColumns.add(MapEntry(key, propertySchema));
+      } else {
+        unpinnedColumns.add(MapEntry(key, propertySchema));
+      }
+    });
+
+    // Add pinned columns first
+    for (var entry in pinnedColumns) {
+      final key = entry.key;
+      final propertySchema = entry.value as Map<String, dynamic>;
+      final title = propertySchema['title'] as String? ?? key;
 
       columns.add(
         GridColumn(
@@ -114,7 +134,33 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           ),
         ),
       );
-    });
+      frozenColumnsCount++;
+    }
+
+    // Add unpinned columns
+    for (var entry in unpinnedColumns) {
+      final key = entry.key;
+      final propertySchema = entry.value as Map<String, dynamic>;
+      final title = propertySchema['title'] as String? ?? key;
+
+      columns.add(
+        GridColumn(
+          columnName: key,
+          label: Container(
+            padding: const EdgeInsets.all(16.0),
+            alignment: Alignment.center,
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Store frozen columns count for use in DataGrid
+    _frozenColumnsCount = frozenColumnsCount;
 
     return columns;
   }
@@ -148,6 +194,26 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       } else if (typeValue is List) {
         // Get the first non-null type from the list
         type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+      }
+
+      // Check for autoIncrement
+      final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
+      final form = tfm?['form'] as Map<String, dynamic>?;
+      final autoIncrement = form?['autoIncrement'] as bool? ?? false;
+
+      if (autoIncrement && (type == 'integer' || type == 'number')) {
+        // Find max value in existing rows and increment
+        int maxValue = 0;
+        for (var row in _rows) {
+          final value = row[key];
+          if (value is int && value > maxValue) {
+            maxValue = value;
+          } else if (value is double && value.toInt() > maxValue) {
+            maxValue = value.toInt();
+          }
+        }
+        newRow[key] = maxValue + 1;
+        return;
       }
 
       // set default value from schema if available
@@ -243,9 +309,11 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                       source: _dataGridSource,
                       controller: _dataGridController,
                       columns: _columns,
+                      frozenColumnsCount: _frozenColumnsCount,
                       allowEditing: true,
                       allowSorting: false,
                       allowColumnsResizing: true,
+                      columnResizeMode: ColumnResizeMode.onResize,
                       allowColumnsDragging: true,
                       selectionMode: SelectionMode.single,
                       navigationMode: GridNavigationMode.cell,
@@ -326,16 +394,14 @@ class _ArrayDataSource extends DataGridSource {
   final BuildContext context;
 
   void _buildDataGridRows() {
-    _dataGridRows =
-        _rows.map<DataGridRow>((row) {
-          return DataGridRow(
-            cells:
-                _columns.map<DataGridCell>((column) {
-                  final columnName = column.columnName;
-                  return DataGridCell<dynamic>(columnName: columnName, value: row[columnName]);
-                }).toList(),
-          );
-        }).toList();
+    _dataGridRows = _rows.map<DataGridRow>((row) {
+      return DataGridRow(
+        cells: _columns.map<DataGridCell>((column) {
+          final columnName = column.columnName;
+          return DataGridCell<dynamic>(columnName: columnName, value: row[columnName]);
+        }).toList(),
+      );
+    }).toList();
   }
 
   @override
@@ -344,72 +410,73 @@ class _ArrayDataSource extends DataGridSource {
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
     return DataGridRowAdapter(
-      cells:
-          row.getCells().map<Widget>((cell) {
-            final columnName =
-                _columns.firstWhere((col) => col.columnName == cell.columnName).columnName;
-            final columnSchema = _schema[columnName] as Map<String, dynamic>?;
+      cells: row.getCells().map<Widget>((cell) {
+        final columnName = _columns
+            .firstWhere((col) => col.columnName == cell.columnName)
+            .columnName;
+        final columnSchema = _schema[columnName] as Map<String, dynamic>?;
 
-            // Determine alignment based on type
-            Alignment alignment = Alignment.centerLeft; // Default for strings
-            if (columnSchema != null) {
-              final typeValue = columnSchema['type'];
-              String? type;
-              if (typeValue is String) {
-                type = typeValue;
-              } else if (typeValue is List) {
-                type =
-                    typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null)
-                        as String?;
-              }
+        // Determine alignment based on type
+        Alignment alignment = Alignment.centerLeft; // Default for strings
+        if (columnSchema != null) {
+          final typeValue = columnSchema['type'];
+          String? type;
+          if (typeValue is String) {
+            type = typeValue;
+          } else if (typeValue is List) {
+            type =
+                typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null)
+                    as String?;
+          }
 
-              // Set alignment based on type
-              if (type == 'integer' || type == 'number') {
-                alignment = Alignment.centerRight;
-              } else if (type == 'boolean') {
-                alignment = Alignment.center;
-              }
+          // Set alignment based on type
+          if (type == 'integer' || type == 'number') {
+            alignment = Alignment.centerRight;
+          } else if (type == 'boolean') {
+            alignment = Alignment.center;
+          }
+        }
+
+        // Get unit from $tfm.unit_short
+        String? unit;
+        if (columnSchema != null) {
+          final tfm = columnSchema['\$tfm'] as Map<String, dynamic>?;
+          unit = tfm?['unit_short'] as String?;
+        }
+
+        // Check if this column has enum values
+        if (columnSchema != null && columnSchema.containsKey('enum')) {
+          final enumValues = columnSchema['enum'] as List;
+          final tfm = columnSchema['\$tfm'] as Map<String, dynamic>?;
+          final namesDe = tfm?['name_de'] as List?;
+          final cellValue = cell.value;
+
+          if (namesDe != null && enumValues.contains(cellValue)) {
+            final index = enumValues.indexOf(cellValue);
+            if (index >= 0 && index < namesDe.length) {
+              final name = namesDe[index]?.toString() ?? cellValue?.toString() ?? '';
+              final displayText =
+                  '$name (${cellValue?.toString() ?? ''})${unit != null ? ' $unit' : ''}';
+              return Container(
+                alignment: alignment,
+                padding: const EdgeInsets.all(8.0),
+                child: Text(displayText, overflow: TextOverflow.ellipsis),
+              );
             }
+          }
+        }
 
-            // Get unit from $tfm.unit_short
-            String? unit;
-            if (columnSchema != null) {
-              final tfm = columnSchema['\$tfm'] as Map<String, dynamic>?;
-              unit = tfm?['unit_short'] as String?;
-            }
-
-            // Check if this column has enum values
-            if (columnSchema != null && columnSchema.containsKey('enum')) {
-              final enumValues = columnSchema['enum'] as List;
-              final tfm = columnSchema['\$tfm'] as Map<String, dynamic>?;
-              final namesDe = tfm?['name_de'] as List?;
-              final cellValue = cell.value;
-
-              if (namesDe != null && enumValues.contains(cellValue)) {
-                final index = enumValues.indexOf(cellValue);
-                if (index >= 0 && index < namesDe.length) {
-                  final name = namesDe[index]?.toString() ?? cellValue?.toString() ?? '';
-                  final displayText =
-                      '$name (${cellValue?.toString() ?? ''})${unit != null ? ' $unit' : ''}';
-                  return Container(
-                    alignment: alignment,
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(displayText, overflow: TextOverflow.ellipsis),
-                  );
-                }
-              }
-            }
-
-            // Default display for non-enum fields with unit
-            final cellValueStr = cell.value?.toString() ?? '';
-            final displayText =
-                cellValueStr.isNotEmpty && unit != null ? '$cellValueStr $unit' : cellValueStr;
-            return Container(
-              alignment: alignment,
-              padding: const EdgeInsets.all(12.0),
-              child: Text(displayText, overflow: TextOverflow.ellipsis),
-            );
-          }).toList(),
+        // Default display for non-enum fields with unit
+        final cellValueStr = cell.value?.toString() ?? '';
+        final displayText = cellValueStr.isNotEmpty && unit != null
+            ? '$cellValueStr $unit'
+            : cellValueStr;
+        return Container(
+          alignment: alignment,
+          padding: const EdgeInsets.all(12.0),
+          child: Text(displayText, overflow: TextOverflow.ellipsis),
+        );
+      }).toList(),
     );
   }
 
@@ -452,186 +519,54 @@ class _ArrayDataSource extends DataGridSource {
     // Get schema for this column
     final columnSchema = _schema[columnName] as Map<String, dynamic>?;
     if (columnSchema == null) {
-      // Fallback to text field if no schema
-      return _buildTextField(dataGridRow, rowColumnIndex, column, submitCell, cellValue);
+      // Fallback if no schema
+      return null;
     }
 
-    // Get type
-    final typeValue = columnSchema['type'];
-    String? type;
-    if (typeValue is String) {
-      type = typeValue;
-    } else if (typeValue is List) {
-      type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+    // Check if field is readonly (JSON Schema standard property)
+    final isReadonly = columnSchema['readOnly'] as bool? ?? false;
+
+    // If readonly, don't allow editing
+    if (isReadonly) {
+      return null;
     }
 
-    // Check if it has enum (dropdown)
-    if (columnSchema.containsKey('enum')) {
-      return _buildDropdown(
-        dataGridRow,
-        rowColumnIndex,
-        column,
-        submitCell,
-        cellValue,
-        columnSchema,
-      );
-    }
-
-    // Check if it's boolean (switch)
-    if (type == 'boolean') {
-      return _buildSwitch(dataGridRow, rowColumnIndex, column, submitCell, cellValue);
-    }
-
-    // Default to text field
-    return _buildTextField(dataGridRow, rowColumnIndex, column, submitCell, cellValue);
+    // Use GenericTextField for editing
+    return _buildGenericTextField(
+      dataGridRow,
+      rowColumnIndex,
+      column,
+      submitCell,
+      cellValue,
+      columnSchema,
+    );
   }
 
-  Widget _buildTextField(
+  Widget _buildGenericTextField(
     DataGridRow dataGridRow,
     RowColumnIndex rowColumnIndex,
     GridColumn column,
     CellSubmit submitCell,
     dynamic cellValue,
+    Map<String, dynamic> columnSchema,
   ) {
-    final TextEditingController editingController = TextEditingController(
-      text: cellValue?.toString() ?? '',
-    );
-
-    // Get column schema to determine field type
-    final columnSchema = _schema[column.columnName] as Map<String, dynamic>?;
-    final typeValue = columnSchema?['type'];
-    String? fieldType;
-    if (typeValue is String) {
-      fieldType = typeValue;
-    } else if (typeValue is List) {
-      fieldType =
-          typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
-    }
+    final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
+    if (dataRowIndex == -1) return Container();
 
     return Container(
-      padding: const EdgeInsets.all(8.0),
-      alignment: Alignment.centerLeft,
-      child: TextField(
-        autofocus: true,
-        controller: editingController,
-        textAlign: TextAlign.left,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          suffixIcon: SpeechToTextButton(
-            controller: editingController,
-            fieldType: fieldType,
-            onTextChanged: () {
-              final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
-              if (dataRowIndex != -1) {
-                dynamic value = editingController.text;
-                // Convert to appropriate type
-                if (fieldType == 'integer') {
-                  value = int.tryParse(editingController.text) ?? editingController.text;
-                } else if (fieldType == 'number') {
-                  value = double.tryParse(editingController.text) ?? editingController.text;
-                }
-                _rows[dataRowIndex][column.columnName] = value;
-                _buildDataGridRows();
-                onCellUpdate(dataRowIndex, column.columnName, value);
-              }
-            },
-          ),
-        ),
-        onSubmitted: (String value) {
-          final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
-          if (dataRowIndex != -1) {
-            _rows[dataRowIndex][column.columnName] = value;
-            _buildDataGridRows();
-            onCellUpdate(dataRowIndex, column.columnName, value);
-          }
-          submitCell();
-        },
-      ),
-    );
-  }
-
-  Widget _buildDropdown(
-    DataGridRow dataGridRow,
-    RowColumnIndex rowColumnIndex,
-    GridColumn column,
-    CellSubmit submitCell,
-    dynamic cellValue,
-    Map<String, dynamic> schema,
-  ) {
-    final enumValues = schema['enum'] as List;
-    final tfm = schema['\$tfm'] as Map<String, dynamic>?;
-    final namesDe = tfm?['name_de'] as List?;
-
-    // Get display text for current value
-    String getDisplayText(dynamic value) {
-      if (value == null) return '';
-      final index = enumValues.indexOf(value);
-      if (index == -1) return value.toString();
-
-      if (namesDe != null && index < namesDe.length) {
-        final germanName = namesDe[index];
-        return germanName != null ? '$germanName ($value)' : value.toString();
-      }
-      return value.toString();
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      alignment: Alignment.centerLeft,
-      child: InkWell(
-        onTap: () async {
-          final selected = await GenericEnumDialog.show(
-            context: context,
-            fieldName: column.columnName,
-            fieldSchema: schema,
-            currentValue: cellValue,
-            enumValues: enumValues,
-            nameDe: namesDe,
-          );
-
-          if (selected != null) {
-            final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
-            if (dataRowIndex != -1) {
-              _rows[dataRowIndex][column.columnName] = selected;
-              _buildDataGridRows();
-              onCellUpdate(dataRowIndex, column.columnName, selected);
-            }
-            submitCell();
-          }
-        },
-        child: Row(
-          children: [
-            Expanded(child: Text(getDisplayText(cellValue), overflow: TextOverflow.ellipsis)),
-            const Icon(Icons.arrow_drop_down, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwitch(
-    DataGridRow dataGridRow,
-    RowColumnIndex rowColumnIndex,
-    GridColumn column,
-    CellSubmit submitCell,
-    dynamic cellValue,
-  ) {
-    final boolValue = cellValue == true || cellValue == 1 || cellValue == 'true';
-
-    return Container(
-      padding: const EdgeInsets.all(4.0),
-      alignment: Alignment.center,
-      child: Switch(
-        value: boolValue,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      child: GenericTextField(
+        fieldName: column.columnName,
+        fieldSchema: columnSchema,
+        value: cellValue,
+        errors: const [], // Grid doesn't show validation errors inline
+        compact: true,
         onChanged: (newValue) {
-          final int dataRowIndex = _dataGridRows.indexOf(dataGridRow);
-          if (dataRowIndex != -1) {
-            _rows[dataRowIndex][column.columnName] = newValue;
-            _buildDataGridRows();
-            onCellUpdate(dataRowIndex, column.columnName, newValue);
-          }
-          submitCell();
+          _rows[dataRowIndex][column.columnName] = newValue;
+          _buildDataGridRows();
+          onCellUpdate(dataRowIndex, column.columnName, newValue);
+          // Auto-submit after change
+          Future.microtask(() => submitCell());
         },
       ),
     );

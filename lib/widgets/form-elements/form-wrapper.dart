@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-syncfusion.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
@@ -48,7 +49,11 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     // Initialize tabs and tab controller
     _tabs = _buildTabsList();
     if (_tabs.isNotEmpty) {
-      _tabController = TabController(length: _tabs.length, vsync: this);
+      // Find position tab index, default to 0 if not found
+      final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
+      final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
+
+      _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
       _previousTabIndex = _tabController!.index;
     }
   }
@@ -59,11 +64,13 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>;
     final tabs = <FormTab>[];
 
+    tabs.add(FormTab(id: 'info', label: widget.jsonSchema!['title'] as String? ?? 'Trakt'));
+
     if (schemaProperties.containsKey('position')) {
       final title = schemaProperties['position']?['title'] as String?;
       tabs.add(FormTab(id: 'position', label: title ?? 'Position'));
     }
-    tabs.add(FormTab(id: 'info', label: widget.jsonSchema!['title'] as String? ?? 'Trakt'));
+
     if (schemaProperties.containsKey('tree')) {
       final title = schemaProperties['tree']?['title'] as String?;
       tabs.add(FormTab(id: 'tree', label: title ?? 'WZP'));
@@ -111,7 +118,15 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
         _tabs = newTabs;
         _tabController?.dispose();
         if (_tabs.isNotEmpty) {
-          _tabController = TabController(length: _tabs.length, vsync: this);
+          // Find position tab index, default to 0 if not found
+          final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
+          final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
+
+          _tabController = TabController(
+            length: _tabs.length,
+            vsync: this,
+            initialIndex: initialIndex,
+          );
         }
       }
     }
@@ -205,69 +220,54 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
   bool _isErrorForTab(ValidationError error, String tabId) {
     final path = error.instancePath ?? '';
 
-    // Use tabId directly as property name (except for 'info' tab)
-    String propertyName = tabId == 'info' ? '' : tabId;
+    // For 'info' tab, only show errors for primitive fields (not arrays/objects)
+    if (tabId == 'info') {
+      // List of properties that are arrays/objects and have their own tabs
+      final excludedProperties = [
+        'position',
+        'tree',
+        'edges',
+        'structure_lt4m',
+        'structure_gt4m',
+        'regeneration',
+        'deadwood',
+      ];
+
+      // Handle required errors at root level
+      if (path.isEmpty && error.keyword == 'required') {
+        final missingProperty = error.params?['missingProperty'] as String?;
+        // Only show if it's NOT one of the excluded (array/object) properties
+        return missingProperty != null && !excludedProperties.contains(missingProperty);
+      }
+
+      // Handle field-specific errors
+      if (path.isNotEmpty) {
+        final pathSegments = path.split('/').where((s) => s.isNotEmpty).toList();
+        if (pathSegments.length == 1) {
+          // Single segment = root-level field error
+          // Only show if it's NOT one of the excluded properties
+          return !excludedProperties.contains(pathSegments[0]);
+        }
+        // Multiple segments = nested error, don't show in info tab
+        return false;
+      }
+
+      // Other root-level errors (not field-specific)
+      return false;
+    }
+
+    // For other tabs, use tabId as property name
+    String propertyName = tabId;
 
     // Check if error path starts with the property name
-    if (propertyName.isNotEmpty && path.startsWith('/$propertyName')) {
+    if (path.startsWith('/$propertyName')) {
       return true;
     }
 
     // Check if it's a root-level required error for this property
     if (path.isEmpty && error.keyword == 'required') {
       final missingProperty = error.params?['missingProperty'] as String?;
-      if (missingProperty == propertyName) {
-        return true;
-      }
-      // Special case for position tab
-      if (tabId == 'position' && missingProperty == 'position') {
-        return true;
-      }
-
-      // For 'info' tab, only show required errors for root-level scalar fields
-      // Exclude errors for array/object properties that have their own tabs
-      if (tabId == 'info') {
-        final excludedProperties = [
-          'position',
-          'tree',
-          'edges',
-          'structure_lt4m',
-          'structure_gt4m',
-          'regeneration',
-          'deadwood',
-        ];
-        if (missingProperty != null && !excludedProperties.contains(missingProperty)) {
-          return true;
-        }
-      }
-    }
-
-    // For 'info' tab, only show root-level field errors (not nested in arrays/objects)
-    if (tabId == 'info' && path.isNotEmpty) {
-      // Only include errors for direct root fields (e.g., "/fieldName")
-      // Exclude errors in nested structures (e.g., "/tree/0/field", "/position/field")
-      final pathSegments = path.split('/').where((s) => s.isNotEmpty).toList();
-      if (pathSegments.length == 1) {
-        // Single segment means root-level field error
-        final excludedProperties = [
-          'position',
-          'tree',
-          'edges',
-          'structure_lt4m',
-          'structure_gt4m',
-          'regeneration',
-          'deadwood',
-        ];
-        if (!excludedProperties.contains(pathSegments[0])) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    // For 'info' tab, show root-level errors only
-    if (tabId == 'info' && path.isEmpty) {
-      return true;
+      return missingProperty == propertyName;
     }
 
     return false;
@@ -347,7 +347,7 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
                     },
                   );
                 case 'tree':
-                  return ArrayElementTrina(
+                  return ArrayElementSyncfusion(
                     jsonSchema: schemaProperties['tree'],
                     data: _localFormData['tree'],
                     propertyName: 'tree',

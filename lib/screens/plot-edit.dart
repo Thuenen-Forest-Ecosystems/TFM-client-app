@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:beamer/beamer.dart';
-import 'package:terrestrial_forest_monitor/services/api.dart';
+//import 'package:terrestrial_forest_monitor/services/api.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
-import 'package:terrestrial_forest_monitor/widgets/forms/deadwood.dart';
-import 'package:terrestrial_forest_monitor/widgets/forms/edges.dart';
-import 'package:terrestrial_forest_monitor/widgets/forms/plot.dart';
-import 'dart:convert';
-
-import 'package:terrestrial_forest_monitor/widgets/forms/position.dart';
-import 'package:terrestrial_forest_monitor/widgets/forms/regeneration.dart';
-import 'package:terrestrial_forest_monitor/widgets/forms/structure.dart';
-import 'package:terrestrial_forest_monitor/widgets/forms/wzp.dart';
+// import 'package:terrestrial_forest_monitor/widgets/forms/deadwood.dart';
+// import 'package:terrestrial_forest_monitor/widgets/forms/edges.dart';
+// import 'package:terrestrial_forest_monitor/widgets/forms/plot.dart';
+// import 'dart:convert';
+//
+// import 'package:terrestrial_forest_monitor/widgets/forms/position.dart';
+// import 'package:terrestrial_forest_monitor/widgets/forms/regeneration.dart';
+// import 'package:terrestrial_forest_monitor/widgets/forms/structure.dart';
+// import 'package:terrestrial_forest_monitor/widgets/forms/wzp.dart';
 
 class PlotEdit extends StatefulWidget {
   final String schemaId;
@@ -39,43 +39,8 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
 
   List<Map> tabs = [];
 
-  void _onUpdate() {
-    print('VALIDATE: $values');
-  }
-
-  void _initTabs(Map plotJson) {
-    tabs = [
-      {'title': 'Position', 'icon': Icons.blur_circular, 'screen': TIPosition()},
-      {
-        'title': 'Plot',
-        'icon': Icons.blur_circular,
-        'screen': TiPlot(plotId: widget.plotId, data: plotJson, onUpdate: _onUpdate),
-      },
-      {
-        'title': 'Ränder',
-        'icon': Icons.blur_circular,
-        'screen': TIEdges(plotId: widget.plotId, data: [], previousData: []),
-      },
-      {
-        'title': 'Totholz',
-        'icon': Icons.blur_circular,
-        'screen': TIDeadwood(plotId: widget.plotId, data: plotJson['deadwood']),
-      },
-      {
-        'title': 'Winkelzählprobe',
-        'icon': Icons.blur_circular,
-        'screen': TIWzp(plotId: widget.plotId, data: plotJson['tree'], onUpdate: _onUpdate),
-      },
-      {'title': 'Regeneration', 'icon': Icons.blur_circular, 'screen': TIRegeneration()},
-      {'title': 'Struktur', 'icon': Icons.blur_circular, 'screen': TIStructure()},
-    ];
-    _tabController = TabController(length: tabs.length, vsync: this);
-    setState(() {});
-  }
-
   Future<void> _createPlotJson() async {
     values = await plotAsJson(_plotId!);
-    //_initTabs(values);
   }
 
   @override
@@ -94,7 +59,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<Map<dynamic, dynamic>> _loadSampleSchema() async {
+  /*Future<Map<dynamic, dynamic>> _loadSampleSchema() async {
     String data = await DefaultAssetBundle.of(context).loadString("assets/sample/schema.json");
     final jsonResult = jsonDecode(data);
     return jsonResult;
@@ -102,7 +67,7 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
 
   Future<Map<dynamic, dynamic>> _loadSampleData() async {
     return await ApiService().getCluster(_clusterId);
-  }
+  }*/
 
   @override
   Widget build(BuildContext context) {
@@ -130,10 +95,9 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
         iconTheme: IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
-          tabs:
-              tabs.map((tab) {
-                return Tab(text: tab['title']);
-              }).toList(),
+          tabs: tabs.map((tab) {
+            return Tab(text: tab['title']);
+          }).toList(),
         ),
         actions: [
           OutlinedButton.icon(
@@ -164,10 +128,9 @@ class _PlotEditState extends State<PlotEdit> with TickerProviderStateMixin {
         child: TabBarView(
           physics: const NeverScrollableScrollPhysics(),
           controller: _tabController,
-          children:
-              tabs.map<Widget>((tab) {
-                return tab['screen'] as Widget;
-              }).toList(),
+          children: tabs.map<Widget>((tab) {
+            return tab['screen'] as Widget;
+          }).toList(),
         ),
       ),
     );
