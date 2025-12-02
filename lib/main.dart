@@ -202,7 +202,7 @@ class Layout extends StatelessWidget {
     //context.watch<MapState>().mapOpen
 
     return UpgradeAlert(
-      upgrader: Upgrader(durationUntilAlertAgain: Duration(days: 1), shouldPopScope: () => true),
+      upgrader: Upgrader(durationUntilAlertAgain: Duration(days: 1)),
       child: MaterialApp.router(
         title: 'Terrestrial Forest Monitor',
 
