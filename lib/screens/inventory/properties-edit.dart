@@ -48,7 +48,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   @override
   void initState() {
     super.initState();
+
     schemaRepository = SchemaRepository();
+
     _loadRecord().then((_) {
       // Load schema after record is loaded to get the interval name
       if (_record != null) {
@@ -122,14 +124,17 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   void dispose() {
     _gpsSubscription?.cancel();
 
-    // Clear distance line and focused record when leaving the page
-    // Schedule after frame to avoid calling notifyListeners during widget tree lock
+    // Clear distance line and focused record immediately when leaving
+    // Don't use addPostFrameCallback here - we need immediate clearing
+    // to prevent race conditions when navigating between properties-edit pages
     if (_mapProvider != null) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _mapProvider?.clearDistanceLine();
-        _mapProvider?.clearFocusedRecord();
+      try {
+        _mapProvider!.clearDistanceLine();
+        _mapProvider!.clearFocusedRecord();
         debugPrint('Distance line and focused record cleared on dispose');
-      });
+      } catch (e) {
+        debugPrint('Error clearing map state on dispose: $e');
+      }
     }
 
     super.dispose();
@@ -300,8 +305,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // Update distance line after record is loaded
         if (_record != null) {
           _updateDistanceLine();
-          _setFocusedRecord(context);
-          _focusRecord(context);
+
+          // Schedule focus operations after frame to avoid race conditions with dispose
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _record != null) {
+              _setFocusedRecord(context);
+              _focusRecord(context);
+            }
+          });
+
           // Validate initial form data
           if (_formData != null) {
             _onFormDataChanged(_formData!);
@@ -465,6 +477,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       final recordCoords = _record?.getCoordinates();
 
       if (recordCoords != null) {
+        // Mark as manual interaction before moving
+        mapProvider.markManualInteraction();
         final latLng = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
         mapProvider.moveToLocation(latLng, zoom: 19.0);
       } else {

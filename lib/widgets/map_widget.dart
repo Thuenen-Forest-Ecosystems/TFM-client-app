@@ -16,6 +16,8 @@ import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
+import 'package:turf/turf.dart' as turf;
+
 class MapWidget extends StatefulWidget {
   final LatLng? initialCenter;
   final double? initialZoom;
@@ -124,9 +126,6 @@ class _MapWidgetState extends State<MapWidget> {
             _focusedRecord = focusedRecord;
             _treePositions = treePositions;
           });
-          debugPrint(
-            'Focused record changed: ${focusedRecord?.plotName ?? "none"} with ${_treePositions.length} trees',
-          );
         }
       }
     } catch (e) {
@@ -147,40 +146,60 @@ class _MapWidgetState extends State<MapWidget> {
     final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
     final properties = params['properties'] as Map<String, dynamic>;
 
+    debugPrint('Calculating tree positions for record at: $recordCoords');
+
     if (recordCoords == null) return positions;
 
     final centerLat = recordCoords['latitude'] as double;
     final centerLng = recordCoords['longitude'] as double;
 
     try {
-      // Check if trees data exists in properties
-      final trees = properties['trees'];
-      if (trees == null || trees is! List) return positions;
+      // Check if tree data exists in properties (note: field is 'tree', not 'trees')
+      final trees = properties['tree'];
+      if (trees == null || trees is! List) {
+        debugPrint('No tree data found in properties. Available keys: ${properties.keys.toList()}');
+        return positions;
+      }
+      debugPrint('Found ${trees.length} trees in tree array');
 
       // Calculate position for each tree based on azimuth and distance
+      final centerPoint = turf.Point(coordinates: turf.Position(centerLng, centerLat));
+
       for (var tree in trees) {
         if (tree is! Map) continue;
 
         final azimuth = tree['azimuth'];
         final distance = tree['distance'];
         final treeNumber = tree['tree_number'];
+        final dbh = tree['dbh'];
 
         if (azimuth != null && distance != null) {
-          // Calculate lat/lng offset
-          // 1 degree latitude ≈ 111km
-          // 1 degree longitude ≈ 111km * cos(latitude)
-          final distanceKm = distance / 1000.0;
-          final azimuthRad = azimuth * pi / 180.0;
-          final latOffset = distanceKm * (1.0 / 111.0) * cos(azimuthRad);
-          final lngOffset =
-              distanceKm * (1.0 / (111.0 * cos(centerLat * pi / 180.0))) * sin(azimuthRad);
+          // Convert azimuth from gon to degrees (400 gon = 360 degrees)
+          final azimuthDegrees = (azimuth as num).toDouble() * 0.9;
 
+          // Convert distance from cm to meters then to kilometers
+          final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
+
+          debugPrint(
+            'Tree ${treeNumber}: azimuth=${azimuthDegrees}°, distance=${distanceKm}km, dbh=${dbh}mm',
+          );
+
+          // Use Turf's destination to calculate the new position
+          final destinationPoint = turf.destination(
+            centerPoint,
+            distanceKm,
+            azimuthDegrees,
+            turf.Unit.kilometers,
+          );
+
+          final coords = destinationPoint.coordinates;
           positions.add({
-            'lat': centerLat + latOffset,
-            'lng': centerLng + lngOffset,
+            'lat': coords.lat,
+            'lng': coords.lng,
             'tree_number': treeNumber,
             'azimuth': azimuth,
             'distance': distance,
+            'dbh': dbh,
             'data': tree,
           });
         }
@@ -342,7 +361,18 @@ class _MapWidgetState extends State<MapWidget> {
           if (_isMapReady) {
             _updateVisibleRecords();
           }
-          _fitCameraToMarkers();
+
+          // Only auto-fit if there's no recent manual interaction
+          if (_lastManualFocusTime == null) {
+            _fitCameraToMarkers();
+          } else {
+            final timeSinceManualFocus = DateTime.now().difference(_lastManualFocusTime!);
+            if (timeSinceManualFocus.inSeconds >= 5) {
+              _fitCameraToMarkers();
+            } else {
+              debugPrint('Skipping initial auto-fit due to recent manual focus');
+            }
+          }
         }
       } else {
         debugPrint('MapWidget: No cached records found, will be notified when available');
@@ -576,7 +606,20 @@ class _MapWidgetState extends State<MapWidget> {
 
   void _onMarkerTapped(Record record) {
     debugPrint('Marker tapped: ${record.clusterName} - ${record.plotName}');
+
+    // Mark as manual interaction to prevent auto-fit
+    _lastManualFocusTime = DateTime.now();
+
+    // Also mark in provider to prevent other map instances from auto-fitting
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.markManualInteraction();
+    } catch (e) {
+      debugPrint('Error marking manual interaction: $e');
+    }
+
     // Navigate to the plot edit screen
+
     Beamer.of(context).beamToNamed(
       '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
     );
@@ -646,51 +689,67 @@ class _MapWidgetState extends State<MapWidget> {
     );
   }
 
-  List<Marker> _buildTreePositionMarkers(List<Map<String, dynamic>> treePositions) {
+  List<CircleMarker> _treeCircles(List<Map<String, dynamic>> treePositions) {
+    debugPrint('Building ${treePositions.length} tree circle markers');
     return treePositions.map((tree) {
       final lat = tree['lat'] as double;
       final lng = tree['lng'] as double;
-      final treeNumber = tree['tree_number'];
+      final dbh = tree['dbh']; // DBH in millimeters
 
-      return Marker(
+      // Calculate radius: DBH is in mm, convert to meters and divide by 2
+      // If dbh is null, use a default small radius of 0.05m (5cm)
+      final radiusMeters = dbh != null ? ((dbh as num).toDouble() / 1000.0 / 2.0) : 0.1;
+
+      final isNull = dbh == null;
+
+      return CircleMarker(
         point: LatLng(lat, lng),
-        width: 30,
-        height: 30,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.8),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-          child: Center(
-            child: Text(
-              treeNumber?.toString() ?? '?',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
+        radius: radiusMeters,
+        useRadiusInMeter: true,
+        color: isNull ? Color.fromARGB(255, 0, 0, 0) : Color.fromARGB(255, 255, 255, 0), // yellow
       );
     }).toList();
   }
 
-  List<Polyline> _buildTreeLines(Record record, List<Map<String, dynamic>> treePositions) {
-    final recordCoords = record.getCoordinates();
-    if (recordCoords == null) return [];
+  List<CircleMarker> _getDefaultCircles(Record record) {
+    final coords = record.getCoordinates();
+    if (coords == null) return [];
 
-    final centerPoint = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
+    final centerLat = coords['latitude']!;
+    final centerLng = coords['longitude']!;
 
-    return treePositions.map((tree) {
-      final treePoint = LatLng(tree['lat'] as double, tree['lng'] as double);
-      return Polyline(
-        points: [centerPoint, treePoint],
-        color: Colors.green.withOpacity(0.5),
-        strokeWidth: 1.5,
-      );
-    }).toList();
+    return [
+      // 25m radius circle
+      CircleMarker(
+        point: LatLng(
+          _focusedRecord!.getCoordinates()!['latitude']!,
+          _focusedRecord!.getCoordinates()!['longitude']!,
+        ),
+        radius: 25.0,
+        useRadiusInMeter: true,
+        color: const Color.fromARGB(25, 0, 159, 224),
+      ),
+      // 10m radius circle
+      CircleMarker(
+        point: LatLng(
+          _focusedRecord!.getCoordinates()!['latitude']!,
+          _focusedRecord!.getCoordinates()!['longitude']!,
+        ),
+        radius: 10.0,
+        useRadiusInMeter: true,
+        color: const Color.fromARGB(25, 0, 170, 130),
+      ),
+      // 5m radius circle
+      CircleMarker(
+        point: LatLng(
+          _focusedRecord!.getCoordinates()!['latitude']!,
+          _focusedRecord!.getCoordinates()!['longitude']!,
+        ),
+        radius: 5.0,
+        useRadiusInMeter: true,
+        color: const Color.fromARGB(25, 0, 170, 170),
+      ),
+    ];
   }
 
   Marker _buildFocusedRecordMarker(Record record) {
@@ -829,7 +888,7 @@ class _MapWidgetState extends State<MapWidget> {
         initialCenter: initialCenter,
         initialZoom: initialZoom,
         minZoom: 4.0,
-        maxZoom: 19.0,
+        maxZoom: 22.0,
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
@@ -937,17 +996,14 @@ class _MapWidgetState extends State<MapWidget> {
         if (_currentZoom > 14 && _records.isNotEmpty)
           MarkerLayer(markers: _buildLabelMarkers(_records)),
 
+        // Line from center to trees
+        //if (_focusedRecord != null && _treePositions.isNotEmpty)
+        //  PolylineLayer(polylines: _buildTreeLines(_focusedRecord!, _treePositions)),
+        if (_focusedRecord != null) CircleLayer(circles: _getDefaultCircles(_focusedRecord!)),
+
         // Tree positions for focused record
         if (_focusedRecord != null && _treePositions.isNotEmpty)
-          MarkerLayer(markers: _buildTreePositionMarkers(_treePositions)),
-
-        // Line from center to trees
-        if (_focusedRecord != null && _treePositions.isNotEmpty)
-          PolylineLayer(polylines: _buildTreeLines(_focusedRecord!, _treePositions)),
-
-        // Focused record center marker (highlighted)
-        if (_focusedRecord != null)
-          MarkerLayer(markers: [_buildFocusedRecordMarker(_focusedRecord!)]),
+          CircleLayer(circles: _treeCircles(_treePositions)),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)
@@ -982,6 +1038,33 @@ class _MapWidgetState extends State<MapWidget> {
               ),
             ],
           ),
+
+        // Scale bar - positioned based on sheet position
+        // Account for both sheet height and map vertical offset
+        Positioned(
+          left: 8,
+          bottom: widget.sheetPosition != null
+              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8
+              : MediaQuery.of(context).size.height * 0.075 + 8,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Color.fromARGB(100, 200, 200, 200),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.black26, width: 1),
+            ),
+            child: Scalebar(
+              textStyle: const TextStyle(
+                color: Colors.black,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+              lineColor: Colors.black,
+              strokeWidth: 2,
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ),
       ],
     );
   }

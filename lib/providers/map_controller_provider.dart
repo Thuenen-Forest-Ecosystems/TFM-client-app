@@ -19,6 +19,10 @@ class MapControllerProvider with ChangeNotifier {
   DateTime? _focusTimestamp;
   DateTime? _lastManualMoveTimestamp;
 
+  // Navigation request
+  String? _navigationPath;
+  DateTime? _navigationTimestamp;
+
   MapController? get flutterMapController => _flutterMapController;
   LatLng? get distanceLineFrom => _distanceLineFrom;
   LatLng? get distanceLineTo => _distanceLineTo;
@@ -26,6 +30,8 @@ class MapControllerProvider with ChangeNotifier {
   LatLngBounds? get focusBounds => _focusBounds;
   DateTime? get focusTimestamp => _focusTimestamp;
   DateTime? get lastManualMoveTimestamp => _lastManualMoveTimestamp;
+  String? get navigationPath => _navigationPath;
+  DateTime? get navigationTimestamp => _navigationTimestamp;
 
   void setFlutterMapController(MapController? controller) {
     _flutterMapController = controller;
@@ -48,15 +54,30 @@ class MapControllerProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void moveToLocation(LatLng location, {double zoom = 15.0}) {
+  void moveToLocation(LatLng location, {double zoom = 15.0, bool animate = true}) {
     if (_flutterMapController != null) {
       _lastManualMoveTimestamp = DateTime.now();
-      _flutterMapController!.move(location, zoom);
-      debugPrint('Map moved to: ${location.latitude}, ${location.longitude} at zoom $zoom');
+
+      if (animate) {
+        // Smooth animated movement
+        _flutterMapController!.moveAndRotate(location, zoom, 0.0);
+      } else {
+        // Instant jump
+        _flutterMapController!.move(location, zoom);
+      }
+
+      debugPrint(
+        'Map moved to: ${location.latitude}, ${location.longitude} at zoom $zoom (animated: $animate)',
+      );
       notifyListeners();
     } else {
       debugPrint('Cannot move map: controller not initialized');
     }
+  }
+
+  void markManualInteraction() {
+    _lastManualMoveTimestamp = DateTime.now();
+    notifyListeners();
   }
 
   void showDistanceLine(LatLng from, LatLng to) {
@@ -86,6 +107,18 @@ class MapControllerProvider with ChangeNotifier {
       debugPrint('Focused record cleared');
       notifyListeners();
     }
+  }
+
+  void requestNavigation(String path) {
+    _navigationPath = path;
+    _navigationTimestamp = DateTime.now();
+    debugPrint('Navigation requested: $path');
+    notifyListeners();
+  }
+
+  void clearNavigationRequest() {
+    _navigationPath = null;
+    _navigationTimestamp = null;
   }
 
   @override

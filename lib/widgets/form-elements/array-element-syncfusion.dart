@@ -30,6 +30,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   late List<Map<String, dynamic>> _rows;
   final DataGridController _dataGridController = DataGridController();
   int _frozenColumnsCount = 0;
+  Map<String, double> _columnWidths = {};
 
   @override
   void initState() {
@@ -120,12 +121,29 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       final propertySchema = entry.value as Map<String, dynamic>;
       final title = propertySchema['title'] as String? ?? key;
 
+      // Determine alignment based on type
+      final typeValue = propertySchema['type'];
+      String? type;
+      if (typeValue is String) {
+        type = typeValue;
+      } else if (typeValue is List) {
+        type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+      }
+
+      Alignment headerAlignment = Alignment.centerLeft; // Default for text/enum
+      if (type == 'integer' || type == 'number') {
+        headerAlignment = Alignment.centerRight;
+      } else if (type == 'boolean') {
+        headerAlignment = Alignment.center;
+      }
+
       columns.add(
         GridColumn(
           columnName: key,
+          width: _columnWidths[key] ?? double.nan,
           label: Container(
             padding: const EdgeInsets.all(16.0),
-            alignment: Alignment.center,
+            alignment: headerAlignment,
             child: Text(
               title,
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -134,6 +152,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           ),
         ),
       );
+      _columnWidths[key] ??= double.nan;
       frozenColumnsCount++;
     }
 
@@ -143,12 +162,29 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       final propertySchema = entry.value as Map<String, dynamic>;
       final title = propertySchema['title'] as String? ?? key;
 
+      // Determine alignment based on type
+      final typeValue = propertySchema['type'];
+      String? type;
+      if (typeValue is String) {
+        type = typeValue;
+      } else if (typeValue is List) {
+        type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+      }
+
+      Alignment headerAlignment = Alignment.centerLeft; // Default for text/enum
+      if (type == 'integer' || type == 'number') {
+        headerAlignment = Alignment.centerRight;
+      } else if (type == 'boolean') {
+        headerAlignment = Alignment.center;
+      }
+
       columns.add(
         GridColumn(
           columnName: key,
+          width: _columnWidths[key] ?? double.nan,
           label: Container(
             padding: const EdgeInsets.all(16.0),
-            alignment: Alignment.center,
+            alignment: headerAlignment,
             child: Text(
               title,
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -157,6 +193,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
           ),
         ),
       );
+      _columnWidths[key] ??= double.nan;
     }
 
     // Store frozen columns count for use in DataGrid
@@ -291,6 +328,10 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       return const Center(child: Text('No schema properties found'));
     }
 
+    // Check orientation - only freeze columns in landscape
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final frozenColumns = isLandscape ? _frozenColumnsCount : 0;
+
     return Stack(
       children: [
         Column(
@@ -309,26 +350,26 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                       source: _dataGridSource,
                       controller: _dataGridController,
                       columns: _columns,
-                      frozenColumnsCount: _frozenColumnsCount,
+                      frozenColumnsCount: frozenColumns,
                       allowEditing: true,
                       allowSorting: false,
                       allowColumnsResizing: true,
                       columnResizeMode: ColumnResizeMode.onResize,
-                      allowColumnsDragging: true,
+                      onColumnResizeUpdate: (ColumnResizeUpdateDetails details) {
+                        setState(() {
+                          _columnWidths[details.column.columnName] = details.width;
+                        });
+                        return true;
+                      },
+                      allowColumnsDragging: false,
                       selectionMode: SelectionMode.single,
                       navigationMode: GridNavigationMode.cell,
                       columnWidthMode: ColumnWidthMode.auto,
-                      editingGestureType: EditingGestureType.tap,
+                      editingGestureType: EditingGestureType.doubleTap,
                       gridLinesVisibility: GridLinesVisibility.both,
                       headerGridLinesVisibility: GridLinesVisibility.both,
                       horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
                       verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-                      onCellTap: (DataGridCellTapDetails details) {
-                        // Automatically start editing on first tap (not header row)
-                        if (details.rowColumnIndex.rowIndex > 0) {
-                          _dataGridController.beginEdit(details.rowColumnIndex);
-                        }
-                      },
                       rowHeight: 56.0,
                       headerRowHeight: 56.0,
                     ),
@@ -456,7 +497,7 @@ class _ArrayDataSource extends DataGridSource {
             if (index >= 0 && index < namesDe.length) {
               final name = namesDe[index]?.toString() ?? cellValue?.toString() ?? '';
               final displayText =
-                  '$name (${cellValue?.toString() ?? ''})${unit != null ? ' $unit' : ''}';
+                  '${cellValue?.toString() ?? ''} | $name ${unit != null ? ' $unit' : ''}';
               return Container(
                 alignment: alignment,
                 padding: const EdgeInsets.all(8.0),

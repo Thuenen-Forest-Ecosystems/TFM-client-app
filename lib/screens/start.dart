@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
-
+import 'package:flutter_map/flutter_map.dart';
 //import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
 //import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon.dart';
@@ -17,6 +17,7 @@ import 'package:terrestrial_forest_monitor/screens/inventory/properties-edit.dar
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 //import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
 
@@ -42,6 +43,8 @@ class _StartState extends State<Start> {
   void initState() {
     super.initState();
 
+    debugPrint('Start: Initializing Start screen');
+
     // Listen to sheet controller changes
     _sheetController.addListener(_onSheetChanged);
 
@@ -50,6 +53,10 @@ class _StartState extends State<Start> {
       if (mounted) {
         final gpsProvider = context.read<GpsPositionProvider>();
         gpsProvider.initialize();
+
+        // Listen for navigation requests from map
+        final mapProvider = context.read<MapControllerProvider>();
+        mapProvider.addListener(_onMapNavigationRequest);
       }
     });
 
@@ -106,6 +113,23 @@ class _StartState extends State<Start> {
           _currentSheetSize = newSize;
         });
       }
+    }
+  }
+
+  void _onMapNavigationRequest() {
+    if (!mounted) return;
+
+    try {
+      final mapProvider = context.read<MapControllerProvider>();
+      final navPath = mapProvider.navigationPath;
+
+      if (navPath != null) {
+        debugPrint('Start: Handling navigation request to $navPath');
+        _beamerDelegate.beamToNamed(navPath);
+        mapProvider.clearNavigationRequest();
+      }
+    } catch (e) {
+      debugPrint('Start: Error handling navigation request: $e');
     }
   }
 
@@ -192,6 +216,15 @@ class _StartState extends State<Start> {
   @override
   void dispose() {
     _sheetController.removeListener(_onSheetChanged);
+
+    // Remove map navigation listener
+    try {
+      final mapProvider = context.read<MapControllerProvider>();
+      mapProvider.removeListener(_onMapNavigationRequest);
+    } catch (e) {
+      debugPrint('Start: Error removing map navigation listener: $e');
+    }
+
     _beamerDelegate.dispose();
     _sheetController.dispose();
     super.dispose();
@@ -311,9 +344,11 @@ class _StartState extends State<Start> {
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
-            child: const MapWidget(
-              initialCenter: LatLng(52.2688, 10.5268), // Braunschweig
+            child: MapWidget(
+              key: const ValueKey('main-map-widget'),
+              initialCenter: const LatLng(52.2688, 10.5268), // Braunschweig
               initialZoom: 4,
+              sheetPosition: _currentSheetSize,
             ),
           ),
           SafeArea(
