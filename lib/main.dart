@@ -31,6 +31,7 @@ import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
 import 'package:terrestrial_forest_monitor/services/app_lifecycle_manager.dart';
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
+import 'package:upgrader/upgrader.dart';
 
 // NEW SCREENS -----
 import 'package:terrestrial_forest_monitor/screens/start.dart';
@@ -200,61 +201,64 @@ class Layout extends StatelessWidget {
 
     //context.watch<MapState>().mapOpen
 
-    return MaterialApp.router(
-      title: 'Terrestrial Forest Monitor',
+    return UpgradeAlert(
+      upgrader: Upgrader(durationUntilAlertAgain: Duration(days: 1), shouldPopScope: () => true),
+      child: MaterialApp.router(
+        title: 'Terrestrial Forest Monitor',
 
-      // LOCALIZATION
-      locale: Locale(selectedLanguage),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
+        // LOCALIZATION
+        locale: Locale(selectedLanguage),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
 
-      // THEME
-      theme: ThemeData(
-        scaffoldBackgroundColor: Color(0xFFeeeeee),
-        // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
-        pageTransitionsTheme: PageTransitionsTheme(
-          builders: kIsWeb
-              ? {
-                  for (final platform in TargetPlatform.values)
-                    platform: const NoTransitionsBuilder(),
-                }
-              : {
-                  TargetPlatform.android: ZoomPageTransitionsBuilder(),
-                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                },
+        // THEME
+        theme: ThemeData(
+          scaffoldBackgroundColor: Color(0xFFeeeeee),
+          // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
+          pageTransitionsTheme: PageTransitionsTheme(
+            builders: kIsWeb
+                ? {
+                    for (final platform in TargetPlatform.values)
+                      platform: const NoTransitionsBuilder(),
+                  }
+                : {
+                    TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  },
+          ),
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.green,
+            brightness: Brightness.light,
+          ).copyWith(error: Colors.red.shade700),
+          primaryColor: const Color(0xFFC3E399),
+          appBarTheme: AppBarTheme(color: const Color(0xFFC3E399)),
+          useMaterial3: true,
         ),
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.green,
-          brightness: Brightness.light,
-        ).copyWith(error: Colors.red.shade700),
-        primaryColor: const Color(0xFFC3E399),
-        appBarTheme: AppBarTheme(color: const Color(0xFFC3E399)),
-        useMaterial3: true,
-      ),
 
-      darkTheme: ThemeData(
-        scaffoldBackgroundColor: Color(0xFF333333),
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.green,
-          brightness: Brightness.dark,
-        ).copyWith(error: Colors.red.shade400),
-        primaryColor: const Color(0xFFC3E399),
-        appBarTheme: AppBarTheme(
-          color: const Color.fromARGB(255, 224, 241, 203),
-          foregroundColor: Colors.black,
-        ), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
-        bottomNavigationBarTheme: BottomNavigationBarThemeData(
-          backgroundColor: const Color(0xFFC3E399),
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black,
+        darkTheme: ThemeData(
+          scaffoldBackgroundColor: Color(0xFF333333),
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.green,
+            brightness: Brightness.dark,
+          ).copyWith(error: Colors.red.shade400),
+          primaryColor: const Color(0xFFC3E399),
+          appBarTheme: AppBarTheme(
+            color: const Color.fromARGB(255, 224, 241, 203),
+            foregroundColor: Colors.black,
+          ), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
+          bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            backgroundColor: const Color(0xFFC3E399),
+            selectedItemColor: Colors.black,
+            unselectedItemColor: Colors.black,
+          ),
+          useMaterial3: true,
+          /* dark theme settings */
         ),
-        useMaterial3: true,
-        /* dark theme settings */
-      ),
 
-      themeMode: themeProvider.mode,
-      routeInformationParser: BeamerParser(),
-      routerDelegate: routerDelegate,
+        themeMode: themeProvider.mode,
+        routeInformationParser: BeamerParser(),
+        routerDelegate: routerDelegate,
+      ),
     );
   }
 }
