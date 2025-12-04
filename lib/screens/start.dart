@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:latlong2/latlong.dart';
@@ -33,6 +34,7 @@ class _StartState extends State<Start> {
   late final BeamerDelegate _beamerDelegate;
   double _currentSheetSize = 0.25; // Track current sheet size
   bool _isLoadingData = true;
+  StreamSubscription? _recordsWatchSubscription;
 
   // Initial position of bottom sheet (25% of screen height)
   final double _initialChildSize = 0.25;
@@ -57,11 +59,11 @@ class _StartState extends State<Start> {
         // Listen for navigation requests from map
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.addListener(_onMapNavigationRequest);
+
+        // Start watching records and cache in provider
+        _startWatchingRecords();
       }
     });
-
-    // Preload all records data into cache
-    _preloadRecordsData();
 
     _beamerDelegate = BeamerDelegate(
       initialPath: '/',
@@ -133,10 +135,7 @@ class _StartState extends State<Start> {
     }
   }
 
-  Future<void> _preloadRecordsData() async {
-    int retryCount = 0;
-    const maxRetries = 2;
-
+  Future<void> _startWatchingRecords() async {
     // Wait for provider to initialize and load permission ID
     if (!mounted) return;
 
@@ -149,30 +148,30 @@ class _StartState extends State<Start> {
       waitCount++;
     }
 
-    debugPrint('Start: Permission ID ready, proceeding with preload');
+    debugPrint('Start: Permission ID ready, starting to watch records');
 
-    while (retryCount < maxRetries) {
-      try {
-        debugPrint('Start: Preloading all records data (attempt ${retryCount + 1}/$maxRetries)...');
+    try {
+      // Cancel any existing subscription
+      await _recordsWatchSubscription?.cancel();
 
-        // Load all records from database with longer timeout for initial load
-        final records = await RecordsRepository().getAllRecords();
-        debugPrint('Start: Loaded ${records.length} records');
+      // Watch records filtered by selected permissions
+      _recordsWatchSubscription = RecordsRepository().watchAllRecords().listen(
+        (records) {
+          debugPrint(
+            'Start: Received ${records.length} records from stream (filtered by permissions)',
+          );
 
-        if (!mounted) return;
+          if (!mounted) return;
 
-        // Only cache if we actually got records
-        if (records.isNotEmpty) {
-          // Store in provider cache as if it came from records-selection
-          // This way both map and list can use the same data
+          // Store in provider cache with metadata structure
           final recordsWithMetadata = records.map((record) {
             return {'record': record, 'metadata': null};
           }).toList();
 
-          // Cache in provider with a generic key that map can find
+          // Cache in provider with a generic key that both map and records-selection can use
           provider.cacheRecords(
-            'all', // Generic key
-            ClusterOrderBy.clusterName, // Default order
+            'all', // Generic key for all records
+            ClusterOrderBy.clusterName, // Default order (will be re-sorted by consumers)
             recordsWithMetadata,
             0, // page
             false, // hasMore
@@ -180,36 +179,28 @@ class _StartState extends State<Start> {
 
           debugPrint('Start: Successfully cached ${records.length} records in provider');
 
+          if (mounted && _isLoadingData) {
+            setState(() {
+              _isLoadingData = false;
+            });
+          }
+        },
+        onError: (error) {
+          debugPrint('Start: Error watching records: $error');
           if (mounted) {
             setState(() {
               _isLoadingData = false;
             });
           }
-          return; // Success, exit
-        } else {
-          debugPrint('Start: Query returned 0 records, will retry...');
-          retryCount++;
-          if (retryCount < maxRetries) {
-            await Future.delayed(Duration(seconds: 2)); // Wait before retry
-          }
-        }
-      } catch (e) {
-        debugPrint('Start: Error preloading data (attempt ${retryCount + 1}): $e');
-        retryCount++;
-        if (retryCount < maxRetries) {
-          await Future.delayed(Duration(seconds: 2)); // Wait before retry
-        }
+        },
+      );
+    } catch (e) {
+      debugPrint('Start: Error setting up watch: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
       }
-    }
-
-    // All retries failed, still allow app to load
-    debugPrint(
-      'Start: Failed to preload data after $maxRetries attempts, continuing without cache',
-    );
-    if (mounted) {
-      setState(() {
-        _isLoadingData = false;
-      });
     }
   }
 

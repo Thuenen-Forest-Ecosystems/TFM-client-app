@@ -20,7 +20,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfie
 class ArrayElementTrina extends StatefulWidget {
   final Map<String, dynamic> jsonSchema;
   final List<dynamic>? data;
-  final ValidationResult? validationResult;
+  final TFMValidationResult? validationResult;
   final String? propertyName;
   final Function(List<dynamic>)? onDataChanged;
 
@@ -76,7 +76,7 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
       return false;
     }
 
-    final errors = widget.validationResult!.errors;
+    final errors = widget.validationResult!.ajvErrors;
 
     // Check for errors like: "/propertyName/0/fieldKey" or "/propertyName/0"
     final cellPath = '/${widget.propertyName}/$rowIndex/$fieldKey';

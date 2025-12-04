@@ -50,6 +50,7 @@ class _MapWidgetState extends State<MapWidget> {
   bool _storesInitialized = false;
   Record? _focusedRecord;
   List<Map<String, dynamic>> _treePositions = [];
+  Map<String, List<LatLng>> _clusterPolygons = {};
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -139,6 +140,49 @@ class _MapWidgetState extends State<MapWidget> {
       'recordCoords': record.getCoordinates(),
       'properties': record.properties,
     });
+  }
+
+  Map<String, List<LatLng>> _buildClusterPolygons(List<Record> records) {
+    final Map<String, List<LatLng>> polygons = {};
+
+    // Group records by cluster_name
+    for (final record in records) {
+      final clusterName = record.clusterName;
+      final coords = record.getCoordinates();
+
+      if (coords != null) {
+        final lat = coords['latitude'] as double;
+        final lng = coords['longitude'] as double;
+
+        if (!polygons.containsKey(clusterName)) {
+          polygons[clusterName] = [];
+        }
+        polygons[clusterName]!.add(LatLng(lat, lng));
+      }
+    }
+
+    // Sort points by angle from centroid to create proper polygon
+    polygons.forEach((clusterName, points) {
+      if (points.length >= 3) {
+        // Calculate centroid
+        double centerLat = 0, centerLng = 0;
+        for (final point in points) {
+          centerLat += point.latitude;
+          centerLng += point.longitude;
+        }
+        centerLat /= points.length;
+        centerLng /= points.length;
+
+        // Sort points by angle from centroid
+        points.sort((a, b) {
+          final angleA = atan2(a.latitude - centerLat, a.longitude - centerLng);
+          final angleB = atan2(b.latitude - centerLat, b.longitude - centerLng);
+          return angleA.compareTo(angleB);
+        });
+      }
+    });
+
+    return polygons;
   }
 
   static List<Map<String, dynamic>> _computeTreePositions(Map<String, dynamic> params) {
@@ -277,26 +321,97 @@ class _MapWidgetState extends State<MapWidget> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Load records from provider cache (shared with RecordsSelection)
-    if (!_markersLoaded && !_isDisposed) {
-      // Listen for when records are cached by start.dart
-      final provider = context.read<RecordsListProvider>();
-      provider.addListener(_onProviderChanged);
-
-      // Initial load attempt
-      _loadRecordsFromProvider();
-    }
-
     // Subscribe to GPS updates
     if (_gpsSubscription == null && !_isDisposed) {
       _subscribeToGPS();
     }
+
+    // Listen to provider changes for real-time updates (populated by start.dart)
+    final provider = context.read<RecordsListProvider>();
+
+    // Load initial data from cache
+    if (_records.isEmpty) {
+      _loadRecordsFromProvider();
+    }
+
+    // Listen for future updates
+    provider.addListener(_onProviderChanged);
   }
 
   void _onProviderChanged() {
-    if (!_markersLoaded && !_isDisposed && mounted) {
-      debugPrint('MapWidget: Provider notified of changes, attempting to load records');
+    if (!_isDisposed && mounted) {
       _loadRecordsFromProvider();
+    }
+  }
+
+  void _loadRecordsFromProvider() {
+    try {
+      final provider = context.read<RecordsListProvider>();
+      final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
+
+      if (cachedData != null) {
+        final records = cachedData.map((item) => item['record'] as Record).toList();
+
+        // Filter to only records with coordinates
+        final recordsWithCoords = records
+            .where((record) => record.getCoordinates() != null)
+            .toList();
+
+        debugPrint('MapWidget: Loaded ${recordsWithCoords.length} records from provider cache');
+
+        if (!_isDisposed && mounted) {
+          setState(() {
+            _records = recordsWithCoords;
+
+            // Build cluster polygons
+            _clusterPolygons = _buildClusterPolygons(recordsWithCoords);
+
+            // Always update visible records immediately (filtered or all)
+            if (!_isMapReady) {
+              // If map not ready, show all records
+              _visibleRecords = recordsWithCoords;
+              debugPrint(
+                'MapWidget: Map not ready, showing all ${recordsWithCoords.length} records',
+              );
+            } else {
+              // If map is ready, filter immediately (synchronously for removed records)
+              final bounds = _mapController.camera.visibleBounds;
+              _visibleRecords = recordsWithCoords.where((record) {
+                final coords = record.getCoordinates();
+                if (coords == null) return false;
+
+                final lat = coords['latitude'];
+                final lng = coords['longitude'];
+                if (lat == null || lng == null) return false;
+
+                return lat >= bounds.south &&
+                    lat <= bounds.north &&
+                    lng >= bounds.west &&
+                    lng <= bounds.east;
+              }).toList();
+              debugPrint(
+                'MapWidget: Updated visible records: ${_visibleRecords.length} out of ${recordsWithCoords.length}',
+              );
+            }
+
+            if (!_markersLoaded && recordsWithCoords.isNotEmpty) {
+              _markersLoaded = true;
+              _fitCameraToMarkers();
+            }
+          });
+        }
+      } else {
+        // No cached data means records were cleared - clear visible records too
+        if (!_isDisposed && mounted) {
+          setState(() {
+            _records = [];
+            _visibleRecords = [];
+          });
+          debugPrint('MapWidget: Cache cleared, removed all markers');
+        }
+      }
+    } catch (e) {
+      debugPrint('MapWidget: Error loading records from provider: $e');
     }
   }
 
@@ -334,55 +449,6 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
-  Future<void> _loadRecordsFromProvider() async {
-    try {
-      final provider = context.read<RecordsListProvider>();
-
-      // Get cached records from provider (preloaded in start.dart)
-      final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
-
-      debugPrint('MapWidget: Checking cache, found: ${cachedData?.length ?? 0} items');
-
-      if (cachedData != null && cachedData.isNotEmpty) {
-        // Extract Record objects from cached data and filter to only those with coordinates
-        final records = cachedData
-            .map((item) => item['record'] as Record)
-            .where((record) => record.getCoordinates() != null)
-            .toList();
-        debugPrint('MapWidget: Using ${records.length} cached records with coordinates');
-
-        if (mounted && !_isDisposed) {
-          setState(() {
-            _records = records;
-            _markersLoaded = true;
-          });
-
-          // Update visible records and fit camera
-          if (_isMapReady) {
-            _updateVisibleRecords();
-          }
-
-          // Only auto-fit if there's no recent manual interaction
-          if (_lastManualFocusTime == null) {
-            _fitCameraToMarkers();
-          } else {
-            final timeSinceManualFocus = DateTime.now().difference(_lastManualFocusTime!);
-            if (timeSinceManualFocus.inSeconds >= 5) {
-              _fitCameraToMarkers();
-            } else {
-              debugPrint('Skipping initial auto-fit due to recent manual focus');
-            }
-          }
-        }
-      } else {
-        debugPrint('MapWidget: No cached records found, will be notified when available');
-        // Don't retry - we'll be notified via the provider listener when data arrives
-      }
-    } catch (e) {
-      debugPrint('MapWidget: Error loading records: $e');
-    }
-  }
-
   void _subscribeToGPS() {
     try {
       final gpsProvider = context.read<GpsPositionProvider>();
@@ -412,7 +478,16 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   Future<void> _updateVisibleRecords() async {
-    if (!_isMapReady) return;
+    if (!_isMapReady) {
+      // If map not ready yet, show all records (markers won't render until map is ready anyway)
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _visibleRecords = _records;
+        });
+        debugPrint('MapWidget: Map not ready, showing all ${_records.length} records');
+      }
+      return;
+    }
 
     final bounds = _mapController.camera.visibleBounds;
 
@@ -523,11 +598,6 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   List<Marker> _buildMarkers(List<Record> records) {
-    // Check if map controller is ready before accessing camera
-    if (!_isMapReady) {
-      return [];
-    }
-
     // Use cached visible records
     return _visibleRecords.map((record) {
       final coords = record.getCoordinates()!;
@@ -557,11 +627,6 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   List<Marker> _buildLabelMarkers(List<Record> records) {
-    // Check if map controller is ready before accessing camera
-    if (!_isMapReady) {
-      return [];
-    }
-
     // Use cached visible records
     return _visibleRecords.map((record) {
       final coords = record.getCoordinates()!;
@@ -614,15 +679,19 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.markManualInteraction();
+
+      // Set the focused record immediately (before navigation)
+      // This ensures the circles remain visible during and after navigation
+      mapControllerProvider.setFocusedRecord(record);
+
+      // Request navigation through provider (same as from records-selection card tap)
+      // This will be handled by start.dart's nested BeamerDelegate
+      final navPath =
+          '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}';
+      mapControllerProvider.requestNavigation(navPath);
     } catch (e) {
-      debugPrint('Error marking manual interaction: $e');
+      debugPrint('Error marking manual interaction or requesting navigation: $e');
     }
-
-    // Navigate to the plot edit screen
-
-    Beamer.of(context).beamToNamed(
-      '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}',
-    );
   }
 
   void _onClusterTapped(List<Marker> markers) {
@@ -978,6 +1047,29 @@ class _MapWidgetState extends State<MapWidget> {
               markers: markers,
               builder: _buildClusterMarker,
             ),
+          ),
+
+        // Cluster polygons (shown at zoom 16+)
+        if (_clusterPolygons.isNotEmpty && _currentZoom > 14)
+          PolygonLayer(
+            polygons: _clusterPolygons.entries
+                .map((entry) {
+                  final points = entry.value;
+
+                  // Only draw polygon if there are at least 3 points
+                  if (points.length < 3) return null;
+
+                  return Polygon(
+                    points: points,
+                    color: aggregatedMarkerColors[0].withAlpha(
+                      25,
+                    ), // Color.fromARGB(15, 0, 0, 255),
+                    borderColor: aggregatedMarkerColors[0].withAlpha(100),
+                    borderStrokeWidth: 1.0,
+                  );
+                })
+                .whereType<Polygon>()
+                .toList(),
           ),
 
         // Distance line (from navigation element)

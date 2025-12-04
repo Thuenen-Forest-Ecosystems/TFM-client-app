@@ -59,7 +59,7 @@ class Profile extends StatelessWidget {
             ),
             Card(child: DownloadSchemasBtn()),
 
-            const SizedBox(height: 16),
+            /*const SizedBox(height: 16),
             // In your profile or settings screen
             ElevatedButton(
               onPressed: () async {
@@ -79,7 +79,7 @@ class Profile extends StatelessWidget {
                 ).push(MaterialPageRoute(builder: (context) => const TestTrinaGrid()));
               },
               child: const Text('Test TrinaGrid'),
-            ),
+            ),*/
 
             // User Information Card
             const SizedBox(height: 32),

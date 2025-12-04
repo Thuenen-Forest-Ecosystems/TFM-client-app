@@ -217,6 +217,19 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
 
       if (organizationTroops.isEmpty) {
         return [
+          Container(
+            margin: const EdgeInsets.only(bottom: 8.0),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(4.0)),
+            child: ListTile(
+              dense: true,
+              title: const Text(
+                'Trupp-Zugehörigkeit benötigt',
+                style: TextStyle(fontSize: 14, color: Colors.red),
+              ),
+            ),
+          ),
+        ];
+        return [
           ListTile(
             dense: true,
             leading: const Icon(Icons.person, size: 20),

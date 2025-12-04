@@ -130,6 +130,8 @@ Schema schema = Schema(([
     Column.text('completed_at_state'),
     Column.text('completed_at_troop'),
     Column.text('completed_at_administration'),
+    Column.integer('is_to_be_recorded'),
+    Column.text('note'),
   ]),
   const Table('organizations', [
     Column.text('apex_domain'),

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
-import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
+import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
-import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 
 class ArrayElementSyncfusion extends StatefulWidget {
   final Map<String, dynamic> jsonSchema;
   final List<dynamic> data;
-  final ValidationResult? validationResult;
+  final TFMValidationResult? validationResult;
   final String? propertyName;
   final Function(List<dynamic>)? onDataChanged;
 
@@ -344,65 +343,74 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
                   colorScheme: Theme.of(context).colorScheme.copyWith(primary: Colors.transparent),
                   dividerColor: Colors.grey.withAlpha((0.2 * 255).toInt()),
                 ),
-                child: Stack(
-                  children: [
-                    SfDataGrid(
-                      source: _dataGridSource,
-                      controller: _dataGridController,
-                      columns: _columns,
-                      frozenColumnsCount: frozenColumns,
-                      allowEditing: true,
-                      allowSorting: false,
-                      allowColumnsResizing: true,
-                      columnResizeMode: ColumnResizeMode.onResize,
-                      onColumnResizeUpdate: (ColumnResizeUpdateDetails details) {
-                        setState(() {
-                          _columnWidths[details.column.columnName] = details.width;
-                        });
-                        return true;
-                      },
-                      allowColumnsDragging: false,
-                      selectionMode: SelectionMode.single,
-                      navigationMode: GridNavigationMode.cell,
-                      columnWidthMode: ColumnWidthMode.auto,
-                      editingGestureType: EditingGestureType.doubleTap,
-                      gridLinesVisibility: GridLinesVisibility.both,
-                      headerGridLinesVisibility: GridLinesVisibility.both,
-                      horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-                      verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-                      rowHeight: 56.0,
-                      headerRowHeight: 56.0,
+                child: SfDataGridTheme(
+                  data: SfDataGridThemeData(
+                    selectionColor: Colors.blue.withOpacity(0.1),
+                    currentCellStyle: DataGridCurrentCellStyle(
+                      borderColor: Colors.blue,
+                      borderWidth: 2,
                     ),
-                    if (_rows.isEmpty)
-                      Positioned.fill(
-                        top: 56.0, // Position below header
-                        child: Center(
-                          child: SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.table_chart, size: 48, color: Colors.grey),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'No data available',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: _addRow,
-                                    icon: const Icon(Icons.add),
-                                    label: const Text('Add First Row'),
-                                  ),
-                                ],
+                  ),
+                  child: Stack(
+                    children: [
+                      SfDataGrid(
+                        source: _dataGridSource,
+                        controller: _dataGridController,
+                        columns: _columns,
+                        frozenColumnsCount: frozenColumns,
+                        allowEditing: true,
+                        allowSorting: false,
+                        allowColumnsResizing: true,
+                        columnResizeMode: ColumnResizeMode.onResize,
+                        onColumnResizeUpdate: (ColumnResizeUpdateDetails details) {
+                          setState(() {
+                            _columnWidths[details.column.columnName] = details.width;
+                          });
+                          return true;
+                        },
+                        allowColumnsDragging: false,
+                        selectionMode: SelectionMode.single,
+                        navigationMode: GridNavigationMode.cell,
+                        columnWidthMode: ColumnWidthMode.auto,
+                        editingGestureType: EditingGestureType.tap,
+                        gridLinesVisibility: GridLinesVisibility.both,
+                        headerGridLinesVisibility: GridLinesVisibility.both,
+                        horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
+                        verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
+                        rowHeight: 56.0,
+                        headerRowHeight: 56.0,
+                      ),
+                      if (_rows.isEmpty)
+                        Positioned.fill(
+                          top: 56.0, // Position below header
+                          child: Center(
+                            child: SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.table_chart, size: 48, color: Colors.grey),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'No data available',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ElevatedButton.icon(
+                                      onPressed: _addRow,
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Add First Row'),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:universal_io/io.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -38,12 +37,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Map<String, dynamic>? _jsonSchema;
   Map<String, dynamic>? _formData;
   Map<String, dynamic>? _previousFormData;
-  ValidationResult? _validationResult;
+  TFMValidationResult? _validationResult;
   bool _isValidating = false;
   StreamSubscription? _gpsSubscription;
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
   int? _loadedSchemaVersion;
+  final GlobalKey<FormWrapperState> _formWrapperKey = GlobalKey<FormWrapperState>();
 
   @override
   void initState() {
@@ -125,13 +125,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _gpsSubscription?.cancel();
 
     // Clear distance line and focused record immediately when leaving
-    // Don't use addPostFrameCallback here - we need immediate clearing
-    // to prevent race conditions when navigating between properties-edit pages
-    if (_mapProvider != null) {
+    // Only clear if the focused record matches this page's record
+    // This prevents clearing when navigating between different properties-edit pages
+    if (_mapProvider != null && _record != null) {
       try {
         _mapProvider!.clearDistanceLine();
-        _mapProvider!.clearFocusedRecord();
-        debugPrint('Distance line and focused record cleared on dispose');
+
+        // Only clear focused record if it's the same as this page's record
+        if (_mapProvider!.focusedRecord?.id == _record!.id) {
+          _mapProvider!.clearFocusedRecord();
+          debugPrint('Distance line and focused record cleared on dispose (record matched)');
+        } else {
+          debugPrint('Distance line cleared but focused record preserved (different record)');
+        }
       } catch (e) {
         debugPrint('Error clearing map state on dispose: $e');
       }
@@ -247,6 +253,27 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
             });
           }
+
+          // Try to load TFM validation code even when using fallback schema
+          try {
+            final appDirectory = await getApplicationDocumentsDirectory();
+            final tfmFilePath = '${appDirectory.path}/TFM/validation/$directory/bundle.umd.js';
+            final tfmFile = File(tfmFilePath);
+
+            if (await tfmFile.exists()) {
+              debugPrint('Loading TFM validation code from: $tfmFilePath');
+              final tfmValidationCode = await tfmFile.readAsString();
+              await ValidationService.instance.initialize(tfmValidationCode: tfmValidationCode);
+              debugPrint('ValidationService reinitialized with TFM validation');
+
+              // Small delay to ensure WebView is fully ready
+              await Future.delayed(Duration(milliseconds: 200));
+              debugPrint('Waited for ValidationService to be fully ready');
+            }
+          } catch (tfmError) {
+            debugPrint('Error loading TFM validation code: $tfmError');
+          }
+
           return;
         }
 
@@ -259,6 +286,30 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         setState(() {
           _jsonSchema = validationJson['properties']['plot']['items'];
         });
+
+        // Try to load TFM validation code from the same directory
+        try {
+          final tfmFilePath = '${appDirectory.path}/TFM/validation/$directory/bundle.umd.js';
+          final tfmFile = File(tfmFilePath);
+
+          if (await tfmFile.exists()) {
+            debugPrint('Loading TFM validation code from: $tfmFilePath');
+            final tfmValidationCode = await tfmFile.readAsString();
+
+            // Reinitialize ValidationService with TFM code
+            debugPrint('Reinitializing ValidationService with TFM validation code');
+            await ValidationService.instance.initialize(tfmValidationCode: tfmValidationCode);
+            debugPrint('ValidationService reinitialized with TFM validation');
+
+            // Small delay to ensure WebView is fully ready
+            await Future.delayed(Duration(milliseconds: 200));
+            debugPrint('Waited for ValidationService to be fully ready');
+          } else {
+            debugPrint('TFM validation file not found at: $tfmFilePath');
+          }
+        } catch (tfmError) {
+          debugPrint('Error loading TFM validation code: $tfmError');
+        }
       } catch (e) {
         debugPrint('Error loading validation.json file: $e');
         debugPrint('Falling back to embedded schema');
@@ -333,16 +384,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   void saveRecord() async {
     await _onFormDataChanged(_formData ?? {});
 
-    // Check validation before saving
-    if (_validationResult != null && !_validationResult!.isValid) {
-      // print validation errors
-      debugPrint(
-        'Cannot save, validation errors present: ${_validationResult!.errors.map((e) => e.message).join(", ")}',
+    String? saveAction;
+
+    // Check validation before saving (show dialog for errors OR warnings)
+    if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
+      // Show validation errors/warnings dialog
+      saveAction = await ValidationErrorsDialog.show(
+        context,
+        _validationResult!,
+        onNavigateToTab: _navigateToTabFromError,
+        record: _record,
       );
-      final shouldSave = await ValidationErrorsDialog.show(context, _validationResult!);
 
       // If user didn't confirm save from dialog, return
-      if (shouldSave != true) {
+      if (saveAction == null) {
         return;
       }
     }
@@ -360,10 +415,17 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       // Update properties, schema_id_validated_by, and local_updated_at
       // PowerSync will track this change and sync to server
-      await db.execute(
-        'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
-        [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
-      );
+      if (saveAction == 'save') {
+        await db.execute(
+          'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
+          [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
+        );
+      } else if (saveAction == 'complete') {
+        await db.execute(
+          'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?',
+          [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id],
+        );
+      }
 
       // Create updated record for local state
       final updatedRecord = Record(
@@ -388,6 +450,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         completedAtState: _record!.completedAtState,
         completedAtTroop: _record!.completedAtTroop,
         completedAtAdministration: _record!.completedAtAdministration,
+        note: _record!.note,
       );
 
       // Update local state
@@ -395,16 +458,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         _record = updatedRecord;
       });
 
-      // Show success message
+      // Show success message and navigate based on save action
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Datensatz erfolgreich gespeichert'),
+          SnackBar(
+            content: Text(
+              saveAction == 'complete'
+                  ? 'Datensatz gespeichert und abgeschlossen'
+                  : 'Datensatz erfolgreich gespeichert',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
-        Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
+
+        // Only navigate away if "complete" was chosen
+        if (saveAction == 'complete') {
+          Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
+        }
       }
     } catch (e) {
       debugPrint('Error saving record: $e');
@@ -429,7 +500,41 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       });
 
       try {
-        final result = await ValidationService.instance.validate(_jsonSchema!, updatedData);
+        // Merge properties with record metadata for TFM validation
+        // TFM needs: id, intkey, cluster_id, plot_id, and all properties
+        final currentDataWithMeta = {
+          ...updatedData,
+          if (_record?.id != null) 'id': _record!.id,
+          if (_record?.plotId != null) 'plot_id': _record!.plotId,
+          if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
+        };
+
+        // Generate intkey if we have the necessary data
+        if (_record != null &&
+            updatedData['cluster_name'] != null &&
+            updatedData['plot_name'] != null) {
+          currentDataWithMeta['intkey'] =
+              '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
+        }
+
+        final previousDataWithMeta = _previousFormData != null
+            ? {
+                ..._previousFormData!,
+                if (_record?.id != null) 'id': _record!.id,
+                if (_record?.plotId != null) 'plot_id': _record!.plotId,
+                if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
+                if (_previousFormData!['cluster_name'] != null &&
+                    _previousFormData!['plot_name'] != null)
+                  'intkey':
+                      '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
+              }
+            : null;
+
+        final result = await ValidationService.instance.validateWithTFM(
+          schema: _jsonSchema!,
+          data: currentDataWithMeta,
+          previousData: previousDataWithMeta,
+        );
 
         if (mounted) {
           setState(() {
@@ -440,11 +545,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           });
         }
 
-        if (result.isValid) {
-          debugPrint('Form data is valid');
-        } else {
-          debugPrint('Form validation errors: ${result.errors.map((e) => e.message).join(", ")}');
-        }
+        debugPrint(
+          'Form validation errors: ${result.allErrors.length} total (AJV: ${result.ajvErrors.length}, TFM: ${result.tfmOnlyErrors.length})',
+        );
+        debugPrint('tfmAvailable: ${result.tfmAvailable}, isValid: ${result.isValid}');
       } catch (e) {
         debugPrint('Validation error: $e');
         if (mounted) {
@@ -487,6 +591,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     } catch (e) {
       debugPrint('Error focusing on record: $e');
     }
+  }
+
+  void _navigateToTabFromError(String? tabId) {
+    debugPrint('Navigate to tab requested: $tabId');
+    // Use GlobalKey to access FormWrapper's state and call its navigation method
+    _formWrapperKey.currentState?.navigateToTab(tabId);
   }
 
   void _showCurrentAsJson() {
@@ -593,26 +703,27 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Trakt: ${widget.clusterName}, Ecke: ${widget.plotName}',
+                          'Trakt: ${widget.clusterName}',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (_loadedSchemaVersion != null)
                           Text(
-                            'Schema Version: $_loadedSchemaVersion',
+                            'Ecke: ${widget.plotName}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: Colors.grey,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
                   ),
                   Badge.count(
-                    count: _validationResult?.errors.length ?? 0,
-                    isLabelVisible: _validationResult != null && !_validationResult!.isValid,
+                    count: _validationResult?.allIssues.length ?? 0,
+                    isLabelVisible:
+                        _validationResult != null && _validationResult!.allIssues.isNotEmpty,
+                    textColor: Colors.white,
                     child: ElevatedButton(
                       onPressed: _jsonSchema != null ? saveRecord : null,
                       child: _isValidating
@@ -624,12 +735,47 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                           : const Text('FERTIG'),
                     ),
                   ),
-                  IconButton(onPressed: _showCurrentAsJson, icon: Icon(Icons.javascript)),
-                  IconButton(onPressed: _showCurrentSchema, icon: Icon(Icons.schema)),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () {
+                      showMenu<String>(
+                        context: context,
+                        position: RelativeRect.fromLTRB(
+                          MediaQuery.of(context).size.width,
+                          kToolbarHeight,
+                          0,
+                          0,
+                        ),
+                        items: <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'json',
+                            child: Row(
+                              children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')],
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'schema',
+                            child: Row(
+                              children: [
+                                Icon(Icons.schema),
+                                SizedBox(width: 8),
+                                Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ).then((value) {
+                        if (value == 'json') {
+                          _showCurrentAsJson();
+                        } else if (value == 'schema') {
+                          _showCurrentSchema();
+                        }
+                      });
+                    },
+                  ),
                 ],
               ),
             ),
-            // Validation errors banner
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -647,11 +793,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                   : _record == null
                   ? const Center(child: Text('No record found'))
                   : FormWrapper(
+                      key: _formWrapperKey,
                       jsonSchema: _jsonSchema,
                       formData: _formData,
                       previousFormData: _previousFormData,
                       onFormDataChanged: _onFormDataChanged,
                       validationResult: _validationResult,
+                      onNavigateToTab: _navigateToTabFromError,
                     ),
             ),
           ],

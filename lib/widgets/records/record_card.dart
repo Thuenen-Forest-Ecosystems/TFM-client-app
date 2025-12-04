@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RecordCard extends StatefulWidget {
@@ -15,7 +16,40 @@ class RecordCard extends StatefulWidget {
 }
 
 class _RecordCardState extends State<RecordCard> {
-  // No need for local state - use widget.record directly for real-time data
+  String? _forestStatusLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadForestStatusLabel();
+  }
+
+  @override
+  void didUpdateWidget(RecordCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.record.properties['forest_status'] != widget.record.properties['forest_status']) {
+      _loadForestStatusLabel();
+    }
+  }
+
+  Future<void> _loadForestStatusLabel() async {
+    final forestStatus = widget.record.properties['forest_status'];
+    if (forestStatus == null) {
+      setState(() => _forestStatusLabel = null);
+      return;
+    }
+    debugPrint('Loading forest status label for id: $forestStatus');
+    try {
+      final result = await db.get('SELECT name_de FROM lookup_forest_status WHERE code = ?', [
+        forestStatus,
+      ]);
+      if (mounted && result != null) {
+        setState(() => _forestStatusLabel = result['name_de'] as String?);
+      }
+    } catch (e) {
+      debugPrint('Error loading forest status label: $e');
+    }
+  }
 
   void _openNativeNavigationForRecord(BuildContext context) {
     final coords = widget.record.getCoordinates();
@@ -82,94 +116,116 @@ class _RecordCardState extends State<RecordCard> {
     final lastUpdateText = _formatDate(updatedAt);
     final localUpdatedAt = widget.record.localUpdatedAt;
     final lastLocalUpdateText = _formatDate(localUpdatedAt);
+    final properties = widget.record.properties;
+
+    /*final isAccessible = properties['accessibility'] != null
+        ? (properties['accessibility'] == 1)
+        : true;*/
+    final isForest = properties['forest_status'] != null
+        ? (properties['forest_status'] == 5 ||
+              properties['forest_status'] == 3 ||
+              properties['forest_status'] == 4)
+        : true;
+
+    final note = widget.record.note;
 
     // Check synchronization status from real-time PowerSync data
     final isSynchronized = _isSynchronized();
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      child: InkWell(
-        onTap: () {
-          Beamer.of(context).beamToNamed(
-            '/properties-edit/${Uri.encodeComponent(widget.record.clusterName)}/${Uri.encodeComponent(widget.record.plotName)}',
-          );
-        },
-        child: Row(
-          children: [
-            // Status indicator
-            Container(
-              width: 4,
-              height: 100,
-              decoration: BoxDecoration(
-                color: isCompleted ? Colors.green : Colors.red,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  bottomLeft: Radius.circular(4),
+    // Reduce opacity if not accessible or not forest
+    final shouldReduceOpacity = !isForest;
+
+    return Opacity(
+      opacity: shouldReduceOpacity ? 0.5 : 1.0,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 2,
+        child: InkWell(
+          onTap: () {
+            Beamer.of(context).beamToNamed(
+              '/properties-edit/${Uri.encodeComponent(widget.record.clusterName)}/${Uri.encodeComponent(widget.record.plotName)}',
+            );
+          },
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                // Status indicator
+                Container(
+                  width: 10,
+                  decoration: BoxDecoration(
+                    color: isCompleted ? Colors.green : Colors.red,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      bottomLeft: Radius.circular(4),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Record header
-                    Row(
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${widget.record.clusterName} | ${widget.record.plotName}',
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              if (widget.distanceText != null)
-                                Text(
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Trakt: ${widget.record.clusterName} | Ecke: ${widget.record.plotName}',
+                          ),
+                          subtitle: widget.distanceText != null
+                              ? Text(
                                   widget.distanceText!,
                                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                                ),
+                                )
+                              : null,
+                          trailing: widget.onFocusOnMap != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.map),
+                                  tooltip: 'Focus on map',
+                                  onPressed: widget.onFocusOnMap,
+                                )
+                              : null,
+                        ),
+                        if (note != null && note.isNotEmpty)
+                          Row(
+                            children: [
+                              const Icon(Icons.chat, size: 16, color: Colors.blue),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(note, style: TextStyle(fontSize: 12))),
                             ],
                           ),
-                        ),
-                        if (widget.onFocusOnMap != null)
-                          IconButton(
-                            icon: const Icon(Icons.map),
-                            tooltip: 'Focus on map',
-                            onPressed: widget.onFocusOnMap,
+                        if (!isForest && _forestStatusLabel != null)
+                          Row(
+                            children: [
+                              const Icon(Icons.warning, size: 16, color: Colors.orange),
+                              const SizedBox(width: 4),
+                              Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
+                            ],
                           ),
-                        IconButton(
-                          icon: const Icon(Icons.directions_car),
-                          tooltip: 'Open native navigation',
-                          onPressed: () => _openNativeNavigationForRecord(context),
+                        const SizedBox(height: 8),
+                        // Last update and sync status
+                        Row(
+                          children: [
+                            Icon(Icons.update, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              lastLocalUpdateText,
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              isSynchronized ? Icons.done_all : Icons.done_all,
+                              size: 16,
+                              color: isSynchronized ? Colors.green : Colors.grey,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    // Last update and sync status
-                    Row(
-                      children: [
-                        Icon(Icons.update, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          lastLocalUpdateText,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          isSynchronized ? Icons.done_all : Icons.done_all,
-                          size: 16,
-                          color: isSynchronized ? Colors.green : Colors.grey,
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

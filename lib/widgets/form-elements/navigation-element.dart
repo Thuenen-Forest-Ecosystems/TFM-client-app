@@ -11,7 +11,7 @@ class NavigationElement extends StatefulWidget {
   final Map<String, dynamic>? data;
   final Map<String, dynamic>? previous_properties;
   final String? propertyName;
-  final ValidationResult? validationResult;
+  final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
 
   const NavigationElement({

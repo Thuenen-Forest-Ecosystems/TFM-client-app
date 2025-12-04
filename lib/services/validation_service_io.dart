@@ -19,9 +19,26 @@ class ValidationService {
   }
 
   Future<void> initialize({String? tfmValidationCode}) async {
-    if (_isInitialized) return;
-    if (_initCompleter != null) return _initCompleter!.future;
+    // Allow reinitialization only if TFM code is provided and not already loaded
+    if (_isInitialized && (tfmValidationCode == null || _isTFMLoaded)) {
+      print('ValidationService already initialized (TFM loaded: $_isTFMLoaded)');
+      return;
+    }
 
+    // If reinitializing with TFM code, dispose existing WebView first
+    if (_isInitialized && tfmValidationCode != null && !_isTFMLoaded) {
+      print('Reinitializing ValidationService with TFM code');
+      await _headlessWebView?.dispose();
+      _webViewController = null;
+      _isInitialized = false;
+      _isTFMLoaded = false;
+      _initCompleter = null;
+
+      // Small delay to ensure WebView is fully disposed
+      await Future.delayed(Duration(milliseconds: 100));
+    }
+
+    if (_initCompleter != null) return _initCompleter!.future;
     _initCompleter = Completer<void>();
 
     try {
@@ -78,8 +95,10 @@ class ValidationService {
 
           if (ajvCheck == 'function') {
             _isInitialized = true;
+            print('Setting _isTFMLoaded to: $_isTFMLoaded before completing');
             _initCompleter?.complete();
             print('Validation service initialized successfully (TFM: $_isTFMLoaded)');
+            print('_initCompleter completed, _isTFMLoaded is now: $_isTFMLoaded');
           } else {
             final error = Exception('AJV library not loaded properly. Type: $ajvCheck');
             _initCompleter?.completeError(error);
@@ -184,7 +203,9 @@ class ValidationService {
       final ajvResult = await validate(schema, data);
 
       // If TFM is not loaded, return only AJV results
+      print('TFM validation check: _isTFMLoaded = $_isTFMLoaded');
       if (!_isTFMLoaded) {
+        print('TFM not loaded, returning AJV-only results');
         return TFMValidationResult(
           ajvValid: ajvResult.isValid,
           ajvErrors: ajvResult.errors,
@@ -193,15 +214,19 @@ class ValidationService {
         );
       }
 
-      // Run TFM validation (runCluster expects array of clusters)
+      // Run TFM validation (runPlots expects array of plot objects)
+      // Wrap data in array as runPlots expects: [plotData, ...]
       final dataJson = jsonEncode([data]);
       final previousDataJson = previousData != null ? jsonEncode([previousData]) : 'null';
 
       final jsCode =
           '''
-        (async function() {
           try {
-            if (typeof window.TFM === 'undefined') {
+            console.log('TFM type in validation:', typeof window.TFM);
+            console.log('TFM constructor:', window.TFM);
+            
+            if (typeof window.TFM === 'undefined' || typeof window.TFM !== 'function') {
+              console.log('TFM not available for validation');
               return {
                 ajvValid: ${ajvResult.isValid},
                 ajvErrors: ${jsonEncode(ajvResult.errors.map((e) => e.rawError).toList())},
@@ -210,20 +235,35 @@ class ValidationService {
               };
             }
 
+            console.log('TFM is available, initializing...');
             // Initialize TFM validator
             const tfm = new window.TFM();
 
-            // Run TFM cluster validation
-            const tfmErrors = await tfm.runCluster($dataJson, null, $previousDataJson);
+            // Run TFM plot validation
+            // dataJson and previousDataJson are already JSON strings, parse them
+            const currentData = $dataJson;
+            const previousData = $previousDataJson;
+            
+            console.log('Current plot data:', currentData);
+            console.log('Previous plot data:', previousData);
+            console.log('Current data keys:', currentData[0] ? Object.keys(currentData[0]).slice(0, 10) : 'none');
+            console.log('Previous data keys:', previousData && previousData[0] ? Object.keys(previousData[0]).slice(0, 10) : 'none');
+            
+            const tfmErrors = await tfm.runPlots(currentData, null, previousData);
 
+            console.log('tfmErrors:');
+            console.log(JSON.stringify(tfmErrors));
             console.log('TFM validation completed. Errors:', tfmErrors ? tfmErrors.length : 0);
 
-            return {
+            const result = {
               ajvValid: ${ajvResult.isValid},
               ajvErrors: ${jsonEncode(ajvResult.errors.map((e) => e.rawError).toList())},
               tfmAvailable: true,
               tfmErrors: tfmErrors || []
             };
+            
+            console.log('Returning result:', JSON.stringify(result));
+            return result;
           } catch (error) {
             console.error('TFM validation exception:', error);
             return {
@@ -236,12 +276,17 @@ class ValidationService {
               }]
             };
           }
-        })();
       ''';
 
-      final result = await _webViewController!.evaluateJavascript(source: jsCode);
+      final callResult = await _webViewController!.callAsyncJavaScript(
+        functionBody: jsCode,
+        arguments: {},
+      );
+
+      final result = callResult?.value;
 
       print('Raw TFM validation result type: ${result.runtimeType}');
+      print('Raw TFM validation result: $result');
 
       if (result == null) {
         return TFMValidationResult(
@@ -253,6 +298,8 @@ class ValidationService {
       }
 
       final resultMap = result is String ? jsonDecode(result) : result;
+      print('Result map tfmAvailable: ${resultMap['tfmAvailable']}');
+      print('Result map keys: ${resultMap.keys}');
 
       final tfmErrors =
           (resultMap['tfmErrors'] as List?)

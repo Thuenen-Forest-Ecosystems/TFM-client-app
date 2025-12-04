@@ -1,18 +1,165 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
-class ValidationErrorsDialog extends StatelessWidget {
-  final ValidationResult validationResult;
+class ValidationErrorsDialog extends StatefulWidget {
+  final TFMValidationResult validationResult;
   final bool showActions;
+  final Function(String?)? onNavigateToTab;
+  final Record? record;
 
   const ValidationErrorsDialog({
     super.key,
     required this.validationResult,
     this.showActions = true,
+    this.onNavigateToTab,
+    this.record,
   });
 
   @override
+  State<ValidationErrorsDialog> createState() => _ValidationErrorsDialogState();
+
+  static Future<String?> show(
+    BuildContext context,
+    TFMValidationResult validationResult, {
+    bool showActions = true,
+    Function(String?)? onNavigateToTab,
+    Record? record,
+  }) {
+    return Navigator.of(context, rootNavigator: true).push<String>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => ValidationErrorsDialog(
+          validationResult: validationResult,
+          showActions: showActions,
+          onNavigateToTab: onNavigateToTab,
+          record: record,
+        ),
+      ),
+    );
+  }
+}
+
+class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
+  late final TextEditingController _noteController;
+
+  @override
+  void initState() {
+    super.initState();
+    _noteController = TextEditingController(text: widget.record?.note ?? '');
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveNote() async {
+    if (widget.record == null) return;
+
+    final noteText = _noteController.text.trim();
+    final note = noteText.isNotEmpty ? noteText : null;
+
+    try {
+      await db.execute('UPDATE records SET note = ? WHERE id = ?', [note, widget.record!.id]);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notiz gespeichert'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving note: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Speichern der Notiz: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  String? _getTabIdFromPath(
+    String? instancePath,
+    String? schemaPath,
+    Map<String, dynamic>? params,
+  ) {
+    // Try instancePath first, fall back to schemaPath if instancePath is null/empty
+    final pathToUse = (instancePath != null && instancePath.isNotEmpty) ? instancePath : schemaPath;
+
+    String? fieldName;
+
+    // For required field errors, the missing field name is in params.missingProperty
+    if (params != null && params.containsKey('missingProperty')) {
+      fieldName = params['missingProperty'] as String?;
+      debugPrint('Found missing property in params: $fieldName');
+    }
+
+    // If we have a fieldName from params, use it directly
+    if (fieldName != null && fieldName.isNotEmpty) {
+      final tabMapping = {
+        'tree': 'tree',
+        'position': 'position',
+        'edges': 'edges',
+        'structure_lt4m': 'structure_lt4m',
+        'structure_gt4m': 'structure_gt4m',
+        'regeneration': 'regeneration',
+        'deadwood': 'deadwood',
+      };
+
+      final tabId = tabMapping[fieldName];
+      if (tabId != null) return tabId;
+    }
+
+    // Otherwise, try to parse from path
+    if (pathToUse == null || pathToUse.isEmpty) return null;
+
+    // Parse path like "/tree/0/dbh" or "#/properties/position/properties/coordinates"
+    // For schemaPath, we need to extract from "#/properties/tree/..." format
+    String cleanPath = pathToUse;
+    if (cleanPath.startsWith('#/properties/')) {
+      cleanPath = cleanPath.substring('#/properties/'.length);
+      // Remove everything after the first segment (the tab name)
+      final firstSlash = cleanPath.indexOf('/');
+      if (firstSlash > 0) {
+        cleanPath = cleanPath.substring(0, firstSlash);
+      }
+    }
+
+    final parts = cleanPath.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return null;
+
+    // First part is the tab id (tree, position, edges, etc.)
+    final firstPart = parts[0];
+
+    // Map known field names to tab IDs
+    final tabMapping = {
+      'tree': 'tree',
+      'position': 'position',
+      'edges': 'edges',
+      'structure_lt4m': 'structure_lt4m',
+      'structure_gt4m': 'structure_gt4m',
+      'regeneration': 'regeneration',
+      'deadwood': 'deadwood',
+    };
+
+    return tabMapping[firstPart];
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final errorCount = widget.validationResult.allErrors.length;
+    final warningCount = widget.validationResult.tfmWarnings.length;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -21,55 +168,151 @@ class ValidationErrorsDialog extends StatelessWidget {
         ),
         title: Row(children: [const SizedBox(width: 8), const Text('Ergebnis der Prüfung')]),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: validationResult.errors.length,
-        separatorBuilder: (context, index) => const Divider(),
-        itemBuilder: (context, index) {
-          final error = validationResult.errors[index];
-          return ListTile(
-            leading: CircleAvatar(child: Text('${index + 1}')),
-            title: Text(error.message, style: const TextStyle(fontWeight: FontWeight.w500)),
-            subtitle:
-                error.schemaPath != null && error.schemaPath!.isNotEmpty
-                    ? Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text('Pfad: ${error.schemaPath}'),
-                    )
-                    : null,
-          );
-        },
-      ),
-      bottomNavigationBar:
-          showActions
-              ? SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                    child: const Text('SPEICHERN'),
+      body: Column(
+        children: [
+          // Note field
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(
+                    hintText: 'Fügen Sie hier eine Notiz hinzu...',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
+                  maxLines: 3,
+                  minLines: 2,
                 ),
-              )
-              : null,
-    );
-  }
-
-  static Future<bool?> show(
-    BuildContext context,
-    ValidationResult validationResult, {
-    bool showActions = true,
-  }) {
-    return Navigator.of(context, rootNavigator: true).push<bool>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder:
-            (context) => ValidationErrorsDialog(
-              validationResult: validationResult,
-              showActions: showActions,
+              ],
             ),
+          ),
+          // Validation errors list
+          Expanded(
+            child: ListView.separated(
+              itemCount: widget.validationResult.allIssues.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final issue = widget.validationResult.allIssues[index];
+                final isTFMError = issue is TFMValidationError;
+                final isWarning = isTFMError && issue.isWarning;
+
+                final params = issue is ValidationError
+                    ? issue.rawError['params'] as Map<String, dynamic>?
+                    : null;
+                final instancePath = issue is ValidationError
+                    ? issue.instancePath
+                    : (issue as TFMValidationError).instancePath;
+                final schemaPath = issue is ValidationError ? issue.schemaPath : null;
+                final tabId = _getTabIdFromPath(instancePath, schemaPath, params);
+
+                final canNavigate = tabId != null && widget.onNavigateToTab != null;
+
+                // Build subtitle with additional TFM information
+                Widget? subtitle;
+                if (isTFMError) {
+                  final tfmError = issue as TFMValidationError;
+                  final subtitleParts = <String>[];
+
+                  if (tfmError.note != null && tfmError.note!.isNotEmpty) {
+                    subtitleParts.add('Hinweis: ${tfmError.note}');
+                  }
+                  if (tfmError.error?['code'] != null) {
+                    subtitleParts.add('Code: ${tfmError.error!['code']}');
+                  }
+                  if (instancePath != null && instancePath.isNotEmpty) {
+                    subtitleParts.add('Pfad: $instancePath');
+                  }
+
+                  if (subtitleParts.isNotEmpty) {
+                    subtitle = Text(subtitleParts.join('\n'));
+                  }
+                } else if (instancePath != null && instancePath.isNotEmpty) {
+                  subtitle = Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text('Pfad: $instancePath'),
+                  );
+                }
+
+                return ListTile(
+                  leading: Icon(
+                    isWarning ? Icons.warning : Icons.error,
+                    color: isWarning ? Colors.orange : Colors.red,
+                  ),
+                  title: Text(
+                    issue is ValidationError
+                        ? issue.message
+                        : (issue as TFMValidationError).message,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: subtitle,
+                  trailing: canNavigate ? const Icon(Icons.arrow_forward) : null,
+                  enabled: canNavigate,
+                  onTap: canNavigate
+                      ? () {
+                          debugPrint('Navigating to tab: $tabId for issue: $instancePath');
+                          widget.onNavigateToTab!(tabId);
+                          Navigator.of(context).pop(false);
+                        }
+                      : null,
+                );
+              },
+            ),
+          ),
+        ],
       ),
+      bottomNavigationBar: widget.showActions
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: errorCount == 0
+                          ? () async {
+                              // Save note before closing
+                              await _saveNote();
+                              if (mounted) {
+                                Navigator.of(context).pop('save');
+                              }
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      child: Text(
+                        errorCount == 0
+                            ? 'SPEICHERN'
+                            : 'mindestens $errorCount zu behebende Fehler',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: errorCount == 0
+                          ? () async {
+                              // Save note before closing
+                              await _saveNote();
+                              if (mounted) {
+                                Navigator.of(context).pop('complete');
+                              }
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        backgroundColor: Colors.green,
+                      ),
+                      child: Text(
+                        errorCount == 0
+                            ? 'SPEICHERN UND ABSCHLIEßEN'
+                            : 'mindestens $errorCount zu behebende Fehler',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

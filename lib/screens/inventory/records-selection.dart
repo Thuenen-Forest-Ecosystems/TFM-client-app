@@ -31,7 +31,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   bool _isLoading = false;
   ScrollController? _scrollController;
   bool _createdOwnController = false;
-  StreamSubscription? _recordsWatchSubscription;
 
   // Search functionality
   bool _isSearching = false;
@@ -83,48 +82,54 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     });
 
     try {
-      // Cancel any existing subscription
-      await _recordsWatchSubscription?.cancel();
+      // Load records from provider cache (populated by start.dart)
+      final provider = context.read<RecordsListProvider>();
 
-      // Watch records filtered by selected permissions
-      _recordsWatchSubscription = RecordsRepository().watchAllRecords().listen(
-        (records) async {
-          print(
-            'RecordsSelection: Received ${records.length} records from stream (filtered by permissions)',
-          );
+      // Add listener for real-time updates
+      provider.addListener(_onProviderChanged);
 
-          // Process records: filter by search, sort, and add metadata
-          final processedRecords = await _processRecords(records);
+      final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
 
-          if (mounted) {
-            setState(() {
-              _allRecords.clear();
-              _allRecords.addAll(processedRecords);
-              _displayedRecords.clear();
-              _isLoading = false;
-            });
+      if (cachedData != null) {
+        final records = cachedData.map((item) => item['record'] as Record).toList();
+        print('RecordsSelection: Loaded ${records.length} records from provider cache');
 
-            // Display first batch
-            _displayMoreRecords();
-          }
-        },
-        onError: (error) {
-          print('Error watching records: $error');
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-          }
-        },
-      );
+        // Process records: filter by search, sort, and add metadata
+        final processedRecords = await _processRecords(records);
+
+        if (mounted) {
+          setState(() {
+            _allRecords.clear();
+            _allRecords.addAll(processedRecords);
+            _displayedRecords.clear();
+            _isLoading = false;
+          });
+
+          // Display first batch
+          _displayMoreRecords();
+        }
+      } else {
+        print('RecordsSelection: No cached records available yet');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     } catch (e) {
-      print('Error setting up watch: $e');
+      print('RecordsSelection: Error loading from cache: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
     }
+  }
+
+  void _onProviderChanged() {
+    if (!mounted) return;
+    // Reload data when provider updates (real-time changes from start.dart)
+    _loadInitialData();
   }
 
   // Process records: filter, sort, and add metadata
@@ -203,7 +208,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                 coords['latitude']!,
                 coords['longitude']!,
               );
-              metadata = '${distance.toStringAsFixed(1)} km';
+              metadata = distance < 1.0
+                  ? '${(distance * 1000).toStringAsFixed(0)} m'
+                  : '${distance.toStringAsFixed(1)} km';
             }
           }
           break;
@@ -317,7 +324,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                     controller: _searchController,
                     autofocus: true,
                     decoration: const InputDecoration(
-                      hintText: 'Search by cluster name...',
+                      hintText: 'Suche Trakt...',
                       border: InputBorder.none,
                     ),
                     onChanged: (value) {
@@ -347,7 +354,18 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _displayedRecords.isEmpty
-                ? const Center(child: Text('No records found'))
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      Icon(Icons.inbox, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Dir wurde bisher noch keine Ecke zugewiesen.',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  )
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
@@ -383,7 +401,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                             coords['latitude']!,
                             coords['longitude']!,
                           );
-                          distanceText = '${distance.toStringAsFixed(1)} km';
+                          distanceText = distance < 1.0
+                              ? '${(distance * 1000).toStringAsFixed(0)} m'
+                              : '${distance.toStringAsFixed(1)} km';
                         }
                       }
 
@@ -433,7 +453,15 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   void dispose() {
     _searchController.dispose();
     _scrollController?.removeListener(_onScroll);
-    _recordsWatchSubscription?.cancel();
+
+    // Remove provider listener
+    try {
+      final provider = context.read<RecordsListProvider>();
+      provider.removeListener(_onProviderChanged);
+    } catch (e) {
+      print('Error removing provider listener: $e');
+    }
+
     // Only dispose if we created the controller ourselves
     if (_createdOwnController && _scrollController != null) {
       _scrollController!.dispose();

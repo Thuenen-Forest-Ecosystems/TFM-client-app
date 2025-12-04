@@ -157,13 +157,13 @@ class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress>
                           height: 80,
                           child: CircularProgressIndicator(
                             value: downloadProgress > 0 ? downloadProgress / 100 : null,
-                            strokeWidth: 6,
+                            strokeWidth: 1,
                           ),
                         ),
                         if (downloadProgress > 0)
                           Text(
                             '${downloadProgress.toStringAsFixed(0)}%',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 25),
                           ),
                       ],
                     ),
@@ -171,12 +171,12 @@ class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress>
                   const SizedBox(height: 16),
                   Text(
                     loopLoadingMessage[_currentMessageIndex],
-                    style: const TextStyle(fontSize: 18),
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ] else ...[
                   Icon(Icons.folder_open, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  const Text('Keine Schemas verfügbar', style: TextStyle(fontSize: 18)),
+                  const Text('Keine Schemas verfügbar', style: TextStyle(fontSize: 12)),
                   const SizedBox(height: 8),
                   Text(
                     'Bitte synchronisieren Sie die Daten',

@@ -27,6 +27,8 @@ class Record {
   final String? completedAtState;
   final String? completedAtTroop;
   final String? completedAtAdministration;
+  final int? isToBeRecorded;
+  final String? note;
 
   Record({
     this.id,
@@ -50,6 +52,8 @@ class Record {
     this.completedAtState,
     this.completedAtTroop,
     this.completedAtAdministration,
+    this.isToBeRecorded,
+    this.note,
   });
 
   factory Record.fromRow(Map<String, dynamic> row) {
@@ -77,6 +81,8 @@ class Record {
       completedAtState: row['completed_at_state'] as String?,
       completedAtTroop: row['completed_at_troop'] as String?,
       completedAtAdministration: row['completed_at_administration'] as String?,
+      isToBeRecorded: row['is_to_be_recorded'] as int?,
+      note: row['note'] as String?,
     );
   }
 
@@ -101,6 +107,8 @@ class Record {
       'completed_at_state': completedAtState,
       'completed_at_troop': completedAtTroop,
       'completed_at_administration': completedAtAdministration,
+      'is_to_be_recorded': isToBeRecorded,
+      'note': note,
     };
   }
 
@@ -440,7 +448,7 @@ class RecordsRepository {
 
   Future<String> insertRecord(Record record) async {
     await db.execute(
-      'INSERT INTO records (properties, schema_name, schema_id, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO records (properties, schema_name, schema_id, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration, is_to_be_recorded, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         record.properties,
         record.schemaName,
@@ -460,6 +468,8 @@ class RecordsRepository {
         record.completedAtState,
         record.completedAtTroop,
         record.completedAtAdministration,
+        record.isToBeRecorded,
+        record.note,
       ],
     );
     final idResult = await db.execute('SELECT last_insert_rowid() as id');

@@ -7,7 +7,7 @@ class GenericForm extends StatefulWidget {
   final Map<String, dynamic> data;
   final Map<String, dynamic>? previous_properties;
   final String? propertyName;
-  final ValidationResult? validationResult;
+  final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
   const GenericForm({
     super.key,
@@ -54,7 +54,7 @@ class _GenericFormState extends State<GenericForm> {
         ? '/${widget.propertyName}/$fieldName'
         : '/$fieldName';
 
-    return widget.validationResult!.errors.where((error) {
+    return widget.validationResult!.ajvErrors.where((error) {
       final path = error.instancePath ?? '';
       // Match exact field or nested within field
       return path == propertyPath || path.startsWith('$propertyPath/');

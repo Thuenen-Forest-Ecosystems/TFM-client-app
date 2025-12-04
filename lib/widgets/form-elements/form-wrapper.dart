@@ -10,9 +10,10 @@ class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? jsonSchema;
   final Map<String, dynamic>? formData;
   final Map<String, dynamic>? previousFormData;
-  final ValidationResult? validationResult;
+  final TFMValidationResult? validationResult;
 
   final Function(Map<String, dynamic>)? onFormDataChanged;
+  final Function(String?)? onNavigateToTab;
 
   const FormWrapper({
     super.key,
@@ -21,9 +22,10 @@ class FormWrapper extends StatefulWidget {
     this.previousFormData,
     this.onFormDataChanged,
     this.validationResult,
+    this.onNavigateToTab,
   });
   @override
-  State<FormWrapper> createState() => _FormWrapperState();
+  State<FormWrapper> createState() => FormWrapperState();
 }
 
 class FormTab {
@@ -33,7 +35,7 @@ class FormTab {
   FormTab({required this.id, required this.label});
 }
 
-class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStateMixin {
+class FormWrapperState extends State<FormWrapper> with SingleTickerProviderStateMixin {
   late Map<String, dynamic> _localFormData;
   late Map<String, dynamic> _previousProperties;
   TabController? _tabController;
@@ -132,6 +134,40 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     }
   }
 
+  // Public method to allow external navigation to tabs
+  void navigateToTab(String? tabId) {
+    debugPrint('FormWrapperState.navigateToTab called with: $tabId');
+    debugPrint('Current tab index: ${_tabController?.index}, length: ${_tabController?.length}');
+    debugPrint('Tabs: ${_tabs.map((t) => '${t.id}:${t.label}').toList()}');
+    _navigateToTab(tabId);
+  }
+
+  void _navigateToTab(String? tabId) {
+    debugPrint('_navigateToTab called with tabId: $tabId');
+    if (tabId == null) {
+      debugPrint('Early return: tabId is null');
+      return;
+    }
+
+    if (_tabController == null) {
+      debugPrint('Early return: _tabController is null');
+      return;
+    }
+
+    debugPrint('Available tabs: ${_tabs.map((t) => t.id).toList()}');
+    final tabIndex = _tabs.indexWhere((tab) => tab.id == tabId);
+    debugPrint('Found tabIndex: $tabIndex for tabId: $tabId');
+
+    if (tabIndex >= 0) {
+      debugPrint('Calling animateTo($tabIndex)');
+      _tabController!.animateTo(tabIndex);
+      _previousTabIndex = tabIndex;
+      debugPrint('Tab animation completed, new index should be: $tabIndex');
+    } else {
+      debugPrint('Tab not found! tabId=$tabId not in ${_tabs.map((t) => t.id).toList()}');
+    }
+  }
+
   @override
   void dispose() {
     _tabController?.dispose();
@@ -155,16 +191,26 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
 
         // Check if there are validation errors for this tab
         if (widget.validationResult != null && !widget.validationResult!.isValid) {
-          final tabErrors = widget.validationResult!.errors.where((error) {
+          final tabErrors = widget.validationResult!.allErrors.where((error) {
             return _isErrorForTab(error, tabId);
           }).toList();
 
           if (tabErrors.isNotEmpty) {
             // Create a filtered validation result with only tab-specific errors
-            final filteredResult = ValidationResult(isValid: false, errors: tabErrors);
+            final filteredResult = TFMValidationResult(
+              ajvValid: false,
+              ajvErrors: tabErrors.whereType<ValidationError>().toList(),
+              tfmAvailable: widget.validationResult!.tfmAvailable,
+              tfmErrors: tabErrors.whereType<TFMValidationError>().toList(),
+            );
 
             // Show dialog with filtered errors
-            ValidationErrorsDialog.show(context, filteredResult, showActions: false);
+            ValidationErrorsDialog.show(
+              context,
+              filteredResult,
+              showActions: false,
+              onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab,
+            );
           }
         } else {
           // No validation errors at all
@@ -202,7 +248,7 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
       return false;
     }
 
-    return widget.validationResult!.errors.any((error) {
+    return widget.validationResult!.allErrors.any((error) {
       return _isErrorForTab(error, tabId);
     });
   }
@@ -212,13 +258,13 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
       return 0;
     }
 
-    return widget.validationResult!.errors.where((error) {
+    return widget.validationResult!.allErrors.where((error) {
       return _isErrorForTab(error, tabId);
     }).length;
   }
 
-  bool _isErrorForTab(ValidationError error, String tabId) {
-    final path = error.instancePath ?? '';
+  bool _isErrorForTab(dynamic error, String tabId) {
+    final path = error is ValidationError ? (error.instancePath ?? '') : ((error as TFMValidationError).instancePath ?? '');
 
     // For 'info' tab, only show errors for primitive fields (not arrays/objects)
     if (tabId == 'info') {
@@ -234,8 +280,10 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
       ];
 
       // Handle required errors at root level
-      if (path.isEmpty && error.keyword == 'required') {
-        final missingProperty = error.params?['missingProperty'] as String?;
+      final keyword = error is ValidationError ? error.keyword : null;
+      if (path.isEmpty && keyword == 'required') {
+        final params = error is ValidationError ? error.params : null;
+        final missingProperty = params?['missingProperty'] as String?;
         // Only show if it's NOT one of the excluded (array/object) properties
         return missingProperty != null && !excludedProperties.contains(missingProperty);
       }
@@ -265,8 +313,10 @@ class _FormWrapperState extends State<FormWrapper> with SingleTickerProviderStat
     }
 
     // Check if it's a root-level required error for this property
-    if (path.isEmpty && error.keyword == 'required') {
-      final missingProperty = error.params?['missingProperty'] as String?;
+    final keyword = error is ValidationError ? error.keyword : null;
+    if (path.isEmpty && keyword == 'required') {
+      final params = error is ValidationError ? error.params : null;
+      final missingProperty = params?['missingProperty'] as String?;
       return missingProperty == propertyName;
     }
 

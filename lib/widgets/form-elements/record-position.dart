@@ -27,7 +27,7 @@ class RecordPosition extends StatefulWidget {
   final Map<String, dynamic>? data;
   final Map<String, dynamic>? previous_properties;
   final String? propertyName;
-  final ValidationResult? validationResult;
+  final TFMValidationResult? validationResult;
   final void Function(Map<String, dynamic> newData)? onDataChanged;
 
   const RecordPosition({
@@ -204,7 +204,7 @@ class _RecordPositionState extends State<RecordPosition> {
       'start_measurement': _startMeasurement?.toIso8601String(),
       'stop_measurement': _stopMeasurement?.toIso8601String(),
       'mean_accuracy': meanAccuracy,
-      'recorded_positions': _recordedPositions,
+      //'recorded_positions': _recordedPositions,
     };
   }
 
@@ -220,6 +220,8 @@ class _RecordPositionState extends State<RecordPosition> {
   @override
   Widget build(BuildContext context) {
     final progress = _recordedPositions.length / _targetCount;
+    final gpsProvider = context.watch<GpsPositionProvider>();
+    final hasGpsDevice = gpsProvider.lastPosition != null;
 
     return Card(
       child: Padding(
@@ -251,17 +253,16 @@ class _RecordPositionState extends State<RecordPosition> {
             Row(
               children: [
                 TextButton.icon(
-                  onPressed:
-                      _aggregatedData != null && _recordedPositions.isNotEmpty
-                          ? () => setState(() => showDetails = !showDetails)
-                          : null,
+                  onPressed: _aggregatedData != null && _recordedPositions.isNotEmpty
+                      ? () => setState(() => showDetails = !showDetails)
+                      : null,
                   icon: Icon(showDetails ? Icons.expand_less : Icons.expand_more),
                   label: Text('Details'),
                 ),
                 const Spacer(),
                 // Control button
                 ElevatedButton.icon(
-                  onPressed: _toggleRecording,
+                  onPressed: (isRecording || hasGpsDevice) ? _toggleRecording : null,
                   icon: Icon(isRecording ? Icons.stop : Icons.gps_fixed),
                   label: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
                   style: ElevatedButton.styleFrom(

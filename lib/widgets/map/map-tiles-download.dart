@@ -46,6 +46,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   int _cumulativeTotalTiles = 0;
   bool _isCheckingTiles = true;
   int _missingTilesCount = 0;
+  bool _cancelRequested = false;
 
   @override
   void initState() {
@@ -80,6 +81,19 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     }
   }
 
+  void _cancelDownload() {
+    setState(() {
+      _cancelRequested = true;
+      _isDownloading = false;
+      _downloadProgress = 0.0;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Download wird abgebrochen...')));
+    }
+  }
+
   Future<void> _downloadMapTilesFromRecordsBBox() async {
     print('[Download] Starting download process...');
     final records = await RecordsRepository().getAllRecords();
@@ -105,24 +119,27 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       _downloadedTiles = 0;
       _cumulativeDownloadedTiles = 0;
       _cumulativeTotalTiles = 0; // Will be calculated dynamically during download
+      _cancelRequested = false;
     });
     print('[Download] Download state initialized');
 
     try {
       // Download OpenTopoMap with bbox from records (500m buffer, zoom 6-7)
       selectedBasemap = 'OpenTopoMap';
-      if (openTopoBbox != null) {
+      if (openTopoBbox != null && !_cancelRequested) {
         print('[Download] Starting OpenTopoMap download...');
         await _downloadTiles(openTopoBbox);
         print('[Download] OpenTopoMap download completed');
       } else {
-        print('[Download] OpenTopoMap bbox is null, skipping');
+        print('[Download] OpenTopoMap bbox is null or cancelled, skipping');
       }
 
       // Then download DOP for each record position with 100m radius (zoom 19)
-      print('[Download] Starting DOP download for ${records.length} records...');
-      await _downloadDOPForRecords(records);
-      print('[Download] DOP download completed');
+      if (!_cancelRequested) {
+        print('[Download] Starting DOP download for ${records.length} records...');
+        await _downloadDOPForRecords(records);
+        print('[Download] DOP download completed');
+      }
 
       if (mounted) {
         final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
@@ -160,6 +177,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     // Download tiles for each record position with 100m radius
     int recordIndex = 0;
     for (final record in records) {
+      if (_cancelRequested) {
+        print('[DOP] Download cancelled by user');
+        break;
+      }
       recordIndex++;
       final coords = record.getCoordinates();
       if (coords == null) {
@@ -252,6 +273,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     // Download each zoom level separately
     for (final zoom in zoomLevels) {
+      if (_cancelRequested) {
+        print('[Download] Cancelled at zoom level $zoom');
+        break;
+      }
       // Configure download for this specific zoom level
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
@@ -272,6 +297,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
       // Listen to progress
       await for (final progress in download) {
+        if (_cancelRequested) {
+          print('[Download] Breaking progress loop due to cancel');
+          break;
+        }
         if (mounted) {
           setState(() {
             // Count new tiles downloaded in this batch (not skipped)
@@ -335,6 +364,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     // Download each zoom level separately
     for (final zoom in zoomLevels) {
+      if (_cancelRequested) {
+        print('[WMS] Cancelled at zoom level $zoom');
+        break;
+      }
       print('[WMS] Starting download for zoom level $zoom');
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
@@ -356,6 +389,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
       int progressUpdateCount = 0;
       await for (final progress in download) {
+        if (_cancelRequested) {
+          print('[WMS] Breaking progress loop due to cancel');
+          break;
+        }
         progressUpdateCount++;
         if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
           print(
@@ -421,6 +458,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     // Download each zoom level separately
     for (final zoom in zoomLevels) {
+      if (_cancelRequested) {
+        print('[OpenTopoMap] Cancelled at zoom level $zoom');
+        break;
+      }
       print('[OpenTopoMap] Starting download for zoom level $zoom');
       // Configure download for this specific zoom level
       final downloadableRegion = region.toDownloadable(
@@ -446,6 +487,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       // Listen to progress
       int progressUpdateCount = 0;
       await for (final progress in download) {
+        if (_cancelRequested) {
+          print('[OpenTopoMap] Breaking progress loop due to cancel');
+          break;
+        }
         progressUpdateCount++;
         if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
           print(
@@ -515,6 +560,13 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                 : const Text('Keine Aufnahmepunkte gefunden.'),
             onTap: (_isDownloading || _isCheckingTiles) ? null : _downloadMapTilesFromRecordsBBox,
             enabled: !_isDownloading && !_isCheckingTiles,
+            trailing: _isDownloading
+                ? TextButton.icon(
+                    onPressed: _cancelDownload,
+                    label: const Text('Abbrechen'),
+                    icon: const Icon(Icons.cancel),
+                  )
+                : null,
           ),
           if (_isDownloading)
             Padding(
