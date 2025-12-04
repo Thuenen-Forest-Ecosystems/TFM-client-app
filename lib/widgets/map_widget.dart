@@ -257,11 +257,11 @@ class _MapWidgetState extends State<MapWidget> {
 
   Future<void> _initializeTileStores() async {
     try {
-      // Initialize OpenTopoMap store
-      final openTopoStore = FMTCStore('opentopomap');
-      if (!(await openTopoStore.manage.ready)) {
-        await openTopoStore.manage.create();
-        debugPrint('Created opentopomap tile store');
+      // Initialize OpenCycleMap store
+      final openCycleStore = FMTCStore('opencyclemap');
+      if (!(await openCycleStore.manage.ready)) {
+        await openCycleStore.manage.create();
+        debugPrint('Created opencyclemap tile store');
       }
 
       // Initialize DOP store
@@ -296,7 +296,7 @@ class _MapWidgetState extends State<MapWidget> {
       } else {
         // First installation: select all basemaps by default
         setState(() {
-          _selectedBasemaps = {'osm', 'topo_offline', 'dop'};
+          _selectedBasemaps = {'opencycle', 'dop'};
         });
         // Save the default selection
         await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
@@ -863,6 +863,22 @@ class _MapWidgetState extends State<MapWidget> {
                   const SizedBox(height: 8),
 
                   CheckboxListTile(
+                    title: const Text('OpenCycleMap (offline)'),
+                    subtitle: const Text('Mittlere Zoomstufen'),
+                    value: _selectedBasemaps.contains('opencycle'),
+                    onChanged: (value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedBasemaps.add('opencycle');
+                        } else {
+                          _selectedBasemaps.remove('opencycle');
+                        }
+                      });
+                      setModalState(() {});
+                      _saveMapSettings();
+                    },
+                  ),
+                  CheckboxListTile(
                     title: const Text('Luftbilder (offline)'),
                     subtitle: const Text('nur höchste Zoomstufen'),
                     value: _selectedBasemaps.contains('dop'),
@@ -872,38 +888,6 @@ class _MapWidgetState extends State<MapWidget> {
                           _selectedBasemaps.add('dop');
                         } else {
                           _selectedBasemaps.remove('dop');
-                        }
-                      });
-                      setModalState(() {});
-                      _saveMapSettings();
-                    },
-                  ),
-                  CheckboxListTile(
-                    title: const Text('Topografische Karte (offline)'),
-                    subtitle: const Text('Mittlere Zoomstufen'),
-                    value: _selectedBasemaps.contains('topo_offline'),
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedBasemaps.add('topo_offline');
-                        } else {
-                          _selectedBasemaps.remove('topo_offline');
-                        }
-                      });
-                      setModalState(() {});
-                      _saveMapSettings();
-                    },
-                  ),
-                  CheckboxListTile(
-                    title: const Text('Open Street Map (online)'),
-                    subtitle: const Text('mobiles Datennetz erforderlich'),
-                    value: _selectedBasemaps.contains('osm'),
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedBasemaps.add('osm');
-                        } else {
-                          _selectedBasemaps.remove('osm');
                         }
                       });
                       setModalState(() {});
@@ -996,27 +980,20 @@ class _MapWidgetState extends State<MapWidget> {
         },
       ),
       children: [
-        // Tile Layers - rendered in order: OSM (bottom) → OpenTopoMap → DOP (top)
+        // Tile Layers - rendered in order: OpenCycleMap → DOP (top)
 
-        // Layer 1: OpenStreetMap (online base layer)
-        if (_selectedBasemaps.contains('osm'))
+        // Layer 1: OpenCycleMap (offline, covers zoom 4-18)
+        if (_selectedBasemaps.contains('opencycle') && _storesInitialized)
           TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
-          ),
-
-        // Layer 2: OpenTopoMap (offline, covers zoom 4-14)
-        if (_selectedBasemaps.contains('topo_offline') && _storesInitialized)
-          TileLayer(
-            urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+            // https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png
+            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png ',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             subdomains: const ['a', 'b', 'c'],
-            tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
-            maxZoom: _selectedBasemaps.contains('dop')
-                ? 14
-                : 19, // Limit to zoom 14 if DOP is enabled
-            maxNativeZoom: 14,
-            tileProvider: FMTCStore('opentopomap').getTileProvider(
+            //maxZoom: _selectedBasemaps.contains('dop')
+            //    ? 14
+            //    : 19, // Limit to zoom 14 if DOP is enabled
+            //maxNativeZoom: 18,
+            tileProvider: FMTCStore('opencyclemap').getTileProvider(
               settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
           ),

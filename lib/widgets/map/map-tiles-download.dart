@@ -31,13 +31,18 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       'maxZoom': 19,
       'storeName': 'openstreetmap'
     },*/
-    'OpenTopoMap': {
+    'OpenCycleMap': {
+      'urlTemplate': 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+      'zoomLayers': [4, 10, 14],
+      'storeName': 'opencyclemap',
+    },
+    /*'OpenTopoMap': {
       'urlTemplate': 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
       'zoomLayers': [4, 10, 14],
       'storeName': 'opentopomap',
-    },
+    },*/
   };
-  String selectedBasemap = 'OpenTopoMap';
+  String selectedBasemap = '';
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
   //int _totalTiles = 0;
@@ -110,9 +115,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       return;
     }
 
-    final openTopoBbox = _calculateBoundingBox(records);
-    print('[Download] OpenTopoMap bbox: $openTopoBbox');
-
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0.0;
@@ -124,21 +126,29 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     print('[Download] Download state initialized');
 
     try {
-      // Download OpenTopoMap with bbox from records (500m buffer, zoom 6-7)
-      selectedBasemap = 'OpenTopoMap';
-      if (openTopoBbox != null && !_cancelRequested) {
-        print('[Download] Starting OpenTopoMap download...');
-        await _downloadTiles(openTopoBbox);
-        print('[Download] OpenTopoMap download completed');
-      } else {
-        print('[Download] OpenTopoMap bbox is null or cancelled, skipping');
-      }
+      // Iterate through all uncommented basemaps
+      for (final basemapEntry in basemapsToSelectFrom.entries) {
+        if (_cancelRequested) break;
 
-      // Then download DOP for each record position with 100m radius (zoom 19)
-      if (!_cancelRequested) {
-        print('[Download] Starting DOP download for ${records.length} records...');
-        await _downloadDOPForRecords(records);
-        print('[Download] DOP download completed');
+        selectedBasemap = basemapEntry.key;
+        final config = basemapEntry.value;
+
+        print('[Download] Starting $selectedBasemap download...');
+
+        // DOP needs per-record download with small radius
+        if (selectedBasemap == 'DOP') {
+          await _downloadDOPForRecords(records);
+        } else {
+          // Other basemaps: download entire bbox with larger buffer
+          final bbox = _calculateBoundingBox(records);
+          if (bbox != null) {
+            await _downloadTiles(bbox);
+          } else {
+            print('[Download] $selectedBasemap bbox is null, skipping');
+          }
+        }
+
+        print('[Download] $selectedBasemap download completed');
       }
 
       if (mounted) {
@@ -243,14 +253,13 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   Future<void> _downloadTiles(LatLngBounds bbox) async {
     if (selectedBasemap == 'DTK25' || selectedBasemap == 'DOP') {
       await _downloadWmsTiles(bbox);
-    } else if (selectedBasemap == 'OpenTopoMap') {
-      await _downloadOpenTopoMapTiles(bbox);
     } else {
       await _downloadStandardTiles(bbox);
     }
   }
 
   Future<void> _downloadStandardTiles(LatLngBounds bbox) async {
+    print('[$selectedBasemap] Starting download for bbox: $bbox');
     final storeName =
         basemapsToSelectFrom[selectedBasemap]?['storeName'] ??
         selectedBasemap.toLowerCase().replaceAll(' ', '_');
@@ -258,6 +267,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     // Create store if it doesn't exist
     await store.manage.create();
+    print('[$selectedBasemap] Store created/verified: $storeName');
 
     // Define download region
     final region = RectangleRegion(bbox);
@@ -270,13 +280,15 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           basemapsToSelectFrom[selectedBasemap]?['minZoom'] ?? 1,
           basemapsToSelectFrom[selectedBasemap]?['maxZoom'] ?? 19,
         ];
+    print('[$selectedBasemap] Zoom levels to download: $zoomLevels');
 
     // Download each zoom level separately
     for (final zoom in zoomLevels) {
       if (_cancelRequested) {
-        print('[Download] Cancelled at zoom level $zoom');
+        print('[$selectedBasemap] Cancelled at zoom level $zoom');
         break;
       }
+      print('[$selectedBasemap] Starting download for zoom level $zoom');
       // Configure download for this specific zoom level
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
@@ -284,48 +296,60 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         options: TileLayer(
           urlTemplate: basemapsToSelectFrom[selectedBasemap]?['urlTemplate'],
           userAgentPackageName: 'de.thuenen.tfm',
+          subdomains: const ['a', 'b', 'c'],
         ),
       );
 
       // Start download
+      print('[$selectedBasemap] Starting foreground download for zoom $zoom...');
       final download = store.download.startForeground(
         region: downloadableRegion,
-        parallelThreads: 5,
-        maxBufferLength: 200,
+        parallelThreads: 3,
+        maxBufferLength: 100,
         skipExistingTiles: true,
       );
+      print('[$selectedBasemap] Download stream created for zoom $zoom');
 
       // Listen to progress
+      int progressUpdateCount = 0;
       await for (final progress in download) {
         if (_cancelRequested) {
-          print('[Download] Breaking progress loop due to cancel');
+          print('[$selectedBasemap] Breaking progress loop due to cancel');
           break;
+        }
+        progressUpdateCount++;
+        if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
+          print(
+            '[$selectedBasemap] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
+            '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
+          );
         }
         if (mounted) {
           setState(() {
-            // Count new tiles downloaded in this batch (not skipped)
-            final newTilesInBatch = progress.successfulTiles - progress.skippedTiles;
-            _downloadedTiles = newTilesInBatch;
+            // Always update total to include current batch
+            _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
 
-            // Update total if this batch has more tiles than we expected
-            final potentialTotal = _cumulativeDownloadedTiles + progress.maxTiles;
-            if (potentialTotal > _cumulativeTotalTiles) {
-              _cumulativeTotalTiles = potentialTotal;
-            }
+            // Show progress based on all tiles processed (including skipped)
+            _downloadedTiles = progress.successfulTiles;
 
             // Update cumulative progress
-            final totalDownloaded = _cumulativeDownloadedTiles + _downloadedTiles;
+            final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
             _downloadProgress = _cumulativeTotalTiles > 0
-                ? totalDownloaded / _cumulativeTotalTiles
+                ? totalProcessed / _cumulativeTotalTiles
                 : 0.0;
           });
         }
 
         // Check for errors
         if (progress.failedTiles > 0) {
-          print('Warning: ${progress.failedTiles} tiles failed to download');
+          print(
+            '[$selectedBasemap] Warning: ${progress.failedTiles}/${progress.maxTiles} tiles failed',
+          );
         }
       }
+      print(
+        '[$selectedBasemap] Zoom $zoom download stream completed ($progressUpdateCount updates)',
+      );
 
       // Update cumulative counter after this zoom level completes
       if (mounted) {
@@ -333,7 +357,9 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           _cumulativeDownloadedTiles += _downloadedTiles;
         });
       }
+      print('[$selectedBasemap] Zoom $zoom cumulative tiles: $_cumulativeDownloadedTiles');
     }
+    print('[$selectedBasemap] All zoom levels completed');
   }
 
   Future<void> _downloadWmsTiles(LatLngBounds bbox) async {
@@ -432,105 +458,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       print('[WMS] Zoom $zoom cumulative tiles: $_cumulativeDownloadedTiles');
     }
     print('[WMS] All zoom levels completed');
-  }
-
-  Future<void> _downloadOpenTopoMapTiles(LatLngBounds bbox) async {
-    print('[OpenTopoMap] Starting download for bbox: $bbox');
-    final storeName = 'opentopomap';
-    final store = FMTCStore(storeName);
-
-    // Create store if it doesn't exist
-    await store.manage.create();
-    print('[OpenTopoMap] Store created/verified');
-
-    // Define download region
-    final region = RectangleRegion(bbox);
-
-    // Get zoom layers or fall back to min/max zoom
-    final zoomLayers = basemapsToSelectFrom[selectedBasemap]?['zoomLayers'] as List<dynamic>?;
-    final zoomLevels =
-        zoomLayers?.cast<int>() ??
-        [
-          basemapsToSelectFrom[selectedBasemap]?['minZoom'] ?? 1,
-          basemapsToSelectFrom[selectedBasemap]?['maxZoom'] ?? 19,
-        ];
-    print('[OpenTopoMap] Zoom levels to download: $zoomLevels');
-
-    // Download each zoom level separately
-    for (final zoom in zoomLevels) {
-      if (_cancelRequested) {
-        print('[OpenTopoMap] Cancelled at zoom level $zoom');
-        break;
-      }
-      print('[OpenTopoMap] Starting download for zoom level $zoom');
-      // Configure download for this specific zoom level
-      final downloadableRegion = region.toDownloadable(
-        minZoom: zoom,
-        maxZoom: zoom,
-        options: TileLayer(
-          urlTemplate: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'de.thuenen.tfm',
-          subdomains: const ['a', 'b', 'c'],
-        ),
-      );
-
-      // Start download with appropriate settings for OpenTopoMap
-      print('[OpenTopoMap] Starting foreground download for zoom $zoom...');
-      final download = store.download.startForeground(
-        region: downloadableRegion,
-        parallelThreads: 3, // Lower for external tile servers
-        maxBufferLength: 100,
-        skipExistingTiles: true,
-      );
-      print('[OpenTopoMap] Download stream created for zoom $zoom');
-
-      // Listen to progress
-      int progressUpdateCount = 0;
-      await for (final progress in download) {
-        if (_cancelRequested) {
-          print('[OpenTopoMap] Breaking progress loop due to cancel');
-          break;
-        }
-        progressUpdateCount++;
-        if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
-          print(
-            '[OpenTopoMap] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
-            '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
-          );
-        }
-
-        if (mounted) {
-          setState(() {
-            // Always update total to include current batch
-            _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
-
-            // Show progress based on all tiles processed (including skipped)
-            _downloadedTiles = progress.successfulTiles;
-
-            // Update cumulative progress
-            final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
-            _downloadProgress = _cumulativeTotalTiles > 0
-                ? totalProcessed / _cumulativeTotalTiles
-                : 0.0;
-          });
-        }
-
-        // Check for errors
-        if (progress.failedTiles > 0) {
-          print('[OpenTopoMap] Warning: ${progress.failedTiles}/${progress.maxTiles} tiles failed');
-        }
-      }
-      print('[OpenTopoMap] Zoom $zoom download stream completed ($progressUpdateCount updates)');
-
-      // Update cumulative counter after this zoom level completes
-      if (mounted) {
-        setState(() {
-          _cumulativeDownloadedTiles += _downloadedTiles;
-        });
-      }
-      print('[OpenTopoMap] Zoom $zoom cumulative tiles: $_cumulativeDownloadedTiles');
-    }
-    print('[OpenTopoMap] All zoom levels completed');
   }
 
   @override
