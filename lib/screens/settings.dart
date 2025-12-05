@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,16 +36,20 @@ class _SettingsState extends State<Settings> {
     return;
 
     try {
-      db.watch('SELECT * FROM user_settings WHERE key = \'language\' AND user_id=\'${getUserId()}\'').listen((event) {
-        if (event.isNotEmpty) {
-          String languageCountry = event.first['value'];
-          //_selectedLanguage = languageCountry.split('_')[0];
-          //print('event user_settings: $_selectedLanguage');
-          setState(() {
-            _selectedLanguage = languageCountry.split('_')[0];
+      db
+          .watch(
+            'SELECT * FROM user_settings WHERE key = \'language\' AND user_id=\'${getUserId()}\'',
+          )
+          .listen((event) {
+            if (event.isNotEmpty) {
+              String languageCountry = event.first['value'];
+              //_selectedLanguage = languageCountry.split('_')[0];
+              //print('event user_settings: $_selectedLanguage');
+              setState(() {
+                _selectedLanguage = languageCountry.split('_')[0];
+              });
+            }
           });
-        }
-      });
     } catch (e) {
       print('Error watching language: $e');
     }
@@ -75,7 +77,9 @@ class _SettingsState extends State<Settings> {
         _selectedServer.add(false);
       }
 
-      _servers.add(Padding(padding: const EdgeInsets.all(8.0), child: Text(AppConfig.servers[i]['name']!)));
+      _servers.add(
+        Padding(padding: const EdgeInsets.all(8.0), child: Text(AppConfig.servers[i]['name']!)),
+      );
     }
     setState(() {});
     changeServer();
@@ -118,35 +122,47 @@ class _SettingsState extends State<Settings> {
           constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
           child: ListView(
             children: <Widget>[
-              Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Serial Port', style: TextStyle(fontSize: 15))),
+              Container(
+                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                child: Text('Serial Port', style: TextStyle(fontSize: 15)),
+              ),
               Card(
                 margin: EdgeInsets.all(10.0),
                 child: GnssSettings(), // if (Platform.isWindows)
               ),
-              if (!kIsWeb) Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('GNSS', style: TextStyle(fontSize: 15))),
+              if (!kIsWeb)
+                Container(
+                  margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                  child: Text('GNSS', style: TextStyle(fontSize: 15)),
+                ),
               if (!kIsWeb) Card(margin: EdgeInsets.all(10.0), child: BluetoothSetup()),
-              Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Layout', style: TextStyle(fontSize: 15))),
+              Container(
+                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                child: Text('Layout', style: TextStyle(fontSize: 15)),
+              ),
               Card(
                 margin: EdgeInsets.all(10.0),
                 child: Column(
                   children: <Widget>[
                     Consumer<Language>(
-                      builder:
-                          (context, value, child) => ListTile(
-                            title: Text(AppLocalizations.of(context)!.language),
-                            leading: const Icon(Icons.language),
-                            trailing: SegmentedButton(
-                              selected: {value.locale.languageCode},
-                              onSelectionChanged: (newSelection) async {
-                                //await setSettings('language', newSelection.first);
-                                _setLanguage(newSelection.first);
-                                //await setDeviceSettings('language', newSelection.first);
+                      builder: (context, value, child) => ListTile(
+                        title: Text(AppLocalizations.of(context)!.language),
+                        leading: const Icon(Icons.language),
+                        trailing: SegmentedButton(
+                          selected: {value.locale.languageCode},
+                          onSelectionChanged: (newSelection) async {
+                            //await setSettings('language', newSelection.first);
+                            _setLanguage(newSelection.first);
+                            //await setDeviceSettings('language', newSelection.first);
 
-                                //context.read<Language>().setLocale(Locale(newSelection.first));
-                              },
-                              segments: [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'de', label: Text('Deutsch'))],
-                            ),
-                          ),
+                            //context.read<Language>().setLocale(Locale(newSelection.first));
+                          },
+                          segments: [
+                            ButtonSegment(value: 'en', label: Text('English')),
+                            ButtonSegment(value: 'de', label: Text('Deutsch')),
+                          ],
+                        ),
+                      ),
                     ),
                     Divider(),
                     SwitchListTile(
@@ -168,7 +184,10 @@ class _SettingsState extends State<Settings> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0), child: Text('Development Options', style: TextStyle(fontSize: 15))),
+                    Container(
+                      margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                      child: Text('Development Options', style: TextStyle(fontSize: 15)),
+                    ),
                     Card(
                       margin: EdgeInsets.all(10.0),
                       child: Column(

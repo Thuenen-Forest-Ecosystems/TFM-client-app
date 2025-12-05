@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:terrestrial_forest_monitor/widgets/cluster-grid.dart';
-import 'package:terrestrial_forest_monitor/widgets/order-selection.dart';
 
 class PlotsByPermissions extends StatefulWidget {
   const PlotsByPermissions({super.key});
@@ -27,7 +26,9 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
     List filteredRecords = [];
 
     for (var record in data) {
-      Map<String, dynamic> previousProperties = record['previous_properties'] != null ? Map<String, dynamic>.from(jsonDecode(record['previous_properties'])) : {};
+      Map<String, dynamic> previousProperties = record['previous_properties'] != null
+          ? Map<String, dynamic>.from(jsonDecode(record['previous_properties']))
+          : {};
 
       // Add the record to the filteredRecords
       filteredRecords.add({...record, 'previous_properties': previousProperties});
@@ -79,7 +80,9 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
         automaticallyImplyLeading: false,
       ),
       body: FutureBuilder(
-        future: db.getAll('SELECT id, cluster_name, plot_name FROM records LIMIT 100'), //_getAllRecords(),
+        future: db.getAll(
+          'SELECT id, cluster_name, plot_name FROM records LIMIT 100',
+        ), //_getAllRecords(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
             if (snapshot.data!.isEmpty) {
@@ -103,8 +106,16 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
                 //String clusterId = previous_properties['cluster_id'] ?? '';
 
                 return ListTile(
-                  title: Text('Ecke: ${record['plot_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
-                  subtitle: Text('Trakt: ${record['cluster_name']}', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  title: Text(
+                    'Ecke: ${record['plot_name']}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  subtitle: Text(
+                    'Trakt: ${record['cluster_name']}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                   onTap: () {
                     Beamer.of(context).beamToNamed('/record/${record['id']}');
                   },
@@ -112,7 +123,9 @@ class _PlotsByPermissionsState extends State<PlotsByPermissions> {
                     icon: Icon(Icons.edit),
                     label: screenWidth > 500 ? Text('Bearbeiten') : SizedBox.shrink(),
                     onPressed: () {
-                      Beamer.of(context).beamToNamed('/plot/edit/${record['schema_id']}/${record['previous_properties']['cluster_id']}/${record['id']}');
+                      Beamer.of(context).beamToNamed(
+                        '/plot/edit/${record['schema_id']}/${record['previous_properties']['cluster_id']}/${record['id']}',
+                      );
                     },
                   ),
 

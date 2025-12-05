@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
-import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/download-schemas-btn.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:terrestrial_forest_monitor/widgets/test_trina_grid.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 

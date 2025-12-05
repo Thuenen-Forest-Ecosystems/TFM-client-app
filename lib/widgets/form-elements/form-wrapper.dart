@@ -264,7 +264,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   }
 
   bool _isErrorForTab(dynamic error, String tabId) {
-    final path = error is ValidationError ? (error.instancePath ?? '') : ((error as TFMValidationError).instancePath ?? '');
+    final path = error is ValidationError
+        ? (error.instancePath ?? '')
+        : ((error as TFMValidationError).instancePath ?? '');
 
     // For 'info' tab, only show errors for primitive fields (not arrays/objects)
     if (tabId == 'info') {
@@ -397,7 +399,7 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'tree':
-                  return ArrayElementSyncfusion(
+                  return ArrayElementTrina(
                     jsonSchema: schemaProperties['tree'],
                     data: _localFormData['tree'],
                     propertyName: 'tree',

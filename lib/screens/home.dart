@@ -4,8 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
 import 'package:terrestrial_forest_monitor/route/forbidden-screen.dart';
-import 'package:terrestrial_forest_monitor/screens/cluster-admin.dart';
-import 'package:terrestrial_forest_monitor/screens/drawer.dart';
 import 'package:terrestrial_forest_monitor/screens/dynamic-form-screen.dart';
 import 'package:terrestrial_forest_monitor/screens/organizations.dart';
 import 'package:terrestrial_forest_monitor/screens/plots-by-permissions.dart';
@@ -15,8 +13,6 @@ import 'package:terrestrial_forest_monitor/screens/plots-by-permissions.dart';
 import 'package:terrestrial_forest_monitor/screens/plots.dart';
 import 'package:terrestrial_forest_monitor/screens/previous-record.dart';
 import 'package:terrestrial_forest_monitor/widgets/buttons/admin-button.dart';
-import 'package:terrestrial_forest_monitor/widgets/cluster-adminbutton.dart';
-import 'package:terrestrial_forest_monitor/widgets/gps-button.dart';
 //import 'package:terrestrial_forest_monitor/widgets/gps-connection-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/map.dart';
 import 'package:terrestrial_forest_monitor/screens/thuenengrid.dart';
@@ -30,7 +26,6 @@ import 'package:beamer/beamer.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:terrestrial_forest_monitor/widgets/organizations-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/painter.dart';
 import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 
@@ -58,7 +53,8 @@ class _HomeState extends State<Home> {
     guards: [
       BeamGuard(
         pathPatterns: ['/schema/*'],
-        check: (context, state) => true, //Provider.of<ApiLog>(context, listen: false).token != null,
+        check: (context, state) =>
+            true, //Provider.of<ApiLog>(context, listen: false).token != null,
         beamToNamed: (_, __) => '/',
         /*showPage: BeamPage(
           key: ValueKey('forbidden'),
@@ -71,40 +67,54 @@ class _HomeState extends State<Home> {
         ),*/
       ),
     ],
-    locationBuilder:
-        RoutesLocationBuilder(
-          routes: {
-            '/': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: 'Terrestrial Forest Monitoring', child: ThuenenGrid(), type: BeamPageType.noTransition),
-            '403': (context, state, data) => BeamPage(key: ValueKey('TFM-grid'), title: '403', child: ForbiddenScreen(), type: BeamPageType.noTransition),
-            /*'records': (context, state, data) {
+    locationBuilder: RoutesLocationBuilder(
+      routes: {
+        '/': (context, state, data) => BeamPage(
+          key: ValueKey('TFM-grid'),
+          title: 'Terrestrial Forest Monitoring',
+          child: ThuenenGrid(),
+          type: BeamPageType.noTransition,
+        ),
+        '403': (context, state, data) => BeamPage(
+          key: ValueKey('TFM-grid'),
+          title: '403',
+          child: ForbiddenScreen(),
+          type: BeamPageType.noTransition,
+        ),
+        /*'records': (context, state, data) {
               return BeamPage(key: ValueKey('records'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
             },*/
-            'schema/:schemaId': (context, state, data) {
-              final schemaId = state.pathParameters['schemaId']!;
-              return BeamPage(key: ValueKey('clusters-$schemaId'), title: 'Clusters', child: PlotsByPermissions(), type: BeamPageType.noTransition);
-            },
-            /*'cluster/admin': (context, state, data) {
+        'schema/:schemaId': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
+          return BeamPage(
+            key: ValueKey('clusters-$schemaId'),
+            title: 'Clusters',
+            child: PlotsByPermissions(),
+            type: BeamPageType.noTransition,
+          );
+        },
+        /*'cluster/admin': (context, state, data) {
               return ClusterAdmin();
             },*/
-            'cluster/:schemaId/:clusterId': (context, state, data) {
-              final schemaId = state.pathParameters['schemaId']!;
-              final clusterId = state.pathParameters['clusterId']!;
-              return Plots(clusterId: clusterId, schemaId: schemaId);
-            },
-            'record/:recordId': (context, state, data) {
-              final recordId = state.pathParameters['recordId']!;
-              return PreviousRecord(recordId: recordId);
-            },
-            'organizations': (context, state, data) {
-              return OrganizationsScreen();
-            },
-            'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
-              final schemaId = state.pathParameters['schemaId']!;
-              final clusterId = state.pathParameters['clusterId']!;
-              final plotId = state.pathParameters['plot']!;
-              return DynamicFormScreen(schemaId: schemaId, recordsId: plotId, clusterId: clusterId);
-            },
-            /*'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+        'cluster/:schemaId/:clusterId': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
+          final clusterId = state.pathParameters['clusterId']!;
+          return Plots(clusterId: clusterId, schemaId: schemaId);
+        },
+        'record/:recordId': (context, state, data) {
+          final recordId = state.pathParameters['recordId']!;
+          return PreviousRecord(recordId: recordId);
+        },
+        'organizations': (context, state, data) {
+          return OrganizationsScreen();
+        },
+        'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
+          final schemaId = state.pathParameters['schemaId']!;
+          final clusterId = state.pathParameters['clusterId']!;
+          final plotId = state.pathParameters['plot']!;
+          return DynamicFormScreen(schemaId: schemaId, recordsId: plotId, clusterId: clusterId);
+        },
+        /*'plot/edit/:schemaId/:clusterId/:plot': (context, state, data) {
               final schemaId = state.pathParameters['schemaId']!;
               final clusterId = state.pathParameters['clusterId']!;
               final plotId = state.pathParameters['plot']!;
@@ -116,7 +126,7 @@ class _HomeState extends State<Home> {
               final plotId = state.pathParameters['plot']!;
               return PlotEditBySchema(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
             },*/
-            /*'schema/:schemaId/:clusterId': (context, state, data) {
+        /*'schema/:schemaId/:clusterId': (context, state, data) {
           final schemaId = state.pathParameters['schemaId']!;
           final clusterId = state.pathParameters['clusterId']!;
           return Plots(clusterId: clusterId, schemaId: schemaId);
@@ -127,8 +137,8 @@ class _HomeState extends State<Home> {
           final plotId = state.pathParameters['plot']!;
           return Plot(schemaId: schemaId, plotId: plotId, clusterId: clusterId);
         },*/
-          },
-        ).call,
+      },
+    ).call,
   );
 
   @override
@@ -168,32 +178,29 @@ class _HomeState extends State<Home> {
         centerTitle: false,
         automaticallyImplyLeading: false,
         backgroundColor: Color(0xFFC3E399),
-        leading:
-            screenWidth2 >= 600
-                ? null
-                : Builder(
-                  builder:
-                      (context) => IconButton(
-                        icon: Icon(Icons.map),
-                        onPressed: () {
-                          Scaffold.of(context).openDrawer();
-                        },
-                      ),
+        leading: screenWidth2 >= 600
+            ? null
+            : Builder(
+                builder: (context) => IconButton(
+                  icon: Icon(Icons.map),
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
                 ),
+              ),
 
-        title:
-            screenWidth2 >= 600
-                ? Row(
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        Beamer.of(context).beamToNamed('/');
-                      },
-                      child: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
-                    ),
-                  ],
-                )
-                : SizedBox(),
+        title: screenWidth2 >= 600
+            ? Row(
+                children: [
+                  InkWell(
+                    onTap: () {
+                      Beamer.of(context).beamToNamed('/');
+                    },
+                    child: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
+                  ),
+                ],
+              )
+            : SizedBox(),
         actions: [
           //if (!kIsWeb && (Platform.isAndroid || Platform.isLinux || Platform.isWindows || Platform.isIOS || Platform.isMacOS))
 
@@ -280,7 +287,15 @@ class _HomeState extends State<Home> {
                             });
                           },
 
-                          child: Container(width: 15, height: 100, decoration: BoxDecoration(color: Color.fromRGBO(108, 108, 108, 1)), child: RotatedBox(quarterTurns: 1, child: const Icon(Icons.drag_handle, size: 15))),
+                          child: Container(
+                            width: 15,
+                            height: 100,
+                            decoration: BoxDecoration(color: Color.fromRGBO(108, 108, 108, 1)),
+                            child: RotatedBox(
+                              quarterTurns: 1,
+                              child: const Icon(Icons.drag_handle, size: 15),
+                            ),
+                          ),
                         ),
                       ),
                     ),

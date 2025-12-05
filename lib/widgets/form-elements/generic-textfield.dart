@@ -205,7 +205,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 labelText: _getLabel(),
                 helperText: _getDescription(),
                 errorText: _getErrorText(),
-                border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50))),
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(50)),
+                ),
                 suffixIcon: const Icon(Icons.arrow_drop_down),
                 filled: true,
                 fillColor: Colors.grey.withOpacity(0.1),
@@ -221,6 +223,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   currentValue: widget.value,
                   enumValues: enumValues,
                   nameDe: nameDe,
+                  fullscreen: true,
                 );
 
                 // Handle different return values:

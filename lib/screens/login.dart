@@ -240,7 +240,7 @@ class _LoginState extends State<Login> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight - 48, maxWidth: 500),
                   child: IntrinsicHeight(
-                    child: Container(
+                    child: SizedBox(
                       width: double.infinity,
                       child: Form(
                         key: _formKey,
@@ -312,43 +312,41 @@ class _LoginState extends State<Login> {
                             // Online Login Button
                             if (!_isOffline)
                               ElevatedButton(
-                                onPressed:
-                                    _isFormValid && !authProvider.loggingIn ? _handleLogin : null,
+                                onPressed: _isFormValid && !authProvider.loggingIn
+                                    ? _handleLogin
+                                    : null,
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                 ),
-                                child:
-                                    authProvider.loggingIn
-                                        ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                        : const Text('Anmelden'),
+                                child: authProvider.loggingIn
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Text('Anmelden'),
                               ),
                             // Offline Login Button
                             if (_isOffline && _hasPreviousLogin)
                               Column(
                                 children: [
                                   ElevatedButton(
-                                    onPressed:
-                                        _isFormValid && !authProvider.loggingIn
-                                            ? _handleOfflineLogin
-                                            : null,
-                                    child:
-                                        authProvider.loggingIn
-                                            ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                            : const Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [Text('Anmelden')],
+                                    onPressed: _isFormValid && !authProvider.loggingIn
+                                        ? _handleOfflineLogin
+                                        : null,
+                                    child: authProvider.loggingIn
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
                                             ),
+                                          )
+                                        : const Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [Text('Anmelden')],
+                                          ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(

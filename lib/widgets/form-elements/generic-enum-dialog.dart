@@ -11,6 +11,7 @@ class _GenericEnumDialogWidget extends StatefulWidget {
   final dynamic currentValue;
   final List enumValues;
   final List? nameDe;
+  final bool fullscreen;
 
   const _GenericEnumDialogWidget({
     super.key,
@@ -19,6 +20,7 @@ class _GenericEnumDialogWidget extends StatefulWidget {
     this.currentValue,
     required this.enumValues,
     this.nameDe,
+    this.fullscreen = false,
   });
 
   @override
@@ -28,7 +30,6 @@ class _GenericEnumDialogWidget extends StatefulWidget {
 class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
   final TextEditingController _filterController = TextEditingController();
   String _filterText = '';
-  bool _showSearchField = false;
   final FocusNode _searchFocusNode = FocusNode();
 
   @override
@@ -85,9 +86,12 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     final filteredIndices = _getFilteredIndices();
 
     return AlertDialog(
+      insetPadding: widget.fullscreen
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
       titlePadding: EdgeInsets.zero,
       title: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.1),
           borderRadius: const BorderRadius.only(
@@ -95,57 +99,48 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
             topRight: Radius.circular(28),
           ),
         ),
-        child: _showSearchField
-            ? TextField(
-                controller: _filterController,
-                focusNode: _searchFocusNode,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Suchen...',
-                  border: InputBorder.none,
-                  suffixIcon: _filterText.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            setState(() {
-                              _filterController.clear();
-                              _filterText = '';
-                            });
-                          },
-                        )
-                      : IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            setState(() {
-                              _showSearchField = false;
-                              _filterController.clear();
-                              _filterText = '';
-                            });
-                          },
-                        ),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _filterText = value;
-                  });
-                },
-              )
-            : ListTile(
-                contentPadding: const EdgeInsets.all(0),
-                title: Text(_getLabel()),
-                subtitle: Text(_getDescription()),
-                trailing: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    setState(() {
-                      _showSearchField = true;
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _searchFocusNode.requestFocus();
-                    });
-                  },
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            /*Text(_getLabel(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            if (_getDescription().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                _getDescription(),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
               ),
+            ],*/
+            const SizedBox(height: 10),
+            TextField(
+              controller: _filterController,
+              focusNode: _searchFocusNode,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: _getLabel(),
+                helperText: _getDescription(),
+                hintText: 'Suchen...',
+                border: const OutlineInputBorder(),
+                suffixIcon: _filterText.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _filterController.clear();
+                            _filterText = '';
+                          });
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _filterText = value;
+                });
+              },
+            ),
+          ],
+        ),
       ),
       content: SizedBox(
         width: double.maxFinite,
@@ -165,7 +160,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                         final isSelected = widget.currentValue == enumValue;
 
                         return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                          contentPadding: const EdgeInsets.all(10),
                           title: Text(displayText),
                           selected: isSelected,
                           trailing: isSelected ? const Icon(Icons.check) : null,
@@ -218,6 +213,7 @@ class GenericEnumDialog {
     dynamic currentValue,
     required List enumValues,
     List? nameDe,
+    bool fullscreen = false,
   }) {
     return showDialog<dynamic>(
       context: context,
@@ -227,6 +223,7 @@ class GenericEnumDialog {
         currentValue: currentValue,
         enumValues: enumValues,
         nameDe: nameDe,
+        fullscreen: fullscreen,
       ),
     );
   }

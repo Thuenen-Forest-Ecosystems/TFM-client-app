@@ -1791,10 +1791,10 @@ packages:
     dependency: "direct main"
     description:
       name: trina_grid
-      sha256: e71651547dd104c8d82a05d5e692e92a4be5e3bc41e8e6cfb432d04bc59e89db
+      sha256: eefd6c6d079dc0988ba1da82a82689b5d87ed6580f970e701688e79be457798c
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.1"
+    version: "2.1.0"
   turf:
     dependency: "direct main"
     description:

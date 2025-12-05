@@ -30,6 +30,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
   final DataGridController _dataGridController = DataGridController();
   int _frozenColumnsCount = 0;
   Map<String, double> _columnWidths = {};
+  int? _selectedRowIndex;
 
   @override
   void initState() {

@@ -171,7 +171,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             return distA.compareTo(distB);
           });
         }
-        break;
 
       case ClusterOrderBy.updatedAt:
         records.sort((a, b) {
@@ -182,7 +181,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           if (dateB == null) return -1;
           return DateTime.parse(dateB.toString()).compareTo(DateTime.parse(dateA.toString()));
         });
-        break;
 
       case ClusterOrderBy.clusterName:
         records.sort((a, b) {
@@ -190,7 +188,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           if (comparison != 0) return comparison;
           return a.plotName.compareTo(b.plotName);
         });
-        break;
     }
 
     // Add metadata to all records
@@ -213,11 +210,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                   : '${distance.toStringAsFixed(1)} km';
             }
           }
-          break;
 
         case ClusterOrderBy.updatedAt:
           metadata = _formatDate(record.properties['updated_at']);
-          break;
 
         case ClusterOrderBy.clusterName:
           // No metadata for name ordering
