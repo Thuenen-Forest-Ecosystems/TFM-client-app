@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
@@ -12,78 +13,78 @@ class BackgroundSyncService {
   /// Initialize background sync
   /// Call this in main() before runApp()
   static Future<void> initialize() async {
-    // Skip workmanager initialization on web
-    if (kIsWeb) {
-      debugPrint('BackgroundSyncService: Skipping initialization on web platform');
+    // Skip workmanager initialization on web and desktop platforms (macOS, Windows, Linux)
+    if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      debugPrint('BackgroundSyncService: Skipping initialization on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
       return;
     }
-    if (!kIsWeb) {
-      await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
-    }
+    
+    // Initialize workmanager for mobile platforms (Android and iOS)
+    await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
   }
 
   /// Register periodic background sync
   /// Frequency: Every 1 hour
   static Future<void> registerPeriodicSync() async {
-    if (kIsWeb) {
-      debugPrint('BackgroundSyncService: Periodic sync not supported on web');
+    if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      debugPrint('BackgroundSyncService: Periodic sync not supported on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
       return;
     }
-    if (!kIsWeb) {
-      await Workmanager().registerPeriodicTask(
-        syncTaskName,
-        syncTaskTag,
-        frequency: const Duration(hours: 1),
-        constraints: Constraints(
-          networkType: NetworkType.connected, // Only sync when connected
-          requiresBatteryNotLow: true, // Don't drain battery
-        ),
-      );
+    
+    // Register periodic task for mobile platforms (Android and iOS)
+    await Workmanager().registerPeriodicTask(
+      syncTaskName,
+      syncTaskTag,
+      frequency: const Duration(hours: 1),
+      constraints: Constraints(
+        networkType: NetworkType.connected, // Only sync when connected
+        requiresBatteryNotLow: true, // Don't drain battery
+      ),
+    );
 
-      debugPrint('BackgroundSyncService: Registered periodic sync every 1 hour');
-    }
+    debugPrint('BackgroundSyncService: Registered periodic sync every 1 hour');
   }
 
   /// Register one-time background sync
   static Future<void> registerOneTimeSync({Duration delay = Duration.zero}) async {
-    if (kIsWeb) {
-      debugPrint('BackgroundSyncService: One-time sync not supported on web');
+    if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      debugPrint('BackgroundSyncService: One-time sync not supported on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
       return;
     }
-    if (!kIsWeb) {
-      await Workmanager().registerOneOffTask(
-        "$syncTaskName-onetime",
-        syncTaskTag,
-        initialDelay: delay,
-        constraints: Constraints(networkType: NetworkType.connected),
-      );
+    
+    // Register one-time task for mobile platforms (Android and iOS)
+    await Workmanager().registerOneOffTask(
+      "$syncTaskName-onetime",
+      syncTaskTag,
+      initialDelay: delay,
+      constraints: Constraints(networkType: NetworkType.connected),
+    );
 
-      debugPrint('BackgroundSyncService: Registered one-time sync with ${delay.inSeconds}s delay');
-    }
+    debugPrint('BackgroundSyncService: Registered one-time sync with ${delay.inSeconds}s delay');
   }
 
   /// Cancel all background sync tasks
   static Future<void> cancelAll() async {
-    if (kIsWeb) {
-      debugPrint('BackgroundSyncService: Cancel not applicable on web');
+    if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      debugPrint('BackgroundSyncService: Cancel not applicable on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
       return;
     }
-    if (!kIsWeb) {
-      await Workmanager().cancelAll();
-      debugPrint('BackgroundSyncService: Cancelled all background sync tasks');
-    }
+    
+    // Cancel tasks for mobile platforms (Android and iOS)
+    await Workmanager().cancelAll();
+    debugPrint('BackgroundSyncService: Cancelled all background sync tasks');
   }
 
   /// Cancel periodic sync only
   static Future<void> cancelPeriodicSync() async {
-    if (kIsWeb) {
-      debugPrint('BackgroundSyncService: Cancel not applicable on web');
+    if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      debugPrint('BackgroundSyncService: Cancel not applicable on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
       return;
     }
-    if (!kIsWeb) {
-      await Workmanager().cancelByUniqueName(syncTaskName);
-      debugPrint('BackgroundSyncService: Cancelled periodic sync');
-    }
+    
+    // Cancel periodic sync for mobile platforms (Android and iOS)
+    await Workmanager().cancelByUniqueName(syncTaskName);
+    debugPrint('BackgroundSyncService: Cancelled periodic sync');
   }
 }
 
@@ -91,7 +92,8 @@ class BackgroundSyncService {
 /// This runs in a separate isolate
 @pragma('vm:entry-point')
 void callbackDispatcher() {
-  if (!kIsWeb) {
+  // Only execute on mobile platforms (Android and iOS) - workmanager is not supported on desktop/web
+  if (!kIsWeb && !Platform.isMacOS && !Platform.isWindows && !Platform.isLinux) {
     Workmanager().executeTask((task, inputData) async {
       debugPrint('BackgroundSyncService: Starting background sync task: $task');
 

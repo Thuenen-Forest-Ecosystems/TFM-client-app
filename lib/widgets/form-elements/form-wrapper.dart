@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
-import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-syncfusion.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/add-row-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
@@ -15,15 +15,7 @@ class FormWrapper extends StatefulWidget {
   final Function(Map<String, dynamic>)? onFormDataChanged;
   final Function(String?)? onNavigateToTab;
 
-  const FormWrapper({
-    super.key,
-    this.jsonSchema,
-    this.formData,
-    this.previousFormData,
-    this.onFormDataChanged,
-    this.validationResult,
-    this.onNavigateToTab,
-  });
+  const FormWrapper({super.key, this.jsonSchema, this.formData, this.previousFormData, this.onFormDataChanged, this.validationResult, this.onNavigateToTab});
   @override
   State<FormWrapper> createState() => FormWrapperState();
 }
@@ -42,6 +34,10 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   List<FormTab> _tabs = [];
   int? _previousTabIndex;
 
+  // Track current tab type and ArrayElementTrina widgets
+  String? _currentTabType;
+  final Map<String, GlobalKey<ArrayElementTrinaState>> _arrayElementKeys = {};
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +53,10 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
 
       _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
       _previousTabIndex = _tabController!.index;
+
+      // Listen to tab changes to update current tab type
+      _tabController!.addListener(_onTabChanged);
+      _updateCurrentTabType();
     }
   }
 
@@ -118,17 +118,16 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       final newTabs = _buildTabsList();
       if (newTabs.length != _tabs.length) {
         _tabs = newTabs;
+        _tabController?.removeListener(_onTabChanged);
         _tabController?.dispose();
         if (_tabs.isNotEmpty) {
           // Find position tab index, default to 0 if not found
           final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
           final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
 
-          _tabController = TabController(
-            length: _tabs.length,
-            vsync: this,
-            initialIndex: initialIndex,
-          );
+          _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
+          _tabController!.addListener(_onTabChanged);
+          _updateCurrentTabType();
         }
       }
     }
@@ -168,8 +167,106 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
     }
   }
 
+  void _onTabChanged() {
+    _updateCurrentTabType();
+  }
+
+  void _updateCurrentTabType() {
+    if (_tabController == null || _tabs.isEmpty) {
+      _currentTabType = null;
+      return;
+    }
+
+    final currentIndex = _tabController!.index;
+    if (currentIndex >= 0 && currentIndex < _tabs.length) {
+      final tabId = _tabs[currentIndex].id;
+      final isArrayTab = _isArrayElementTrinaTab(tabId);
+      debugPrint('Tab changed to: $tabId (index: $currentIndex), isArrayTab: $isArrayTab');
+      setState(() {
+        _currentTabType = isArrayTab ? 'array' : 'other';
+      });
+      debugPrint('Current tab type set to: $_currentTabType');
+    }
+  }
+
+  bool _isArrayElementTrinaTab(String tabId) {
+    return ['tree', 'edges', 'structure_lt4m', 'structure_gt4m', 'regeneration', 'deadwood'].contains(tabId);
+  }
+
+  void _addRowToCurrentTab() {
+    if (_tabController == null || _tabs.isEmpty) return;
+
+    final currentIndex = _tabController!.index;
+    if (currentIndex >= 0 && currentIndex < _tabs.length) {
+      final tabId = _tabs[currentIndex].id;
+      if (_isArrayElementTrinaTab(tabId)) {
+        final key = _arrayElementKeys[tabId];
+        key?.currentState?.addRow();
+      }
+    }
+  }
+
+  void _addRowToCurrentTabAsFormDialog() async {
+    if (_tabController == null || _tabs.isEmpty || widget.jsonSchema == null) return;
+
+    final currentIndex = _tabController!.index;
+    if (currentIndex >= 0 && currentIndex < _tabs.length) {
+      final tabId = _tabs[currentIndex].id;
+      if (_isArrayElementTrinaTab(tabId)) {
+        final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>;
+        final arraySchema = schemaProperties[tabId] as Map<String, dynamic>?;
+
+        if (arraySchema != null) {
+          await AddRowDialog.show(
+            context: context,
+            jsonSchema: arraySchema,
+            propertyName: tabId,
+            onRowAdded: (newRowData) {
+              // Add the new row data to the current array
+              final currentArray = List<dynamic>.from(_localFormData[tabId] ?? []);
+
+              // Handle auto-increment fields
+              final itemSchema = arraySchema['items'] as Map<String, dynamic>?;
+              final properties = itemSchema?['properties'] as Map<String, dynamic>?;
+
+              if (properties != null) {
+                properties.forEach((key, value) {
+                  final propertySchema = value as Map<String, dynamic>;
+                  final typeValue = propertySchema['type'];
+
+                  String? type;
+                  if (typeValue is String) {
+                    type = typeValue;
+                  } else if (typeValue is List) {
+                    type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+                  }
+
+                  final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
+                  final form = tfm?['form'] as Map<String, dynamic>?;
+                  final autoIncrement = form?['autoIncrement'] as bool? ?? false;
+
+                  if (autoIncrement && (type == 'integer' || type == 'number')) {
+                    // Find max value and increment
+                    final existingValues = currentArray.map((row) => row is Map ? row[key] : null).where((v) => v != null && v is num).map((v) => (v as num).toInt()).toList();
+
+                    final defaultValue = propertySchema['default'] as int? ?? 1;
+                    newRowData[key] = existingValues.isEmpty ? defaultValue : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+                  }
+                });
+              }
+
+              currentArray.add(newRowData);
+              _updateField(tabId, currentArray);
+            },
+          );
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     super.dispose();
   }
@@ -197,30 +294,14 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
 
           if (tabErrors.isNotEmpty) {
             // Create a filtered validation result with only tab-specific errors
-            final filteredResult = TFMValidationResult(
-              ajvValid: false,
-              ajvErrors: tabErrors.whereType<ValidationError>().toList(),
-              tfmAvailable: widget.validationResult!.tfmAvailable,
-              tfmErrors: tabErrors.whereType<TFMValidationError>().toList(),
-            );
+            final filteredResult = TFMValidationResult(ajvValid: false, ajvErrors: tabErrors.whereType<ValidationError>().toList(), tfmAvailable: widget.validationResult!.tfmAvailable, tfmErrors: tabErrors.whereType<TFMValidationError>().toList());
 
             // Show dialog with filtered errors
-            ValidationErrorsDialog.show(
-              context,
-              filteredResult,
-              showActions: false,
-              onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab,
-            );
+            ValidationErrorsDialog.show(context, filteredResult, showActions: false, onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab);
           }
         } else {
           // No validation errors at all
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Keine Validierungsfehler'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keine Validierungsfehler'), backgroundColor: Colors.green, duration: Duration(seconds: 1)));
         }
       }
     }
@@ -264,22 +345,12 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   }
 
   bool _isErrorForTab(dynamic error, String tabId) {
-    final path = error is ValidationError
-        ? (error.instancePath ?? '')
-        : ((error as TFMValidationError).instancePath ?? '');
+    final path = error is ValidationError ? (error.instancePath ?? '') : ((error as TFMValidationError).instancePath ?? '');
 
     // For 'info' tab, only show errors for primitive fields (not arrays/objects)
     if (tabId == 'info') {
       // List of properties that are arrays/objects and have their own tabs
-      final excludedProperties = [
-        'position',
-        'tree',
-        'edges',
-        'structure_lt4m',
-        'structure_gt4m',
-        'regeneration',
-        'deadwood',
-      ];
+      final excludedProperties = ['position', 'tree', 'edges', 'structure_lt4m', 'structure_gt4m', 'regeneration', 'deadwood'];
 
       // Handle required errors at root level
       final keyword = error is ValidationError ? error.keyword : null;
@@ -357,11 +428,7 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                       decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                       child: Text(
                         '${_getErrorCountForTab(tab.id)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -399,7 +466,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'tree':
+                  _arrayElementKeys['tree'] ??= GlobalKey<ArrayElementTrinaState>();
                   return ArrayElementTrina(
+                    key: _arrayElementKeys['tree'],
                     jsonSchema: schemaProperties['tree'],
                     data: _localFormData['tree'],
                     propertyName: 'tree',
@@ -409,7 +478,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'edges':
+                  _arrayElementKeys['edges'] ??= GlobalKey<ArrayElementTrinaState>();
                   return ArrayElementTrina(
+                    key: _arrayElementKeys['edges'],
                     jsonSchema: schemaProperties['edges'],
                     data: _localFormData['edges'],
                     propertyName: 'edges',
@@ -419,7 +490,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'structure_lt4m':
+                  _arrayElementKeys['structure_lt4m'] ??= GlobalKey<ArrayElementTrinaState>();
                   return ArrayElementTrina(
+                    key: _arrayElementKeys['structure_lt4m'],
                     jsonSchema: schemaProperties['structure_lt4m'],
                     data: _localFormData['structure_lt4m'],
                     propertyName: 'structure_lt4m',
@@ -429,7 +502,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'structure_gt4m':
+                  _arrayElementKeys['structure_gt4m'] ??= GlobalKey<ArrayElementTrinaState>();
                   return ArrayElementTrina(
+                    key: _arrayElementKeys['structure_gt4m'],
                     jsonSchema: schemaProperties['structure_gt4m'],
                     data: _localFormData['structure_gt4m'],
                     propertyName: 'structure_gt4m',
@@ -439,7 +514,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'regeneration':
+                  _arrayElementKeys['regeneration'] ??= GlobalKey<ArrayElementTrinaState>();
                   return ArrayElementTrina(
+                    key: _arrayElementKeys['regeneration'],
                     jsonSchema: schemaProperties['regeneration'],
                     data: _localFormData['regeneration'],
                     propertyName: 'regeneration',
@@ -449,7 +526,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     },
                   );
                 case 'deadwood':
+                  _arrayElementKeys['deadwood'] ??= GlobalKey<ArrayElementTrinaState>();
                   return ArrayElementTrina(
+                    key: _arrayElementKeys['deadwood'],
                     jsonSchema: schemaProperties['deadwood'],
                     data: _localFormData['deadwood'],
                     propertyName: 'deadwood',
@@ -462,6 +541,30 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                   return Center(child: Text('${tab.label} Form'));
               }
             }).toList(),
+          ),
+        ),
+        BottomAppBar(
+          child: Container(
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Always show the button for now to debug
+                ElevatedButton.icon(
+                  onPressed: _addRowToCurrentTab,
+                  icon: const Icon(Icons.add),
+                  label: Text('Add Row '),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _addRowToCurrentTabAsFormDialog,
+                  icon: const Icon(Icons.add),
+                  label: Text('Add Row as Form Dialog'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
+                ),
+              ],
+            ),
           ),
         ),
       ],

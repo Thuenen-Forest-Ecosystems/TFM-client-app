@@ -24,20 +24,13 @@ class ArrayElementTrina extends StatefulWidget {
   final String? propertyName;
   final Function(List<dynamic>)? onDataChanged;
 
-  const ArrayElementTrina({
-    super.key,
-    required this.jsonSchema,
-    required this.data,
-    this.propertyName,
-    this.validationResult,
-    this.onDataChanged,
-  });
+  const ArrayElementTrina({super.key, required this.jsonSchema, required this.data, this.propertyName, this.validationResult, this.onDataChanged});
 
   @override
-  State<ArrayElementTrina> createState() => _ArrayElementTrinaState();
+  State<ArrayElementTrina> createState() => ArrayElementTrinaState();
 }
 
-class _ArrayElementTrinaState extends State<ArrayElementTrina> {
+class ArrayElementTrinaState extends State<ArrayElementTrina> {
   List<TrinaColumn> _columns = [];
   List<TrinaRow> _rows = [];
   List<TrinaColumnGroup> _columnGroups = [];
@@ -127,15 +120,7 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
       final columnGroupShow = groupBy?['columnGroupShow'] as String?;
       final pinned = uiOptions?['pinned'] as String?;
 
-      columnEntries.add(
-        MapEntry(key, {
-          'schema': propertySchema,
-          'sortBy': sortBy,
-          'groupBy': groupBy,
-          'columnGroupShow': columnGroupShow,
-          'pinned': pinned,
-        }),
-      );
+      columnEntries.add(MapEntry(key, {'schema': propertySchema, 'sortBy': sortBy, 'groupBy': groupBy, 'columnGroupShow': columnGroupShow, 'pinned': pinned}));
     });
 
     // Sort columns by sortBy value
@@ -262,9 +247,7 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
       final groupSortBy = groupBy?['sortBy'] as int? ?? 999;
 
       if (headerName != null) {
-        columnEntries.add(
-          MapEntry(key, {'headerName': headerName, 'sortBy': sortBy, 'groupSortBy': groupSortBy}),
-        );
+        columnEntries.add(MapEntry(key, {'headerName': headerName, 'sortBy': sortBy, 'groupSortBy': groupSortBy}));
       }
     });
 
@@ -347,11 +330,7 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
   }
 
-  Widget _buildEnumCell(
-    TrinaColumnRendererContext rendererContext,
-    Map<String, dynamic> propertySchema,
-    String fieldKey,
-  ) {
+  Widget _buildEnumCell(TrinaColumnRendererContext rendererContext, Map<String, dynamic> propertySchema, String fieldKey) {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
@@ -384,11 +363,7 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
   }
 
-  Widget _buildNumericEditableCell(
-    TrinaColumnRendererContext rendererContext,
-    Map<String, dynamic> propertySchema,
-    String fieldKey,
-  ) {
+  Widget _buildNumericEditableCell(TrinaColumnRendererContext rendererContext, Map<String, dynamic> propertySchema, String fieldKey) {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
@@ -457,24 +432,12 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
   }
 
-  Future<void> _openEnumDialog(
-    TrinaColumnRendererContext rendererContext,
-    Map<String, dynamic> propertySchema,
-    String fieldKey,
-  ) async {
+  Future<void> _openEnumDialog(TrinaColumnRendererContext rendererContext, Map<String, dynamic> propertySchema, String fieldKey) async {
     final enumValues = propertySchema['enum'] as List? ?? [];
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final nameDe = tfm?['name_de'] as List?;
 
-    final result = await GenericEnumDialog.show(
-      context: context,
-      fieldName: fieldKey,
-      fieldSchema: propertySchema,
-      currentValue: rendererContext.cell.value,
-      enumValues: enumValues,
-      nameDe: nameDe,
-      fullscreen: true,
-    );
+    final result = await GenericEnumDialog.show(context: context, fieldName: fieldKey, fieldSchema: propertySchema, currentValue: rendererContext.cell.value, enumValues: enumValues, nameDe: nameDe, fullscreen: true);
 
     if (result != null) {
       // Check if user selected "Leeren" (clear selection)
@@ -495,7 +458,7 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
     _notifyDataChanged();
   }
 
-  void _addRow() {
+  void addRow() {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
@@ -521,16 +484,10 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
 
       if (autoIncrement && (type == 'integer' || type == 'number')) {
         // Auto-increment: find max value and add 1
-        final existingValues = _rows
-            .map((row) => row.cells[key]?.value)
-            .where((v) => v != null && v is num)
-            .map((v) => (v as num).toInt())
-            .toList();
+        final existingValues = _rows.map((row) => row.cells[key]?.value).where((v) => v != null && v is num).map((v) => (v as num).toInt()).toList();
 
         final defaultValue = propertySchema['default'] as int? ?? 1;
-        newRow[key] = existingValues.isEmpty
-            ? defaultValue
-            : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+        newRow[key] = existingValues.isEmpty ? defaultValue : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
       } else {
@@ -611,17 +568,10 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
             const SizedBox(height: 16),
             //const Text('Kein Eintrag vorhanden', style: TextStyle(color: Colors.grey)),
             //const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: _addRow,
-              icon: const Icon(Icons.add),
-              label: const Text('Eintrag hinzufügen'),
-            ),
+            ElevatedButton.icon(onPressed: addRow, icon: const Icon(Icons.add), label: const Text('Eintrag hinzufügen')),
             const SizedBox(height: 8),
             if (widget.data == null) // if data is null
-              ElevatedButton(
-                onPressed: _setEmptyArray,
-                child: const Text('Kein Eintrag erforderlich'),
-              ),
+              ElevatedButton(onPressed: _setEmptyArray, child: const Text('Kein Eintrag erforderlich')),
           ],
         ),
       );
@@ -660,15 +610,9 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
               enableGridBorderShadow: false,
               gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               rowColor: isDark ? const Color(0xFF252526) : Colors.white,
-              activatedColor: isDark
-                  ? const Color.fromARGB(10, 0, 255, 0)
-                  : const Color(0xFFDCF2FF),
+              activatedColor: isDark ? const Color.fromARGB(10, 0, 255, 0) : const Color(0xFFDCF2FF),
               cellTextStyle: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
-              columnTextStyle: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              columnTextStyle: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14, fontWeight: FontWeight.bold),
               gridBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
               borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
               activatedBorderColor: isDark ? const Color.fromARGB(100, 0, 255, 0) : Colors.blue,
@@ -680,11 +624,6 @@ class _ArrayElementTrinaState extends State<ArrayElementTrina> {
               cellColorInReadOnlyState: isDark ? const Color(0xFF2D2D30) : Colors.grey.shade100,
             ),
           ),
-        ),
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: FloatingActionButton(onPressed: _addRow, child: const Icon(Icons.add)),
         ),
       ],
     );

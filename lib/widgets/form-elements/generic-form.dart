@@ -9,15 +9,7 @@ class GenericForm extends StatefulWidget {
   final String? propertyName;
   final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
-  const GenericForm({
-    super.key,
-    this.jsonSchema,
-    required this.data,
-    this.previous_properties,
-    this.propertyName,
-    this.validationResult,
-    this.onDataChanged,
-  });
+  const GenericForm({super.key, this.jsonSchema, required this.data, this.previous_properties, this.propertyName, this.validationResult, this.onDataChanged});
 
   @override
   State<GenericForm> createState() => _GenericFormState();
@@ -50,9 +42,7 @@ class _GenericFormState extends State<GenericForm> {
   List<ValidationError> _getErrorsForField(String fieldName) {
     if (widget.validationResult == null) return [];
 
-    final propertyPath = widget.propertyName != null
-        ? '/${widget.propertyName}/$fieldName'
-        : '/$fieldName';
+    final propertyPath = widget.propertyName != null ? '/${widget.propertyName}/$fieldName' : '/$fieldName';
 
     return widget.validationResult!.ajvErrors.where((error) {
       final path = error.instancePath ?? '';
@@ -68,9 +58,7 @@ class _GenericFormState extends State<GenericForm> {
     }
 
     // The jsonSchema might already be the properties object, or it might have a 'properties' key
-    final properties = widget.jsonSchema!.containsKey('properties')
-        ? widget.jsonSchema!['properties'] as Map<String, dynamic>?
-        : widget.jsonSchema;
+    final properties = widget.jsonSchema!.containsKey('properties') ? widget.jsonSchema!['properties'] as Map<String, dynamic>? : widget.jsonSchema;
 
     if (properties == null || properties.isEmpty) {
       return const Center(child: Text('No properties in schema'));
@@ -153,19 +141,11 @@ class _GenericFormState extends State<GenericForm> {
           final fieldName = entry.key;
           final fieldSchema = entry.value;
           final fieldErrors = _getErrorsForField(fieldName);
-          debugPrint(
-            'Building field $fieldName with errors: ${fieldErrors.map((e) => e.message).join(', ')}',
-          );
+          debugPrint('Building field $fieldName with errors: ${fieldErrors.map((e) => e.message).join(', ')}');
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: GenericTextField(
-              fieldName: fieldName,
-              fieldSchema: fieldSchema,
-              value: _localData[fieldName],
-              errors: fieldErrors,
-              onChanged: (value) => _updateField(fieldName, value),
-            ),
+            padding: const EdgeInsets.only(bottom: 10, top: 10),
+            child: GenericTextField(fieldName: fieldName, fieldSchema: fieldSchema, value: _localData[fieldName], errors: fieldErrors, onChanged: (value) => _updateField(fieldName, value)),
           );
         }
 
@@ -182,12 +162,7 @@ class _GenericFormState extends State<GenericForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      groupName,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
+                    Text(groupName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     // Use Wrap for multiple columns on wide screens
                     if (columns == 1)
@@ -197,11 +172,7 @@ class _GenericFormState extends State<GenericForm> {
                         spacing: 20,
                         runSpacing: 20,
                         children: fields.map((field) {
-                          return SizedBox(
-                            width:
-                                (constraints.maxWidth - 32 - 32 - (20 * (columns - 1))) / columns,
-                            child: buildFieldWidget(field),
-                          );
+                          return SizedBox(width: (constraints.maxWidth - 32 - 32 - (20 * (columns - 1))) / columns, child: buildFieldWidget(field));
                         }).toList(),
                       ),
                   ],
@@ -215,11 +186,8 @@ class _GenericFormState extends State<GenericForm> {
         ungroupedWidgets.addAll(ungroupedFields.map(buildFieldWidget));
 
         if (columns == 1) {
-          // Single column: use ListView for better scrolling
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [...groupWidgets, ...ungroupedWidgets],
-          );
+          // Single column: use Column instead of ListView to avoid nested scroll views
+          return Column(children: [...groupWidgets, ...ungroupedWidgets]);
         } else {
           // Multiple columns: groups full width, ungrouped fields in columns
           return SingleChildScrollView(
@@ -235,10 +203,7 @@ class _GenericFormState extends State<GenericForm> {
                     spacing: 20, // Horizontal spacing between items
                     runSpacing: 20, // Vertical spacing between rows
                     children: ungroupedWidgets.map((widget) {
-                      return SizedBox(
-                        width: (constraints.maxWidth - 32 - (20 * (columns - 1))) / columns,
-                        child: widget,
-                      );
+                      return SizedBox(width: (constraints.maxWidth - 32 - (20 * (columns - 1))) / columns, child: widget);
                     }).toList(),
                   ),
               ],
