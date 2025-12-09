@@ -186,8 +186,8 @@ class _GenericFormState extends State<GenericForm> {
         ungroupedWidgets.addAll(ungroupedFields.map(buildFieldWidget));
 
         if (columns == 1) {
-          // Single column: use Column instead of ListView to avoid nested scroll views
-          return Column(children: [...groupWidgets, ...ungroupedWidgets]);
+          // Single column: use ListView for scrolling, with shrinkWrap for dialogs
+          return ListView(shrinkWrap: true, physics: const ClampingScrollPhysics(), padding: const EdgeInsets.all(16), children: [...groupWidgets, ...ungroupedWidgets]);
         } else {
           // Multiple columns: groups full width, ungrouped fields in columns
           return SingleChildScrollView(

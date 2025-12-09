@@ -98,6 +98,12 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       tabs.add(FormTab(id: 'deadwood', label: title ?? 'Totholz'));
     }
 
+    // plot_landmark
+    if (schemaProperties.containsKey('plot_landmark')) {
+      final title = schemaProperties['plot_landmark']?['title'] as String?;
+      tabs.add(FormTab(id: 'plot_landmark', label: title ?? 'Geländemerkmale'));
+    }
+
     return tabs;
   }
 
@@ -537,36 +543,48 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                       _updateField('deadwood', updatedData);
                     },
                   );
+                case 'plot_landmark':
+                  return GenericForm(
+                    jsonSchema: schemaProperties['plot_landmark'],
+                    data: _localFormData['plot_landmark'] ?? {},
+                    propertyName: 'plot_landmark',
+                    previous_properties: _previousProperties,
+                    validationResult: widget.validationResult,
+                    onDataChanged: (updatedData) {
+                      _updateField('plot_landmark', updatedData);
+                    },
+                  );
                 default:
                   return Center(child: Text('${tab.label} Form'));
               }
             }).toList(),
           ),
         ),
-        BottomAppBar(
-          child: Container(
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Always show the button for now to debug
-                ElevatedButton.icon(
-                  onPressed: _addRowToCurrentTab,
-                  icon: const Icon(Icons.add),
-                  label: Text('Add Row '),
-                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _addRowToCurrentTabAsFormDialog,
-                  icon: const Icon(Icons.add),
-                  label: Text('Add Row as Form Dialog'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
-                ),
-              ],
+        // Only show BottomAppBar for ArrayElementTrina tabs
+        if (_currentTabType == 'array')
+          BottomAppBar(
+            child: Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _addRowToCurrentTab,
+                    icon: const Icon(Icons.add),
+                    label: Text('Add Row'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _addRowToCurrentTabAsFormDialog,
+                    icon: const Icon(Icons.add),
+                    label: Text('Add Row (Form)'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }

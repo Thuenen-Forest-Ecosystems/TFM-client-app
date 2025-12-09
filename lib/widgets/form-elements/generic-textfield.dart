@@ -52,7 +52,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
     final type = _getType();
 
     if (type == 'boolean') {
-      _boolValue = widget.value == true;
+      // Handle boolean: if value is null, use schema default if available, otherwise false
+      if (widget.value != null) {
+        _boolValue = widget.value == true;
+      } else {
+        final defaultValue = widget.fieldSchema['default'];
+        _boolValue = defaultValue == true;
+      }
     } else {
       _controller = TextEditingController(text: widget.value?.toString() ?? '');
     }
@@ -63,7 +69,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
     final newValue = widget.value?.toString() ?? '';
 
     if (type == 'boolean') {
-      _boolValue = widget.value == true;
+      // Handle boolean: if value is null, use schema default if available, otherwise false
+      if (widget.value != null) {
+        _boolValue = widget.value == true;
+      } else {
+        final defaultValue = widget.fieldSchema['default'];
+        _boolValue = defaultValue == true;
+      }
     } else {
       // Only update controller text if it's different to avoid cursor position reset
       if (_controller.text != newValue) {
