@@ -71,12 +71,26 @@ jobs:
           channel: "stable"
           flutter-version: "3.38.4"
 
-      - name: Clear pub cache
-        run: flutter pub cache clean --force
-        continue-on-error: true
-
-      - name: Install project dependencies
-        run: flutter pub get
+      - name: Install project dependencies with retry
+        run: |
+          $maxRetries = 3
+          $retryCount = 0
+          $success = $false
+          while (-not $success -and $retryCount -lt $maxRetries) {
+            $retryCount++
+            Write-Host "Attempt $retryCount of $maxRetries..."
+            try {
+              flutter pub get
+              $success = $true
+            } catch {
+              if ($retryCount -lt $maxRetries) {
+                Write-Host "Pub get failed, retrying in 10 seconds..."
+                Start-Sleep -Seconds 10
+              } else {
+                throw
+              }
+            }
+          }
 
       - name: Enable windows build
         run: flutter config --enable-windows-desktop
