@@ -80,6 +80,11 @@ jobs:
             $retryCount++
             Write-Host "Attempt $retryCount of $maxRetries..."
             try {
+              # Clean cache on retries to avoid lock issues
+              if ($retryCount -gt 1) {
+                Write-Host "Cleaning pub cache..."
+                flutter pub cache clean --force
+              }
               flutter pub get
               if ($LASTEXITCODE -ne 0) { throw "Flutter pub get failed with exit code $LASTEXITCODE" }
               $success = $true
@@ -93,7 +98,7 @@ jobs:
               }
             }
           }
-
+          
       - name: Enable windows build
         run: flutter config --enable-windows-desktop
 
