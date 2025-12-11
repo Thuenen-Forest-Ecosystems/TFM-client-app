@@ -81,8 +81,10 @@ jobs:
             Write-Host "Attempt $retryCount of $maxRetries..."
             try {
               flutter pub get
+              if ($LASTEXITCODE -ne 0) { throw "Flutter pub get failed with exit code $LASTEXITCODE" }
               $success = $true
             } catch {
+              Write-Host "Error: $_"
               if ($retryCount -lt $maxRetries) {
                 Write-Host "Pub get failed, retrying in 10 seconds..."
                 Start-Sleep -Seconds 10
