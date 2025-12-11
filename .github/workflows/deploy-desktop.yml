@@ -71,6 +71,10 @@ jobs:
           channel: "stable"
           flutter-version: "3.38.4"
 
+      - name: Clear pub cache
+        run: flutter pub cache clean --force
+        continue-on-error: true
+
       - name: Install project dependencies
         run: flutter pub get
 
