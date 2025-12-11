@@ -36,19 +36,16 @@ class _UserInfoTileState extends State<UserInfoTile> {
   @override
   Widget build(BuildContext context) {
     if (_user == null) {
-      return const ListTile(
-        title: Text('Nicht angemeldet'),
-        subtitle: Text('Bitte melden Sie sich an'),
+      return const Material(
+        child: ListTile(title: Text('Nicht angemeldet'), subtitle: Text('Bitte melden Sie sich an')),
       );
     }
 
     final email = _user!.email ?? 'Keine E-Mail';
     final name = _user!.userMetadata?['name'] ?? _user!.userMetadata?['full_name'];
 
-    return ListTile(
-      leading: Icon(Icons.person),
-      title: Text(name ?? 'Benutzer'),
-      subtitle: Text(email),
+    return Material(
+      child: ListTile(leading: Icon(Icons.person), title: Text(name ?? 'Benutzer'), subtitle: Text(email)),
     );
   }
 }

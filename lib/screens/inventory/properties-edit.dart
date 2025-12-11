@@ -54,9 +54,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _loadRecord().then((_) {
       // Load schema after record is loaded to get the interval name
       if (_record != null) {
-        _loadSchema(_record!.schemaName, schemaIdValidatedBy: _record!.schemaIdValidatedBy).then((
-          _,
-        ) {
+        _loadSchema(_record!.schemaName, schemaIdValidatedBy: _record!.schemaIdValidatedBy).then((_) {
           // validate initial form data after schema is loaded
           if (_formData != null) {
             _onFormDataChanged(_formData!);
@@ -128,19 +126,22 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Only clear if the focused record matches this page's record
     // This prevents clearing when navigating between different properties-edit pages
     if (_mapProvider != null && _record != null) {
-      try {
-        _mapProvider!.clearDistanceLine();
+      // Schedule cleanup after frame to avoid calling notifyListeners during dispose
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        try {
+          _mapProvider!.clearDistanceLine();
 
-        // Only clear focused record if it's the same as this page's record
-        if (_mapProvider!.focusedRecord?.id == _record!.id) {
-          _mapProvider!.clearFocusedRecord();
-          debugPrint('Distance line and focused record cleared on dispose (record matched)');
-        } else {
-          debugPrint('Distance line cleared but focused record preserved (different record)');
+          // Only clear focused record if it's the same as this page's record
+          if (_mapProvider!.focusedRecord?.id == _record!.id) {
+            _mapProvider!.clearFocusedRecord();
+            debugPrint('Distance line and focused record cleared on dispose (record matched)');
+          } else {
+            debugPrint('Distance line cleared but focused record preserved (different record)');
+          }
+        } catch (e) {
+          debugPrint('Error clearing map state on dispose: $e');
         }
-      } catch (e) {
-        debugPrint('Error clearing map state on dispose: $e');
-      }
+      });
     }
 
     super.dispose();
@@ -215,9 +216,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         final validationDir = Directory('${appDirectory.path}/TFM/validation/$directory');
         if (await validationDir.exists()) {
           final files = await validationDir.list().toList();
-          debugPrint(
-            'Files in validation directory ($directory): ${files.map((f) => f.path.split('/').last).join(', ')}',
-          );
+          debugPrint('Files in validation directory ($directory): ${files.map((f) => f.path.split('/').last).join(', ')}');
         } else {
           debugPrint('Validation directory does not exist: ${validationDir.path}');
         }
@@ -336,10 +335,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     });
 
     try {
-      final records = await RecordsRepository().getRecordsByClusterAndPlot(
-        widget.clusterName,
-        widget.plotName,
-      );
+      final records = await RecordsRepository().getRecordsByClusterAndPlot(widget.clusterName, widget.plotName);
       _formData = records.isNotEmpty ? records.first.properties : null;
       // print _formData.plot_coordinates to debug console
       debugPrint('Loaded form data: ${_formData?['plot_coordinates']}');
@@ -389,12 +385,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Check validation before saving (show dialog for errors OR warnings)
     if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
       // Show validation errors/warnings dialog
-      saveAction = await ValidationErrorsDialog.show(
-        context,
-        _validationResult!,
-        onNavigateToTab: _navigateToTabFromError,
-        record: _record,
-      );
+      saveAction = await ValidationErrorsDialog.show(context, _validationResult!, onNavigateToTab: _navigateToTabFromError, record: _record);
 
       // If user didn't confirm save from dialog, return
       if (saveAction == null) {
@@ -416,15 +407,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Update properties, schema_id_validated_by, and local_updated_at
       // PowerSync will track this change and sync to server
       if (saveAction == 'save') {
-        await db.execute(
-          'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
-          [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
-        );
+        await db.execute('UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?', [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id]);
       } else if (saveAction == 'complete') {
-        await db.execute(
-          'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?',
-          [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id],
-        );
+        await db.execute('UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?', [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id]);
       }
 
       // Create updated record for local state
@@ -460,20 +445,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       // Show success message and navigate based on save action
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Find root scaffold messenger to show above bottom sheet
+        final rootScaffoldMessenger = ScaffoldMessenger.of(context);
+        rootScaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text(
-              saveAction == 'complete'
-                  ? 'Datensatz gespeichert und abgeschlossen'
-                  : 'Datensatz erfolgreich gespeichert',
-            ),
+            content: Text(saveAction == 'complete' ? 'Datensatz gespeichert und abgeschlossen' : 'Datensatz erfolgreich gespeichert'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height * 0.7, left: 16, right: 16),
           ),
         );
 
         // Only navigate away if "complete" was chosen
-        if (saveAction == 'complete') {
+        if (saveAction == 'complete' || saveAction == 'save') {
           Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
         }
       }
@@ -482,11 +467,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       // Show error message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Find root scaffold messenger to show above bottom sheet
+        final rootScaffoldMessenger = ScaffoldMessenger.of(context);
+        rootScaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Fehler beim Speichern: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height * 0.7, left: 16, right: 16),
           ),
         );
       }
@@ -502,19 +491,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       try {
         // Merge properties with record metadata for TFM validation
         // TFM needs: id, intkey, cluster_id, plot_id, and all properties
-        final currentDataWithMeta = {
-          ...updatedData,
-          if (_record?.id != null) 'id': _record!.id,
-          if (_record?.plotId != null) 'plot_id': _record!.plotId,
-          if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
-        };
+        final currentDataWithMeta = {...updatedData, if (_record?.id != null) 'id': _record!.id, if (_record?.plotId != null) 'plot_id': _record!.plotId, if (_record?.clusterId != null) 'cluster_id': _record!.clusterId};
 
         // Generate intkey if we have the necessary data
-        if (_record != null &&
-            updatedData['cluster_name'] != null &&
-            updatedData['plot_name'] != null) {
-          currentDataWithMeta['intkey'] =
-              '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
+        if (_record != null && updatedData['cluster_name'] != null && updatedData['plot_name'] != null) {
+          currentDataWithMeta['intkey'] = '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
         }
 
         final previousDataWithMeta = _previousFormData != null
@@ -523,18 +504,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 if (_record?.id != null) 'id': _record!.id,
                 if (_record?.plotId != null) 'plot_id': _record!.plotId,
                 if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
-                if (_previousFormData!['cluster_name'] != null &&
-                    _previousFormData!['plot_name'] != null)
-                  'intkey':
-                      '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
+                if (_previousFormData!['cluster_name'] != null && _previousFormData!['plot_name'] != null) 'intkey': '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
               }
             : null;
 
-        final result = await ValidationService.instance.validateWithTFM(
-          schema: _jsonSchema!,
-          data: currentDataWithMeta,
-          previousData: previousDataWithMeta,
-        );
+        final result = await ValidationService.instance.validateWithTFM(schema: _jsonSchema!, data: currentDataWithMeta, previousData: previousDataWithMeta);
 
         if (mounted) {
           setState(() {
@@ -545,9 +519,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           });
         }
 
-        debugPrint(
-          'Form validation errors: ${result.allErrors.length} total (AJV: ${result.ajvErrors.length}, TFM: ${result.tfmOnlyErrors.length})',
-        );
+        debugPrint('Form validation errors: ${result.allErrors.length} total (AJV: ${result.ajvErrors.length}, TFM: ${result.tfmOnlyErrors.length})');
         debugPrint('tfmAvailable: ${result.tfmAvailable}, isValid: ${result.isValid}');
       } catch (e) {
         debugPrint('Validation error: $e');
@@ -601,9 +573,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   void _showCurrentAsJson() {
     if (_formData == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No data available')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No data available'),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height * 0.7, left: 16, right: 16),
+        ),
+      );
       return;
     }
 
@@ -617,20 +593,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             AppBar(
               title: const Text('Current Form Data (JSON)'),
               automaticallyImplyLeading: false,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+              actions: [IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop())],
             ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
-                child: SelectableText(
-                  jsonString,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
+                child: SelectableText(jsonString, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
               ),
             ),
           ],
@@ -641,9 +609,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   void _showCurrentSchema() {
     if (_jsonSchema == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No schema available')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No schema available'),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height * 0.7, left: 16, right: 16),
+        ),
+      );
       return;
     }
 
@@ -657,20 +629,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             AppBar(
               title: const Text('Current Schema (JSON)'),
               automaticallyImplyLeading: false,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+              actions: [IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop())],
             ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
-                child: SelectableText(
-                  jsonString,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
+                child: SelectableText(jsonString, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
               ),
             ),
           ],
@@ -693,10 +657,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               clipBehavior: Clip.none,
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.map, size: 20),
-                    onPressed: () => _focusRecord(context),
-                  ),
+                  IconButton(icon: const Icon(Icons.map, size: 20), onPressed: () => _focusRecord(context)),
                   //const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -710,29 +671,18 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                         if (_loadedSchemaVersion != null)
                           Text(
                             'Ecke: ${widget.plotName}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.grey,
-                            ),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.grey),
                           ),
                       ],
                     ),
                   ),
                   Badge.count(
                     count: _validationResult?.allIssues.length ?? 0,
-                    isLabelVisible:
-                        _validationResult != null && _validationResult!.allIssues.isNotEmpty,
+                    isLabelVisible: _validationResult != null && _validationResult!.allIssues.isNotEmpty,
                     textColor: Colors.white,
                     child: ElevatedButton(
                       onPressed: _jsonSchema != null ? saveRecord : null,
-                      child: _isValidating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('FERTIG'),
+                      child: _isValidating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('FERTIG'),
                     ),
                   ),
                   IconButton(
@@ -740,28 +690,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     onPressed: () {
                       showMenu<String>(
                         context: context,
-                        position: RelativeRect.fromLTRB(
-                          MediaQuery.of(context).size.width,
-                          kToolbarHeight,
-                          0,
-                          0,
-                        ),
+                        position: RelativeRect.fromLTRB(MediaQuery.of(context).size.width, kToolbarHeight, 0, 0),
                         items: <PopupMenuEntry<String>>[
                           const PopupMenuItem<String>(
                             value: 'json',
-                            child: Row(
-                              children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')],
-                            ),
+                            child: Row(children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')]),
                           ),
                           PopupMenuItem<String>(
                             value: 'schema',
-                            child: Row(
-                              children: [
-                                Icon(Icons.schema),
-                                SizedBox(width: 8),
-                                Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}'),
-                              ],
-                            ),
+                            child: Row(children: [Icon(Icons.schema), SizedBox(width: 8), Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}')]),
                           ),
                         ],
                       ).then((value) {

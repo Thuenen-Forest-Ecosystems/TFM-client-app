@@ -6,12 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
-//import 'package:terrestrial_forest_monitor/screens/admin-permissions.dart';
-//import 'package:terrestrial_forest_monitor/screens/admin.dart';
-//import 'package:terrestrial_forest_monitor/screens/headless.dart';
-//import 'package:terrestrial_forest_monitor/screens/home.dart';
 import 'package:terrestrial_forest_monitor/screens/schema.dart';
-//import 'package:terrestrial_forest_monitor/screens/settings.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map-state.dart';
@@ -57,39 +52,13 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
     ],
     locationBuilder: RoutesLocationBuilder(
       routes: {
-        '/login': (context, state, data) => BeamPage(
-          key: ValueKey('login'),
-          title: 'Login',
-          child: Login(),
-          type: BeamPageType.noTransition,
-        ),
-        '/': (context, state, data) => BeamPage(
-          key: ValueKey('home'),
-          title: 'TFM',
-          child: Schema(),
-          type: BeamPageType.noTransition,
-        ),
+        '/login': (context, state, data) => BeamPage(key: ValueKey('login'), title: 'Login', child: Login(), type: BeamPageType.noTransition),
+        '/': (context, state, data) => BeamPage(key: ValueKey('home'), title: 'TFM', child: Schema(), type: BeamPageType.noTransition),
         //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-        '/records-selection/:intervalName': (context, state, data) => BeamPage(
-          key: ValueKey('records-${state.pathParameters['intervalName']}'),
-          title: 'TFM',
-          child: Start(),
-          type: BeamPageType.noTransition,
-        ),
-        '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(
-          key: ValueKey(
-            'properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}',
-          ),
-          title: 'TFM',
-          child: Start(),
-          type: BeamPageType.noTransition,
-        ),
-        '/profile': (context, state, data) => BeamPage(
-          key: ValueKey('profile'),
-          title: 'Profile',
-          child: Profile(),
-          type: BeamPageType.noTransition,
-        ),
+        '/records-selection/:intervalName': (context, state, data) => BeamPage(key: ValueKey('records-${state.pathParameters['intervalName']}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
+        '/properties-edit/:clusterName/:plotName': (context, state, data) =>
+            BeamPage(key: ValueKey('properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
+        '/profile': (context, state, data) => BeamPage(key: ValueKey('profile'), title: 'Profile', child: Profile(), type: BeamPageType.noTransition),
         //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
         //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
         //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
@@ -106,9 +75,7 @@ void main() async {
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
-  final ThemeMode initialThemeMode = brightness == Brightness.dark
-      ? ThemeMode.dark
-      : ThemeMode.light;
+  final ThemeMode initialThemeMode = brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
 
   try {
     await dotenv.load(fileName: '.env');
@@ -220,19 +187,14 @@ class Layout extends StatelessWidget {
           // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
           pageTransitionsTheme: PageTransitionsTheme(
             builders: kIsWeb
-                ? {
-                    for (final platform in TargetPlatform.values)
-                      platform: const NoTransitionsBuilder(),
-                  }
+                ? {for (final platform in TargetPlatform.values) platform: const NoTransitionsBuilder()}
                 : {
-                    TargetPlatform.android: ZoomPageTransitionsBuilder(),
-                    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                    // Disable swipe-back gestures for both platforms
+                    TargetPlatform.android: const NoTransitionsBuilder(),
+                    TargetPlatform.iOS: const NoTransitionsBuilder(),
                   },
           ),
-          colorScheme: ColorScheme.fromSwatch(
-            primarySwatch: Colors.green,
-            brightness: Brightness.light,
-          ).copyWith(error: Colors.red.shade700),
+          colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.light).copyWith(error: Colors.red.shade700),
           primaryColor: const Color(0xFFC3E399),
           appBarTheme: AppBarTheme(color: const Color(0xFFC3E399)),
           useMaterial3: true,
@@ -240,20 +202,10 @@ class Layout extends StatelessWidget {
 
         darkTheme: ThemeData(
           scaffoldBackgroundColor: Color(0xFF333333),
-          colorScheme: ColorScheme.fromSwatch(
-            primarySwatch: Colors.green,
-            brightness: Brightness.dark,
-          ).copyWith(error: Colors.red.shade400),
+          colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.dark).copyWith(error: Colors.red.shade400),
           primaryColor: const Color(0xFFC3E399),
-          appBarTheme: AppBarTheme(
-            color: const Color.fromARGB(255, 224, 241, 203),
-            foregroundColor: Colors.black,
-          ), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
-          bottomNavigationBarTheme: BottomNavigationBarThemeData(
-            backgroundColor: const Color(0xFFC3E399),
-            selectedItemColor: Colors.black,
-            unselectedItemColor: Colors.black,
-          ),
+          appBarTheme: AppBarTheme(color: const Color.fromARGB(255, 224, 241, 203), foregroundColor: Colors.black), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
+          bottomNavigationBarTheme: BottomNavigationBarThemeData(backgroundColor: const Color(0xFFC3E399), selectedItemColor: Colors.black, unselectedItemColor: Colors.black),
           useMaterial3: true,
           /* dark theme settings */
         ),

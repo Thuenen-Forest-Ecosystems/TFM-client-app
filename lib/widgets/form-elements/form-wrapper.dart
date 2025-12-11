@@ -98,12 +98,6 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       tabs.add(FormTab(id: 'deadwood', label: title ?? 'Totholz'));
     }
 
-    // plot_landmark
-    if (schemaProperties.containsKey('plot_landmark')) {
-      final title = schemaProperties['plot_landmark']?['title'] as String?;
-      tabs.add(FormTab(id: 'plot_landmark', label: title ?? 'Geländemerkmale'));
-    }
-
     return tabs;
   }
 
@@ -451,7 +445,7 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
               switch (tab.id) {
                 case 'position':
                   return NavigationElement(
-                    jsonSchema: schemaProperties['position'],
+                    jsonSchema: schemaProperties,
                     data: _localFormData,
                     propertyName: 'position',
                     previous_properties: _previousProperties,
@@ -541,17 +535,6 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                     validationResult: widget.validationResult,
                     onDataChanged: (updatedData) {
                       _updateField('deadwood', updatedData);
-                    },
-                  );
-                case 'plot_landmark':
-                  return GenericForm(
-                    jsonSchema: schemaProperties['plot_landmark'],
-                    data: _localFormData['plot_landmark'] ?? {},
-                    propertyName: 'plot_landmark',
-                    previous_properties: _previousProperties,
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('plot_landmark', updatedData);
                     },
                   );
                 default:

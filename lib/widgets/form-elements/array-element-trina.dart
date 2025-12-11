@@ -47,10 +47,22 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   @override
   void didUpdateWidget(ArrayElementTrina oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only reinitialize if schema changes
+    // Reinitialize if schema changes or data changes
+    bool shouldRebuild = false;
+
     if (widget.jsonSchema != oldWidget.jsonSchema) {
+      shouldRebuild = true;
+    }
+
+    // Check if data has changed
+    if (widget.data != oldWidget.data) {
+      shouldRebuild = true;
+    }
+
+    if (shouldRebuild) {
       _initializeGrid();
     }
+
     // If validation result changes, force grid to rebuild cells
     if (widget.validationResult != oldWidget.validationResult) {
       _stateManager?.notifyListeners();

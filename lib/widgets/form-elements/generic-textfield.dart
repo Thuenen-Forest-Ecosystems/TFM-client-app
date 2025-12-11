@@ -50,32 +50,42 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
   void _initializeControllers() {
     final type = _getType();
+    dynamic effectiveValue = widget.value;
+
+    // If value is null, use schema default if available
+    if (effectiveValue == null && widget.fieldSchema.containsKey('default')) {
+      effectiveValue = widget.fieldSchema['default'];
+      // Notify parent immediately about the default value
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onChanged?.call(effectiveValue);
+      });
+    }
 
     if (type == 'boolean') {
-      // Handle boolean: if value is null, use schema default if available, otherwise false
-      if (widget.value != null) {
-        _boolValue = widget.value == true;
-      } else {
-        final defaultValue = widget.fieldSchema['default'];
-        _boolValue = defaultValue == true;
-      }
+      _boolValue = effectiveValue == true;
+      debugPrint('Initialized boolean field ${widget.fieldName} with value $_boolValue');
     } else {
-      _controller = TextEditingController(text: widget.value?.toString() ?? '');
+      _controller = TextEditingController(text: effectiveValue?.toString() ?? '');
     }
   }
 
   void _updateControllers() {
     final type = _getType();
-    final newValue = widget.value?.toString() ?? '';
+    dynamic effectiveValue = widget.value;
+
+    // If value is null, use schema default if available
+    if (effectiveValue == null && widget.fieldSchema.containsKey('default')) {
+      effectiveValue = widget.fieldSchema['default'];
+      // Notify parent immediately about the default value
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onChanged?.call(effectiveValue);
+      });
+    }
+
+    final newValue = effectiveValue?.toString() ?? '';
 
     if (type == 'boolean') {
-      // Handle boolean: if value is null, use schema default if available, otherwise false
-      if (widget.value != null) {
-        _boolValue = widget.value == true;
-      } else {
-        final defaultValue = widget.fieldSchema['default'];
-        _boolValue = defaultValue == true;
-      }
+      _boolValue = effectiveValue == true;
     } else {
       // Only update controller text if it's different to avoid cursor position reset
       if (_controller.text != newValue) {

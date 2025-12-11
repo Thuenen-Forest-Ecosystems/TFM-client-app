@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
-import 'package:flutter_map/flutter_map.dart';
 //import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
 //import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon.dart';
@@ -69,36 +67,53 @@ class _StartState extends State<Start> {
       initialPath: '/',
       locationBuilder: RoutesLocationBuilder(
         routes: {
-          '/': (context, state, data) =>
-              BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection()),
+          '/': (context, state, data) => BeamPage(
+            key: const ValueKey('schema-selection'),
+            child: PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) async {
+                if (didPop) return;
+                await _handleCloseButtonPressed();
+              },
+              child: const SchemaSelection(),
+            ),
+          ),
           '/records-selection/:intervalName': (context, state, data) {
             final intervalName = state.pathParameters['intervalName'];
             if (intervalName == null || intervalName.isEmpty) {
-              return BeamPage(
-                key: const ValueKey('schema-selection'),
-                child: const SchemaSelection(),
-              );
+              return BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection());
             }
             final decodedIntervalName = Uri.decodeComponent(intervalName);
             return BeamPage(
               key: ValueKey('records-selection-$decodedIntervalName'),
-              child: RecordsSelection(intervalName: decodedIntervalName),
+              child: PopScope(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, result) async {
+                  if (didPop) return;
+                  await _handleCloseButtonPressed();
+                },
+                child: RecordsSelection(intervalName: decodedIntervalName),
+              ),
             );
           },
           '/properties-edit/:clusterName/:plotName': (context, state, data) {
             final clusterName = state.pathParameters['clusterName'];
             final plotName = state.pathParameters['plotName'];
             if (clusterName == null || plotName == null) {
-              return BeamPage(
-                key: const ValueKey('schema-selection'),
-                child: const SchemaSelection(),
-              );
+              return BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection());
             }
             final decodedClusterName = Uri.decodeComponent(clusterName);
             final decodedPlotName = Uri.decodeComponent(plotName);
             return BeamPage(
               key: ValueKey('properties-edit-$decodedClusterName-$decodedPlotName'),
-              child: PropertiesEdit(clusterName: decodedClusterName, plotName: decodedPlotName),
+              child: PopScope(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, result) async {
+                  if (didPop) return;
+                  await _handleCloseButtonPressed();
+                },
+                child: PropertiesEdit(clusterName: decodedClusterName, plotName: decodedPlotName),
+              ),
             );
           },
         },
@@ -157,9 +172,7 @@ class _StartState extends State<Start> {
       // Watch records filtered by selected permissions
       _recordsWatchSubscription = RecordsRepository().watchAllRecords().listen(
         (records) {
-          debugPrint(
-            'Start: Received ${records.length} records from stream (filtered by permissions)',
-          );
+          debugPrint('Start: Received ${records.length} records from stream (filtered by permissions)');
 
           if (!mounted) return;
 
@@ -224,10 +237,7 @@ class _StartState extends State<Start> {
   Widget _buildTopBar() {
     return Container(
       // add scaffold background color and rounded corners
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.all(Radius.circular(30)),
-      ),
+      decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(30))),
       child: Row(
         children: [
           //const SyncStatusButton(),
@@ -255,187 +265,121 @@ class _StartState extends State<Start> {
       );
     }*/
 
-    return BackButtonListener(
-      onBackButtonPressed: () async {
-        final currentPath = _beamerDelegate.currentBeamLocation.state.routeInformation.uri.path;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        // Handle system back/gesture same as close button
+        await _handleCloseButtonPressed();
+      },
+      child: BackButtonListener(onBackButtonPressed: _handleCloseButtonPressed, child: _buildContent(context)),
+    );
+  }
 
-        // If on properties-edit, show confirmation dialog before navigating back
-        if (currentPath.startsWith('/properties-edit')) {
-          final shouldNavigate = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Aufnahme abbrechen'),
-              content: const Text('Ungespeicherten Änderungen gehen verloren.'),
-              actionsAlignment: MainAxisAlignment.spaceBetween,
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('zurück'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                    foregroundColor: Colors.white,
+  Widget _buildContent(BuildContext context) {
+    return Stack(
+      children: [
+        // Background Map (Fixed Height) - Move up based on sheet position
+        // The map center should align with the center of visible area (above the sheet)
+        Positioned(
+          top: -(_currentSheetSize - _minChildSize) * MediaQuery.of(context).size.height * 0.5 - MediaQuery.of(context).padding.top,
+          left: 0,
+          right: 0,
+          height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
+          child: MapWidget(
+            key: const ValueKey('main-map-widget'),
+            initialCenter: const LatLng(52.2688, 10.5268), // Braunschweig
+            initialZoom: 4,
+            sheetPosition: _currentSheetSize,
+          ),
+        ),
+        SafeArea(
+          child: Container(
+            alignment: Alignment.topLeft,
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: const BorderRadius.only(topRight: Radius.circular(30), bottomRight: Radius.circular(30)),
                   ),
-                  child: const Text('Änderungen verwerfen'),
+                  child: IconButton(icon: const Icon(Icons.close), onPressed: _handleCloseButtonPressed),
                 ),
+                const Expanded(child: SizedBox()),
+                _buildTopBar(),
+                SizedBox(width: 16),
               ],
             ),
-          );
-
-          if (shouldNavigate == true) {
-            final pathSegments = Uri.parse(currentPath).pathSegments;
-            if (pathSegments.length >= 3) {
-              final clusterName = Uri.decodeComponent(pathSegments[1]);
-              final plotName = Uri.decodeComponent(pathSegments[2]);
-
-              // Load the record to get the schemaName/intervalName
-              try {
-                final recordsRepository = RecordsRepository();
-                final records = await recordsRepository.getRecordsByClusterAndPlot(
-                  clusterName,
-                  plotName,
-                );
-
-                if (records.isNotEmpty) {
-                  final intervalName = records.first.schemaName;
-                  _beamerDelegate.beamToNamed(
-                    '/records-selection/${Uri.encodeComponent(intervalName)}',
-                  );
-                  return true;
-                }
-              } catch (e) {
-                debugPrint('Error loading record for back navigation: $e');
-              }
-            }
-            // Fallback to schema-selection if we can't determine intervalName
-            _beamerDelegate.beamToNamed('/');
-          }
-          return true; // Always consume the back button on properties-edit
-        }
-
-        // If on records-selection, go back to schema-selection
-        if (currentPath.startsWith('/records-selection')) {
-          _beamerDelegate.beamToNamed('/');
-          return true;
-        }
-
-        // If on schema-selection (root), don't consume the back button
-        return false;
-      },
-      child: Stack(
-        children: [
-          // Background Map (Fixed Height) - Move up based on sheet position
-          // The map center should align with the center of visible area (above the sheet)
-          Positioned(
-            top:
-                -(_currentSheetSize - _minChildSize) * MediaQuery.of(context).size.height * 0.5 -
-                MediaQuery.of(context).padding.top,
-            left: 0,
-            right: 0,
-            height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
-            child: MapWidget(
-              key: const ValueKey('main-map-widget'),
-              initialCenter: const LatLng(52.2688, 10.5268), // Braunschweig
-              initialZoom: 4,
-              sheetPosition: _currentSheetSize,
-            ),
           ),
-          SafeArea(
-            child: Container(
-              alignment: Alignment.topLeft,
-              child: Row(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(30),
-                        bottomRight: Radius.circular(30),
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () {
-                        SchedulerBinding.instance.addPostFrameCallback((_) async {
-                          final currentPath =
-                              _beamerDelegate.currentBeamLocation.state.routeInformation.uri.path;
+        ),
 
-                          String title = 'Zurückgehen bestätigen';
-                          bool? shouldNavigate = true;
-
-                          if (currentPath.startsWith('/properties-edit')) {
-                            title = 'Aufnahme abbrechen';
-
-                            shouldNavigate = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(title),
-                                content: const Text('Ungespeicherten Änderungen gehen verloren.'),
-                                actionsAlignment: MainAxisAlignment.spaceBetween,
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(false),
-                                    child: const Text('zurück'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.of(context).pop(true),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Theme.of(context).colorScheme.error,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: const Text('Änderungen verwerfen'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          if (shouldNavigate == true) {
-                            // If on properties-edit, navigate back to records-selection with intervalName
-                            if (currentPath.startsWith('/properties-edit')) {
-                              // Extract clusterName and plotName from URI path: /properties-edit/:clusterName/:plotName
-                              final pathSegments = Uri.parse(currentPath).pathSegments;
-                              if (pathSegments.length >= 3) {
-                                final clusterName = Uri.decodeComponent(pathSegments[1]);
-                                final plotName = Uri.decodeComponent(pathSegments[2]);
-
-                                // Load the record to get the schemaName/intervalName
-                                final recordsRepository = RecordsRepository();
-                                final records = await recordsRepository.getRecordsByClusterAndPlot(
-                                  clusterName,
-                                  plotName,
-                                );
-
-                                if (records.isNotEmpty) {
-                                  final intervalName = records.first.schemaName;
-                                  _beamerDelegate.beamToNamed(
-                                    '/records-selection/${Uri.encodeComponent(intervalName)}',
-                                  );
-                                  return;
-                                }
-                              }
-                            } else {
-                              Beamer.of(context, root: true).beamToNamed('/');
-                            }
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                  const Expanded(child: SizedBox()),
-                  _buildTopBar(),
-                  SizedBox(width: 16),
-                ],
-              ),
-            ),
-          ),
-
-          // Bottom Sheet with Content
-          _buildBottomSheet(),
-        ],
-      ),
+        // Bottom Sheet with Content
+        _buildBottomSheet(),
+      ],
     );
+  }
+
+  Future<bool> _handleCloseButtonPressed() async {
+    if (!mounted) return true;
+
+    final currentPath = _beamerDelegate.currentBeamLocation.state.routeInformation.uri.path;
+
+    String title = 'Zurückgehen bestätigen';
+    bool? shouldNavigate = true;
+
+    if (currentPath.startsWith('/properties-edit')) {
+      title = 'Aufnahme abbrechen';
+
+      shouldNavigate = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: const Text('Ungespeicherten Änderungen gehen verloren.'),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('zurück')),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Colors.white),
+              child: const Text('Änderungen verwerfen'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (shouldNavigate == true) {
+      // If on properties-edit, navigate back to records-selection with intervalName
+      if (currentPath.startsWith('/properties-edit')) {
+        // Extract clusterName and plotName from URI path: /properties-edit/:clusterName/:plotName
+        final pathSegments = Uri.parse(currentPath).pathSegments;
+        if (pathSegments.length >= 3) {
+          final clusterName = Uri.decodeComponent(pathSegments[1]);
+          final plotName = Uri.decodeComponent(pathSegments[2]);
+
+          // Load the record to get the schemaName/intervalName
+          try {
+            final recordsRepository = RecordsRepository();
+            final records = await recordsRepository.getRecordsByClusterAndPlot(clusterName, plotName);
+
+            if (records.isNotEmpty) {
+              final intervalName = records.first.schemaName;
+              _beamerDelegate.beamToNamed('/records-selection/${Uri.encodeComponent(intervalName)}');
+              return true;
+            }
+          } catch (e) {
+            debugPrint('Error loading record for back navigation: $e');
+          }
+        }
+      }
+
+      // Default: go to schema-selection (Root)
+      if (mounted) {
+        Beamer.of(context, root: true).beamToNamed('/');
+      }
+    }
+
+    return true;
   }
 
   // Draggable Bottom Sheet
@@ -468,10 +412,7 @@ class _StartState extends State<Start> {
                     child: Container(
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
                     ),
                   ),
                 ),

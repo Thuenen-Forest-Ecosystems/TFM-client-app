@@ -14,23 +14,32 @@ class NavigationElement extends StatefulWidget {
   final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
 
-  const NavigationElement({
-    super.key,
-    this.jsonSchema,
-    this.data,
-    this.previous_properties,
-    this.propertyName,
-    this.validationResult,
-    this.onDataChanged,
-  });
+  const NavigationElement({super.key, this.jsonSchema, this.data, this.previous_properties, this.propertyName, this.validationResult, this.onDataChanged});
 
   @override
   State<NavigationElement> createState() => _NavigationElementState();
 }
 
-class _NavigationElementState extends State<NavigationElement> with AutomaticKeepAliveClientMixin {
+class _NavigationElementState extends State<NavigationElement> with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   @override
   bool get wantKeepAlive => true;
+
+  late TabController _tabController;
+  late TabController _landmarkTabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _landmarkTabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _landmarkTabController.dispose();
+    super.dispose();
+  }
 
   double? _extractDouble(dynamic value) {
     if (value == null) return null;
@@ -45,12 +54,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
     const earthRadiusMeters = 6371000.0;
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
-    final a =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRadians(lat1)) *
-            math.cos(_toRadians(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) + math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.sin(dLon / 2) * math.sin(dLon / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadiusMeters * c;
   }
@@ -59,9 +63,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
   double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {
     final dLon = _toRadians(lon2 - lon1);
     final y = math.sin(dLon) * math.cos(_toRadians(lat2));
-    final x =
-        math.cos(_toRadians(lat1)) * math.sin(_toRadians(lat2)) -
-        math.sin(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.cos(dLon);
+    final x = math.cos(_toRadians(lat1)) * math.sin(_toRadians(lat2)) - math.sin(_toRadians(lat1)) * math.cos(_toRadians(lat2)) * math.cos(dLon);
     final bearingRadians = math.atan2(y, x);
     final bearingDegrees = _toDegrees(bearingRadians);
     // Convert to 0-360 range
@@ -90,10 +92,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(
-            'No plot coordinates available for navigation.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 16),
-          ),
+          child: Text('No plot coordinates available for navigation.', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
         ),
       );
     }
@@ -112,9 +111,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
           final centerLocation = plotCoordinates['center_location'];
           if (centerLocation != null) {
             // Handle GeoJSON Point format
-            if (centerLocation is Map &&
-                centerLocation['type'] == 'Point' &&
-                centerLocation['coordinates'] is List) {
+            if (centerLocation is Map && centerLocation['type'] == 'Point' && centerLocation['coordinates'] is List) {
               final coords = centerLocation['coordinates'] as List;
               if (coords.length >= 2) {
                 targetLng = _extractDouble(coords[0]);
@@ -123,18 +120,8 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
             }
 
             if (targetLat != null && targetLng != null) {
-              distance = _calculateDistance(
-                userPosition.latitude,
-                userPosition.longitude,
-                targetLat,
-                targetLng,
-              );
-              bearing = _calculateBearing(
-                userPosition.latitude,
-                userPosition.longitude,
-                targetLat,
-                targetLng,
-              );
+              distance = _calculateDistance(userPosition.latitude, userPosition.longitude, targetLat, targetLng);
+              bearing = _calculateBearing(userPosition.latitude, userPosition.longitude, targetLat, targetLng);
             }
           }
         }
@@ -149,75 +136,110 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Datenaufnahme Position', style: Theme.of(context).textTheme.titleMedium),
-          RecordPosition(
-            data: widget.data,
-            previous_properties: widget.previous_properties,
-            propertyName: widget.propertyName,
-            onDataChanged: widget.onDataChanged,
-            validationResult: widget.validationResult,
-            jsonSchema: widget.jsonSchema,
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'GPS'),
+              Tab(text: 'manuelle Einmessung'),
+            ],
           ),
           const SizedBox(height: 12),
-          Text('Navigation', style: Theme.of(context).textTheme.titleMedium),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (distance != null && bearing != null) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(
-                          child: _buildNavigationItem(
-                            icon: Icons.straighten,
-                            label: 'Distanz',
-                            value: _formatDistance(distance),
+          SizedBox(
+            height: 600, // Give TabBarView a fixed height
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // GPS Tab
+                SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Text('Datenaufnahme Position', style: Theme.of(context).textTheme.titleMedium),
+                      ),
+                      RecordPosition(
+                        data: widget.data,
+                        previous_properties: widget.previous_properties,
+                        propertyName: widget.propertyName,
+                        onDataChanged: widget.onDataChanged,
+                        validationResult: widget.validationResult,
+                        jsonSchema: widget.jsonSchema!['position'],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, top: 16),
+                        child: Text('Navigation zum Messpunkt', style: Theme.of(context).textTheme.titleMedium),
+                      ),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (distance != null && bearing != null) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    Expanded(
+                                      child: _buildNavigationItem(icon: Icons.straighten, label: 'Distanz', value: _formatDistance(distance)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildNavigationItem(icon: Icons.explore, label: 'Richtung', value: '${bearing.toStringAsFixed(1)} gon'),
+                                    ),
+                                  ],
+                                ),
+                              ] else ...[
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Column(
+                                      children: [
+                                        Text('Keine Navigationsdaten verfügbar, verbinde ein externes GPS oder nutze das interne GPS des Geräts.', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            final gpsProvider = context.read<GpsPositionProvider>();
+                                            gpsProvider.setCurrentLocation();
+                                            if (!gpsProvider.listeningPosition) {
+                                              gpsProvider.startTrackingLocation();
+                                            }
+                                          },
+                                          icon: const Icon(Icons.gps_fixed),
+                                          label: const Text('Start GPS'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildNavigationItem(
-                            icon: Icons.explore,
-                            label: 'Richtung',
-                            value: '${bearing.toStringAsFixed(1)} gon',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Keine Navigationsdaten verfügbar, verbinde ein externes GPS oder nutze das interne GPS des Geräts.',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                final gpsProvider = context.read<GpsPositionProvider>();
-                                gpsProvider.setCurrentLocation();
-                                if (!gpsProvider.listeningPosition) {
-                                  gpsProvider.startTrackingLocation();
-                                }
-                              },
-                              icon: const Icon(Icons.gps_fixed),
-                              label: const Text('Start GPS'),
-                            ),
-                          ],
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                // Manual Measurement Tab
+                const SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(
+                      child: Text('Manuelle Einmessung - Coming Soon', style: TextStyle(fontSize: 16, color: Colors.grey)),
                     ),
-                  ],
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
+          ),
+
+          TabBar(
+            controller: _landmarkTabController,
+            tabs: const [
+              Tab(text: 'Landmarke'),
+              Tab(text: 'Hilfspunkte'),
+            ],
           ),
           /*const SizedBox(height: 12),
           Card(
@@ -303,11 +325,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
     );
   }
 
-  Widget _buildNavigationItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
+  Widget _buildNavigationItem({required IconData icon, required String label, required String value}) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),

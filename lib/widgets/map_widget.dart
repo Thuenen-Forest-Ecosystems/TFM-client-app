@@ -916,14 +916,19 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Layer 3: DOP (offline aerial imagery, zoom 15-19)
-        if (_selectedBasemaps.contains('dop') && _storesInitialized)
+        if (_selectedBasemaps.contains('dop') && _storesInitialized && dotenv.env['DMZ_KEY'] != null && dotenv.env['DMZ_KEY']!.isNotEmpty)
           TileLayer(
             wmsOptions: WMSTileLayerOptions(baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?', layers: const ['rgb'], format: 'image/jpeg'),
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
             minZoom: 15, // Only show from zoom 15 onwards
             maxNativeZoom: 19,
-            tileProvider: FMTCStore('wms_dop__').getTileProvider(settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst)),
+            tileProvider: FMTCStore('wms_dop__').getTileProvider(
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst, cachedValidDuration: const Duration(days: 30)),
+            ),
+            errorTileCallback: (tile, error, stackTrace) {
+              debugPrint('Error loading DOP tile ${tile.coordinates}: $error');
+            },
           ),
 
         // Clustered Markers from records
