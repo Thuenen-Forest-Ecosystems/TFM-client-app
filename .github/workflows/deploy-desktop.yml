@@ -73,7 +73,7 @@ jobs:
 
       - name: Install project dependencies with retry
         run: |
-          $maxRetries = 3
+          $maxRetries = 5
           $retryCount = 0
           $success = $false
           while (-not $success -and $retryCount -lt $maxRetries) {
@@ -84,15 +84,18 @@ jobs:
               if ($retryCount -gt 1) {
                 Write-Host "Cleaning pub cache..."
                 flutter pub cache clean --force
+                Start-Sleep -Seconds 5 # Wait for file system to settle
               }
-              flutter pub get
+              # Use --no-precompile to avoid some lock issues during precompilation
+              flutter pub get --no-precompile
               if ($LASTEXITCODE -ne 0) { throw "Flutter pub get failed with exit code $LASTEXITCODE" }
               $success = $true
             } catch {
               Write-Host "Error: $_"
               if ($retryCount -lt $maxRetries) {
-                Write-Host "Pub get failed, retrying in 10 seconds..."
-                Start-Sleep -Seconds 10
+                $backoff = 15 * $retryCount
+                Write-Host "Pub get failed, retrying in $backoff seconds..."
+                Start-Sleep -Seconds $backoff
               } else {
                 throw
               }
