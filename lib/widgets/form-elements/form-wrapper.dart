@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/layout_service.dart';
+import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/add-row-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
@@ -11,11 +13,21 @@ class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? formData;
   final Map<String, dynamic>? previousFormData;
   final TFMValidationResult? validationResult;
+  final String? layoutName;
 
   final Function(Map<String, dynamic>)? onFormDataChanged;
   final Function(String?)? onNavigateToTab;
 
-  const FormWrapper({super.key, this.jsonSchema, this.formData, this.previousFormData, this.onFormDataChanged, this.validationResult, this.onNavigateToTab});
+  const FormWrapper({
+    super.key,
+    this.jsonSchema,
+    this.formData,
+    this.previousFormData,
+    this.onFormDataChanged,
+    this.validationResult,
+    this.onNavigateToTab,
+    this.layoutName,
+  });
   @override
   State<FormWrapper> createState() => FormWrapperState();
 }
@@ -34,6 +46,10 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   List<FormTab> _tabs = [];
   int? _previousTabIndex;
 
+  // Layout configuration
+  LayoutConfig? _layoutConfig;
+  bool _layoutLoaded = false;
+
   // Track current tab type and ArrayElementTrina widgets
   String? _currentTabType;
   final Map<String, GlobalKey<ArrayElementTrinaState>> _arrayElementKeys = {};
@@ -44,25 +60,113 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
     _localFormData = Map<String, dynamic>.from(widget.formData ?? {});
     _previousProperties = Map<String, dynamic>.from(widget.previousFormData ?? {});
 
-    // Initialize tabs and tab controller
-    _tabs = _buildTabsList();
-    if (_tabs.isNotEmpty) {
-      // Find position tab index, default to 0 if not found
-      final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
-      final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
+    // Load layout configuration asynchronously
+    _initializeLayout();
+  }
 
-      _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
-      _previousTabIndex = _tabController!.index;
-
-      // Listen to tab changes to update current tab type
-      _tabController!.addListener(_onTabChanged);
-      _updateCurrentTabType();
+  Future<void> _initializeLayout() async {
+    // Try to load layout configuration if layoutName is provided
+    if (widget.layoutName != null) {
+      _layoutConfig = await LayoutService.loadLayout(widget.layoutName!);
+      if (_layoutConfig != null) {
+        debugPrint('Loaded layout configuration: ${widget.layoutName}');
+      } else {
+        debugPrint('Failed to load layout ${widget.layoutName}, using fallback');
+      }
     }
+
+    setState(() {
+      _layoutLoaded = true;
+      // Rebuild tabs with layout configuration
+      _tabs = _buildTabsList();
+
+      // Pre-create all GlobalKeys for array elements to avoid duplicates in TabBarView
+      if (_layoutConfig != null) {
+        _preCreateArrayKeys(_layoutConfig!.layout);
+      }
+
+      // Initialize tab controller
+      if (_tabs.isNotEmpty) {
+        final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
+        final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
+
+        _tabController = TabController(
+          length: _tabs.length,
+          vsync: this,
+          initialIndex: initialIndex,
+        );
+        _previousTabIndex = _tabController!.index;
+        _tabController!.addListener(_onTabChanged);
+        _updateCurrentTabType();
+      }
+    });
   }
 
   List<FormTab> _buildTabsList() {
     if (widget.jsonSchema == null) return <FormTab>[];
 
+    // Use layout configuration if available
+    if (_layoutConfig != null) {
+      return _buildTabsFromLayout();
+    }
+
+    // Fallback to hard-coded structure
+    return _buildTabsListFallback();
+  }
+
+  /// Build tabs from layout configuration
+  List<FormTab> _buildTabsFromLayout() {
+    final tabs = <FormTab>[];
+    final tabItems = LayoutService.getTabItems(_layoutConfig);
+
+    for (final item in tabItems) {
+      // Get label from layout, fallback to schema title
+      String label = item.label ?? item.id;
+
+      // Try to get more descriptive label from schema if not in layout
+      if (item.label == null) {
+        if (item is FormLayout) {
+          label = widget.jsonSchema!['title'] as String? ?? label;
+        } else {
+          final property = LayoutService.getPropertyForItem(item);
+          if (property is String) {
+            final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>?;
+            // Handle path-based properties
+            final propertySchema = LayoutService.getSchemaByPath(schemaProperties ?? {}, property);
+            label = propertySchema?['title'] as String? ?? label;
+          }
+        }
+      }
+
+      tabs.add(FormTab(id: item.id, label: label));
+    }
+
+    return tabs;
+  }
+
+  /// Pre-create GlobalKeys for all array layouts to avoid duplicates in TabBarView
+  void _preCreateArrayKeys(LayoutItem item) {
+    if (item is ArrayLayout) {
+      _arrayElementKeys[item.id] ??= GlobalKey<ArrayElementTrinaState>();
+    } else if (item is TabsLayout) {
+      for (final child in item.items) {
+        _preCreateArrayKeys(child);
+      }
+    } else if (item is ColumnLayout) {
+      for (final child in item.items) {
+        _preCreateArrayKeys(child);
+      }
+    } else if (item is CardLayout) {
+      if (item.children != null) {
+        for (final child in item.children!) {
+          _preCreateArrayKeys(child);
+        }
+      }
+    }
+  }
+
+  /// Fallback to hard-coded tab structure (backward compatibility)
+  List<FormTab> _buildTabsListFallback() {
     final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>;
     final tabs = <FormTab>[];
 
@@ -125,7 +229,11 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
           final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
           final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
 
-          _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
+          _tabController = TabController(
+            length: _tabs.length,
+            vsync: this,
+            initialIndex: initialIndex,
+          );
           _tabController!.addListener(_onTabChanged);
           _updateCurrentTabType();
         }
@@ -190,77 +298,302 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   }
 
   bool _isArrayElementTrinaTab(String tabId) {
-    return ['tree', 'edges', 'structure_lt4m', 'structure_gt4m', 'regeneration', 'deadwood'].contains(tabId);
+    // Use layout config if available
+    if (_layoutConfig != null) {
+      final item = LayoutService.findItemById(_layoutConfig, tabId);
+      return item != null && LayoutService.isArrayLayout(item);
+    }
+
+    // Fallback to hard-coded list
+    return [
+      'tree',
+      'edges',
+      'structure_lt4m',
+      'structure_gt4m',
+      'regeneration',
+      'deadwood',
+    ].contains(tabId);
   }
 
-  void _addRowToCurrentTab() {
-    if (_tabController == null || _tabs.isEmpty) return;
-
-    final currentIndex = _tabController!.index;
-    if (currentIndex >= 0 && currentIndex < _tabs.length) {
-      final tabId = _tabs[currentIndex].id;
-      if (_isArrayElementTrinaTab(tabId)) {
-        final key = _arrayElementKeys[tabId];
-        key?.currentState?.addRow();
+  /// Build tab content based on layout configuration or fallback to hard-coded logic
+  Widget _buildTabContent(FormTab tab, Map<String, dynamic> schemaProperties) {
+    // Try to use layout configuration first
+    if (_layoutConfig != null) {
+      final layoutItem = LayoutService.findItemById(_layoutConfig, tab.id);
+      if (layoutItem != null) {
+        final content = _buildWidgetFromLayout(layoutItem, schemaProperties);
+        // Don't wrap tabs or arrays in ScrollView - they manage their own scrolling/sizing
+        if (layoutItem is TabsLayout || layoutItem is ArrayLayout) {
+          return content;
+        }
+        // Wrap other content in SingleChildScrollView for scrollable tabs
+        return SingleChildScrollView(child: content);
       }
     }
+
+    // Fallback to hard-coded rendering
+    return _buildTabContentFallback(tab.id, schemaProperties);
   }
 
-  void _addRowToCurrentTabAsFormDialog() async {
-    if (_tabController == null || _tabs.isEmpty || widget.jsonSchema == null) return;
+  /// Build widget from layout configuration (recursive)
+  Widget _buildWidgetFromLayout(LayoutItem layoutItem, Map<String, dynamic> schemaProperties) {
+    if (layoutItem is ColumnLayout) {
+      // Column layout - stack children vertically
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: layoutItem.items.map((child) {
+          Widget childWidget = _buildWidgetFromLayout(child, schemaProperties);
 
-    final currentIndex = _tabController!.index;
-    if (currentIndex >= 0 && currentIndex < _tabs.length) {
-      final tabId = _tabs[currentIndex].id;
-      if (_isArrayElementTrinaTab(tabId)) {
-        final schemaProperties = widget.jsonSchema!['properties'] as Map<String, dynamic>;
-        final arraySchema = schemaProperties[tabId] as Map<String, dynamic>?;
+          // Wrap array layouts in fixed height container since Column has unbounded height
+          if (child is ArrayLayout) {
+            childWidget = SizedBox(
+              height: 400, // Fixed height for arrays in column layout
+              child: childWidget,
+            );
+          }
 
-        if (arraySchema != null) {
-          await AddRowDialog.show(
-            context: context,
-            jsonSchema: arraySchema,
-            propertyName: tabId,
-            onRowAdded: (newRowData) {
-              // Add the new row data to the current array
-              final currentArray = List<dynamic>.from(_localFormData[tabId] ?? []);
+          return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: childWidget);
+        }).toList(),
+      );
+    } else if (layoutItem is TabsLayout) {
+      // Nested tabs - create a nested tab view
+      return _buildNestedTabs(layoutItem, schemaProperties);
+    } else if (layoutItem is FormLayout) {
+      // Form layout for primitive fields
+      return GenericForm(
+        jsonSchema: schemaProperties,
+        data: _localFormData,
+        propertyName: null,
+        previous_properties: _previousProperties,
+        validationResult: widget.validationResult,
+        includeProperties: layoutItem.properties, // Filter to only show specified properties
+        onDataChanged: (updatedData) {
+          _updateField('', updatedData);
+        },
+      );
+    } else if (layoutItem is ArrayLayout) {
+      // Array layout - render with appropriate component (supports paths)
+      final propertyPath = layoutItem.property;
+      final propertyName = propertyPath.split('.').last; // Use last segment for key
 
-              // Handle auto-increment fields
-              final itemSchema = arraySchema['items'] as Map<String, dynamic>?;
-              final properties = itemSchema?['properties'] as Map<String, dynamic>?;
+      // Use layoutItem.id as the key to ensure uniqueness (keys pre-created in _initializeLayout)
+      final keyId = layoutItem.id;
+      final key = _arrayElementKeys[keyId];
 
-              if (properties != null) {
-                properties.forEach((key, value) {
-                  final propertySchema = value as Map<String, dynamic>;
-                  final typeValue = propertySchema['type'];
+      // Get schema and data using path
+      final propertySchema = LayoutService.getSchemaByPath(schemaProperties, propertyPath);
+      final propertyData = LayoutService.getValueByPath(_localFormData, propertyPath);
 
-                  String? type;
-                  if (typeValue is String) {
-                    type = typeValue;
-                  } else if (typeValue is List) {
-                    type = typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
-                  }
-
-                  final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-                  final form = tfm?['form'] as Map<String, dynamic>?;
-                  final autoIncrement = form?['autoIncrement'] as bool? ?? false;
-
-                  if (autoIncrement && (type == 'integer' || type == 'number')) {
-                    // Find max value and increment
-                    final existingValues = currentArray.map((row) => row is Map ? row[key] : null).where((v) => v != null && v is num).map((v) => (v as num).toInt()).toList();
-
-                    final defaultValue = propertySchema['default'] as int? ?? 1;
-                    newRowData[key] = existingValues.isEmpty ? defaultValue : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
-                  }
-                });
-              }
-
-              currentArray.add(newRowData);
-              _updateField(tabId, currentArray);
-            },
-          );
-        }
+      if (propertySchema == null) {
+        return Center(child: Text('Schema not found for property: $propertyPath'));
       }
+
+      if (layoutItem.component == 'datagrid') {
+        return ArrayElementTrina(
+          key: key,
+          jsonSchema: propertySchema,
+          data: propertyData,
+          propertyName: propertyName,
+          validationResult: widget.validationResult,
+          columnConfig: layoutItem.columns,
+          layoutOptions: layoutItem.options,
+          onDataChanged: (updatedData) {
+            LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          },
+        );
+      }
+
+      return Center(child: Text('Unsupported array component: ${layoutItem.component}'));
+    } else if (layoutItem is ObjectLayout) {
+      // Object layout - render with appropriate component (supports paths)
+      final propertyPath = layoutItem.property;
+
+      // Get schema and data using path
+      final propertySchema = LayoutService.getSchemaByPath(schemaProperties, propertyPath);
+      final propertyData = LayoutService.getValueByPath(_localFormData, propertyPath);
+
+      if (propertySchema == null) {
+        return Center(child: Text('Schema not found for property: $propertyPath'));
+      }
+
+      if (layoutItem.component == 'navigation') {
+        // NavigationElement expects the parent schema, not the property schema
+        final parentPath = propertyPath.split('.');
+        final propertyName = parentPath.last;
+
+        return NavigationElement(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          propertyName: propertyName,
+          previous_properties: _previousProperties,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          },
+        );
+      } else if (layoutItem.component == 'card') {
+        // Card component
+        final propertyName = propertyPath.split('.').last;
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: GenericForm(
+              jsonSchema: {propertyName: propertySchema},
+              data: propertyData ?? {},
+              propertyName: propertyName,
+              previous_properties: _previousProperties,
+              validationResult: widget.validationResult,
+              onDataChanged: (updatedData) {
+                LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+                widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+              },
+            ),
+          ),
+        );
+      }
+
+      return Center(child: Text('Unsupported object component: ${layoutItem.component}'));
+    } else if (layoutItem is CardLayout) {
+      // Card layout with children
+      return _buildCardWithChildren(layoutItem, schemaProperties);
+    }
+
+    return Center(child: Text('Unknown layout type: ${layoutItem.type}'));
+  }
+
+  /// Build nested tabs widget
+  Widget _buildNestedTabs(TabsLayout tabsLayout, Map<String, dynamic> schemaProperties) {
+    return DefaultTabController(
+      length: tabsLayout.items.length,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TabBar(
+            isScrollable: true,
+            tabs: tabsLayout.items.map((item) {
+              final label = item.label ?? item.id;
+              return Tab(text: label);
+            }).toList(),
+          ),
+          // Use SizedBox with specific height instead of Expanded
+          // This works inside SingleChildScrollView
+          SizedBox(
+            height: 400, // Fixed height for nested tab content
+            child: TabBarView(
+              physics: const NeverScrollableScrollPhysics(),
+              children: tabsLayout.items.map((item) {
+                return SingleChildScrollView(child: _buildWidgetFromLayout(item, schemaProperties));
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build card with nested children
+  Widget _buildCardWithChildren(CardLayout cardLayout, Map<String, dynamic> schemaProperties) {
+    if (cardLayout.children == null || cardLayout.children!.isEmpty) {
+      // Card with simple properties
+      if (cardLayout.properties != null) {
+        return Card(
+          margin: const EdgeInsets.all(8.0),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: GenericForm(
+              jsonSchema: schemaProperties,
+              data: _localFormData,
+              propertyName: null,
+              previous_properties: _previousProperties,
+              validationResult: widget.validationResult,
+              onDataChanged: (updatedData) {
+                _updateField('', updatedData);
+              },
+            ),
+          ),
+        );
+      }
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Center(child: Text(cardLayout.label ?? 'Card')),
+        ),
+      );
+    }
+
+    // Card with nested layout items - no scrolling, just stacked children
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (cardLayout.label != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: Text(cardLayout.label!, style: Theme.of(context).textTheme.titleMedium),
+              ),
+            ...cardLayout.children!.map((child) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: _buildWidgetFromLayout(child, schemaProperties),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Fallback rendering for backward compatibility
+  Widget _buildTabContentFallback(String tabId, Map<String, dynamic> schemaProperties) {
+    switch (tabId) {
+      case 'position':
+        return NavigationElement(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          propertyName: 'position',
+          previous_properties: _previousProperties,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            _updateField('position', updatedData);
+          },
+        );
+      case 'info':
+        return GenericForm(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          propertyName: null,
+          previous_properties: _previousProperties,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            _updateField('', updatedData);
+          },
+        );
+      case 'tree':
+      case 'edges':
+      case 'structure_lt4m':
+      case 'structure_gt4m':
+      case 'regeneration':
+      case 'deadwood':
+        _arrayElementKeys[tabId] ??= GlobalKey<ArrayElementTrinaState>();
+        return ArrayElementTrina(
+          key: _arrayElementKeys[tabId],
+          jsonSchema: schemaProperties[tabId],
+          data: _localFormData[tabId],
+          propertyName: tabId,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            _updateField(tabId, updatedData);
+          },
+        );
+      default:
+        return Center(child: Text('$tabId Form'));
     }
   }
 
@@ -294,14 +627,30 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
 
           if (tabErrors.isNotEmpty) {
             // Create a filtered validation result with only tab-specific errors
-            final filteredResult = TFMValidationResult(ajvValid: false, ajvErrors: tabErrors.whereType<ValidationError>().toList(), tfmAvailable: widget.validationResult!.tfmAvailable, tfmErrors: tabErrors.whereType<TFMValidationError>().toList());
+            final filteredResult = TFMValidationResult(
+              ajvValid: false,
+              ajvErrors: tabErrors.whereType<ValidationError>().toList(),
+              tfmAvailable: widget.validationResult!.tfmAvailable,
+              tfmErrors: tabErrors.whereType<TFMValidationError>().toList(),
+            );
 
             // Show dialog with filtered errors
-            ValidationErrorsDialog.show(context, filteredResult, showActions: false, onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab);
+            ValidationErrorsDialog.show(
+              context,
+              filteredResult,
+              showActions: false,
+              onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab,
+            );
           }
         } else {
           // No validation errors at all
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keine Validierungsfehler'), backgroundColor: Colors.green, duration: Duration(seconds: 1)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Keine Validierungsfehler'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 1),
+            ),
+          );
         }
       }
     }
@@ -345,12 +694,22 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   }
 
   bool _isErrorForTab(dynamic error, String tabId) {
-    final path = error is ValidationError ? (error.instancePath ?? '') : ((error as TFMValidationError).instancePath ?? '');
+    final path = error is ValidationError
+        ? (error.instancePath ?? '')
+        : ((error as TFMValidationError).instancePath ?? '');
 
     // For 'info' tab, only show errors for primitive fields (not arrays/objects)
     if (tabId == 'info') {
       // List of properties that are arrays/objects and have their own tabs
-      final excludedProperties = ['position', 'tree', 'edges', 'structure_lt4m', 'structure_gt4m', 'regeneration', 'deadwood'];
+      final excludedProperties = [
+        'position',
+        'tree',
+        'edges',
+        'structure_lt4m',
+        'structure_gt4m',
+        'regeneration',
+        'deadwood',
+      ];
 
       // Handle required errors at root level
       final keyword = error is ValidationError ? error.keyword : null;
@@ -402,6 +761,11 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       return const Center(child: Text('No schema available'));
     }
 
+    // Show loading indicator while layout is being loaded
+    if (!_layoutLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (_tabs.isEmpty) {
       return const Center(child: Text('No form tabs available'));
     }
@@ -428,7 +792,11 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
                       decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                       child: Text(
                         '${_getErrorCountForTab(tab.id)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -439,135 +807,11 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
         ),
         Expanded(
           child: TabBarView(
-            controller: _tabController!,
+            controller: _tabController,
             physics: const NeverScrollableScrollPhysics(),
-            children: _tabs.map((tab) {
-              switch (tab.id) {
-                case 'position':
-                  return NavigationElement(
-                    jsonSchema: schemaProperties,
-                    data: _localFormData,
-                    propertyName: 'position',
-                    previous_properties: _previousProperties,
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('position', updatedData);
-                    },
-                  );
-                case 'info':
-                  return GenericForm(
-                    jsonSchema: schemaProperties,
-                    data: _localFormData,
-                    propertyName: null,
-                    previous_properties: _previousProperties,
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('', updatedData);
-                    },
-                  );
-                case 'tree':
-                  _arrayElementKeys['tree'] ??= GlobalKey<ArrayElementTrinaState>();
-                  return ArrayElementTrina(
-                    key: _arrayElementKeys['tree'],
-                    jsonSchema: schemaProperties['tree'],
-                    data: _localFormData['tree'],
-                    propertyName: 'tree',
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('tree', updatedData);
-                    },
-                  );
-                case 'edges':
-                  _arrayElementKeys['edges'] ??= GlobalKey<ArrayElementTrinaState>();
-                  return ArrayElementTrina(
-                    key: _arrayElementKeys['edges'],
-                    jsonSchema: schemaProperties['edges'],
-                    data: _localFormData['edges'],
-                    propertyName: 'edges',
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('edges', updatedData);
-                    },
-                  );
-                case 'structure_lt4m':
-                  _arrayElementKeys['structure_lt4m'] ??= GlobalKey<ArrayElementTrinaState>();
-                  return ArrayElementTrina(
-                    key: _arrayElementKeys['structure_lt4m'],
-                    jsonSchema: schemaProperties['structure_lt4m'],
-                    data: _localFormData['structure_lt4m'],
-                    propertyName: 'structure_lt4m',
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('structure_lt4m', updatedData);
-                    },
-                  );
-                case 'structure_gt4m':
-                  _arrayElementKeys['structure_gt4m'] ??= GlobalKey<ArrayElementTrinaState>();
-                  return ArrayElementTrina(
-                    key: _arrayElementKeys['structure_gt4m'],
-                    jsonSchema: schemaProperties['structure_gt4m'],
-                    data: _localFormData['structure_gt4m'],
-                    propertyName: 'structure_gt4m',
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('structure_gt4m', updatedData);
-                    },
-                  );
-                case 'regeneration':
-                  _arrayElementKeys['regeneration'] ??= GlobalKey<ArrayElementTrinaState>();
-                  return ArrayElementTrina(
-                    key: _arrayElementKeys['regeneration'],
-                    jsonSchema: schemaProperties['regeneration'],
-                    data: _localFormData['regeneration'],
-                    propertyName: 'regeneration',
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('regeneration', updatedData);
-                    },
-                  );
-                case 'deadwood':
-                  _arrayElementKeys['deadwood'] ??= GlobalKey<ArrayElementTrinaState>();
-                  return ArrayElementTrina(
-                    key: _arrayElementKeys['deadwood'],
-                    jsonSchema: schemaProperties['deadwood'],
-                    data: _localFormData['deadwood'],
-                    propertyName: 'deadwood',
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateField('deadwood', updatedData);
-                    },
-                  );
-                default:
-                  return Center(child: Text('${tab.label} Form'));
-              }
-            }).toList(),
+            children: _tabs.map((tab) => _buildTabContent(tab, schemaProperties)).toList(),
           ),
         ),
-        // Only show BottomAppBar for ArrayElementTrina tabs
-        if (_currentTabType == 'array')
-          BottomAppBar(
-            child: Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _addRowToCurrentTab,
-                    icon: const Icon(Icons.add),
-                    label: Text('Add Row'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _addRowToCurrentTabAsFormDialog,
-                    icon: const Icon(Icons.add),
-                    label: Text('Add Row (Form)'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
-                  ),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }

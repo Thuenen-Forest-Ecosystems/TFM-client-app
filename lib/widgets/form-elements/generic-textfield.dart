@@ -11,8 +11,18 @@ class GenericTextField extends StatefulWidget {
   final List<ValidationError> errors;
   final Function(dynamic)? onChanged;
   final bool compact;
+  final bool autofocus;
 
-  const GenericTextField({super.key, required this.fieldName, required this.fieldSchema, this.value, this.errors = const [], this.onChanged, this.compact = false});
+  const GenericTextField({
+    super.key,
+    required this.fieldName,
+    required this.fieldSchema,
+    this.value,
+    this.errors = const [],
+    this.onChanged,
+    this.compact = false,
+    this.autofocus = false,
+  });
 
   @override
   State<GenericTextField> createState() => _GenericTextFieldState();
@@ -21,11 +31,15 @@ class GenericTextField extends StatefulWidget {
 class _GenericTextFieldState extends State<GenericTextField> {
   late TextEditingController _controller;
   late bool _boolValue;
+  late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    debugPrint('Errors for field ${widget.fieldName}: ${widget.errors.map((e) => e.message).join(', ')}');
+    _focusNode = FocusNode();
+    debugPrint(
+      'Errors for field ${widget.fieldName}: ${widget.errors.map((e) => e.message).join(', ')}',
+    );
     _initializeControllers();
   }
 
@@ -66,6 +80,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
       debugPrint('Initialized boolean field ${widget.fieldName} with value $_boolValue');
     } else {
       _controller = TextEditingController(text: effectiveValue?.toString() ?? '');
+      if (widget.autofocus) {
+        _controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: _controller.text.length),
+        );
+      }
     }
   }
 
@@ -96,6 +115,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
   @override
   void dispose() {
+    _focusNode.dispose();
     if (_getType() != 'boolean') {
       _controller.dispose();
     }
@@ -121,10 +141,20 @@ class _GenericTextFieldState extends State<GenericTextField> {
     final type = _getType();
     final hasErrors = widget.errors.isNotEmpty;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final errorBgColor = hasErrors ? (isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2)) : null;
+    final errorBgColor = hasErrors
+        ? (isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2))
+        : null;
 
     // Check if field is readonly (JSON Schema standard)
     final isReadonly = widget.fieldSchema['readonly'] as bool? ?? false;
+
+    if (widget.autofocus && !isReadonly) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
 
     // Handle boolean with Switch
     if (type == 'boolean') {
@@ -142,13 +172,24 @@ class _GenericTextFieldState extends State<GenericTextField> {
                       children: [
                         Text(
                           _getLabel() ?? '',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: hasErrors ? Colors.red : null),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: hasErrors ? Colors.red : null,
+                          ),
                         ),
-                        if (_getDescription() != null) ...[const SizedBox(height: 4), Text(_getDescription()!, style: TextStyle(fontSize: 12, color: Colors.grey[600]))],
+                        if (_getDescription() != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _getDescription()!,
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 Switch(
+                  focusNode: _focusNode,
                   value: _boolValue,
                   activeThumbColor: Theme.of(context).colorScheme.primary,
                   activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
@@ -164,7 +205,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 ),
               ],
             ),
-            if (hasErrors) ...[const SizedBox(height: 4), Text(_getErrorText() ?? '', style: const TextStyle(fontSize: 12, color: Colors.red))],
+            if (hasErrors) ...[
+              const SizedBox(height: 4),
+              Text(_getErrorText() ?? '', style: const TextStyle(fontSize: 12, color: Colors.red)),
+            ],
           ],
         ),
       );
@@ -193,14 +237,24 @@ class _GenericTextFieldState extends State<GenericTextField> {
       return Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: TextField(
+          focusNode: _focusNode,
           readOnly: true,
           decoration: widget.compact
-              ? InputDecoration(border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), suffixIcon: const Icon(Icons.arrow_drop_down, size: 20), isDense: true, filled: hasErrors, fillColor: errorBgColor)
+              ? InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  suffixIcon: const Icon(Icons.arrow_drop_down, size: 20),
+                  isDense: true,
+                  filled: hasErrors,
+                  fillColor: errorBgColor,
+                )
               : InputDecoration(
                   labelText: _getLabel(),
                   helperText: _getDescription(),
                   errorText: _getErrorText(),
-                  border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50))),
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(50)),
+                  ),
                   suffixIcon: const Icon(Icons.arrow_drop_down),
                   filled: true,
                   fillColor: Colors.grey.withOpacity(0.1),
@@ -209,7 +263,15 @@ class _GenericTextFieldState extends State<GenericTextField> {
           onTap: isReadonly
               ? null
               : () async {
-                  final selected = await GenericEnumDialog.show(context: context, fieldName: widget.fieldName, fieldSchema: widget.fieldSchema, currentValue: widget.value, enumValues: enumValues, nameDe: nameDe, fullscreen: true);
+                  final selected = await GenericEnumDialog.show(
+                    context: context,
+                    fieldName: widget.fieldName,
+                    fieldSchema: widget.fieldSchema,
+                    currentValue: widget.value,
+                    enumValues: enumValues,
+                    nameDe: nameDe,
+                    fullscreen: true,
+                  );
 
                   // Handle different return values:
                   // - null: dialog was dismissed, don't update
@@ -235,6 +297,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
       return Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: TextField(
+          focusNode: _focusNode,
+          autofocus: widget.autofocus,
           controller: _controller,
           readOnly: isReadonly,
           textAlign: TextAlign.right,
@@ -251,7 +315,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   labelText: _getLabel(),
                   helperText: _getDescription(),
                   errorText: _getErrorText(),
-                  border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(50))),
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(50)),
+                  ),
                   filled: true,
                   fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
                   suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
@@ -275,8 +341,12 @@ class _GenericTextFieldState extends State<GenericTextField> {
                     },
                   ),
                 ),
-          keyboardType: type == 'integer' ? TextInputType.number : const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: type == 'integer' ? [FilteringTextInputFormatter.digitsOnly] : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+          keyboardType: type == 'integer'
+              ? TextInputType.number
+              : const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: type == 'integer'
+              ? [FilteringTextInputFormatter.digitsOnly]
+              : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
           onChanged: (value) {
             if (value.isEmpty) {
               widget.onChanged?.call(null);
@@ -299,15 +369,25 @@ class _GenericTextFieldState extends State<GenericTextField> {
     return Opacity(
       opacity: isReadonly ? 0.6 : 1.0,
       child: TextField(
+        focusNode: _focusNode,
+        autofocus: widget.autofocus,
         controller: _controller,
         readOnly: isReadonly,
         decoration: widget.compact
-            ? InputDecoration(border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), isDense: true, filled: hasErrors, fillColor: errorBgColor)
+            ? InputDecoration(
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                isDense: true,
+                filled: hasErrors,
+                fillColor: errorBgColor,
+              )
             : InputDecoration(
                 labelText: _getLabel(),
                 helperText: _getDescription(),
                 errorText: _getErrorText(),
-                border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
                 filled: true,
                 fillColor: hasErrors ? errorBgColor : Colors.white.withOpacity(0.1),
                 suffixIcon: SpeechToTextButton(
@@ -319,7 +399,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   },
                 ),
               ),
-        maxLines: widget.fieldSchema['maxLength'] != null && (widget.fieldSchema['maxLength'] as int) > 100 ? 3 : 1,
+        maxLines:
+            widget.fieldSchema['maxLength'] != null &&
+                (widget.fieldSchema['maxLength'] as int) > 100
+            ? 3
+            : 1,
         onChanged: (value) {
           widget.onChanged?.call(value.isEmpty ? null : value);
         },

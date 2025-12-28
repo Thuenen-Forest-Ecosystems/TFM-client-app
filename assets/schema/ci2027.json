@@ -1,0 +1,356 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "Layout configuration for TFM forms - defines structure and components without content",
+  "layout": {
+    "type": "tabs",
+    "items": [
+      {
+        "id": "habitat_and_stocking",
+        "label": "Trakt",
+        "type": "column",
+        "items": [
+            {
+                "id": "forest_habitat",
+                "label": "Waldlebensraum",
+                "type": "card",
+                "items": [
+                    {
+                        "id": "general",
+                        "type": "form",
+                        "properties": [
+                            "property_type",
+                            "property_size_class",
+                            "forest_community",
+                            "forest_community_field",
+                            "ffh_forest_type",
+                            "ffh_forest_type_field"
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "forest_habitat",
+                "label": "Waldlebensraum",
+                "type": "card",
+                "items": [
+                    {
+                        "id": "general",
+                        "type": "form",
+                        "properties": [
+                            "growth_district",
+                            "elevation_level"
+                        ]
+                    }
+                ]
+            }
+        ]
+      },
+      {
+        "id": "stocking",
+        "label": "Bestockung",
+        "type": "card",
+        "items": [
+            {
+                "id": "general",
+                "label": "Allgemein",
+                "type": "form",
+                "properties": [
+                  "plot_name"
+                ]
+            }
+        ]
+      },
+      {
+        "id": "position",
+        "label": "Position",
+        "type": "object",
+        "component": "navigation",
+        "property": "position"
+      },
+      {
+        "id": "tree",
+        "label": "WZP",
+        "type": "array",
+        "component": "datagrid",
+        "property": "tree",
+        "options": {
+          "layout": "fullSize"
+        },
+        "columns": {
+          "tree_number": {
+            "pinned": "left",
+            "autoIncrement": true,
+            "width": 80
+          },
+          "tree_status": {
+            "pinned": "left",
+            "width": 100
+          },
+          "tree_species": {
+            "pinned": "left",
+            "width": 150
+          },
+          "azimuth": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 1
+            },
+            "width": 100
+          },
+          "distance": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 2
+            },
+            "width": 100
+          },
+          "tree_marked": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 3
+            },
+            "width": 120
+          },
+          "dbh_height": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 4
+            },
+            "width": 100
+          },
+          "dbh": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 6
+            },
+            "width": 120
+          },
+          "stand_layer": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 8
+            },
+            "width": 150
+          },
+          "intkey": {
+            "display": false
+          }
+        }
+      },
+      {
+        "id": "edges",
+        "label": "Ecken",
+        "type": "array",
+        "component": "datagrid",
+        "property": "edges",
+        "options": {
+          "layout": "fullSize"
+        },
+        "columns": {
+          "intkey": {
+            "display": false
+          },
+          "edge_number": {
+            "pinned": "left",
+            "autoIncrement": true,
+            "width": 100
+          },
+          "edge_status": {
+            "width": 120
+          },
+          "edge_type": {
+            "width": 200
+          },
+          "lookup_id_stand_differences_rows": {
+            "width": 150
+          }
+        }
+        },
+        {
+            "label": "Bäume bis 4 Meter Höhe",
+            "type": "column",
+            "items": [
+                {
+                    "id": "forest_habitat",
+                    "label": "Waldlebensraum",
+                    "type": "card",
+                    "items": [
+                        {
+                            "id": "general",
+                            "type": "form",
+                            "properties": [
+                                "growth_district",
+                                "elevation_level"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "structure_lt4m",
+                    "label": "Bäume bis 4 Meter Höhe",
+                    "type": "array",
+                    "component": "datagrid",
+                    "property": "structure_lt4m",
+                    "options": {
+                        "layout": "fullSize",
+                        "rowNumber": true
+                    },
+                    "columns": {
+                        "intkey": {
+                        "display": false
+                        },
+                        "tree_species": {
+                        "pinned": "left",
+                        "width": 150
+                        },
+                        "stock_layer": {
+                        "width": 150
+                        },
+                        "count": {
+                        "width": 100
+                        },
+                        "is_mirrored": {
+                        "width": 120
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "structure_gt4m",
+            "label": "Über 4 Meter Höhe",
+            "type": "array",
+            "component": "datagrid",
+            "property": "structure_gt4m",
+            "options": {
+                "layout": "fullSize"
+            },
+            "columns": {
+                "intkey": {
+                "display": false
+                },
+                "tree_species": {
+                "pinned": "left",
+                "width": 150
+                },
+                "stock_layer": {
+                "width": 150
+                },
+                "count": {
+                "width": 100
+                },
+                "is_mirrored": {
+                "width": 120
+                }
+            }
+        },
+      {
+        "id": "deadwood",
+        "label": "Totholz",
+        "type": "array",
+        "component": "datagrid",
+        "property": "deadwood",
+            "options": {
+              "layout": "fullSize"
+            },
+            "columns": {
+              "intkey": {
+                "display": false
+              },
+              "tree_species_group": {
+                "pinned": "left",
+                "width": 150
+              },
+              "dead_wood_type": {
+                "width": 200
+              },
+              "decomposition": {
+                "width": 150
+              },
+              "length_height": {
+                "width": 120
+              },
+              "diameter_butt": {
+                "width": 130
+              },
+              "diameter_top": {
+                "width": 130
+              },
+              "count": {
+                "width": 100
+              },
+              "bark_pocket": {
+                "width": 120
+              }
+            }
+      },
+      {
+            "id": "regeneration",
+            "label": "Verjüngung",
+            "type": "array",
+            "component": "datagrid",
+            "property": "regeneration",
+            "options": {
+              "layout": "fullSize"
+            },
+            "columns": {
+              "intkey": {
+                "display": false
+              },
+              "tree_species": {
+                "pinned": "left",
+                "width": 150
+              },
+              "tree_size_class": {
+                "width": 150
+              },
+              "browsing": {
+                "width": 120
+              },
+              "damage_peel": {
+                "width": 120
+              },
+              "protection_individual": {
+                "width": 120
+              },
+              "tree_count": {
+                "width": 100
+              }
+            }
+          }
+    ]
+  },
+  "components": {
+    "datagrid": {
+      "description": "Data grid component for array editing (ArrayElementTrina)",
+      "supportsTypes": ["array"]
+    },
+    "navigation": {
+      "description": "Navigation element for position/location data (NavigationElement)",
+      "supportsTypes": ["object"]
+    },
+    "form": {
+      "description": "Generic form for primitive fields (GenericForm)",
+      "supportsTypes": ["object", "primitives"]
+    },
+    "card": {
+      "description": "Card layout for object fields (future implementation)",
+      "supportsTypes": ["object"]
+    },
+    "tabs": {
+      "description": "Tabbed layout container",
+      "supportsTypes": ["container"]
+    },
+    "column": {
+      "description": "Column layout container",
+      "supportsTypes": ["container"]
+    }
+  }
+}
