@@ -171,6 +171,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         frozen: TrinaColumnFrozen.start,
         enableSorting: false,
         enableColumnDrag: false,
+        enableContextMenu: false,
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
@@ -227,7 +228,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           frozen: TrinaColumnFrozen.start,
           enableSorting: false,
           enableColumnDrag: false,
+          enableContextMenu: false,
           readOnly: true,
+          enableEditingMode: false,
           renderer: (rendererContext) {
             return Container(
               alignment: Alignment.center,
@@ -364,6 +367,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           frozen: frozen,
           enableSorting: false,
           enableColumnDrag: false,
+          enableContextMenu: false,
           readOnly: isReadOnly,
           // Custom renderer for enum, numeric, boolean, or grouped columns
           renderer: isEnum
@@ -537,7 +541,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (value != null && nameDe != null && enumValues != null) {
       final index = enumValues.indexOf(value);
       if (index >= 0 && index < nameDe.length) {
-        displayText = nameDe[index]?.toString() ?? value.toString();
+        final germanName = nameDe[index];
+        displayText = germanName != null ? '$value | $germanName' : value.toString();
       } else {
         displayText = value.toString();
       }
@@ -1005,9 +1010,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                 },
                 configuration: TrinaGridConfiguration(
                   columnSize: const TrinaGridColumnSizeConfig(resizeMode: TrinaResizeMode.normal),
-                  enterKeyAction: TrinaGridEnterKeyAction.toggleEditing,
-                  enableMoveDownAfterSelecting: false,
-                  enableMoveHorizontalInEditing: false,
+                  enterKeyAction: TrinaGridEnterKeyAction.editingAndMoveDown,
+                  enableMoveDownAfterSelecting: true,
+                  enableMoveHorizontalInEditing: true,
+                  tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
                   style: TrinaGridStyleConfig(
                     iconSize: 0,
                     gridBorderRadius: BorderRadius.zero,

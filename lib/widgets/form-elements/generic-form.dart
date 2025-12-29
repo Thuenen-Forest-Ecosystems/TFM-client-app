@@ -10,6 +10,9 @@ class GenericForm extends StatefulWidget {
   final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
   final List<String>? includeProperties; // Optional filter for which properties to show
+  final Map<String, dynamic>? fieldOptions; // Per-field configuration (width, etc.)
+  final bool isDense;
+  final String? layout;
   const GenericForm({
     super.key,
     this.jsonSchema,
@@ -19,6 +22,9 @@ class GenericForm extends StatefulWidget {
     this.validationResult,
     this.onDataChanged,
     this.includeProperties,
+    this.fieldOptions,
+    this.isDense = false,
+    this.layout,
   });
 
   @override
@@ -126,37 +132,54 @@ class _GenericFormState extends State<GenericForm> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Determine number of columns based on available width
-        final int columns;
+        /*final int columns;
         if (constraints.maxWidth >= 1200) {
           columns = 3; // Large tablets/desktops
         } else if (constraints.maxWidth >= 800) {
           columns = 2; // Medium tablets
         } else {
           columns = 1; // Phones
-        }
+        }*/
 
         Widget buildFieldWidget(MapEntry<String, Map<String, dynamic>> entry) {
           final fieldName = entry.key;
           final fieldSchema = entry.value;
           final fieldErrors = _getErrorsForField(fieldName);
-          debugPrint(
-            'Building field $fieldName with errors: ${fieldErrors.map((e) => e.message).join(', ')}',
-          );
+          final fieldConfig = widget.fieldOptions?[fieldName] as Map<String, dynamic>?;
+          final width = (fieldConfig?['width'] as num?)?.toDouble();
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10, top: 10),
-            child: GenericTextField(
-              fieldName: fieldName,
-              fieldSchema: fieldSchema,
-              value: _localData[fieldName],
-              errors: fieldErrors,
-              onChanged: (value) => _updateField(fieldName, value),
+            padding: const EdgeInsets.all(10),
+            child: SizedBox(
+              width: width,
+              child: GenericTextField(
+                fieldName: fieldName,
+                fieldSchema: fieldSchema,
+                value: _localData[fieldName],
+                errors: fieldErrors,
+                onChanged: (value) => _updateField(fieldName, value),
+                dense: widget.isDense,
+                //width: width,
+              ),
             ),
           );
         }
 
         final fieldWidgets = fieldsToShow.map(buildFieldWidget).toList();
 
+        if (widget.layout == 'horizontal-scroll') {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: fieldWidgets),
+          );
+        } else {
+          return Wrap(
+            spacing: 5, // Horizontal spacing between items
+            runSpacing: 5, // Vertical spacing between rows
+            children: fieldWidgets,
+          );
+        }
+        /*
         if (columns == 1) {
           // Single column: use Column instead of ListView to avoid scrolling
           return Column(
@@ -176,7 +199,7 @@ class _GenericFormState extends State<GenericForm> {
               );
             }).toList(),
           );
-        }
+        }*/
       },
     );
   }

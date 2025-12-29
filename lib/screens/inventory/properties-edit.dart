@@ -43,6 +43,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
   int? _loadedSchemaVersion;
+  String? _schemaDirectory;
   late final GlobalKey<FormWrapperState> _formWrapperKey;
 
   @override
@@ -181,9 +182,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Store loaded schema version for display
       setState(() {
         _loadedSchemaVersion = latestSchema!.version;
+        _schemaDirectory = latestSchema.directory;
       });
 
-      // Check if schema has a directory for validation files
+      // Check if schema has a directory for validation and style files
       if (latestSchema.directory == null || latestSchema.directory!.isEmpty) {
         debugPrint('Schema has no directory, using embedded schema');
         // Use the embedded schema from the database
@@ -195,9 +197,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         return;
       }
 
-      // Load validation.json from downloaded directory
+      // Load validation.json and style.json from downloaded directory
       final directory = latestSchema.directory!;
-      debugPrint('Loading validation.json from directory: $directory');
+      debugPrint('Loading validation.json and style.json from directory: $directory');
 
       // On web, validation files aren't downloaded, so use embedded schema
       /*if (kIsWeb) {
@@ -582,7 +584,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       setState(() {
         _formData = updatedData;
       });
-      debugPrint('Form data changed (no validation): $_formData');
     }
   }
 
@@ -715,6 +716,96 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     );
   }
 
+  void _showCurrentStyle() async {
+    if (_schemaDirectory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No style available'),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height * 0.7,
+            left: 16,
+            right: 16,
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final appDirectory = await getApplicationDocumentsDirectory();
+      final stylePath = '${appDirectory.path}/TFM/validation/$_schemaDirectory/style.json';
+      final styleFile = File(stylePath);
+
+      if (!await styleFile.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Style file not found'),
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.only(
+                bottom: MediaQuery.of(context).size.height * 0.7,
+                left: 16,
+                right: 16,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      final styleContent = await styleFile.readAsString();
+      final styleJson = jsonDecode(styleContent);
+      final jsonString = const JsonEncoder.withIndent('  ').convert(styleJson);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            child: Column(
+              children: [
+                AppBar(
+                  title: const Text('Current Style (JSON)'),
+                  automaticallyImplyLeading: false,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SelectableText(
+                      jsonString,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error loading style file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading style: $e'),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.7,
+              left: 16,
+              right: 16,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -799,12 +890,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                               ],
                             ),
                           ),
+                          const PopupMenuItem<String>(
+                            value: 'style',
+                            child: Row(
+                              children: [
+                                Icon(Icons.palette),
+                                SizedBox(width: 8),
+                                Text('Show Style'),
+                              ],
+                            ),
+                          ),
                         ],
                       ).then((value) {
                         if (value == 'json') {
                           _showCurrentAsJson();
                         } else if (value == 'schema') {
                           _showCurrentSchema();
+                        } else if (value == 'style') {
+                          _showCurrentStyle();
                         }
                       });
                     },
@@ -836,7 +939,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       onFormDataChanged: _onFormDataChanged,
                       validationResult: _validationResult,
                       onNavigateToTab: _navigateToTabFromError,
-                      layoutName: 'ci2027', // Use ci2027 layout configuration
+                      layoutDirectory: _schemaDirectory, // Use schema directory for layout
                     ),
             ),
           ],

@@ -11,53 +11,172 @@
         "type": "column",
         "items": [
             {
-                "id": "forest_habitat",
-                "label": "Waldlebensraum",
+                "id": "plot_properties",
+                "label": "Punkteigenschaften",
                 "type": "card",
                 "items": [
                     {
                         "id": "general",
                         "type": "form",
                         "properties": [
+                            "sampling_stratum",
+                            "federal_state",
+                            "accessibility",
+                            "forest_office",
+                            "elevation_level",
                             "property_type",
                             "property_size_class",
-                            "forest_community",
-                            "forest_community_field",
-                            "ffh_forest_type",
-                            "ffh_forest_type_field"
+                            "harvest_method",
+                            "harvest_reason",
+                            "management_type",
+                            "harvest_condition",
+                            "biotope"
                         ]
                     }
                 ]
             },
             {
-                "id": "forest_habitat",
-                "label": "Waldlebensraum",
-                "type": "card",
-                "items": [
-                    {
-                        "id": "general",
-                        "type": "form",
-                        "properties": [
-                            "growth_district",
-                            "elevation_level"
-                        ]
-                    }
-                ]
-            }
-        ]
-      },
-      {
-        "id": "stocking",
-        "label": "Bestockung",
-        "type": "card",
-        "items": [
+              "id": "forest_properties",
+              "label": "Waldeigenschaften",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "forest_status",
+                    "land_use"
+                  ]
+                }
+              ]
+            },
             {
-                "id": "general",
-                "label": "Allgemein",
-                "type": "form",
-                "properties": [
-                  "plot_name"
-                ]
+              "id": "forest_habitat",
+              "label": "Waldlebensraum",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "growth_district",
+                    "forest_community",
+                    "forest_community_field",
+                    "ffh_forest_type",
+                    "ffh_forest_type_field",
+                    "coast",
+                    "sandy",
+                    "protected_landscape",
+                    "long_time_forest"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "stand_differences",
+              "label": "Nutzungseinschränkungen",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "harvest_restriction",
+                    "harvest_restriction_nature_reserve",
+                    "harvest_restriction_protection_forest",
+                    "harvest_restriction_recreational_forest",
+                    "harvest_restriction_scattered",
+                    "harvest_restriction_fragmented",
+                    "harvest_restriction_insufficient_access",
+                    "harvest_restriction_wetness",
+                    "harvest_restriction_low_yield",
+                    "harvest_restriction_private_conservation",
+                    "harvest_restriction_other_internalcause"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "tract_marking",
+              "label": "Trakteckenmarkierung",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "marker_profile",
+                    "marker_status",
+                    "marker_azimuth",
+                    "marker_distance"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "terrain",
+              "label": "Gelände",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "terrain_form",
+                    "terrain_slope",
+                    "terrain_exposure"
+                  ]
+                }
+              ]
+            },
+            
+            {
+              "id": "regeneration",
+              "label": "Verjüngung",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "stand_layer_regeneration",
+                    "fence_regeneration"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "forest_habitat",
+              "label": "Waldlebensraum",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "biogeographische_region"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "nature_conservation",
+              "label": "Naturschutz",
+              "type": "card",
+              "items": [
+                {
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "biosphaere",
+                     "ffh",
+                    "national_park",
+                    "natur_park",
+                    "vogel_schutzgebiet",
+                    "natur_schutzgebiet"
+                  ]
+                }
+              ]
             }
         ]
       },
@@ -139,8 +258,189 @@
             },
             "width": 150
           },
-          "intkey": {
-            "display": false
+          "tree_age": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 9
+            },
+            "width": 100
+          },
+          "within_stand": {
+            "groupBy": {
+              "headerName": "Wichtigste",
+              "columnGroupShow": "open",
+              "sortBy": 11
+            },
+            "width": 100
+          },
+          "tree_height_azimuth": {
+            "groupBy": {
+              "headerName": "Höhen",
+              "columnGroupShow": "open",
+              "sortBy": 1
+            },
+            "width": 120
+          },
+          "tree_height_distance": {
+            "groupBy": {
+              "headerName": "Höhen",
+              "columnGroupShow": "open",
+              "sortBy": 2
+            },
+            "width": 120
+          },
+          "tree_height": {
+            "groupBy": {
+              "headerName": "Höhen",
+              "columnGroupShow": "open",
+              "sortBy": 6
+            },
+            "width": 120
+          },
+          "stem_height": {
+            "groupBy": {
+              "headerName": "Höhen",
+              "columnGroupShow": "open",
+              "sortBy": 7
+            },
+            "width": 120
+          },
+          "pruning": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 1
+            },
+            "width": 150
+          },
+          "damage_dead": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 2
+            },
+            "width": 120
+          },
+          "tree_top_drought": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 3
+            },
+            "width": 120
+          },
+          "stem_form": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 4
+            },
+            "width": 120
+          },
+          "stem_breakage": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 5
+            },
+            "width": 120
+          },
+          "cave_tree": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 6
+            },
+            "width": 120
+          },
+          "crown_dead_wood": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 7
+            },
+            "width": 150
+          },
+          "biotope_marked": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 8
+            },
+            "width": 120
+          },
+          "bark_pocket": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 9
+            },
+            "width": 120
+          },
+          "bark_condition": {
+            "groupBy": {
+              "headerName": "Eigenschaften",
+              "columnGroupShow": "open",
+              "sortBy": 10
+            },
+            "width": 130
+          },
+          "damage_peel_new": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 1
+            },
+            "width": 120
+          },
+          "damage_peel_old": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 2
+            },
+            "width": 120
+          },
+          "damage_logging": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 3
+            },
+            "width": 150
+          },
+          "damage_fungus": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 4
+            },
+            "width": 120
+          },
+          "damage_resin": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 5
+            },
+            "width": 120
+          },
+          "damage_beetle": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 6
+            },
+            "width": 130
+          },
+          "damage_other": {
+            "groupBy": {
+              "headerName": "Schäden",
+              "columnGroupShow": "open",
+              "sortBy": 7
+            },
+            "width": 150
           }
         }
       },
@@ -154,9 +454,6 @@
           "layout": "fullSize"
         },
         "columns": {
-          "intkey": {
-            "display": false
-          },
           "edge_number": {
             "pinned": "left",
             "autoIncrement": true,
@@ -170,87 +467,133 @@
           },
           "lookup_id_stand_differences_rows": {
             "width": 150
+          },
+          "terrain": {
+            "width": 200
           }
         }
         },
         {
-            "label": "Bäume bis 4 Meter Höhe",
-            "type": "column",
-            "items": [
+          "label": "Bestockung",
+          "type": "column",
+          "items": [
+            {
+              "id": "stocking",
+              "label": "Bestockung",
+              "type": "card-dialog",
+              "items": [
                 {
-                    "id": "forest_habitat",
-                    "label": "Waldlebensraum",
-                    "type": "card",
+                  "id": "general",
+                  "type": "form",
+                  "properties": [
+                    "stand_structure",
+                    "stand_development_phase",
+                    "stand_age"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tabs",
+              "typeProperties": {
+                "scrollableTabView": false
+              },
+              "items": [
+                {
+                    "label": "kleiner 4 Meter Höhe",
+                    "type": "column",
                     "items": [
                         {
-                            "id": "general",
-                            "type": "form",
-                            "properties": [
-                                "growth_district",
-                                "elevation_level"
+                            "id": "forest_habitat",
+                            "label": "Waldlebensraum",
+                            "type": "card-dialog",
+                            "items": [
+                                {
+                                    "id": "general",
+                                    "type": "form",
+                                    "properties": [
+                                        "trees_less_4meter_coverage",
+                                        "trees_less_4meter_layer"
+                                    ]
+                                }
                             ]
+                        },
+                        {
+                            "id": "structure_lt4m",
+                            "label": "Bäume bis 4 Meter Höhe",
+                            "type": "array",
+                            "component": "datagrid",
+                            "property": "structure_lt4m",
+                            "options": {
+                                "layout": "fullSize",
+                                "rowNumber": true
+                            },
+                            "columns": {
+                                "tree_species": {
+                                  "pinned": "left",
+                                  "width": 150
+                                },
+                                "coverage": {
+                                  "width": 150
+                                },
+                                "regeneration_type": {
+                                  "width": 200
+                                }
+                            }
                         }
                     ]
                 },
                 {
-                    "id": "structure_lt4m",
-                    "label": "Bäume bis 4 Meter Höhe",
-                    "type": "array",
-                    "component": "datagrid",
-                    "property": "structure_lt4m",
-                    "options": {
-                        "layout": "fullSize",
-                        "rowNumber": true
-                    },
-                    "columns": {
-                        "intkey": {
-                        "display": false
-                        },
-                        "tree_species": {
-                        "pinned": "left",
-                        "width": 150
-                        },
-                        "stock_layer": {
-                        "width": 150
-                        },
-                        "count": {
-                        "width": 100
-                        },
-                        "is_mirrored": {
-                        "width": 120
+                  "label": "größer 4 Meter Höhe",
+                  "type": "column",
+                  "items": [
+                    {
+                      "id": "stocking_gt4m",
+                      "label": "Bestockung gt4m",
+                      "type": "card-dialog",
+                      "items": [
+                        {
+                          "id": "general",
+                          "type": "form",
+                          "properties": [
+                            "trees_greater_4meter_mirrored",
+                            "trees_greater_4meter_basal_area_factor"
+                          ]
                         }
+                      ]
+                    },
+                    {
+                      "id": "structure_gt4m",
+                      "label": "größer 4 Meter Höhe",
+                      "type": "array",
+                      "component": "datagrid",
+                      "property": "structure_gt4m",
+                      "options": {
+                          "layout": "fullSize"
+                      },
+                      "columns": {
+                          "tree_species": {
+                          "pinned": "left",
+                          "width": 150
+                          },
+                          "stock_layer": {
+                          "width": 150
+                          },
+                          "count": {
+                          "width": 100
+                          },
+                          "is_mirrored": {
+                          "width": 120
+                          }
+                      }
                     }
+                  ]
                 }
-            ]
-        },
-        {
-            "id": "structure_gt4m",
-            "label": "Über 4 Meter Höhe",
-            "type": "array",
-            "component": "datagrid",
-            "property": "structure_gt4m",
-            "options": {
-                "layout": "fullSize"
-            },
-            "columns": {
-                "intkey": {
-                "display": false
-                },
-                "tree_species": {
-                "pinned": "left",
-                "width": 150
-                },
-                "stock_layer": {
-                "width": 150
-                },
-                "count": {
-                "width": 100
-                },
-                "is_mirrored": {
-                "width": 120
-                }
+              ]
             }
+          ]
         },
+       
       {
         "id": "deadwood",
         "label": "Totholz",
@@ -261,9 +604,6 @@
               "layout": "fullSize"
             },
             "columns": {
-              "intkey": {
-                "display": false
-              },
               "tree_species_group": {
                 "pinned": "left",
                 "width": 150
@@ -301,9 +641,6 @@
               "layout": "fullSize"
             },
             "columns": {
-              "intkey": {
-                "display": false
-              },
               "tree_species": {
                 "pinned": "left",
                 "width": 150
@@ -342,6 +679,10 @@
     },
     "card": {
       "description": "Card layout for object fields (future implementation)",
+      "supportsTypes": ["object"]
+    },
+    "card-dialog": {
+      "description": "Card layout that shows dialog to edit",
       "supportsTypes": ["object"]
     },
     "tabs": {

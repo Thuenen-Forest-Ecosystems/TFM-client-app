@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/layout_service.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
-import 'package:terrestrial_forest_monitor/widgets/form-elements/add-row-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
@@ -13,7 +13,7 @@ class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? formData;
   final Map<String, dynamic>? previousFormData;
   final TFMValidationResult? validationResult;
-  final String? layoutName;
+  final String? layoutDirectory;
 
   final Function(Map<String, dynamic>)? onFormDataChanged;
   final Function(String?)? onNavigateToTab;
@@ -26,7 +26,7 @@ class FormWrapper extends StatefulWidget {
     this.onFormDataChanged,
     this.validationResult,
     this.onNavigateToTab,
-    this.layoutName,
+    this.layoutDirectory,
   });
   @override
   State<FormWrapper> createState() => FormWrapperState();
@@ -65,13 +65,13 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
   }
 
   Future<void> _initializeLayout() async {
-    // Try to load layout configuration if layoutName is provided
-    if (widget.layoutName != null) {
-      _layoutConfig = await LayoutService.loadLayout(widget.layoutName!);
+    // Try to load layout configuration if layoutDirectory is provided
+    if (widget.layoutDirectory != null) {
+      _layoutConfig = await LayoutService.loadLayout(widget.layoutDirectory!);
       if (_layoutConfig != null) {
-        debugPrint('Loaded layout configuration: ${widget.layoutName}');
+        debugPrint('Loaded layout from directory: ${widget.layoutDirectory}');
       } else {
-        debugPrint('Failed to load layout ${widget.layoutName}, using fallback');
+        debugPrint('Failed to load layout from ${widget.layoutDirectory}, using fallback');
       }
     }
 
@@ -217,6 +217,12 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       _previousProperties = Map<String, dynamic>.from(widget.previousFormData ?? {});
     }
 
+    // Reload layout if layoutDirectory changed
+    if (widget.layoutDirectory != oldWidget.layoutDirectory) {
+      _initializeLayout();
+      return; // _initializeLayout will rebuild everything including tabs
+    }
+
     // Rebuild tabs if schema changed
     if (widget.jsonSchema != oldWidget.jsonSchema) {
       final newTabs = _buildTabsList();
@@ -323,16 +329,19 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       if (layoutItem != null) {
         final content = _buildWidgetFromLayout(layoutItem, schemaProperties);
         // Don't wrap tabs or arrays in ScrollView - they manage their own scrolling/sizing
+        // But DO wrap ColumnLayout in ScrollView to prevent overflow
         if (layoutItem is TabsLayout || layoutItem is ArrayLayout) {
           return content;
         }
-        // Wrap other content in SingleChildScrollView for scrollable tabs
-        return SingleChildScrollView(child: content);
+        // Wrap ColumnLayout and other content in SingleChildScrollView
+        // Use physics that allows parent scroll controller to take precedence
+        return SingleChildScrollView(physics: const ClampingScrollPhysics(), child: content);
       }
     }
 
     // Fallback to hard-coded rendering
-    return _buildTabContentFallback(tab.id, schemaProperties);
+    return Center(child: Text('No layout found for tab: ${tab.label}'));
+    //return _buildTabContentFallback(tab.id, schemaProperties);
   }
 
   /// Build widget from layout configuration (recursive)
@@ -361,17 +370,48 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
       return _buildNestedTabs(layoutItem, schemaProperties);
     } else if (layoutItem is FormLayout) {
       // Form layout for primitive fields
-      return GenericForm(
+      // Check if horizontal scrolling is enabled
+      final typeProperties = layoutItem.typeProperties ?? {};
+      final scrollHorizontal = typeProperties['scrollHorizontal'] as bool? ?? false;
+      final dense = typeProperties['dense'] as bool? ?? false;
+
+      // Extract field options from property configs
+      final fieldOptions = <String, Map<String, dynamic>>{};
+      for (final prop in layoutItem.properties) {
+        if (prop.width != null || prop.useSpeechToText != null) {
+          fieldOptions[prop.name] = {
+            if (prop.width != null) 'width': prop.width,
+            if (prop.useSpeechToText != null) 'useSpeechToText': prop.useSpeechToText,
+          };
+        }
+      }
+
+      Widget formWidget = GenericForm(
         jsonSchema: schemaProperties,
         data: _localFormData,
         propertyName: null,
         previous_properties: _previousProperties,
         validationResult: widget.validationResult,
-        includeProperties: layoutItem.properties, // Filter to only show specified properties
+        includeProperties: layoutItem.properties.map((p) => p.name).toList(),
+        fieldOptions: fieldOptions.isNotEmpty ? fieldOptions : null,
         onDataChanged: (updatedData) {
           _updateField('', updatedData);
         },
+        isDense: dense,
+        layout: scrollHorizontal ? 'horizontal-scroll' : null,
       );
+
+      // Wrap in horizontal scroll if needed
+      /*if (scrollHorizontal) {
+        // Use SizedBox with fixed width to avoid infinite constraints
+        // inside horizontal SingleChildScrollView
+        formWidget = SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: 800, child: formWidget),
+        );
+      }*/
+
+      return formWidget;
     } else if (layoutItem is ArrayLayout) {
       // Array layout - render with appropriate component (supports paths)
       final propertyPath = layoutItem.property;
@@ -466,6 +506,18 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
 
   /// Build nested tabs widget
   Widget _buildNestedTabs(TabsLayout tabsLayout, Map<String, dynamic> schemaProperties) {
+    // Check if tab content should be scrollable (defaults to true)
+    final scrollableTabView = tabsLayout.typeProperties?['scrollableTabView'] as bool? ?? true;
+
+    final tabBarView = TabBarView(
+      physics: const NeverScrollableScrollPhysics(),
+      children: tabsLayout.items.map((item) {
+        final content = _buildWidgetFromLayout(item, schemaProperties);
+        // Only wrap in ScrollView if scrollableTabView is true
+        return scrollableTabView ? SingleChildScrollView(child: content) : content;
+      }).toList(),
+    );
+
     return DefaultTabController(
       length: tabsLayout.items.length,
       child: Column(
@@ -478,17 +530,8 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
               return Tab(text: label);
             }).toList(),
           ),
-          // Use SizedBox with specific height instead of Expanded
-          // This works inside SingleChildScrollView
-          SizedBox(
-            height: 400, // Fixed height for nested tab content
-            child: TabBarView(
-              physics: const NeverScrollableScrollPhysics(),
-              children: tabsLayout.items.map((item) {
-                return SingleChildScrollView(child: _buildWidgetFromLayout(item, schemaProperties));
-              }).toList(),
-            ),
-          ),
+          // Use fixed height for both cases to avoid unbounded constraint issues
+          SizedBox(height: scrollableTabView ? 400 : 600, child: tabBarView),
         ],
       ),
     );
@@ -496,13 +539,46 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
 
   /// Build card with nested children
   Widget _buildCardWithChildren(CardLayout cardLayout, Map<String, dynamic> schemaProperties) {
+    // Check if this is a card-dialog type
+    if (cardLayout.type == 'card-dialog') {
+      // Extract properties from children if they exist
+      List<String>? properties;
+      if (cardLayout.children != null && cardLayout.children!.isNotEmpty) {
+        final firstChild = cardLayout.children!.first;
+        if (firstChild is FormLayout) {
+          properties = firstChild.properties.map((p) => p.name).toList();
+        }
+      } else if (cardLayout.properties != null) {
+        properties = cardLayout.properties;
+      }
+
+      return CardDialog(
+        label: cardLayout.label,
+        jsonSchema: schemaProperties,
+        data: _localFormData,
+        validationResult: widget.validationResult,
+        onDataChanged: (updatedData) {
+          setState(() {
+            _localFormData.addAll(updatedData);
+          });
+          widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+        },
+        includeProperties: properties,
+      );
+    }
+
+    // Get typeProperties for card styling
+    final typeProperties = cardLayout.typeProperties ?? {};
+    final padding = (typeProperties['padding'] as num?)?.toDouble() ?? 16.0;
+    final margin = (typeProperties['margin'] as num?)?.toDouble() ?? 8.0;
+
     if (cardLayout.children == null || cardLayout.children!.isEmpty) {
       // Card with simple properties
       if (cardLayout.properties != null) {
         return Card(
-          margin: const EdgeInsets.all(8.0),
+          margin: EdgeInsets.all(margin),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(padding),
             child: GenericForm(
               jsonSchema: schemaProperties,
               data: _localFormData,
@@ -517,18 +593,19 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
         );
       }
       return Card(
+        margin: EdgeInsets.all(margin),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(padding),
           child: Center(child: Text(cardLayout.label ?? 'Card')),
         ),
       );
     }
 
-    // Card with nested layout items - no scrolling, just stacked children
+    // Card with nested layout items
     return Card(
-      margin: const EdgeInsets.all(8.0),
+      margin: EdgeInsets.all(margin),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(padding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

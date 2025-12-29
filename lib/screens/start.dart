@@ -170,8 +170,6 @@ class _StartState extends State<Start> {
       waitCount++;
     }
 
-    debugPrint('Start: Permission ID ready, starting to watch records');
-
     try {
       // Cancel any existing subscription
       await _recordsWatchSubscription?.cancel();
@@ -179,10 +177,6 @@ class _StartState extends State<Start> {
       // Watch records filtered by selected permissions
       _recordsWatchSubscription = RecordsRepository().watchAllRecords().listen(
         (records) {
-          debugPrint(
-            'Start: Received ${records.length} records from stream (filtered by permissions)',
-          );
-
           if (!mounted) return;
 
           // Store in provider cache with metadata structure
@@ -198,8 +192,6 @@ class _StartState extends State<Start> {
             0, // page
             false, // hasMore
           );
-
-          debugPrint('Start: Successfully cached ${records.length} records in provider');
 
           if (mounted && _isLoadingData) {
             setState(() {

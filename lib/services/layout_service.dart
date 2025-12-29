@@ -1,35 +1,46 @@
 import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 
 /// Service for loading and managing layout configurations
 ///
-/// Loads layout JSON files (like ci2027.json) and provides methods
-/// to access layout structure for form rendering.
+/// Loads layout JSON files (style.json) from downloaded directories
+/// provided by PowerSync sync.
 class LayoutService {
   static LayoutConfig? _cachedLayout;
-  static String? _cachedLayoutName;
+  static String? _cachedDirectory;
 
-  /// Load a layout configuration from assets
+  /// Load a layout configuration from downloaded directory
   ///
-  /// [layoutName] - Name of the layout file (without .json extension)
+  /// [directory] - Directory name containing the style.json file (e.g., 'v73')
   /// Returns null if the layout file doesn't exist or is invalid
-  static Future<LayoutConfig?> loadLayout(String layoutName) async {
+  static Future<LayoutConfig?> loadLayout(String directory) async {
     // Return cached layout if already loaded
-    if (_cachedLayout != null && _cachedLayoutName == layoutName) {
+    if (_cachedLayout != null && _cachedDirectory == directory) {
       return _cachedLayout;
     }
 
     try {
-      final jsonString = await rootBundle.loadString('assets/schema/$layoutName.json');
+      final appDirectory = await getApplicationDocumentsDirectory();
+      final stylePath = path.join(appDirectory.path, 'TFM', 'validation', directory, 'style.json');
+
+      final file = File(stylePath);
+      if (!await file.exists()) {
+        print('Style file not found: $stylePath');
+        return null;
+      }
+
+      final jsonString = await file.readAsString();
       final jsonData = json.decode(jsonString) as Map<String, dynamic>;
 
       _cachedLayout = LayoutConfig.fromJson(jsonData);
-      _cachedLayoutName = layoutName;
+      _cachedDirectory = directory;
 
       return _cachedLayout;
     } catch (e) {
-      print('Failed to load layout $layoutName: $e');
+      print('Failed to load layout from directory $directory: $e');
       return null;
     }
   }
@@ -37,7 +48,7 @@ class LayoutService {
   /// Clear the cached layout (useful for testing or hot reload)
   static void clearCache() {
     _cachedLayout = null;
-    _cachedLayoutName = null;
+    _cachedDirectory = null;
   }
 
   /// Get all tab items from a tabs layout

@@ -4,12 +4,18 @@ import 'dart:convert';
 class SchemaRepository {
   // Watch all visible schemas (reactive)
   Stream<List<SchemaModel>> watchVisible() {
-    return db.watch('SELECT * FROM schemas WHERE is_visible = 1 ORDER BY interval_name DESC, created_at DESC').map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
+    return db
+        .watch(
+          'SELECT * FROM schemas WHERE is_visible = 1 ORDER BY interval_name DESC, created_at DESC',
+        )
+        .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }
 
   // Watch all schemas (including hidden)
   Stream<List<SchemaModel>> watchAll() {
-    return db.watch('SELECT * FROM schemas ORDER BY interval_name DESC, created_at DESC').map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
+    return db
+        .watch('SELECT * FROM schemas ORDER BY interval_name DESC, created_at DESC')
+        .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }
 
   // Get single schema by ID
@@ -20,7 +26,12 @@ class SchemaRepository {
 
   // Get schemas by interval
   Stream<List<SchemaModel>> watchByInterval(String intervalName) {
-    return db.watch('SELECT * FROM schemas WHERE interval_name = ? AND is_visible = 1 ORDER BY created_at DESC', parameters: [intervalName]).map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
+    return db
+        .watch(
+          'SELECT * FROM schemas WHERE interval_name = ? AND is_visible = 1 ORDER BY created_at DESC',
+          parameters: [intervalName],
+        )
+        .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }
 
   // Search schemas by title or description
@@ -113,19 +124,23 @@ class SchemaRepository {
   // Watch unique intervals with their latest schema
   Stream<List<SchemaModel>> watchUniqueByInterval() {
     return db
-        .watch('''SELECT * FROM schemas s1
-         WHERE s1.created_at = (
-           SELECT MAX(s2.created_at) 
-           FROM schemas s2 
-           WHERE s2.interval_name = s1.interval_name
-         ) AND s1.is_visible = 1
+        .watch('''SELECT s1.* FROM schemas s1
+         WHERE s1.is_visible = 1
+           AND s1.created_at = (
+             SELECT MAX(s2.created_at)
+             FROM schemas s2
+             WHERE s2.interval_name = s1.interval_name
+               AND s2.is_visible = 1
+           )
          ORDER BY s1.interval_name DESC''')
         .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }
 
   // Get list of unique interval names
   Stream<List<String>> watchIntervalNames() {
-    return db.watch('SELECT DISTINCT interval_name FROM schemas ORDER BY interval_name DESC').map((results) => results.map((row) => row['interval_name'] as String).toList());
+    return db
+        .watch('SELECT DISTINCT interval_name FROM schemas ORDER BY interval_name DESC')
+        .map((results) => results.map((row) => row['interval_name'] as String).toList());
   }
 }
 
@@ -167,7 +182,11 @@ class SchemaModel {
       isVisible: (json['is_visible'] as int?) == 1,
       bucketSchemaFileName: json['bucket_schema_file_name'] as String?,
       bucketPlausabilityFileName: json['bucket_plausability_file_name'] as String?,
-      schemaData: json['schema'] != null ? (json['schema'] is String ? jsonDecode(json['schema'] as String) : json['schema'] as Map<String, dynamic>) : null,
+      schemaData: json['schema'] != null
+          ? (json['schema'] is String
+                ? jsonDecode(json['schema'] as String)
+                : json['schema'] as Map<String, dynamic>)
+          : null,
       version: json['version'] as int?,
       directory: json['directory'] as String?,
     );

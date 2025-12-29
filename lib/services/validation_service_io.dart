@@ -44,13 +44,11 @@ class ValidationService {
     try {
       // Load AJV library from assets
       final ajvCode = await rootBundle.loadString('assets/html/ajv7.min.js');
-      print('AJV library loaded from assets');
 
       // Load AJV i18n library from assets
       String ajvI18nCode = '';
       try {
         ajvI18nCode = await rootBundle.loadString('assets/html/ajv-i18n.min.js');
-        print('AJV i18n library loaded from assets');
       } catch (e) {
         print('AJV i18n library not found: $e');
       }

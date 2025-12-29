@@ -11,7 +11,9 @@ class GenericTextField extends StatefulWidget {
   final List<ValidationError> errors;
   final Function(dynamic)? onChanged;
   final bool compact;
+  final bool dense;
   final bool autofocus;
+  final double? width; // Optional width constraint from layout
 
   const GenericTextField({
     super.key,
@@ -21,7 +23,9 @@ class GenericTextField extends StatefulWidget {
     this.errors = const [],
     this.onChanged,
     this.compact = false,
+    this.dense = false,
     this.autofocus = false,
+    this.width,
   });
 
   @override
@@ -32,6 +36,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
   late TextEditingController _controller;
   late bool _boolValue;
   late FocusNode _focusNode;
+  bool _hasRequestedInitialFocus = false;
 
   @override
   void initState() {
@@ -41,6 +46,15 @@ class _GenericTextFieldState extends State<GenericTextField> {
       'Errors for field ${widget.fieldName}: ${widget.errors.map((e) => e.message).join(', ')}',
     );
     _initializeControllers();
+
+    if (widget.autofocus && !_hasRequestedInitialFocus) {
+      _hasRequestedInitialFocus = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override
@@ -148,17 +162,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
     // Check if field is readonly (JSON Schema standard)
     final isReadonly = widget.fieldSchema['readonly'] as bool? ?? false;
 
-    if (widget.autofocus && !isReadonly) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_focusNode.hasFocus) {
-          _focusNode.requestFocus();
-        }
-      });
-    }
-
     // Handle boolean with Switch
     if (type == 'boolean') {
-      return Opacity(
+      final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,6 +218,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
           ],
         ),
       );
+      return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
     }
 
     // Handle enum with Dialog picker
@@ -234,7 +241,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
         return value.toString();
       }
 
-      return Opacity(
+      final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: TextField(
           focusNode: _focusNode,
@@ -257,6 +264,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   ),
                   suffixIcon: const Icon(Icons.arrow_drop_down),
                   filled: true,
+                  isDense: widget.dense,
                   fillColor: Colors.grey.withOpacity(0.1),
                 ),
           controller: TextEditingController(text: getDisplayText(widget.value)),
@@ -287,6 +295,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 },
         ),
       );
+
+      return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
     }
 
     // Handle number and integer types
@@ -294,11 +304,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
       final unit = tfmData?['unit_short'] as String?;
 
-      return Opacity(
+      final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: TextField(
           focusNode: _focusNode,
-          autofocus: widget.autofocus,
           controller: _controller,
           readOnly: isReadonly,
           textAlign: TextAlign.right,
@@ -319,6 +328,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                     borderRadius: BorderRadius.all(Radius.circular(50)),
                   ),
                   filled: true,
+                  isDense: widget.dense,
                   fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
                   suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
                   suffixIcon: SpeechToTextButton(
@@ -363,14 +373,15 @@ class _GenericTextFieldState extends State<GenericTextField> {
           },
         ),
       );
+
+      return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
     }
 
     // Handle string (default)
-    return Opacity(
+    final child = Opacity(
       opacity: isReadonly ? 0.6 : 1.0,
       child: TextField(
         focusNode: _focusNode,
-        autofocus: widget.autofocus,
         controller: _controller,
         readOnly: isReadonly,
         decoration: widget.compact
@@ -389,6 +400,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   borderRadius: BorderRadius.all(Radius.circular(12)),
                 ),
                 filled: true,
+                isDense: widget.dense,
                 fillColor: hasErrors ? errorBgColor : Colors.white.withOpacity(0.1),
                 suffixIcon: SpeechToTextButton(
                   controller: _controller,
@@ -409,5 +421,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
         },
       ),
     );
+
+    return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
   }
 }
