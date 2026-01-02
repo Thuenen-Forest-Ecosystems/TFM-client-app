@@ -10,7 +10,7 @@ jobs:
         runs-on: windows-latest
 
         env:
-            PUB_CACHE: C:\tmp\.pub-cache
+        PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
 
         steps:
             - name: Checkout code
@@ -27,6 +27,7 @@ jobs:
               shell: powershell
               run: |
                   Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+                  Set-MpPreference -ExclusionPath $env:PUB_CACHE -ErrorAction SilentlyContinue
 
             - name: Resolve dependencies (Windows)
               shell: powershell
@@ -119,7 +120,7 @@ jobs:
             contents: write
 
         env:
-            PUB_CACHE: C:\tmp\.pub-cache
+            PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
 
         steps:
             - name: Checkout code
@@ -136,6 +137,7 @@ jobs:
               shell: powershell
               run: |
                   Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+                  Set-MpPreference -ExclusionPath $env:PUB_CACHE -ErrorAction SilentlyContinue
                   Write-Host "Windows Defender real-time protection disabled"
 
             - name: Download pub cache artifact
