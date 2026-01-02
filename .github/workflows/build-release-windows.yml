@@ -1,0 +1,100 @@
+name: Build Windows Release
+
+on:
+    release:
+        types: [published]
+    workflow_dispatch:
+
+jobs:
+    build-windows:
+        runs-on: windows-latest
+
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                  channel: "stable"
+                  flutter-version: "3.24.5"
+                  cache: true
+
+            - name: Disable Windows Defender real-time protection
+              shell: powershell
+              run: |
+                  # Temporarily disable real-time protection to prevent file locking
+                  Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+                  Write-Host "Windows Defender real-time protection disabled"
+
+            - name: Install dependencies
+              shell: powershell
+              run: |
+                  Write-Host "Installing Flutter dependencies..."
+                  flutter pub get
+                  if ($LASTEXITCODE -ne 0) {
+                    Write-Host "First attempt failed, retrying after cleaning..."
+                    flutter clean
+                    Start-Sleep -Seconds 5
+                    flutter pub get
+                    if ($LASTEXITCODE -ne 0) {
+                      throw "Failed to get dependencies"
+                    }
+                  }
+                  Write-Host "Dependencies installed successfully"
+
+            - name: Enable Windows desktop
+              run: flutter config --enable-windows-desktop
+
+            - name: Create .env file
+              shell: powershell
+              run: |
+                  New-Item -Path . -Name ".env" -ItemType "file" -Force
+                  Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
+
+            - name: Build Windows Release
+              run: flutter build windows --release
+
+            - name: Build MSIX (Sideload)
+              run: dart run msix:create --build-windows false --store false --install-certificate false
+
+            - name: Rename Sideload MSIX
+              shell: powershell
+              run: |
+                  $sideloadMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Select-Object -First 1
+                  if ($sideloadMsix) {
+                    Rename-Item $sideloadMsix.FullName -NewName "terrestrial_forest_monitor_sideload.msix"
+                    Write-Host "Renamed sideload MSIX to: terrestrial_forest_monitor_sideload.msix"
+                  } else {
+                    Write-Host "Warning: No sideload MSIX file found"
+                  }
+
+            - name: Build MSIX (Store)
+              run: dart run msix:create --build-windows false --store
+
+            - name: Create portable ZIP archive
+              uses: thedoctor0/zip-release@0.7.6
+              with:
+                  type: "zip"
+                  filename: "TFM-windows-portable.zip"
+                  directory: build/windows/x64/runner/Release
+
+            - name: Upload artifacts to release
+              uses: softprops/action-gh-release@v2
+              if: github.event_name == 'release'
+              with:
+                  files: |
+                      build/windows/x64/runner/Release/TFM-windows-portable.zip
+                      build/windows/x64/runner/Release/*.msix
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Re-enable Windows Defender
+              if: always()
+              shell: powershell
+              run: |
+                  Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
+                  Write-Host "Windows Defender real-time protection re-enabled"
