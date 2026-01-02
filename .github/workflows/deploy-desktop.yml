@@ -76,6 +76,12 @@ jobs:
           $maxRetries = 5
           $retryCount = 0
           $success = $false
+
+          # Kill any lingering dart/flutter processes that might lock files
+          Write-Host "Stopping any lingering dart/flutter processes..."
+          Get-Process | Where-Object {$_.ProcessName -match "dart|flutter|pub"} | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+
           while (-not $success -and $retryCount -lt $maxRetries) {
             $retryCount++
             Write-Host "Attempt $retryCount of $maxRetries..."
@@ -83,25 +89,34 @@ jobs:
               # Clean cache on retries to avoid lock issues
               if ($retryCount -gt 1) {
                 Write-Host "Cleaning pub cache..."
+                # Kill processes again before cleaning cache
+                Get-Process | Where-Object {$_.ProcessName -match "dart|flutter|pub"} | Stop-Process -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
+                
                 flutter pub cache clean --force
-                Start-Sleep -Seconds 5 # Wait for file system to settle
+                Start-Sleep -Seconds 10 # Wait longer for file system to settle
               }
+              
               # Use --no-precompile to avoid some lock issues during precompilation
               flutter pub get --no-precompile
               if ($LASTEXITCODE -ne 0) { throw "Flutter pub get failed with exit code $LASTEXITCODE" }
+              
+              Write-Host "Successfully retrieved dependencies!"
               $success = $true
             } catch {
               Write-Host "Error: $_"
               if ($retryCount -lt $maxRetries) {
-                $backoff = 15 * $retryCount
+                # Exponential backoff with longer delays
+                $backoff = 20 + (10 * $retryCount)
                 Write-Host "Pub get failed, retrying in $backoff seconds..."
                 Start-Sleep -Seconds $backoff
               } else {
+                Write-Host "All retry attempts exhausted. Failing build."
                 throw
               }
             }
           }
-          
+
       - name: Enable windows build
         run: flutter config --enable-windows-desktop
 
