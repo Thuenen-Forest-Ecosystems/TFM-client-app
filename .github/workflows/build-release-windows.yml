@@ -13,7 +13,7 @@ jobs:
             contents: write
 
     env:
-      PUB_CACHE: ${{ github.workspace }}\.pub-cache
+      PUB_CACHE: C:\tmp\.pub-cache
 
         steps:
             - name: Checkout code
@@ -37,17 +37,18 @@ jobs:
               run: |
                   $localPubCache = $env:PUB_CACHE
                   Write-Host "Using PUB_CACHE: $localPubCache"
+                  New-Item -ItemType Directory -Force -Path $localPubCache | Out-Null
 
                   # Warm up tooling once, then stop any lingering processes
                   flutter --version
                   flutter config --no-analytics
                   Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 15
+                  Start-Sleep -Seconds 20
 
                   # Repair cache once before retries to reduce corruption
-                  flutter pub cache repair
+                  flutter pub cache repair --no-precompile
                   Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 5
+                  Start-Sleep -Seconds 8
 
                   $maxRetries = 5
                   $retryCount = 0
@@ -59,7 +60,7 @@ jobs:
 
                     # Kill processes that may hold locks
                     Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                    Start-Sleep -Seconds 8
+                    Start-Sleep -Seconds 10
 
                     # Clear caches to avoid stale locks
                     if (Test-Path $localPubCache) {
@@ -73,7 +74,7 @@ jobs:
                     if (Test-Path $userCache) {
                       Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
                     }
-                    Start-Sleep -Seconds 12
+                    Start-Sleep -Seconds 15
 
                     try {
                       flutter clean
