@@ -12,6 +12,9 @@ jobs:
         permissions:
             contents: write
 
+    env:
+      PUB_CACHE: ${{ github.workspace }}\.pub-cache
+
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -32,13 +35,8 @@ jobs:
             - name: Install dependencies
               shell: powershell
               run: |
-                  # Set local PUB_CACHE to avoid locking issues in hosted tool cache
-                  $localPubCache = Join-Path $env:GITHUB_WORKSPACE ".pub-cache"
-                  $env:PUB_CACHE = $localPubCache
-                  Write-Host "Using local PUB_CACHE: $localPubCache"
-
-                  # Persist for subsequent steps
-                  echo "PUB_CACHE=$localPubCache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+                  $localPubCache = $env:PUB_CACHE
+                  Write-Host "Using PUB_CACHE: $localPubCache"
 
                   flutter config --no-analytics
 
@@ -50,18 +48,28 @@ jobs:
                     $retryCount++
                     Write-Host "Attempt $retryCount of $maxRetries..."
 
-                    try {
-                      if ($retryCount -gt 1) {
-                        Write-Host "Cleaning..."
-                        flutter clean
-                        if (Test-Path $localPubCache) {
-                            Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
-                        }
-                        Start-Sleep -Seconds 5
-                      }
+                    # Kill processes that may hold locks
+                    Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 3
 
-                      flutter pub get
-                      
+                    # Clear caches to avoid stale locks
+                    if (Test-Path $localPubCache) {
+                      Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
+                    }
+                    $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
+                    if (Test-Path $hostedCache) {
+                      Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
+                    }
+                    $userCache = Join-Path $env:LOCALAPPDATA "Pub\Cache"
+                    if (Test-Path $userCache) {
+                      Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
+                    }
+                    Start-Sleep -Seconds 5
+
+                    try {
+                      flutter clean
+                      flutter pub get --no-precompile
+
                       if ($LASTEXITCODE -eq 0) {
                         $success = $true
                         Write-Host "Dependencies installed successfully"
@@ -70,7 +78,11 @@ jobs:
                       }
                     } catch {
                       Write-Host "Error: $_"
-                      Start-Sleep -Seconds 10
+                      if ($retryCount -lt $maxRetries) {
+                        $backoff = 15 * $retryCount
+                        Write-Host "Retrying in $backoff seconds..."
+                        Start-Sleep -Seconds $backoff
+                      }
                     }
                   }
 
