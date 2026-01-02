@@ -10,7 +10,7 @@ jobs:
         runs-on: windows-latest
 
         env:
-        PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
+            PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
 
         steps:
             - name: Checkout code
