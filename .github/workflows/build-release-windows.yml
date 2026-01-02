@@ -6,8 +6,36 @@ on:
     workflow_dispatch:
 
 jobs:
+    prepare-cache:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                  channel: "stable"
+                  flutter-version: "3.38.4"
+                  cache: false
+
+            - name: Resolve dependencies (Linux)
+              run: flutter pub get
+
+            - name: Package pub cache
+              run: |
+                  tar -czf pub-cache.tgz .pub-cache .dart_tool/package_config.json
+
+            - name: Upload cache artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: flutter-pub-cache
+                  path: pub-cache.tgz
+
     build-windows:
         runs-on: windows-latest
+        needs: prepare-cache
 
         permissions:
             contents: write
@@ -32,71 +60,34 @@ jobs:
                   Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
                   Write-Host "Windows Defender real-time protection disabled"
 
-            - name: Install dependencies
+            - name: Download pub cache artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: flutter-pub-cache
+                  path: C:\tmp
+
+            - name: Extract pub cache
               shell: powershell
               run: |
-                  $localPubCache = $env:PUB_CACHE
-                  Write-Host "Using PUB_CACHE: $localPubCache"
-                  New-Item -ItemType Directory -Force -Path $localPubCache | Out-Null
-
-                  # Warm up tooling once, then stop any lingering processes
-                  flutter --version
-                  flutter config --no-analytics
-                  Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 20
-
-                  # Repair cache once before retries to reduce corruption
-                  flutter pub cache repair
-                  Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                  Start-Sleep -Seconds 8
-
-                  $maxRetries = 5
-                  $retryCount = 0
-                  $success = $false
-
-                  while (-not $success -and $retryCount -lt $maxRetries) {
-                    $retryCount++
-                    Write-Host "Attempt $retryCount of $maxRetries..."
-
-                    # Kill processes that may hold locks
-                    Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                    Start-Sleep -Seconds 10
-
-                    # Clear caches to avoid stale locks
-                    if (Test-Path $localPubCache) {
-                      Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
-                    }
-                    $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
-                    if (Test-Path $hostedCache) {
-                      Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
-                    }
-                    $userCache = Join-Path $env:LOCALAPPDATA "Pub\Cache"
-                    if (Test-Path $userCache) {
-                      Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
-                    }
-                    Start-Sleep -Seconds 15
-
-                    try {
-                      flutter clean
-                      flutter pub get --no-precompile
-
-                      if ($LASTEXITCODE -eq 0) {
-                        $success = $true
-                        Write-Host "Dependencies installed successfully"
-                      } else {
-                        throw "Exit code $LASTEXITCODE"
-                      }
-                    } catch {
-                      Write-Host "Error: $_"
-                      if ($retryCount -lt $maxRetries) {
-                        $backoff = 20 + (15 * $retryCount)
-                        Write-Host "Retrying in $backoff seconds..."
-                        Start-Sleep -Seconds $backoff
-                      }
-                    }
+                  tar -xf C:\tmp\pub-cache.tgz -C C:\tmp
+                  # Ensure PUB_CACHE dir exists
+                  New-Item -ItemType Directory -Force -Path $env:PUB_CACHE | Out-Null
+                  # Copy extracted cache into target location
+                  if (Test-Path "C:\tmp\.pub-cache") {
+                    Remove-Item -Recurse -Force $env:PUB_CACHE -ErrorAction SilentlyContinue
+                    Move-Item -Force "C:\tmp\.pub-cache" $env:PUB_CACHE
+                  }
+                  # Restore package_config.json for offline pub get
+                  if (Test-Path "C:\tmp\.dart_tool\package_config.json") {
+                    New-Item -ItemType Directory -Force -Path ".dart_tool" | Out-Null
+                    Copy-Item -Force "C:\tmp\.dart_tool\package_config.json" ".dart_tool\package_config.json"
                   }
 
-                  if (-not $success) { throw "Failed to install dependencies" }
+            - name: Install dependencies (offline)
+              shell: powershell
+              run: |
+                  flutter config --no-analytics
+                  flutter pub get --offline
 
             - name: Enable Windows desktop
               run: flutter config --enable-windows-desktop
