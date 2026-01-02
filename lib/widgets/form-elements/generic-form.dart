@@ -9,7 +9,23 @@ class GenericForm extends StatefulWidget {
   final String? propertyName;
   final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
-  const GenericForm({super.key, this.jsonSchema, required this.data, this.previous_properties, this.propertyName, this.validationResult, this.onDataChanged});
+  final List<String>? includeProperties; // Optional filter for which properties to show
+  final Map<String, dynamic>? fieldOptions; // Per-field configuration (width, etc.)
+  final bool isDense;
+  final String? layout;
+  const GenericForm({
+    super.key,
+    this.jsonSchema,
+    required this.data,
+    this.previous_properties,
+    this.propertyName,
+    this.validationResult,
+    this.onDataChanged,
+    this.includeProperties,
+    this.fieldOptions,
+    this.isDense = false,
+    this.layout,
+  });
 
   @override
   State<GenericForm> createState() => _GenericFormState();
@@ -42,7 +58,9 @@ class _GenericFormState extends State<GenericForm> {
   List<ValidationError> _getErrorsForField(String fieldName) {
     if (widget.validationResult == null) return [];
 
-    final propertyPath = widget.propertyName != null ? '/${widget.propertyName}/$fieldName' : '/$fieldName';
+    final propertyPath = widget.propertyName != null
+        ? '/${widget.propertyName}/$fieldName'
+        : '/$fieldName';
 
     return widget.validationResult!.ajvErrors.where((error) {
       final path = error.instancePath ?? '';
@@ -58,27 +76,34 @@ class _GenericFormState extends State<GenericForm> {
     }
 
     // The jsonSchema might already be the properties object, or it might have a 'properties' key
-    final properties = widget.jsonSchema!.containsKey('properties') ? widget.jsonSchema!['properties'] as Map<String, dynamic>? : widget.jsonSchema;
+    final properties = widget.jsonSchema!.containsKey('properties')
+        ? widget.jsonSchema!['properties'] as Map<String, dynamic>?
+        : widget.jsonSchema;
 
     if (properties == null || properties.isEmpty) {
       return const Center(child: Text('No properties in schema'));
     }
 
-    // Filter out arrays and objects, keep only primitive types
-    // Group fields by headerName
-    final fieldsByGroup = <String, List<MapEntry<String, Map<String, dynamic>>>>{};
-    final ungroupedFields = <MapEntry<String, Map<String, dynamic>>>[];
+    // Filter properties based on includeProperties and collect primitive types
+    final fieldsToShow = <MapEntry<String, Map<String, dynamic>>>[];
 
     properties.forEach((key, value) {
+      // If includeProperties is specified, only process properties in that list
+      if (widget.includeProperties != null && !widget.includeProperties!.contains(key)) {
+        return; // Skip this property
+      }
+
       if (value is Map<String, dynamic>) {
         // Check if field should be hidden via $tfm.form.ui:options.display
+        // However, if includeProperties is specified (from layout), it overrides the schema display setting
         final tfmData = value['\$tfm'] as Map<String, dynamic>?;
         final formOptions = tfmData?['form'] as Map<String, dynamic>?;
         final uiOptions = formOptions?['ui:options'] as Map<String, dynamic>?;
         final shouldDisplay = uiOptions?['display'] as bool? ?? true;
 
-        if (!shouldDisplay) {
-          return; // Skip this field
+        // If includeProperties is set, layout takes precedence - show the field
+        if (!shouldDisplay && widget.includeProperties == null) {
+          return; // Skip this field only if not explicitly included by layout
         }
 
         final typeValue = value['type'];
@@ -95,121 +120,86 @@ class _GenericFormState extends State<GenericForm> {
         // Include only primitive types (string, number, integer, boolean)
         // Exclude array and object types
         if (type == 'string' || type == 'number' || type == 'integer' || type == 'boolean') {
-          final entry = MapEntry(key, value);
-
-          // Check for groupBy
-          final groupBy = formOptions?['groupBy'] as Map<String, dynamic>?;
-          final headerName = groupBy?['headerName'] as String?;
-          final sortBy = groupBy?['sortBy'] as int? ?? 999;
-
-          if (headerName != null && headerName.isNotEmpty) {
-            fieldsByGroup.putIfAbsent(headerName, () => []);
-            fieldsByGroup[headerName]!.add(entry);
-          } else {
-            ungroupedFields.add(entry);
-          }
+          fieldsToShow.add(MapEntry(key, value));
         }
       }
     });
 
-    // Sort fields within each group by sortBy
-    fieldsByGroup.forEach((groupName, fields) {
-      fields.sort((a, b) {
-        final aSortBy = (a.value['\$tfm'] as Map?)?['form']?['groupBy']?['sortBy'] as int? ?? 999;
-        final bSortBy = (b.value['\$tfm'] as Map?)?['form']?['groupBy']?['sortBy'] as int? ?? 999;
-        return aSortBy.compareTo(bSortBy);
-      });
-    });
-
-    if (fieldsByGroup.isEmpty && ungroupedFields.isEmpty) {
+    if (fieldsToShow.isEmpty) {
       return const Center(child: Text('No primitive fields in schema'));
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         // Determine number of columns based on available width
-        final int columns;
+        /*final int columns;
         if (constraints.maxWidth >= 1200) {
           columns = 3; // Large tablets/desktops
         } else if (constraints.maxWidth >= 800) {
           columns = 2; // Medium tablets
         } else {
           columns = 1; // Phones
-        }
+        }*/
 
         Widget buildFieldWidget(MapEntry<String, Map<String, dynamic>> entry) {
           final fieldName = entry.key;
           final fieldSchema = entry.value;
           final fieldErrors = _getErrorsForField(fieldName);
-          debugPrint('Building field $fieldName with errors: ${fieldErrors.map((e) => e.message).join(', ')}');
+          final fieldConfig = widget.fieldOptions?[fieldName] as Map<String, dynamic>?;
+          final width = (fieldConfig?['width'] as num?)?.toDouble();
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10, top: 10),
-            child: GenericTextField(fieldName: fieldName, fieldSchema: fieldSchema, value: _localData[fieldName], errors: fieldErrors, onChanged: (value) => _updateField(fieldName, value)),
-          );
-        }
-
-        final groupWidgets = <Widget>[];
-        final ungroupedWidgets = <Widget>[];
-
-        // Build grouped fields in cards (always full width)
-        fieldsByGroup.forEach((groupName, fields) {
-          groupWidgets.add(
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(groupName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    // Use Wrap for multiple columns on wide screens
-                    if (columns == 1)
-                      ...fields.map(buildFieldWidget)
-                    else
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 20,
-                        children: fields.map((field) {
-                          return SizedBox(width: (constraints.maxWidth - 32 - 32 - (20 * (columns - 1))) / columns, child: buildFieldWidget(field));
-                        }).toList(),
-                      ),
-                  ],
-                ),
+            padding: const EdgeInsets.all(10),
+            child: SizedBox(
+              width: width,
+              child: GenericTextField(
+                fieldName: fieldName,
+                fieldSchema: fieldSchema,
+                value: _localData[fieldName],
+                errors: fieldErrors,
+                onChanged: (value) => _updateField(fieldName, value),
+                dense: widget.isDense,
+                //width: width,
               ),
             ),
           );
-        });
+        }
 
-        // Build ungrouped fields (can be in columns)
-        ungroupedWidgets.addAll(ungroupedFields.map(buildFieldWidget));
+        final fieldWidgets = fieldsToShow.map(buildFieldWidget).toList();
 
-        if (columns == 1) {
-          // Single column: use ListView for scrolling, with shrinkWrap for dialogs
-          return ListView(shrinkWrap: true, physics: const ClampingScrollPhysics(), padding: const EdgeInsets.all(16), children: [...groupWidgets, ...ungroupedWidgets]);
-        } else {
-          // Multiple columns: groups full width, ungrouped fields in columns
+        if (widget.layout == 'horizontal-scroll') {
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Groups always full width
-                ...groupWidgets,
-                // Ungrouped fields in wrap layout
-                if (ungroupedWidgets.isNotEmpty)
-                  Wrap(
-                    spacing: 20, // Horizontal spacing between items
-                    runSpacing: 20, // Vertical spacing between rows
-                    children: ungroupedWidgets.map((widget) {
-                      return SizedBox(width: (constraints.maxWidth - 32 - (20 * (columns - 1))) / columns, child: widget);
-                    }).toList(),
-                  ),
-              ],
-            ),
+            scrollDirection: Axis.horizontal,
+            child: Row(children: fieldWidgets),
+          );
+        } else {
+          return Wrap(
+            spacing: 5, // Horizontal spacing between items
+            runSpacing: 5, // Vertical spacing between rows
+            children: fieldWidgets,
           );
         }
+        /*
+        if (columns == 1) {
+          // Single column: use Column instead of ListView to avoid scrolling
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: fieldWidgets,
+          );
+        } else {
+          // Multiple columns: use Wrap layout
+          return Wrap(
+            spacing: 20, // Horizontal spacing between items
+            runSpacing: 20, // Vertical spacing between rows
+            children: fieldWidgets.map((widget) {
+              return SizedBox(
+                width: (constraints.maxWidth - 32 - (20 * (columns - 1))) / columns,
+                child: widget,
+              );
+            }).toList(),
+          );
+        }*/
       },
     );
   }

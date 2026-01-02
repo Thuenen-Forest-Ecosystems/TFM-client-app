@@ -15,7 +15,8 @@ class _MapAdminState extends State<MapAdmin> {
     //'wms_dtk25__',
     'wms_dop__',
     //'openstreetmap',
-    'opentopomap',
+    //'opentopomap',
+    'OpenCycleMap',
   ];
 
   Map<String, int> _storeTileCounts = {};
@@ -56,22 +57,21 @@ class _MapAdminState extends State<MapAdmin> {
   Future<void> _deleteStore(String storeName) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Cache löschen'),
-            content: Text('Möchten Sie alle Kacheln für "$storeName" löschen?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Abbrechen'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Löschen'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Cache löschen'),
+        content: Text('Möchten Sie alle Kacheln für "$storeName" löschen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Abbrechen'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true) {
@@ -117,6 +117,8 @@ class _MapAdminState extends State<MapAdmin> {
         return 'OpenTopoMap';
       case 'openstreetmap':
         return 'OpenStreetMap';
+      case 'OpenCycleMap':
+        return 'Open Cycle Map';
       default:
         return storeName;
     }
@@ -133,27 +135,25 @@ class _MapAdminState extends State<MapAdmin> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children:
-          _storeList.map((storeName) {
-            final tileCount = _storeTileCounts[storeName] ?? 0;
-            final displayName = _getStoreDisplayName(storeName);
-            final storageSize = _getStorageSize(tileCount);
+      children: _storeList.map((storeName) {
+        final tileCount = _storeTileCounts[storeName] ?? 0;
+        final displayName = _getStoreDisplayName(storeName);
+        final storageSize = _getStorageSize(tileCount);
 
-            return ListTile(
-              title: Text(displayName),
-              subtitle: Text(
-                tileCount > 0 ? '$tileCount Kacheln (~$storageSize)' : 'Kein Cache vorhanden',
-              ),
-              trailing:
-                  tileCount > 0
-                      ? IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _deleteStore(storeName),
-                        tooltip: 'Cache löschen',
-                      )
-                      : null,
-            );
-          }).toList(),
+        return ListTile(
+          title: Text(displayName),
+          subtitle: Text(
+            tileCount > 0 ? '$tileCount Kacheln (~$storageSize)' : 'Kein Cache vorhanden',
+          ),
+          trailing: tileCount > 0
+              ? IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () => _deleteStore(storeName),
+                  tooltip: 'Cache löschen',
+                )
+              : null,
+        );
+      }).toList(),
     );
   }
 }

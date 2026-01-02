@@ -56,7 +56,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   @override
   void initState() {
     super.initState();
-    print('DMZ_KEY: ${dotenv.env['DMZ_KEY']}');
     _checkMissingTiles();
   }
 

@@ -97,14 +97,13 @@ class _DownloadSchemasBtnState extends State<DownloadSchemasBtn> {
 
         showDialog(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Fehler'),
-                content: Text('Fehler beim Download: $e'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
-                ],
-              ),
+          builder: (context) => AlertDialog(
+            title: const Text('Fehler'),
+            content: Text('Fehler beim Download: $e'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
+            ],
+          ),
         );
       }
     }
