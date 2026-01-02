@@ -25,7 +25,12 @@ jobs:
 
             - name: Package pub cache
               run: |
-                  tar -czf pub-cache.tgz .pub-cache .dart_tool/package_config.json
+                  if [ -d .pub-cache ] || [ -f .dart_tool/package_config.json ]; then
+                    tar -czf pub-cache.tgz .pub-cache .dart_tool/package_config.json
+                  else
+                    echo "No pub cache found; creating empty archive"
+                    tar -czf pub-cache.tgz --files-from /dev/null
+                  fi
 
             - name: Upload cache artifact
               uses: actions/upload-artifact@v4
