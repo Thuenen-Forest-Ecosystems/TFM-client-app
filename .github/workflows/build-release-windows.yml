@@ -26,7 +26,6 @@ jobs:
             - name: Disable Windows Defender real-time protection
               shell: powershell
               run: |
-                  # Temporarily disable real-time protection to prevent file locking
                   Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
                   Write-Host "Windows Defender real-time protection disabled"
 
