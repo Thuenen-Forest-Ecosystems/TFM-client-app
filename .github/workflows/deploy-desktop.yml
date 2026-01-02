@@ -66,65 +66,64 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: subosito/flutter-action@v1
+      - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
           flutter-version: "3.38.4"
+          cache: false
 
-      - name: Install project dependencies with retry
+      - name: Disable Windows Defender real-time protection
+        shell: powershell
         run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+          Write-Host "Windows Defender real-time protection disabled"
+
+      - name: Install project dependencies
+        shell: powershell
+        run: |
+          # Set local PUB_CACHE to avoid locking issues in hosted tool cache
+          $localPubCache = Join-Path $env:GITHUB_WORKSPACE ".pub-cache"
+          $env:PUB_CACHE = $localPubCache
+          Write-Host "Using local PUB_CACHE: $localPubCache"
+
+          # Persist for subsequent steps
+          echo "PUB_CACHE=$localPubCache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+          flutter config --no-analytics
+
           $maxRetries = 5
           $retryCount = 0
           $success = $false
 
-          # Kill any lingering dart/flutter processes that might lock files
-          Write-Host "Stopping any lingering dart/flutter processes..."
-          Get-Process | Where-Object {$_.ProcessName -match "dart|flutter|pub"} | Stop-Process -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 3
-
           while (-not $success -and $retryCount -lt $maxRetries) {
             $retryCount++
             Write-Host "Attempt $retryCount of $maxRetries..."
+
             try {
-              # Clean cache on retries to avoid lock issues
               if ($retryCount -gt 1) {
-                Write-Host "Waiting before retry..."
-                Start-Sleep -Seconds 15
-                
-                # Kill processes again before cleaning cache
-                Write-Host "Stopping dart/flutter processes..."
-                Get-Process | Where-Object {$_.ProcessName -match "dart|flutter|pub"} | Stop-Process -Force -ErrorAction SilentlyContinue
+                Write-Host "Cleaning..."
+                flutter clean
+                if (Test-Path $localPubCache) {
+                    Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
+                }
                 Start-Sleep -Seconds 5
-                
-                Write-Host "Cleaning pub cache..."
-                # Kill processes again before cleaning cache
-                Get-Process | Where-Object {$_.ProcessName -match "dart|flutter|pub"} | Stop-Process -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 2
-                
-                flutter pub cache clean --force
-                Start-Sleep -Seconds 10
               }
+
+              flutter pub get
               
-              # Use --no-precompile to avoid some lock issues during precompilation
-              Write-Host "Running flutter pub get..."
-              flutter pub get --no-precompile
-              if ($LASTEXITCODE -ne 0) { throw "Flutter pub get failed with exit code $LASTEXITCODE" }
-              
-              Write-Host "Successfully retrieved dependencies!"
-              $success = $true
+              if ($LASTEXITCODE -eq 0) {
+                $success = $true
+                Write-Host "Dependencies installed successfully"
+              } else {
+                throw "Exit code $LASTEXITCODE"
+              }
             } catch {
               Write-Host "Error: $_"
-              if ($retryCount -lt $maxRetries) {
-                # Exponential backoff
-                $backoff = 20 + (15 * $retryCount)
-                Write-Host "Pub get failed, retrying in $backoff seconds..."
-                Start-Sleep -Seconds $backoff
-              } else {
-                Write-Host "All retry attempts exhausted. Failing build."
-                throw
-              }
+              Start-Sleep -Seconds 10
             }
           }
+
+          if (-not $success) { throw "Failed to install dependencies" }
 
       - name: Enable windows build
         run: flutter config --enable-windows-desktop

@@ -21,7 +21,7 @@ jobs:
               with:
                   channel: "stable"
                   flutter-version: "3.38.4"
-                  cache: true
+                  cache: false
 
             - name: Disable Windows Defender real-time protection
               shell: powershell
@@ -33,18 +33,49 @@ jobs:
             - name: Install dependencies
               shell: powershell
               run: |
-                  Write-Host "Installing Flutter dependencies..."
-                  flutter pub get
-                  if ($LASTEXITCODE -ne 0) {
-                    Write-Host "First attempt failed, retrying after cleaning..."
-                    flutter clean
-                    Start-Sleep -Seconds 5
-                    flutter pub get
-                    if ($LASTEXITCODE -ne 0) {
-                      throw "Failed to get dependencies"
+                  # Set local PUB_CACHE to avoid locking issues in hosted tool cache
+                  $localPubCache = Join-Path $env:GITHUB_WORKSPACE ".pub-cache"
+                  $env:PUB_CACHE = $localPubCache
+                  Write-Host "Using local PUB_CACHE: $localPubCache"
+
+                  # Persist for subsequent steps
+                  echo "PUB_CACHE=$localPubCache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+                  flutter config --no-analytics
+
+                  $maxRetries = 5
+                  $retryCount = 0
+                  $success = $false
+
+                  while (-not $success -and $retryCount -lt $maxRetries) {
+                    $retryCount++
+                    Write-Host "Attempt $retryCount of $maxRetries..."
+
+                    try {
+                      if ($retryCount -gt 1) {
+                        Write-Host "Cleaning..."
+                        flutter clean
+                        if (Test-Path $localPubCache) {
+                            Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
+                        }
+                        Start-Sleep -Seconds 5
+                      }
+
+                      flutter pub get
+                      
+                      if ($LASTEXITCODE -eq 0) {
+                        $success = $true
+                        Write-Host "Dependencies installed successfully"
+                      } else {
+                        throw "Exit code $LASTEXITCODE"
+                      }
+                    } catch {
+                      Write-Host "Error: $_"
+                      Start-Sleep -Seconds 10
                     }
                   }
-                  Write-Host "Dependencies installed successfully"
+
+                  if (-not $success) { throw "Failed to install dependencies" }
 
             - name: Enable Windows desktop
               run: flutter config --enable-windows-desktop
