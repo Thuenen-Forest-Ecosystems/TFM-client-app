@@ -81,7 +81,10 @@ class _StartState extends State<Start> {
           '/records-selection/:intervalName': (context, state, data) {
             final intervalName = state.pathParameters['intervalName'];
             if (intervalName == null || intervalName.isEmpty) {
-              return BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection());
+              return BeamPage(
+                key: const ValueKey('schema-selection'),
+                child: const SchemaSelection(),
+              );
             }
             final decodedIntervalName = Uri.decodeComponent(intervalName);
             return BeamPage(
@@ -100,10 +103,14 @@ class _StartState extends State<Start> {
             final clusterName = state.pathParameters['clusterName'];
             final plotName = state.pathParameters['plotName'];
             if (clusterName == null || plotName == null) {
-              return BeamPage(key: const ValueKey('schema-selection'), child: const SchemaSelection());
+              return BeamPage(
+                key: const ValueKey('schema-selection'),
+                child: const SchemaSelection(),
+              );
             }
             final decodedClusterName = Uri.decodeComponent(clusterName);
             final decodedPlotName = Uri.decodeComponent(plotName);
+
             return BeamPage(
               key: ValueKey('properties-edit-$decodedClusterName-$decodedPlotName'),
               child: PopScope(
@@ -163,8 +170,6 @@ class _StartState extends State<Start> {
       waitCount++;
     }
 
-    debugPrint('Start: Permission ID ready, starting to watch records');
-
     try {
       // Cancel any existing subscription
       await _recordsWatchSubscription?.cancel();
@@ -172,8 +177,6 @@ class _StartState extends State<Start> {
       // Watch records filtered by selected permissions
       _recordsWatchSubscription = RecordsRepository().watchAllRecords().listen(
         (records) {
-          debugPrint('Start: Received ${records.length} records from stream (filtered by permissions)');
-
           if (!mounted) return;
 
           // Store in provider cache with metadata structure
@@ -189,8 +192,6 @@ class _StartState extends State<Start> {
             0, // page
             false, // hasMore
           );
-
-          debugPrint('Start: Successfully cached ${records.length} records in provider');
 
           if (mounted && _isLoadingData) {
             setState(() {
@@ -237,7 +238,10 @@ class _StartState extends State<Start> {
   Widget _buildTopBar() {
     return Container(
       // add scaffold background color and rounded corners
-      decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(30))),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.all(Radius.circular(30)),
+      ),
       child: Row(
         children: [
           //const SyncStatusButton(),
@@ -272,7 +276,10 @@ class _StartState extends State<Start> {
         // Handle system back/gesture same as close button
         await _handleCloseButtonPressed();
       },
-      child: BackButtonListener(onBackButtonPressed: _handleCloseButtonPressed, child: _buildContent(context)),
+      child: BackButtonListener(
+        onBackButtonPressed: _handleCloseButtonPressed,
+        child: _buildContent(context),
+      ),
     );
   }
 
@@ -282,7 +289,9 @@ class _StartState extends State<Start> {
         // Background Map (Fixed Height) - Move up based on sheet position
         // The map center should align with the center of visible area (above the sheet)
         Positioned(
-          top: -(_currentSheetSize - _minChildSize) * MediaQuery.of(context).size.height * 0.5 - MediaQuery.of(context).padding.top,
+          top:
+              -(_currentSheetSize - _minChildSize) * MediaQuery.of(context).size.height * 0.5 -
+              MediaQuery.of(context).padding.top,
           left: 0,
           right: 0,
           height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
@@ -301,9 +310,15 @@ class _StartState extends State<Start> {
                 Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: const BorderRadius.only(topRight: Radius.circular(30), bottomRight: Radius.circular(30)),
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
                   ),
-                  child: IconButton(icon: const Icon(Icons.close), onPressed: _handleCloseButtonPressed),
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: _handleCloseButtonPressed,
+                  ),
                 ),
                 const Expanded(child: SizedBox()),
                 _buildTopBar(),
@@ -337,10 +352,16 @@ class _StartState extends State<Start> {
           content: const Text('Ungespeicherten Änderungen gehen verloren.'),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('zurück')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('zurück'),
+            ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Änderungen verwerfen'),
             ),
           ],
@@ -360,11 +381,16 @@ class _StartState extends State<Start> {
           // Load the record to get the schemaName/intervalName
           try {
             final recordsRepository = RecordsRepository();
-            final records = await recordsRepository.getRecordsByClusterAndPlot(clusterName, plotName);
+            final records = await recordsRepository.getRecordsByClusterAndPlot(
+              clusterName,
+              plotName,
+            );
 
             if (records.isNotEmpty) {
               final intervalName = records.first.schemaName;
-              _beamerDelegate.beamToNamed('/records-selection/${Uri.encodeComponent(intervalName)}');
+              _beamerDelegate.beamToNamed(
+                '/records-selection/${Uri.encodeComponent(intervalName)}',
+              );
               return true;
             }
           } catch (e) {
@@ -412,7 +438,10 @@ class _StartState extends State<Start> {
                     child: Container(
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                 ),

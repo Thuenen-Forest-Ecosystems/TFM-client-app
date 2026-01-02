@@ -46,24 +46,32 @@ class _SchemaSelectionState extends State<SchemaSelection> {
 
         final schemas = snapshot.data ?? [];
 
-        if (schemas.isEmpty) {
-          return const _EmptyStateWithProgress();
-        }
+        return Column(
+          children: [
+            const UserInfoTile(),
+            if (schemas.isNotEmpty)
+              Card(margin: const EdgeInsets.all(16), child: const MapTilesDownload()),
 
-        return ListView.builder(
-          controller: scrollController,
-          padding: const EdgeInsets.all(16),
-          itemCount: schemas.length,
-          physics: const ClampingScrollPhysics(),
-          addAutomaticKeepAlives: false,
-          addRepaintBoundaries: true,
-          itemBuilder: (context, index) {
-            final schema = schemas[index];
-            return _SchemaCard(
-              schema: schema,
-              onTap: () => _handleSchemaSelection(context, schema),
-            );
-          },
+            Expanded(
+              child: schemas.isEmpty
+                  ? const _EmptyStateWithProgress()
+                  : ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: schemas.length,
+                      physics: const ClampingScrollPhysics(),
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                      itemBuilder: (context, index) {
+                        final schema = schemas[index];
+                        return _SchemaCard(
+                          schema: schema,
+                          onTap: () => _handleSchemaSelection(context, schema),
+                        );
+                      },
+                    ),
+            ),
+          ],
         );
       },
     );
@@ -224,7 +232,6 @@ class _SchemaCard extends StatelessWidget {
 
     return Column(
       children: [
-        UserInfoTile(),
         Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 2,
@@ -250,7 +257,6 @@ class _SchemaCard extends StatelessWidget {
             ],
           ),
         ),
-        Card(margin: const EdgeInsets.only(bottom: 16), child: const MapTilesDownload()),
       ],
     );
   }

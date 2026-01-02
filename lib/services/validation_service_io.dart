@@ -44,20 +44,22 @@ class ValidationService {
     try {
       // Load AJV library from assets
       final ajvCode = await rootBundle.loadString('assets/html/ajv7.min.js');
-      print('AJV library loaded from assets');
 
       // Load AJV i18n library from assets
       String ajvI18nCode = '';
       try {
         ajvI18nCode = await rootBundle.loadString('assets/html/ajv-i18n.min.js');
-        print('AJV i18n library loaded from assets');
       } catch (e) {
         print('AJV i18n library not found: $e');
       }
 
       // Initialize headless WebView with inline AJV + optional TFM validation
       _headlessWebView = HeadlessInAppWebView(
-        initialSettings: InAppWebViewSettings(javaScriptEnabled: true, allowUniversalAccessFromFileURLs: true, allowFileAccessFromFileURLs: true),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          allowUniversalAccessFromFileURLs: true,
+          allowFileAccessFromFileURLs: true,
+        ),
         initialData: InAppWebViewInitialData(
           data:
               '''
@@ -115,7 +117,7 @@ class ValidationService {
           }
         },
         onConsoleMessage: (controller, consoleMessage) {
-          print('WebView Console: ${consoleMessage.message}');
+          print('WebView Console: '); // ${consoleMessage.message}
         },
       );
 
@@ -178,7 +180,10 @@ class ValidationService {
       final result = await _webViewController!.evaluateJavascript(source: jsCode);
 
       if (result == null) {
-        return ValidationResult(isValid: false, errors: [ValidationError(message: 'Validation returned null')]);
+        return ValidationResult(
+          isValid: false,
+          errors: [ValidationError(message: 'Validation returned null')],
+        );
       }
 
       final resultMap = result is String ? jsonDecode(result) : result;
@@ -194,18 +199,27 @@ class ValidationService {
         }
       }
 
-      final parsedErrors = normalizedErrors.map((e) => ValidationError.fromJson(e as Map<String, dynamic>)).toList();
+      final parsedErrors = normalizedErrors
+          .map((e) => ValidationError.fromJson(e as Map<String, dynamic>))
+          .toList();
 
       return ValidationResult(isValid: resultMap['valid'] ?? false, errors: parsedErrors);
     } catch (e) {
       print('Validation error: $e');
-      return ValidationResult(isValid: false, errors: [ValidationError(message: 'Validation exception: $e')]);
+      return ValidationResult(
+        isValid: false,
+        errors: [ValidationError(message: 'Validation exception: $e')],
+      );
     }
   }
 
   /// Run TFM custom validation after AJV validation
   /// Returns combined results from both validators
-  Future<TFMValidationResult> validateWithTFM({required Map<String, dynamic> schema, required Map<String, dynamic> data, Map<String, dynamic>? previousData}) async {
+  Future<TFMValidationResult> validateWithTFM({
+    required Map<String, dynamic> schema,
+    required Map<String, dynamic> data,
+    Map<String, dynamic>? previousData,
+  }) async {
     if (!_isInitialized || _webViewController == null) {
       throw Exception('Validation service not initialized. Call initialize() first.');
     }
@@ -218,7 +232,12 @@ class ValidationService {
       print('TFM validation check: _isTFMLoaded = $_isTFMLoaded');
       if (!_isTFMLoaded) {
         print('TFM not loaded, returning AJV-only results');
-        return TFMValidationResult(ajvValid: ajvResult.isValid, ajvErrors: ajvResult.errors, tfmAvailable: false, tfmErrors: []);
+        return TFMValidationResult(
+          ajvValid: ajvResult.isValid,
+          ajvErrors: ajvResult.errors,
+          tfmAvailable: false,
+          tfmErrors: [],
+        );
       }
 
       // Run TFM validation (runPlots expects array of plot objects)
@@ -285,28 +304,37 @@ class ValidationService {
           }
       ''';
 
-      final callResult = await _webViewController!.callAsyncJavaScript(functionBody: jsCode, arguments: {});
+      final callResult = await _webViewController!.callAsyncJavaScript(
+        functionBody: jsCode,
+        arguments: {},
+      );
 
       final result = callResult?.value;
 
-      print('Raw TFM validation result type: ${result.runtimeType}');
-      print('Raw TFM validation result: $result');
-
       if (result == null) {
-        return TFMValidationResult(ajvValid: ajvResult.isValid, ajvErrors: ajvResult.errors, tfmAvailable: false, tfmErrors: []);
+        return TFMValidationResult(
+          ajvValid: ajvResult.isValid,
+          ajvErrors: ajvResult.errors,
+          tfmAvailable: false,
+          tfmErrors: [],
+        );
       }
 
       final resultMap = result is String ? jsonDecode(result) : result;
-      print('Result map tfmAvailable: ${resultMap['tfmAvailable']}');
-      print('Result map keys: ${resultMap.keys}');
 
-      final tfmErrors = (resultMap['tfmErrors'] as List?)?.map((e) => TFMValidationError.fromJson(e as Map<String, dynamic>)).toList() ?? [];
-
-      print('TFM validation: ${tfmErrors.length} errors/warnings');
+      final tfmErrors =
+          (resultMap['tfmErrors'] as List?)
+              ?.map((e) => TFMValidationError.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
 
       return TFMValidationResult(
         ajvValid: resultMap['ajvValid'] ?? false,
-        ajvErrors: (resultMap['ajvErrors'] as List?)?.map((e) => ValidationError.fromJson(e as Map<String, dynamic>)).toList() ?? [],
+        ajvErrors:
+            (resultMap['ajvErrors'] as List?)
+                ?.map((e) => ValidationError.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
         tfmAvailable: resultMap['tfmAvailable'] ?? false,
         tfmErrors: tfmErrors,
       );
@@ -348,7 +376,14 @@ class ValidationError {
   final Map<String, dynamic>? params;
   final Map<String, dynamic> rawError;
 
-  ValidationError({this.instancePath, this.schemaPath, this.keyword, required this.message, this.params, Map<String, dynamic>? rawError}) : rawError = rawError ?? {};
+  ValidationError({
+    this.instancePath,
+    this.schemaPath,
+    this.keyword,
+    required this.message,
+    this.params,
+    Map<String, dynamic>? rawError,
+  }) : rawError = rawError ?? {};
 
   factory ValidationError.fromJson(Map<String, dynamic> json) {
     return ValidationError(
@@ -373,7 +408,12 @@ class TFMValidationResult {
   final bool tfmAvailable;
   final List<TFMValidationError> tfmErrors;
 
-  TFMValidationResult({required this.ajvValid, required this.ajvErrors, required this.tfmAvailable, required this.tfmErrors});
+  TFMValidationResult({
+    required this.ajvValid,
+    required this.ajvErrors,
+    required this.tfmAvailable,
+    required this.tfmErrors,
+  });
 
   /// Returns true only if AJV validation passes AND there are no TFM errors (warnings are ok)
   bool get isValid => ajvValid && !hasTFMErrors;
@@ -408,7 +448,11 @@ class TFMValidationError {
   TFMValidationError({this.instancePath, this.error, this.debugInfo});
 
   factory TFMValidationError.fromJson(Map<String, dynamic> json) {
-    return TFMValidationError(instancePath: json['instancePath'] as String?, error: json['error'] as Map<String, dynamic>?, debugInfo: json['debugInfo'] as String?);
+    return TFMValidationError(
+      instancePath: json['instancePath'] as String?,
+      error: json['error'] as Map<String, dynamic>?,
+      debugInfo: json['debugInfo'] as String?,
+    );
   }
 
   String get type => error?['type'] ?? 'error';

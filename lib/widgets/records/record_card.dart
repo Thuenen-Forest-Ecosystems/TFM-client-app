@@ -38,7 +38,6 @@ class _RecordCardState extends State<RecordCard> {
       setState(() => _forestStatusLabel = null);
       return;
     }
-    debugPrint('Loading forest status label for id: $forestStatus');
     try {
       final result = await db.get('SELECT name_de FROM lookup_forest_status WHERE code = ?', [
         forestStatus,

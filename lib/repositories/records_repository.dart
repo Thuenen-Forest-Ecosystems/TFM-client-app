@@ -283,7 +283,6 @@ class RecordsRepository {
 
   Future<List<Record>> getAllRecords() async {
     try {
-      debugPrint('RecordsRepository.getAllRecords: Getting organization filter...');
       final orgFilter = await _getOrganizationFilter().timeout(
         const Duration(seconds: 5),
         onTimeout: () {
@@ -293,8 +292,6 @@ class RecordsRepository {
           return '1=1';
         },
       );
-      debugPrint('RecordsRepository.getAllRecords: Filter = $orgFilter');
-      debugPrint('RecordsRepository.getAllRecords: Executing query...');
 
       final results = await db
           .execute('SELECT * FROM records WHERE $orgFilter')
@@ -305,8 +302,6 @@ class RecordsRepository {
               throw TimeoutException('Database query timed out');
             },
           );
-
-      debugPrint('RecordsRepository.getAllRecords: Found ${results.length} records');
 
       return results.map((row) => Record.fromRow(row)).toList();
     } catch (e, stackTrace) {

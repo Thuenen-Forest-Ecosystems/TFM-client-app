@@ -24,7 +24,22 @@ class ArrayElementTrina extends StatefulWidget {
   final String? propertyName;
   final Function(List<dynamic>)? onDataChanged;
 
-  const ArrayElementTrina({super.key, required this.jsonSchema, required this.data, this.propertyName, this.validationResult, this.onDataChanged});
+  /// Optional column styling configuration from layout (takes precedence over schema $tfm.form)
+  final Map<String, dynamic>? columnConfig;
+
+  /// Optional layout options (e.g., fullSize, autoIncrement defaults)
+  final Map<String, dynamic>? layoutOptions;
+
+  const ArrayElementTrina({
+    super.key,
+    required this.jsonSchema,
+    required this.data,
+    this.propertyName,
+    this.validationResult,
+    this.onDataChanged,
+    this.columnConfig,
+    this.layoutOptions,
+  });
 
   @override
   State<ArrayElementTrina> createState() => ArrayElementTrinaState();
@@ -75,6 +90,39 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     _rows = _buildRows();
   }
 
+  /// Get column configuration for a field (layout takes precedence over schema)
+  Map<String, dynamic> _getColumnConfig(String fieldKey, Map<String, dynamic> propertySchema) {
+    final config = <String, dynamic>{};
+
+    // First, check layout column config
+    if (widget.columnConfig != null && widget.columnConfig!.containsKey(fieldKey)) {
+      final layoutConfig = widget.columnConfig![fieldKey] as Map<String, dynamic>;
+
+      // Layout properties
+      config['pinned'] = layoutConfig['pinned'];
+      config['width'] = layoutConfig['width'];
+      config['display'] = layoutConfig['display'] ?? true;
+      config['autoIncrement'] = layoutConfig['autoIncrement'];
+      config['groupBy'] = layoutConfig['groupBy'];
+      config['readonly'] = layoutConfig['readonly'];
+    }
+
+    // Fallback to schema $tfm.form if layout config not provided
+    final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
+    final form = tfm?['form'] as Map<String, dynamic>?;
+    final uiOptions = form?['ui:options'] as Map<String, dynamic>?;
+
+    config['pinned'] ??= uiOptions?['pinned'];
+    config['width'] ??= uiOptions?['width'];
+    config['display'] ??= uiOptions?['display'] ?? true;
+    config['autoIncrement'] ??= form?['autoIncrement'];
+    config['groupBy'] ??= form?['groupBy'];
+    config['sortBy'] = form?['sortBy'] ?? 999;
+    config['readonly'] ??= propertySchema['readonly'];
+
+    return config;
+  }
+
   /// Check if a specific cell has validation errors
   bool _hasValidationError(int rowIndex, String fieldKey) {
     if (widget.validationResult == null || widget.propertyName == null) {
@@ -93,7 +141,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   /// Get background color for cell based on validation state
   Color? _getCellBackgroundColor(int rowIndex, String fieldKey, bool isDark) {
     if (_hasValidationError(rowIndex, fieldKey)) {
-      return isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2); // Light red
+      return isDark ? const Color.fromARGB(137, 90, 31, 31) : const Color(0xFFFFCDD2); // Light red
     }
     return null;
   }
@@ -113,27 +161,130 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return columns;
     }
 
+    // Add menu column (always first, pinned left)
+    columns.add(
+      TrinaColumn(
+        title: '',
+        field: '__row_menu__',
+        type: TrinaColumnTypeText(),
+        width: 50,
+        frozen: TrinaColumnFrozen.start,
+        enableSorting: false,
+        enableColumnDrag: false,
+        enableContextMenu: false,
+        readOnly: true,
+        enableEditingMode: false,
+        renderer: (rendererContext) {
+          // Always show menu, never enter edit mode
+          return Container(
+            alignment: Alignment.center,
+            child: PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.more_vert, size: 20),
+              tooltip: 'Zeilenoptionen',
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _deleteRow(rendererContext.rowIdx);
+                } else if (value == 'copy') {
+                  _copyRow(rendererContext.rowIdx);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'copy',
+                  child: Row(
+                    children: [
+                      Icon(Icons.content_copy, size: 18),
+                      SizedBox(width: 8),
+                      Text('Zeile kopieren'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 18),
+                      SizedBox(width: 8),
+                      Text('Zeile löschen'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    // Add row number column if enabled
+    if (widget.layoutOptions?['rowNumber'] == true) {
+      columns.add(
+        TrinaColumn(
+          title: '#',
+          field: '__row_number__',
+          type: TrinaColumnTypeText(),
+          width: 50,
+          frozen: TrinaColumnFrozen.start,
+          enableSorting: false,
+          enableColumnDrag: false,
+          enableContextMenu: false,
+          readOnly: true,
+          enableEditingMode: false,
+          renderer: (rendererContext) {
+            return Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Text(
+                '${rendererContext.rowIdx + 1}',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
     // Create list of column entries with sortBy for sorting
     final columnEntries = <MapEntry<String, dynamic>>[];
 
-    properties.forEach((key, value) {
-      final propertySchema = value as Map<String, dynamic>;
-      final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-      final form = tfm?['form'] as Map<String, dynamic>?;
-      final uiOptions = form?['ui:options'] as Map<String, dynamic>?;
-      final display = uiOptions?['display'] as bool? ?? true;
+    // If columnConfig is provided, ONLY use fields defined there (layout-driven)
+    // Otherwise, fall back to using all schema properties
+    final fieldsToProcess = widget.columnConfig != null
+        ? widget.columnConfig!.keys
+        : properties.keys;
 
-      if (!display) {
-        return;
+    for (final key in fieldsToProcess) {
+      // Skip if property doesn't exist in schema
+      if (!properties.containsKey(key)) {
+        continue;
       }
 
-      final sortBy = form?['sortBy'] as int? ?? 999;
-      final groupBy = form?['groupBy'] as Map<String, dynamic>?;
-      final columnGroupShow = groupBy?['columnGroupShow'] as String?;
-      final pinned = uiOptions?['pinned'] as String?;
+      final propertySchema = properties[key] as Map<String, dynamic>;
+      final config = _getColumnConfig(key, propertySchema);
 
-      columnEntries.add(MapEntry(key, {'schema': propertySchema, 'sortBy': sortBy, 'groupBy': groupBy, 'columnGroupShow': columnGroupShow, 'pinned': pinned}));
-    });
+      // Skip if explicitly set to not display
+      if (config['display'] == false) {
+        continue;
+      }
+
+      final sortBy = config['sortBy'] ?? 999;
+      final groupBy = config['groupBy'];
+      final columnGroupShow = groupBy?['columnGroupShow'] as String?;
+      final pinned = config['pinned'];
+
+      columnEntries.add(
+        MapEntry(key, {
+          'schema': propertySchema,
+          'sortBy': sortBy,
+          'groupBy': groupBy,
+          'columnGroupShow': columnGroupShow,
+          'pinned': pinned,
+          'width': config['width'],
+          'readonly': config['readonly'],
+        }),
+      );
+    }
 
     // Sort columns by sortBy value
     columnEntries.sort((a, b) => a.value['sortBy'].compareTo(b.value['sortBy']));
@@ -190,7 +341,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final pinnedValue = entry.value['pinned'] as String?;
 
       // Check if field is readonly
-      final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+      final isReadOnly = entry.value['readonly'] as bool? ?? false;
 
       // Determine frozen position from pinned value
       final frozen = pinnedValue == 'left'
@@ -204,15 +355,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         frozenColumnCount++;
       }
 
+      // Get column width (default 150)
+      final columnWidth = (entry.value['width'] as num?)?.toDouble() ?? 150.0;
+
       columns.add(
         TrinaColumn(
           title: unit != null ? '$title ($unit)' : title,
           field: key,
           type: columnType,
-          width: 150,
+          width: columnWidth,
           frozen: frozen,
           enableSorting: false,
           enableColumnDrag: false,
+          enableContextMenu: false,
           readOnly: isReadOnly,
           // Custom renderer for enum, numeric, boolean, or grouped columns
           renderer: isEnum
@@ -244,24 +399,37 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Group columns by headerName
     final columnEntries = <MapEntry<String, dynamic>>[];
 
-    properties.forEach((key, value) {
-      final propertySchema = value as Map<String, dynamic>;
-      final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-      final form = tfm?['form'] as Map<String, dynamic>?;
-      final uiOptions = form?['ui:options'] as Map<String, dynamic>?;
-      final display = uiOptions?['display'] as bool? ?? true;
+    // If columnConfig is provided, ONLY use fields defined there (layout-driven)
+    // Otherwise, fall back to using all schema properties
+    final fieldsToProcess = widget.columnConfig != null
+        ? widget.columnConfig!.keys
+        : properties.keys;
 
-      if (!display) return;
+    for (final key in fieldsToProcess) {
+      // Skip if property doesn't exist in schema
+      if (!properties.containsKey(key)) {
+        continue;
+      }
 
-      final sortBy = form?['sortBy'] as int? ?? 999;
-      final groupBy = form?['groupBy'] as Map<String, dynamic>?;
+      final propertySchema = properties[key] as Map<String, dynamic>;
+      final config = _getColumnConfig(key, propertySchema);
+
+      // Skip if explicitly set to not display
+      if (config['display'] == false) {
+        continue;
+      }
+
+      final sortBy = config['sortBy'] ?? 999;
+      final groupBy = config['groupBy'] as Map<String, dynamic>?;
       final headerName = groupBy?['headerName'] as String?;
       final groupSortBy = groupBy?['sortBy'] as int? ?? 999;
 
       if (headerName != null) {
-        columnEntries.add(MapEntry(key, {'headerName': headerName, 'sortBy': sortBy, 'groupSortBy': groupSortBy}));
+        columnEntries.add(
+          MapEntry(key, {'headerName': headerName, 'sortBy': sortBy, 'groupSortBy': groupSortBy}),
+        );
       }
-    });
+    }
 
     // Sort by group sortBy, then by column sortBy
     columnEntries.sort((a, b) {
@@ -298,7 +466,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final cells = <String, TrinaCell>{};
 
       for (final column in _columns) {
-        cells[column.field] = TrinaCell(value: rowData[column.field]);
+        // Skip auto-generated fields
+        if (column.field == '__row_number__' || column.field == '__row_menu__') {
+          cells[column.field] = TrinaCell(value: null);
+        } else {
+          cells[column.field] = TrinaCell(value: rowData[column.field]);
+        }
       }
 
       return TrinaRow(cells: cells);
@@ -311,38 +484,50 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
-    // Check if cell is in edit mode (current cell)
+    // Check if cell is in edit mode (current cell) and row is selected
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
+    final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
 
-    if (isCurrentCell && !rendererContext.column.readOnly) {
+    if (isCurrentCell && isRowSelected && !rendererContext.column.readOnly) {
       // Edit mode: use GenericTextField
-      return Container(
-        color: bgColor,
-        child: GenericTextField(
-          fieldName: fieldKey,
-          fieldSchema: {'type': 'string'},
-          value: value,
-          errors: const [],
-          compact: true,
-          onChanged: (newValue) {
-            rendererContext.cell.value = newValue;
-            _stateManager?.notifyListeners();
-            _notifyDataChanged();
-          },
+      return Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          color: bgColor,
+          child: GenericTextField(
+            key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+            autofocus: true,
+            fieldName: fieldKey,
+            fieldSchema: const {'type': 'string'},
+            value: value,
+            errors: const [],
+            compact: true,
+            onChanged: (newValue) {
+              rendererContext.cell.value = newValue;
+              _stateManager?.notifyListeners();
+              _notifyDataChanged();
+            },
+          ),
         ),
       );
     }
 
     // Display mode
     return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       color: bgColor,
       child: Text(value?.toString() ?? '', overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
-  Widget _buildEnumCell(TrinaColumnRendererContext rendererContext, Map<String, dynamic> propertySchema, String fieldKey) {
+  Widget _buildEnumCell(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+  ) {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
@@ -356,7 +541,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (value != null && nameDe != null && enumValues != null) {
       final index = enumValues.indexOf(value);
       if (index >= 0 && index < nameDe.length) {
-        displayText = nameDe[index]?.toString() ?? value.toString();
+        final germanName = nameDe[index];
+        displayText = germanName != null ? '$value | $germanName' : value.toString();
       } else {
         displayText = value.toString();
       }
@@ -367,15 +553,20 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return InkWell(
       onTap: () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
       child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         color: bgColor,
         child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
     );
   }
 
-  Widget _buildNumericEditableCell(TrinaColumnRendererContext rendererContext, Map<String, dynamic> propertySchema, String fieldKey) {
+  Widget _buildNumericEditableCell(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+  ) {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
@@ -383,14 +574,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
-    // Check if cell is in edit mode
+    // Check if cell is in edit mode and row is selected
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
+    final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
 
-    if (isCurrentCell) {
+    if (isCurrentCell && isRowSelected) {
       // Edit mode: use GenericTextField in compact mode for grid
       return Container(
         color: bgColor,
         child: GenericTextField(
+          key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+          autofocus: true,
           fieldName: fieldKey,
           fieldSchema: propertySchema,
           value: value,
@@ -415,8 +609,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: Alignment.centerRight,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       color: bgColor,
       child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
@@ -430,8 +625,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       color: bgColor,
       child: Switch(
         value: boolValue,
@@ -444,12 +640,24 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
   }
 
-  Future<void> _openEnumDialog(TrinaColumnRendererContext rendererContext, Map<String, dynamic> propertySchema, String fieldKey) async {
+  Future<void> _openEnumDialog(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+  ) async {
     final enumValues = propertySchema['enum'] as List? ?? [];
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final nameDe = tfm?['name_de'] as List?;
 
-    final result = await GenericEnumDialog.show(context: context, fieldName: fieldKey, fieldSchema: propertySchema, currentValue: rendererContext.cell.value, enumValues: enumValues, nameDe: nameDe, fullscreen: true);
+    final result = await GenericEnumDialog.show(
+      context: context,
+      fieldName: fieldKey,
+      fieldSchema: propertySchema,
+      currentValue: rendererContext.cell.value,
+      enumValues: enumValues,
+      nameDe: nameDe,
+      fullscreen: true,
+    );
 
     if (result != null) {
       // Check if user selected "Leeren" (clear selection)
@@ -468,6 +676,108 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     _rows.clear();
     _stateManager?.removeAllRows();
     _notifyDataChanged();
+  }
+
+  Future<void> _addRowAsFormDialog() async {
+    final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
+    if (itemSchema == null) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Neue Zeile hinzufügen',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              // Form content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildFormFields(itemSchema),
+                ),
+              ),
+              // Buttons
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Abbrechen'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        addRow();
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Hinzufügen'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormFields(Map<String, dynamic> itemSchema) {
+    final properties = itemSchema['properties'] as Map<String, dynamic>?;
+    if (properties == null) {
+      return const Center(child: Text('Keine Felder verfügbar'));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Bitte füllen Sie die Felder aus:',
+          style: TextStyle(fontStyle: FontStyle.italic),
+        ),
+        const SizedBox(height: 16),
+        ...properties.entries.map((entry) {
+          final config = _getColumnConfig(entry.key, entry.value as Map<String, dynamic>);
+          if (config['display'] != true) return const SizedBox.shrink();
+
+          final propertySchema = entry.value as Map<String, dynamic>;
+          final title = propertySchema['title'] as String? ?? entry.key;
+
+          return Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('• $title'));
+        }).toList(),
+      ],
+    );
   }
 
   void addRow() {
@@ -496,10 +806,16 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
       if (autoIncrement && (type == 'integer' || type == 'number')) {
         // Auto-increment: find max value and add 1
-        final existingValues = _rows.map((row) => row.cells[key]?.value).where((v) => v != null && v is num).map((v) => (v as num).toInt()).toList();
+        final existingValues = _rows
+            .map((row) => row.cells[key]?.value)
+            .where((v) => v != null && v is num)
+            .map((v) => (v as num).toInt())
+            .toList();
 
         final defaultValue = propertySchema['default'] as int? ?? 1;
-        newRow[key] = existingValues.isEmpty ? defaultValue : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+        newRow[key] = existingValues.isEmpty
+            ? defaultValue
+            : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
       } else {
@@ -528,7 +844,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     final cells = <String, TrinaCell>{};
     for (final column in _columns) {
-      cells[column.field] = TrinaCell(value: newRow[column.field]);
+      // Skip auto-generated fields
+      if (column.field == '__row_number__' || column.field == '__row_menu__') {
+        cells[column.field] = TrinaCell(value: null);
+      } else {
+        cells[column.field] = TrinaCell(value: newRow[column.field]);
+      }
     }
 
     final newTrinaRow = TrinaRow(cells: cells);
@@ -549,6 +870,41 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
   }
 
+  void _deleteRow(int rowIndex) {
+    if (_stateManager != null) {
+      _stateManager!.removeRows([_stateManager!.rows[rowIndex]]);
+      _rows = _stateManager!.rows;
+      _notifyDataChanged();
+    } else {
+      _rows.removeAt(rowIndex);
+      _notifyDataChanged();
+      setState(() {});
+    }
+  }
+
+  void _copyRow(int rowIndex) {
+    final rowToCopy = _rows[rowIndex];
+    final newCells = <String, TrinaCell>{};
+
+    rowToCopy.cells.forEach((key, cell) {
+      // Copy all cell values
+      newCells[key] = TrinaCell(value: cell.value);
+    });
+
+    final newTrinaRow = TrinaRow(cells: newCells);
+
+    if (_stateManager != null) {
+      // Insert after the copied row
+      _stateManager!.insertRows(rowIndex + 1, [newTrinaRow]);
+      _rows = _stateManager!.rows;
+      _notifyDataChanged();
+    } else {
+      _rows.insert(rowIndex + 1, newTrinaRow);
+      _notifyDataChanged();
+      setState(() {});
+    }
+  }
+
   void _notifyDataChanged() {
     // Sync _rows from state manager if available (source of truth)
     final rowsToUse = _stateManager?.rows ?? _rows;
@@ -556,7 +912,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final data = rowsToUse.map((row) {
       final rowData = <String, dynamic>{};
       row.cells.forEach((key, cell) {
-        rowData[key] = cell.value;
+        // Skip auto-generated fields - they're not part of the data
+        if (key != '__row_number__' && key != '__row_menu__') {
+          rowData[key] = cell.value;
+        }
       });
       return rowData;
     }).toList();
@@ -580,10 +939,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             const SizedBox(height: 16),
             //const Text('Kein Eintrag vorhanden', style: TextStyle(color: Colors.grey)),
             //const SizedBox(height: 8),
-            ElevatedButton.icon(onPressed: addRow, icon: const Icon(Icons.add), label: const Text('Eintrag hinzufügen')),
+            ElevatedButton.icon(
+              onPressed: addRow,
+              icon: const Icon(Icons.add),
+              label: const Text('Eintrag hinzufügen'),
+            ),
             const SizedBox(height: 8),
             if (widget.data == null) // if data is null
-              ElevatedButton(onPressed: _setEmptyArray, child: const Text('Kein Eintrag erforderlich')),
+              ElevatedButton(
+                onPressed: _setEmptyArray,
+                child: const Text('Kein Eintrag erforderlich'),
+              ),
           ],
         ),
       );
@@ -591,50 +957,98 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Stack(
+    return Column(
       children: [
-        TrinaGrid(
-          columns: _columns,
-          rows: _rows,
-          columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
-          onLoaded: (TrinaGridOnLoadedEvent event) {
-            _stateManager = event.stateManager;
-            // Sync state manager rows to our _rows list after load
-            _rows = event.stateManager.rows;
-          },
-          onChanged: (TrinaGridOnChangedEvent event) {
-            // Sync _rows from state manager
-            _rows = _stateManager?.rows ?? _rows;
-            _notifyDataChanged();
-          },
-          onSorted: (TrinaGridOnSortedEvent event) {
-            // Prevent sorting by doing nothing
-            return;
-          },
-          configuration: TrinaGridConfiguration(
-            columnSize: const TrinaGridColumnSizeConfig(resizeMode: TrinaResizeMode.normal),
-            enterKeyAction: TrinaGridEnterKeyAction.toggleEditing,
-            enableMoveDownAfterSelecting: false,
-            enableMoveHorizontalInEditing: false,
-            style: TrinaGridStyleConfig(
-              iconSize: 0,
-              gridBorderRadius: BorderRadius.zero,
-              enableGridBorderShadow: false,
-              gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              rowColor: isDark ? const Color(0xFF252526) : Colors.white,
-              activatedColor: isDark ? const Color.fromARGB(10, 0, 255, 0) : const Color(0xFFDCF2FF),
-              cellTextStyle: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
-              columnTextStyle: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14, fontWeight: FontWeight.bold),
-              gridBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-              borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-              activatedBorderColor: isDark ? const Color.fromARGB(100, 0, 255, 0) : Colors.blue,
-              inactivatedBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-              iconColor: isDark ? Colors.white70 : Colors.black54,
-              disabledIconColor: isDark ? Colors.white24 : Colors.black26,
-              menuBackgroundColor: isDark ? const Color(0xFF252526) : Colors.white,
-              cellColorInEditState: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              cellColorInReadOnlyState: isDark ? const Color(0xFF2D2D30) : Colors.grey.shade100,
+        // Add row button bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2D2D30) : Colors.grey.shade100,
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                width: 1,
+              ),
             ),
+          ),
+          child: Row(
+            children: [
+              Text(
+                '${_rows.length} Einträge',
+                style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 12),
+              ),
+              Spacer(),
+              OutlinedButton.icon(
+                onPressed: addRow,
+                label: Text('Zeile hinzufügen'),
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+        ),
+        // Grid
+        Expanded(
+          child: Stack(
+            children: [
+              TrinaGrid(
+                columns: _columns,
+                rows: _rows,
+                columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
+                onLoaded: (TrinaGridOnLoadedEvent event) {
+                  _stateManager = event.stateManager;
+                  // Sync state manager rows to our _rows list after load
+                  _rows = event.stateManager.rows;
+                },
+                onChanged: (TrinaGridOnChangedEvent event) {
+                  // Sync _rows from state manager
+                  _rows = _stateManager?.rows ?? _rows;
+                  _notifyDataChanged();
+                },
+                onSorted: (TrinaGridOnSortedEvent event) {
+                  // Prevent sorting by doing nothing
+                  return;
+                },
+                configuration: TrinaGridConfiguration(
+                  columnSize: const TrinaGridColumnSizeConfig(resizeMode: TrinaResizeMode.normal),
+                  enterKeyAction: TrinaGridEnterKeyAction.editingAndMoveDown,
+                  enableMoveDownAfterSelecting: true,
+                  enableMoveHorizontalInEditing: true,
+                  tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
+                  style: TrinaGridStyleConfig(
+                    iconSize: 0,
+                    gridBorderRadius: BorderRadius.zero,
+                    enableGridBorderShadow: false,
+                    gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    rowColor: isDark ? const Color(0xFF252526) : Colors.white,
+                    activatedColor: isDark
+                        ? const Color.fromARGB(10, 0, 255, 0)
+                        : const Color(0xFFDCF2FF),
+                    cellTextStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 14,
+                    ),
+                    columnTextStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    gridBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                    borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                    activatedBorderColor: isDark
+                        ? const Color.fromARGB(100, 0, 255, 0)
+                        : Colors.blue,
+                    inactivatedBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                    iconColor: isDark ? Colors.white70 : Colors.black54,
+                    disabledIconColor: isDark ? Colors.white24 : Colors.black26,
+                    menuBackgroundColor: isDark ? const Color(0xFF252526) : Colors.white,
+                    cellColorInEditState: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    cellColorInReadOnlyState: isDark
+                        ? const Color(0xFF2D2D30)
+                        : Colors.grey.shade100,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
