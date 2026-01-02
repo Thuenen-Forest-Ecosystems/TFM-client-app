@@ -25,8 +25,10 @@ jobs:
 
             - name: Package pub cache
               run: |
-                  if [ -d .pub-cache ] || [ -f .dart_tool/package_config.json ]; then
-                    tar -czf pub-cache.tgz .pub-cache .dart_tool/package_config.json
+                  CACHE_DIR="${PUB_CACHE:-$HOME/.pub-cache}"
+                  PKG_CFG=".dart_tool/package_config.json"
+                  if [ -d "$CACHE_DIR" ] || [ -f "$PKG_CFG" ]; then
+                    tar -czf pub-cache.tgz "$CACHE_DIR" "$PKG_CFG"
                   else
                     echo "No pub cache found; creating empty archive"
                     tar -czf pub-cache.tgz --files-from /dev/null
