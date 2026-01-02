@@ -31,7 +31,64 @@ jobs:
             - name: Resolve dependencies (Windows)
               shell: powershell
               run: |
-                  flutter pub get
+                  $pubCache = $env:PUB_CACHE
+                  Write-Host "Using PUB_CACHE: $pubCache"
+
+                  if (-not (Test-Path $pubCache)) {
+                    New-Item -ItemType Directory -Force -Path $pubCache | Out-Null
+                  }
+
+                  flutter config --no-analytics
+
+                  $maxRetries = 5
+                  $retryCount = 0
+                  $success = $false
+
+                  while (-not $success -and $retryCount -lt $maxRetries) {
+                    $retryCount++
+                    Write-Host "Attempt $retryCount of $maxRetries..."
+
+                    # Kill processes that may hold locks
+                    Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 3
+
+                    # Clear caches to avoid stale locks
+                    if (Test-Path $pubCache) {
+                      Remove-Item -Recurse -Force $pubCache -ErrorAction SilentlyContinue
+                    }
+                    New-Item -ItemType Directory -Force -Path $pubCache | Out-Null
+
+                    $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
+                    if (Test-Path $hostedCache) {
+                      Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
+                    }
+                    $userCache = Join-Path $env:LOCALAPPDATA "Pub\Cache"
+                    if (Test-Path $userCache) {
+                      Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
+                    }
+                    Start-Sleep -Seconds 5
+
+                    try {
+                      flutter clean
+                      flutter pub get
+
+                      if ($LASTEXITCODE -eq 0) {
+                        $success = $true
+                        Write-Host "Dependencies installed successfully"
+                      } else {
+                        throw "Exit code $LASTEXITCODE"
+                      }
+                    } catch {
+                      Write-Host "Error: $_"
+                      if ($retryCount -lt $maxRetries) {
+                        $backoff = 15 * $retryCount
+                        Write-Host "Retrying in $backoff seconds..."
+                        Start-Sleep -Seconds $backoff
+                      }
+                    }
+                  }
+
+                  if (-not $success) { throw "Failed to install dependencies" }
 
             - name: Package pub cache
               shell: powershell

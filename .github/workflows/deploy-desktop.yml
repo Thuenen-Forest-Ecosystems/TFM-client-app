@@ -64,7 +64,7 @@ jobs:
       contents: write
 
     env:
-      PUB_CACHE: ${{ github.workspace }}\.pub-cache
+      PUB_CACHE: C:\tmp\.pub-cache
 
     steps:
       - uses: actions/checkout@v2
@@ -84,8 +84,12 @@ jobs:
       - name: Install project dependencies
         shell: powershell
         run: |
-          $localPubCache = $env:PUB_CACHE
-          Write-Host "Using PUB_CACHE: $localPubCache"
+          $pubCacheRoot = $env:PUB_CACHE
+          Write-Host "Using PUB_CACHE: $pubCacheRoot"
+
+          if (-not (Test-Path $pubCacheRoot)) {
+            New-Item -ItemType Directory -Force -Path $pubCacheRoot | Out-Null
+          }
 
           flutter config --no-analytics
 
@@ -102,9 +106,11 @@ jobs:
             Start-Sleep -Seconds 3
 
             # Clear caches to avoid stale locks
-            if (Test-Path $localPubCache) {
-              Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
+            if (Test-Path $pubCacheRoot) {
+              Remove-Item -Recurse -Force $pubCacheRoot -ErrorAction SilentlyContinue
             }
+            New-Item -ItemType Directory -Force -Path $pubCacheRoot | Out-Null
+
             $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
             if (Test-Path $hostedCache) {
               Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
@@ -117,7 +123,7 @@ jobs:
 
             try {
               flutter clean
-              flutter pub get --no-precompile
+              flutter pub get
 
               if ($LASTEXITCODE -eq 0) {
                 $success = $true
