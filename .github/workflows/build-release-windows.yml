@@ -12,141 +12,141 @@ jobs:
         permissions:
             contents: write
 
-    env:
-        PUB_CACHE: C:\tmp\.pub-cache
+        env:
+            PUB_CACHE: C:\tmp\.pub-cache
 
-    steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-        - name: Setup Flutter
-          uses: subosito/flutter-action@v2
-          with:
-              channel: "stable"
-              flutter-version: "3.38.4"
-              cache: false
+            - name: Setup Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                  channel: "stable"
+                  flutter-version: "3.38.4"
+                  cache: false
 
-        - name: Disable Windows Defender real-time protection
-          shell: powershell
-          run: |
-              Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-              Write-Host "Windows Defender real-time protection disabled"
+            - name: Disable Windows Defender real-time protection
+              shell: powershell
+              run: |
+                  Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+                  Write-Host "Windows Defender real-time protection disabled"
 
-        - name: Install dependencies
-          shell: powershell
-          run: |
-              $localPubCache = $env:PUB_CACHE
-              Write-Host "Using PUB_CACHE: $localPubCache"
-              New-Item -ItemType Directory -Force -Path $localPubCache | Out-Null
+            - name: Install dependencies
+              shell: powershell
+              run: |
+                  $localPubCache = $env:PUB_CACHE
+                  Write-Host "Using PUB_CACHE: $localPubCache"
+                  New-Item -ItemType Directory -Force -Path $localPubCache | Out-Null
 
-                      # Warm up tooling once, then stop any lingering processes
-                      flutter --version
-                      flutter config --no-analytics
-                      Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                      Start-Sleep -Seconds 20
+                  # Warm up tooling once, then stop any lingering processes
+                  flutter --version
+                  flutter config --no-analytics
+                  Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
+                  Start-Sleep -Seconds 20
 
-                      # Repair cache once before retries to reduce corruption
-                      flutter pub cache repair --no-precompile
-                      Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                      Start-Sleep -Seconds 8
+                  # Repair cache once before retries to reduce corruption
+                  flutter pub cache repair --no-precompile
+                  Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
+                  Start-Sleep -Seconds 8
 
-                      $maxRetries = 5
-                      $retryCount = 0
-                      $success = $false
+                  $maxRetries = 5
+                  $retryCount = 0
+                  $success = $false
 
-              while (-not $success -and $retryCount -lt $maxRetries) {
-                $retryCount++
-                Write-Host "Attempt $retryCount of $maxRetries..."
+                  while (-not $success -and $retryCount -lt $maxRetries) {
+                    $retryCount++
+                    Write-Host "Attempt $retryCount of $maxRetries..."
 
-                          # Kill processes that may hold locks
-                          Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                          Start-Sleep -Seconds 10
+                    # Kill processes that may hold locks
+                    Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 10
 
-                # Clear caches to avoid stale locks
-                if (Test-Path $localPubCache) {
-                  Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
-                }
-                $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
-                if (Test-Path $hostedCache) {
-                  Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
-                }
-                $userCache = Join-Path $env:LOCALAPPDATA "Pub\Cache"
-                if (Test-Path $userCache) {
-                  Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
-                }
-                Start-Sleep -Seconds 15
+                    # Clear caches to avoid stale locks
+                    if (Test-Path $localPubCache) {
+                      Remove-Item -Recurse -Force $localPubCache -ErrorAction SilentlyContinue
+                    }
+                    $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
+                    if (Test-Path $hostedCache) {
+                      Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
+                    }
+                    $userCache = Join-Path $env:LOCALAPPDATA "Pub\Cache"
+                    if (Test-Path $userCache) {
+                      Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
+                    }
+                    Start-Sleep -Seconds 15
 
-                try {
-                  flutter clean
-                  flutter pub get --no-precompile
+                    try {
+                      flutter clean
+                      flutter pub get --no-precompile
 
-                  if ($LASTEXITCODE -eq 0) {
-                    $success = $true
-                    Write-Host "Dependencies installed successfully"
-                  } else {
-                    throw "Exit code $LASTEXITCODE"
-                  }
-                } catch {
-                  Write-Host "Error: $_"
-                  if ($retryCount -lt $maxRetries) {
-                    $backoff = 20 + (15 * $retryCount)
-                    Write-Host "Retrying in $backoff seconds..."
-                    Start-Sleep -Seconds $backoff
-                  }
-                }
-              }
-
-              if (-not $success) { throw "Failed to install dependencies" }
-
-                - name: Enable Windows desktop
-                  run: flutter config --enable-windows-desktop
-
-                - name: Create .env file
-                  shell: powershell
-                  run: |
-                      New-Item -Path . -Name ".env" -ItemType "file" -Force
-                      Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
-
-                - name: Build Windows Release
-                  run: flutter build windows --release
-
-                - name: Build MSIX (Sideload)
-                  run: dart run msix:create --build-windows false --store false --install-certificate false
-
-                - name: Rename Sideload MSIX
-                  shell: powershell
-                  run: |
-                      $sideloadMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Select-Object -First 1
-                      if ($sideloadMsix) {
-                        Rename-Item $sideloadMsix.FullName -NewName "terrestrial_forest_monitor_sideload.msix"
-                        Write-Host "Renamed sideload MSIX to: terrestrial_forest_monitor_sideload.msix"
+                      if ($LASTEXITCODE -eq 0) {
+                        $success = $true
+                        Write-Host "Dependencies installed successfully"
                       } else {
-                        Write-Host "Warning: No sideload MSIX file found"
+                        throw "Exit code $LASTEXITCODE"
                       }
+                    } catch {
+                      Write-Host "Error: $_"
+                      if ($retryCount -lt $maxRetries) {
+                        $backoff = 20 + (15 * $retryCount)
+                        Write-Host "Retrying in $backoff seconds..."
+                        Start-Sleep -Seconds $backoff
+                      }
+                    }
+                  }
 
-                - name: Build MSIX (Store)
-                  run: dart run msix:create --build-windows false --store
+                  if (-not $success) { throw "Failed to install dependencies" }
 
-                - name: Create portable ZIP archive
-                  uses: thedoctor0/zip-release@0.7.6
-                  with:
-                      type: "zip"
-                      filename: "TFM-windows-portable.zip"
-                      directory: build/windows/x64/runner/Release
+            - name: Enable Windows desktop
+              run: flutter config --enable-windows-desktop
 
-                - name: Upload artifacts to release
-                  uses: softprops/action-gh-release@v2
-                  if: github.event_name == 'release'
-                  with:
-                      files: |
-                          build/windows/x64/runner/Release/TFM-windows-portable.zip
-                          build/windows/x64/runner/Release/*.msix
-                  env:
-                      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Create .env file
+              shell: powershell
+              run: |
+                  New-Item -Path . -Name ".env" -ItemType "file" -Force
+                  Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
 
-                - name: Re-enable Windows Defender
-                  if: always()
-                  shell: powershell
-                  run: |
-                      Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
-                      Write-Host "Windows Defender real-time protection re-enabled"
+            - name: Build Windows Release
+              run: flutter build windows --release
+
+            - name: Build MSIX (Sideload)
+              run: dart run msix:create --build-windows false --store false --install-certificate false
+
+            - name: Rename Sideload MSIX
+              shell: powershell
+              run: |
+                  $sideloadMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Select-Object -First 1
+                  if ($sideloadMsix) {
+                    Rename-Item $sideloadMsix.FullName -NewName "terrestrial_forest_monitor_sideload.msix"
+                    Write-Host "Renamed sideload MSIX to: terrestrial_forest_monitor_sideload.msix"
+                  } else {
+                    Write-Host "Warning: No sideload MSIX file found"
+                  }
+
+            - name: Build MSIX (Store)
+              run: dart run msix:create --build-windows false --store
+
+            - name: Create portable ZIP archive
+              uses: thedoctor0/zip-release@0.7.6
+              with:
+                  type: "zip"
+                  filename: "TFM-windows-portable.zip"
+                  directory: build/windows/x64/runner/Release
+
+            - name: Upload artifacts to release
+              uses: softprops/action-gh-release@v2
+              if: github.event_name == 'release'
+              with:
+                  files: |
+                      build/windows/x64/runner/Release/TFM-windows-portable.zip
+                      build/windows/x64/runner/Release/*.msix
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Re-enable Windows Defender
+              if: always()
+              shell: powershell
+              run: |
+                  Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
+                  Write-Host "Windows Defender real-time protection re-enabled"
