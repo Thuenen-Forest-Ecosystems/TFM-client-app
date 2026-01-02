@@ -215,24 +215,30 @@ jobs:
             - name: Install Microsoft Store CLI
               uses: microsoft/setup-msstore-cli@v1
 
-            - name: Configure Microsoft Store CLI
-              shell: powershell
-              run: |
-                  $tenant = '${{ secrets.MS_TENANT_ID }}'
-                  $seller = '${{ secrets.MS_SELLER_ID }}'
-                  $clientId = '${{ secrets.MS_CLIENT_ID }}'
-                  $clientSecret = '${{ secrets.MS_CLIENT_SECRET }}'
-                  msstore settings --tenantId $tenant --sellerId $seller --clientId $clientId --clientSecret $clientSecret
-
-            - name: Show msstore settings (debug)
-              run: msstore settings show
-
-            - name: Publish to Microsoft Store
-              shell: powershell
-              run: |
-                  $storeMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Where-Object { $_.Name -notlike "*sideload*" } | Select-Object -First 1
-                  if (-not $storeMsix) { throw "No store MSIX found" }
-                  msstore publish --path "$($storeMsix.FullName)" --productId ${{ secrets.MS_PRODUCT_ID }}
+            #- name: Configure Microsoft Store CLI
+            #  shell: powershell
+            #  run: |
+            #      $tenant = '${{ secrets.MS_TENANT_ID }}'
+            #      $seller = '${{ secrets.MS_SELLER_ID }}'
+            #      $clientId = '${{ secrets.MS_CLIENT_ID }}'
+            #      $clientSecret = '${{ secrets.MS_CLIENT_SECRET }}'
+            #
+            #      if ([string]::IsNullOrWhiteSpace($tenant)) { Write-Error "Missing secret: MS_TENANT_ID"; exit 1 }
+            #      if ([string]::IsNullOrWhiteSpace($seller)) { Write-Error "Missing secret: MS_SELLER_ID"; exit 1 }
+            #      if ([string]::IsNullOrWhiteSpace($clientId)) { Write-Error "Missing secret: MS_CLIENT_ID"; exit 1 }
+            #      if ([string]::IsNullOrWhiteSpace($clientSecret)) { Write-Error "Missing secret: MS_CLIENT_SECRET"; exit 1 }
+            #
+            #      msstore settings --tenantId $tenant --sellerId $seller --clientId $clientId --clientSecret $clientSecret
+            #
+            #- name: Show msstore settings (debug)
+            #  run: msstore settings show
+            #
+            #- name: Publish to Microsoft Store
+            #  shell: powershell
+            #  run: |
+            #      $storeMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Where-Object { $_.Name -notlike "*sideload*" } | Select-Object -First 1
+            #      if (-not $storeMsix) { throw "No store MSIX found" }
+            #      msstore publish --path "$($storeMsix.FullName)" --productId ${{ secrets.MS_PRODUCT_ID }}
 
             - name: Create portable ZIP archive
               uses: thedoctor0/zip-release@0.7.6
