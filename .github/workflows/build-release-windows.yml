@@ -28,7 +28,8 @@ jobs:
                   CACHE_DIR="${PUB_CACHE:-$HOME/.pub-cache}"
                   PKG_CFG=".dart_tool/package_config.json"
                   if [ -d "$CACHE_DIR" ] || [ -f "$PKG_CFG" ]; then
-                    tar -czf pub-cache.tgz "$CACHE_DIR" "$PKG_CFG"
+                    # Tar relative paths so extraction on Windows yields .pub-cache/.dart_tool
+                    tar -czf pub-cache.tgz -C "$(dirname "$CACHE_DIR")" "$(basename "$CACHE_DIR")" -C . "$PKG_CFG"
                   else
                     echo "No pub cache found; creating empty archive"
                     tar -czf pub-cache.tgz --files-from /dev/null
@@ -79,15 +80,23 @@ jobs:
                   tar -xf C:\tmp\pub-cache.tgz -C C:\tmp
                   # Ensure PUB_CACHE dir exists
                   New-Item -ItemType Directory -Force -Path $env:PUB_CACHE | Out-Null
-                  # Copy extracted cache into target location
-                  if (Test-Path "C:\tmp\.pub-cache") {
+
+                  # Locate extracted .pub-cache anywhere under C:\tmp
+                  $cacheDir = Get-ChildItem -Directory -Recurse -Path C:\tmp -Filter ".pub-cache" -ErrorAction SilentlyContinue | Select-Object -First 1
+                  if ($cacheDir) {
                     Remove-Item -Recurse -Force $env:PUB_CACHE -ErrorAction SilentlyContinue
-                    Move-Item -Force "C:\tmp\.pub-cache" $env:PUB_CACHE
+                    Move-Item -Force $cacheDir.FullName $env:PUB_CACHE
+                  } else {
+                    Write-Host "Warning: .pub-cache not found in extracted artifact"
                   }
-                  # Restore package_config.json for offline pub get
-                  if (Test-Path "C:\tmp\.dart_tool\package_config.json") {
+
+                  # Restore package_config.json from any location under C:\tmp
+                  $pkgConfig = Get-ChildItem -Recurse -Path C:\tmp -Filter "package_config.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+                  if ($pkgConfig) {
                     New-Item -ItemType Directory -Force -Path ".dart_tool" | Out-Null
-                    Copy-Item -Force "C:\tmp\.dart_tool\package_config.json" ".dart_tool\package_config.json"
+                    Copy-Item -Force $pkgConfig.FullName ".dart_tool\package_config.json"
+                  } else {
+                    Write-Host "Warning: package_config.json not found in extracted artifact"
                   }
 
             - name: Install dependencies (offline)
