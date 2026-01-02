@@ -46,7 +46,7 @@ jobs:
                   Start-Sleep -Seconds 20
 
                   # Repair cache once before retries to reduce corruption
-                  flutter pub cache repair --no-precompile
+                  flutter pub cache repair
                   Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester|msedge|OneDrive)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
                   Start-Sleep -Seconds 8
 
