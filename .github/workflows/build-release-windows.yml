@@ -177,6 +177,45 @@ jobs:
           flutter config --no-analytics
           flutter pub get
 
+      - name: Install SSL certificate for PowerSync (CI workaround)
+        shell: powershell
+        run: |
+          Write-Host "Installing ci.thuenen.de SSL certificate for PowerSync WebSocket connections..."
+          
+          # Download and install the certificate
+          $url = "https://ci.thuenen.de"
+          $certOutputPath = "$env:TEMP\ci_thuenen_cert.cer"
+          
+          try {
+            # Create a TCP connection to get the certificate
+            $tcpClient = New-Object System.Net.Sockets.TcpClient($url.Replace("https://", ""), 443)
+            $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, {$true})
+            $sslStream.AuthenticateAsClient($url.Replace("https://", ""))
+            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($sslStream.RemoteCertificate)
+            $tcpClient.Close()
+            
+            # Export the certificate
+            $bytes = $cert.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+            [System.IO.File]::WriteAllBytes($certOutputPath, $bytes)
+            
+            Write-Host "Certificate downloaded successfully"
+            Write-Host "Subject: $($cert.Subject)"
+            Write-Host "Issuer: $($cert.Issuer)"
+            Write-Host "Valid from: $($cert.NotBefore) to $($cert.NotAfter)"
+            
+            # Install the certificate to Trusted Root Certification Authorities
+            $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
+            $store.Open("ReadWrite")
+            $store.Add($cert)
+            $store.Close()
+            
+            Write-Host "Certificate installed successfully to Trusted Root CA (LocalMachine)"
+            
+          } catch {
+            Write-Host "Warning: Could not install certificate - $($_.Exception.Message)"
+            Write-Host "Build may fail with SSL handshake errors for PowerSync connections"
+          }
+
       - name: Patch speech_to_text_windows headers (CI workaround)
         shell: powershell
         run: |
