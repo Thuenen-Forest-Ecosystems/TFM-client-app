@@ -171,17 +171,11 @@ jobs:
             Write-Host "Warning: package_config.json not found in extracted artifact"
           }
 
-      - name: Install dependencies (offline)
+      - name: Install dependencies
         shell: powershell
         run: |
           flutter config --no-analytics
-          try {
-            flutter pub get --offline
-            if ($LASTEXITCODE -ne 0) { throw "Offline pub get failed" }
-          } catch {
-            Write-Host "Offline pub get failed; retrying online..."
-            flutter pub get
-          }
+          flutter pub get
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
