@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+42
+version: 1.0.0+43
 
 environment:
   sdk: ">=3.9.2 <4.0.0"
@@ -119,6 +119,9 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.40
   upgrader: ^11.4.0
 
+  #windows
+  app_links: ^7.0.0
+
 dependency_overrides:
   # because of https://github.com/jpnurmi/flutter_libserialport/issues/128
   flutter_libserialport:
@@ -216,7 +219,7 @@ msix_config:
   publisher: CN=36C12301-AD65-4721-A104-94EB08618727
   publisher_display_name: Grünecho e.U.
   identity_name: Grnechoe.U.TerrestrialForestMonitor
-  msix_version: 1.0.42.0
+  msix_version: 1.0.43.0
   logo_path: assets/logo/tfm.png
   capabilities: internetClient, location
   store: true
