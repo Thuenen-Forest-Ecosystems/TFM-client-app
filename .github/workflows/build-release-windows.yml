@@ -180,7 +180,7 @@ jobs:
       - name: Patch speech_to_text_windows header guard (CI workaround)
         shell: powershell
         run: |
-          $hdr = "windows\flutter\ephemeral\.plugin_symlinks\speech_to_text_windows\windows\include\speech_to_text_windows\speech_to_text_windows.h"
+          $hdr = "windows/flutter/ephemeral/.plugin_symlinks/speech_to_text_windows/windows/include/speech_to_text_windows/speech_to_text_windows.h"
           if (Test-Path $hdr) {
             (Get-Content $hdr) -replace "FLUTTER_PLUGIN_LOCAL_AUTH_WINDOWS_PLUGIN_H_", "FLUTTER_PLUGIN_SPEECH_TO_TEXT_WINDOWS_PLUGIN_H_" | Set-Content $hdr
             Write-Host "Patched header guard in $hdr"
