@@ -177,43 +177,41 @@ jobs:
           flutter config --no-analytics
           flutter pub get
 
-      - name: Install SSL certificate for PowerSync (CI workaround)
+      - name: Export and bundle SSL certificate
         shell: powershell
         run: |
-          Write-Host "Installing ci.thuenen.de SSL certificate for PowerSync WebSocket connections..."
+          Write-Host "Exporting ci.thuenen.de SSL certificate to bundle with app..."
           
-          # Download and install the certificate
-          $url = "https://ci.thuenen.de"
-          $certOutputPath = "$env:TEMP\ci_thuenen_cert.cer"
+          # Create assets/certs directory
+          New-Item -ItemType Directory -Force -Path "assets/certs" | Out-Null
+          
+          $url = "ci.thuenen.de"
+          $outputPath = "assets/certs/ci_thuenen_root.pem"
           
           try {
-            # Create a TCP connection to get the certificate
-            $tcpClient = New-Object System.Net.Sockets.TcpClient($url.Replace("https://", ""), 443)
+            # Connect and get certificate
+            $tcpClient = New-Object System.Net.Sockets.TcpClient($url, 443)
             $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, {$true})
-            $sslStream.AuthenticateAsClient($url.Replace("https://", ""))
+            $sslStream.AuthenticateAsClient($url)
             $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($sslStream.RemoteCertificate)
+            
+            # Export to PEM format
+            $pemCert = "-----BEGIN CERTIFICATE-----`n"
+            $pemCert += [Convert]::ToBase64String($cert.RawData, [System.Base64FormattingOptions]::InsertLineBreaks)
+            $pemCert += "`n-----END CERTIFICATE-----"
+            
+            [System.IO.File]::WriteAllText($outputPath, $pemCert)
+            
             $tcpClient.Close()
             
-            # Export the certificate
-            $bytes = $cert.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-            [System.IO.File]::WriteAllBytes($certOutputPath, $bytes)
-            
-            Write-Host "Certificate downloaded successfully"
+            Write-Host "Certificate exported and will be bundled with app"
             Write-Host "Subject: $($cert.Subject)"
             Write-Host "Issuer: $($cert.Issuer)"
-            Write-Host "Valid from: $($cert.NotBefore) to $($cert.NotAfter)"
-            
-            # Install the certificate to Trusted Root Certification Authorities
-            $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
-            $store.Open("ReadWrite")
-            $store.Add($cert)
-            $store.Close()
-            
-            Write-Host "Certificate installed successfully to Trusted Root CA (LocalMachine)"
+            Write-Host "Valid: $($cert.NotBefore) to $($cert.NotAfter)"
             
           } catch {
-            Write-Host "Warning: Could not install certificate - $($_.Exception.Message)"
-            Write-Host "Build may fail with SSL handshake errors for PowerSync connections"
+            Write-Host "Warning: Could not export certificate - $($_.Exception.Message)"
+            Write-Host "App will use fallback badCertificateCallback"
           }
 
       - name: Patch speech_to_text_windows headers (CI workaround)

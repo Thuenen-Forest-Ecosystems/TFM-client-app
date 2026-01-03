@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'; // Add this line
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -71,13 +72,15 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
 }
 
 void main() async {
-  // Apply Windows SSL workaround BEFORE WidgetsFlutterBinding
-  if (!kIsWeb && Platform.isWindows) {
-    HttpOverrides.global = _WindowsCertificateOverride();
-    print('Windows certificate override enabled for HTTP and WebSocket');
-  }
-  
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Apply Windows SSL workaround with bundled certificate
+  if (!kIsWeb && Platform.isWindows) {
+    final certOverride = _WindowsCertificateOverride();
+    await certOverride.initialize();
+    HttpOverrides.global = certOverride;
+    print('Windows certificate override enabled with bundled certificate');
+  }
   
   usePathUrlStrategy();
 
@@ -228,23 +231,53 @@ class Layout extends StatelessWidget {
 }
 
 /// Custom HttpOverrides to handle Windows certificate verification issues
+/// Loads bundled SSL certificate from assets to avoid Windows cert store issues
 class _WindowsCertificateOverride extends HttpOverrides {
+  SecurityContext? _customContext;
+
+  Future<void> initialize() async {
+    if (kIsWeb || !Platform.isWindows) return;
+    
+    try {
+      // Load bundled certificate from assets
+      final certData = await rootBundle.load('assets/certs/ci_thuenen_root.pem');
+      final certBytes = certData.buffer.asUint8List();
+      
+      // Create a custom SecurityContext with the bundled certificate
+      _customContext = SecurityContext.defaultContext;
+      _customContext!.setTrustedCertificatesBytes(certBytes);
+      
+      print('✅ Bundled SSL certificate loaded successfully for ci.thuenen.de');
+    } catch (e) {
+      print('⚠️ Warning: Could not load bundled certificate - $e');
+      print('   Falling back to accepting all certificates');
+    }
+  }
+
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    print('Creating HttpClient with certificate override');
+    print('Creating HttpClient with bundled certificate');
     
-    // Call super to get the actual HttpClient (avoids infinite recursion)
-    final client = super.createHttpClient(context);
+    // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
+    // Pass our custom context with the bundled certificate
+    final client = super.createHttpClient(_customContext ?? context);
     
-    // IMPORTANT: Set this BEFORE returning the client
-    // This applies to ALL connections including WebSocket upgrades
+    // Fallback: if certificate loading failed, accept ci.thuenen.de anyway
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      print('🔒 Certificate check for: $host:$port - ACCEPTING (Windows workaround)');
-      // Accept ALL certificates on Windows due to BoringSSL not using Windows cert store
-      return true;
+      print('🔒 Certificate check for: $host:$port');
+      
+      // Accept certificates for our specific domain (fallback if bundled cert doesn't work)
+      if (host.contains('ci.thuenen.de') || 
+          host.contains('supabase.co') || 
+          host.contains('supabase.io')) {
+        print('   ✓ Accepting certificate for $host (bundled cert or fallback)');
+        return true;
+      }
+      
+      print('   ✗ Rejecting certificate for $host');
+      return false;
     };
     
-    // Also set a reasonable timeout
     client.connectionTimeout = const Duration(seconds: 30);
     
     return client;
