@@ -177,15 +177,29 @@ jobs:
           flutter config --no-analytics
           flutter pub get
 
-      - name: Patch speech_to_text_windows header guard (CI workaround)
+      - name: Patch speech_to_text_windows headers (CI workaround)
         shell: powershell
         run: |
-          $hdr = "windows/flutter/ephemeral/.plugin_symlinks/speech_to_text_windows/windows/include/speech_to_text_windows/speech_to_text_windows.h"
-          if (Test-Path $hdr) {
-            (Get-Content $hdr) -replace "FLUTTER_PLUGIN_LOCAL_AUTH_WINDOWS_PLUGIN_H_", "FLUTTER_PLUGIN_SPEECH_TO_TEXT_WINDOWS_PLUGIN_H_" | Set-Content $hdr
-            Write-Host "Patched header guard in $hdr"
+          # Patch public header guard collision
+          $publicHdr = "windows/flutter/ephemeral/.plugin_symlinks/speech_to_text_windows/windows/include/speech_to_text_windows/speech_to_text_windows.h"
+          if (Test-Path $publicHdr) {
+            (Get-Content $publicHdr) -replace "FLUTTER_PLUGIN_LOCAL_AUTH_WINDOWS_PLUGIN_H_", "FLUTTER_PLUGIN_SPEECH_TO_TEXT_WINDOWS_PUBLIC_H_" | Set-Content $publicHdr
+            Write-Host "Patched public header guard in $publicHdr"
           } else {
-            Write-Host "Header not found: $hdr"
+            Write-Host "Public header not found: $publicHdr"
+          }
+
+          # Ensure plugin header has correct guard
+          $pluginHdr = "windows/flutter/ephemeral/.plugin_symlinks/speech_to_text_windows/windows/speech_to_text_windows_plugin.h"
+          if (Test-Path $pluginHdr) {
+            $content = Get-Content $pluginHdr -Raw
+            if ($content -notmatch "namespace speech_to_text_windows") {
+              Write-Host "WARNING: Plugin header missing namespace declaration"
+            } else {
+              Write-Host "Plugin header looks OK"
+            }
+          } else {
+            Write-Host "Plugin header not found: $pluginHdr"
           }
 
       - name: Enable Windows desktop

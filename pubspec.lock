@@ -1564,7 +1564,7 @@ packages:
     source: hosted
     version: "2.3.0"
   speech_to_text_windows:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: speech_to_text_windows
       sha256: "2c9846d18253c7bbe059a276297ef9f27e8a2745dead32192525beb208195072"
