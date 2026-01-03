@@ -42,7 +42,7 @@
 
 
     <application
-        android:label="terrestrial_forest_monitor"
+        android:label="Kohlenstoffinventur"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
