@@ -80,8 +80,8 @@ dependencies:
   sqflite: ^2.4.1
   flutter_inappwebview: ^6.1.5
   shared_preferences: ^2.3.5
-  speech_to_text: ^6.6.0
-  #speech_to_text_windows: ^1.0.0+beta.8 # Ensure Windows runner registers speech_to_text on Windows
+  speech_to_text: ^7.3.0
+  speech_to_text_windows: ^1.0.0+beta.8 # Ensure Windows runner registers speech_to_text on Windows
   #flutter_js: ^0.8.1
   localstorage: ^5.0.0
   powersync: ^1.16.2
