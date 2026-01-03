@@ -150,7 +150,8 @@ class _LoginState extends State<Login> {
         // Check for certificate/SSL errors
         if (e.toString().contains('HandshakeException') ||
             e.toString().contains('CERTIFICATE_VERIFY_FAILED') ||
-            e.toString().contains('unable to get local certificate')) {
+            e.toString().contains('unable to get local certificate') ||
+            e.toString().contains('unable to get local issuer certificate')) {
           errorMessage =
               'Verbindungsfehler: Bitte überprüfen Sie Ihre Internetverbindung und stellen Sie sicher, dass Datum und Uhrzeit korrekt eingestellt sind.';
         } else {

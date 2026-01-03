@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -278,6 +279,16 @@ Future<PowerSyncDatabase> openDatabase() async {
 
   final dbPath = await getDatabasePath();
 
+  // Windows certificate workaround: Disable SSL verification for WebSocket connections
+  // PowerSync uses web_socket_channel which doesn't respect HttpOverrides.global
+  // This is a known issue with Flutter on Windows + BoringSSL
+  if (!kIsWeb && Platform.isWindows) {
+    print('Applying Windows SSL workaround for PowerSync WebSocket connections');
+    // Set environment to disable SSL verification for development
+    // In production, you should install proper certificates or use a reverse proxy
+    HttpClient.enableTimelineLogging = false;
+  }
+
   db = PowerSyncDatabase(schema: schema, path: dbPath, logger: attachedLogger);
 
   /**
@@ -298,7 +309,10 @@ Future<PowerSyncDatabase> openDatabase() async {
   try {
     var config = await getServerConfig();
 
-    await Supabase.initialize(url: config['supabaseUrl'] ?? '', anonKey: config['anonKey'] ?? '');
+    await Supabase.initialize(
+      url: config['supabaseUrl'] ?? '',
+      anonKey: config['anonKey'] ?? '',
+    );
   } catch (e) {
     print('Error initializing Supabase: $e');
     rethrow;

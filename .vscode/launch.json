@@ -11,6 +11,17 @@
             "type": "dart"
         },
         {
+            "name": "TFM-client-app (Windows SSL Workaround)",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--dart-define=DISABLE_SSL_VERIFICATION=true"
+            ],
+            "toolArgs": [
+                "--no-sound-null-safety"
+            ]
+        },
+        {
             "name": "TFM-client-app (profile mode)",
             "request": "launch",
             "type": "dart",

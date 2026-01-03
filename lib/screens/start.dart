@@ -431,16 +431,29 @@ class _StartState extends State<Start> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             child: Column(
               children: [
-                // Drag Handle
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
+                // Drag Handle with mouse support for Windows
+                GestureDetector(
+                  onVerticalDragUpdate: (details) {
+                    if (_sheetController.isAttached) {
+                      final screenHeight = MediaQuery.of(context).size.height;
+                      final delta = -details.delta.dy / screenHeight;
+                      final newSize = (_sheetController.size + delta).clamp(_minChildSize, _maxChildSize);
+                      _sheetController.jumpTo(newSize);
+                    }
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeUpDown,
                     child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
                       ),
                     ),
                   ),

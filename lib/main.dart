@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'; // Add this line
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -69,7 +71,14 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
 }
 
 void main() async {
+  // Apply Windows SSL workaround BEFORE WidgetsFlutterBinding
+  if (!kIsWeb && Platform.isWindows) {
+    HttpOverrides.global = _WindowsCertificateOverride();
+    print('Windows certificate override enabled for HTTP and WebSocket');
+  }
+  
   WidgetsFlutterBinding.ensureInitialized();
+  
   usePathUrlStrategy();
 
   // set default Locale to Language provider
@@ -215,5 +224,29 @@ class Layout extends StatelessWidget {
         routerDelegate: routerDelegate,
       ),
     );
+  }
+}
+
+/// Custom HttpOverrides to handle Windows certificate verification issues
+class _WindowsCertificateOverride extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    print('Creating HttpClient with certificate override');
+    
+    // Call super to get the actual HttpClient (avoids infinite recursion)
+    final client = super.createHttpClient(context);
+    
+    // IMPORTANT: Set this BEFORE returning the client
+    // This applies to ALL connections including WebSocket upgrades
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      print('🔒 Certificate check for: $host:$port - ACCEPTING (Windows workaround)');
+      // Accept ALL certificates on Windows due to BoringSSL not using Windows cert store
+      return true;
+    };
+    
+    // Also set a reasonable timeout
+    client.connectionTimeout = const Duration(seconds: 30);
+    
+    return client;
   }
 }
