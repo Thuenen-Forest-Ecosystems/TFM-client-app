@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
-import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
+//import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 
 class GenericTextField extends StatefulWidget {
   final String fieldName;
@@ -331,7 +331,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   isDense: widget.dense,
                   fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
                   suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
-                  suffixIcon: SpeechToTextButton(
+                  /*suffixIcon: SpeechToTextButton(
                     controller: _controller,
                     fieldType: type,
                     onTextChanged: () {
@@ -349,7 +349,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                         widget.onChanged?.call(doubleValue);
                       }
                     },
-                  ),
+                  ),*/
                 ),
           keyboardType: type == 'integer'
               ? TextInputType.number
@@ -402,14 +402,14 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 filled: true,
                 isDense: widget.dense,
                 fillColor: hasErrors ? errorBgColor : Colors.white.withOpacity(0.1),
-                suffixIcon: SpeechToTextButton(
+                /*suffixIcon: SpeechToTextButton(
                   controller: _controller,
                   fieldType: 'string',
                   onTextChanged: () {
                     final value = _controller.text;
                     widget.onChanged?.call(value.isEmpty ? null : value);
                   },
-                ),
+                ),*/
               ),
         maxLines:
             widget.fieldSchema['maxLength'] != null &&
