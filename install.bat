@@ -1,17 +1,23 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+:: Get the directory where this script is located
+set SCRIPT_DIR=%~dp0
+cd /d "%SCRIPT_DIR%"
+
 :: Check for admin privileges
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo Requesting administrator privileges...
-    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    powershell -Command "Start-Process '%~f0' -Verb RunAs -ArgumentList '-WorkingDirectory', '%SCRIPT_DIR%'"
     exit /b
 )
 
 echo ============================================
 echo Terrestrial Forest Monitor - Installation
 echo ============================================
+echo.
+echo Working directory: %CD%
 echo.
 
 :: Find MSIX file
@@ -54,7 +60,7 @@ echo.
 
 :: Install MSIX
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "Add-AppxPackage -Path '%MSIX_FILE%'"
+    "Set-Location '%SCRIPT_DIR%'; Add-AppxPackage -Path '%MSIX_FILE%'"
 
 if %errorLevel% equ 0 (
     echo.
