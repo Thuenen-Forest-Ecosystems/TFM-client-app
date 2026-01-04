@@ -246,6 +246,73 @@ jobs:
       - name: Build Windows Release
         run: flutter build windows --release
 
+      - name: Create Inno Setup Installer
+        shell: powershell
+        run: |
+          # Download and install Inno Setup
+          Write-Host "Downloading Inno Setup..."
+          $innoUrl = "https://jrsoftware.org/download.php/is.exe"
+          $innoInstaller = "$env:TEMP\innosetup.exe"
+          Invoke-WebRequest -Uri $innoUrl -OutFile $innoInstaller
+
+          Write-Host "Installing Inno Setup..."
+          Start-Process -FilePath $innoInstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+
+          # Create installer script
+          Write-Host "Creating installer script..."
+          @'
+          #define MyAppName "Terrestrial Forest Monitor"
+          #define MyAppVersion "1.0.48"
+          #define MyAppPublisher "Grünecho e.U."
+          #define MyAppExeName "terrestrial_forest_monitor.exe"
+
+          [Setup]
+          AppId={{8F3A7D2E-9B4C-4E1A-A5F6-2D8E9C7B1A3F}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          DefaultDirName={autopf}\{#MyAppName}
+          DefaultGroupName={#MyAppName}
+          AllowNoIcons=yes
+          OutputDir=build\windows\x64\runner\Release
+          OutputBaseFilename=TFM-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          PrivilegesRequired=lowest
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          UninstallDisplayIcon={app}\{#MyAppExeName}
+
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+          Name: "german"; MessagesFile: "compiler:Languages\German.isl"
+
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+          [Run]
+          Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+          '@ | Out-File -FilePath "installer.iss" -Encoding UTF8
+
+          # Compile installer
+          Write-Host "Compiling installer..."
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Installer created successfully: build\windows\x64\runner\Release\TFM-Setup.exe"
+          } else {
+            Write-Error "Installer compilation failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+
       - name: Export public certificate (.cer)
         if: env.PFX_BASE64 != '' && env.PFX_PASSWORD != ''
         shell: powershell
@@ -337,6 +404,7 @@ jobs:
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
           files: |
+            build/windows/x64/runner/Release/TFM-Setup.exe
             build/windows/x64/runner/Release/TFM-windows-portable.zip
             build/windows/x64/runner/Release/*.msix
             build/windows/x64/runner/Release/*.cer
