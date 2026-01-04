@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/log_service.dart';
 
 class SyncStatusButton extends StatefulWidget {
   const SyncStatusButton({super.key});
@@ -32,6 +33,15 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
         setState(() {
           _connectionState = db.currentStatus;
         });
+
+        // Log any sync errors
+        if (event.anyError != null) {
+          final logger = LogService();
+          logger.log('❌ PowerSync Error: ${event.anyError}', level: LogLevel.error);
+          logger.log('   Connected: ${event.connected}', level: LogLevel.error);
+          logger.log('   Connecting: ${event.connecting}', level: LogLevel.error);
+          logger.log('   Last Synced: ${event.lastSyncedAt}', level: LogLevel.error);
+        }
       }
     });
 
