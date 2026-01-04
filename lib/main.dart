@@ -287,7 +287,29 @@ class _WindowsCertificateOverride extends HttpOverrides {
     if (kIsWeb || !Platform.isWindows) return;
 
     try {
-      print('🔧 Windows Platform: ${Platform.operatingSystemVersion}');
+      // Enhanced platform detection
+      final osVersion = Platform.operatingSystemVersion;
+      final executable = Platform.resolvedExecutable;
+
+      print('🔧 Windows Platform Detection:');
+      print('   OS Version: $osVersion');
+      print('   Executable: $executable');
+      print('   Environment: ${Platform.environment}');
+
+      // Detect architecture
+      final isARM =
+          executable.contains('arm') ||
+          Platform.environment['PROCESSOR_ARCHITECTURE']?.contains('ARM') == true;
+      final isX86 =
+          executable.contains('x86') || Platform.environment['PROCESSOR_ARCHITECTURE'] == 'x86';
+
+      print(
+        '   Architecture: ${isARM
+            ? "ARM"
+            : isX86
+            ? "x86"
+            : "x64"}',
+      );
 
       // Load bundled certificate from assets
       final certData = await rootBundle.load('assets/certs/ci_thuenen_root.pem');
@@ -295,25 +317,43 @@ class _WindowsCertificateOverride extends HttpOverrides {
 
       print('📄 Certificate loaded: ${certBytes.length} bytes');
 
-      // Create a NEW SecurityContext with trusted roots (instead of using defaultContext)
-      // This is more reliable on Windows 11
-      _customContext = SecurityContext(withTrustedRoots: true);
-      _customContext!.setTrustedCertificatesBytes(certBytes);
+      // Try multiple approaches for different Windows configurations
+      try {
+        // Approach 1: Fresh context with trusted roots (works on most systems)
+        _customContext = SecurityContext(withTrustedRoots: true);
+        _customContext!.setTrustedCertificatesBytes(certBytes);
+        print('✅ Method 1: Fresh SecurityContext with trusted roots');
+      } catch (e) {
+        print('⚠️ Method 1 failed: $e');
+        try {
+          // Approach 2: Fresh context WITHOUT trusted roots (for restricted devices)
+          _customContext = SecurityContext(withTrustedRoots: false);
+          _customContext!.setTrustedCertificatesBytes(certBytes);
+          print('✅ Method 2: Fresh SecurityContext without system roots');
+        } catch (e2) {
+          print('⚠️ Method 2 failed: $e2');
+          // Approach 3: Use default context (last resort)
+          _customContext = SecurityContext.defaultContext;
+          _customContext!.setTrustedCertificatesBytes(certBytes);
+          print('✅ Method 3: Using default context');
+        }
+      }
 
       print('✅ Bundled SSL certificate loaded successfully for ci.thuenen.de');
-      print('   Windows version: ${Platform.operatingSystemVersion}');
-      print('   Using fresh SecurityContext with trusted roots');
     } catch (e, stackTrace) {
-      print('⚠️ Warning: Could not load bundled certificate - $e');
+      print('❌ ERROR: Could not load bundled certificate - $e');
       print('   Stack trace: $stackTrace');
       print('   Falling back to accepting all certificates');
+      _customContext = null;
     }
   }
 
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    print('Creating HttpClient with bundled certificate');
-    print('Windows version: ${Platform.operatingSystemVersion}');
+    final osVersion = Platform.operatingSystemVersion;
+    final arch = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'unknown';
+
+    print('Creating HttpClient - OS: $osVersion, Arch: $arch');
 
     // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
     // Pass our custom context with the bundled certificate
@@ -326,7 +366,8 @@ class _WindowsCertificateOverride extends HttpOverrides {
       print('   Subject: ${cert.subject}');
       print('   Valid from: ${cert.startValidity}');
       print('   Valid until: ${cert.endValidity}');
-      print('   Windows version: ${Platform.operatingSystemVersion}');
+      print('   OS: $osVersion');
+      print('   Architecture: $arch');
 
       // Accept certificates for our specific domain (fallback if bundled cert doesn't work)
       if (host.contains('ci.thuenen.de') ||
