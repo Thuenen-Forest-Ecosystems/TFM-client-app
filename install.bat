@@ -26,26 +26,51 @@ if not defined MSIX_FILE (
 
 echo Found: %MSIX_FILE%
 echo.
-echo [1/2] Installing certificate...
 
-:: Extract and install certificate
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$cert = (Get-AuthenticodeSignature '%MSIX_FILE%').SignerCertificate; ^
-     if ($cert) { ^
-         $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','LocalMachine'); ^
-         $store.Open('ReadWrite'); ^
-         $store.Add($cert); ^
-         $store.Close(); ^
-         Write-Host 'Certificate installed successfully' -ForegroundColor Green ^
-     } else { ^
-         Write-Host 'ERROR: Could not extract certificate' -ForegroundColor Red; ^
-         exit 1 ^
-     }"
+:: Find certificate file
+for %%F in (*.cer) do set CER_FILE=%%F
 
-if %errorLevel% neq 0 (
-    echo ERROR: Certificate installation failed!
-    pause
-    exit /b 1
+if not defined CER_FILE (
+    echo WARNING: No .cer certificate file found.
+    echo Attempting to extract from MSIX signature...
+    echo.
+    echo [1/2] Installing certificate...
+    
+    :: Extract and install certificate from MSIX
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$cert = (Get-AuthenticodeSignature '%MSIX_FILE%').SignerCertificate; ^
+         if ($cert) { ^
+             $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','LocalMachine'); ^
+             $store.Open('ReadWrite'); ^
+             $store.Add($cert); ^
+             $store.Close(); ^
+             Write-Host 'Certificate installed successfully' -ForegroundColor Green ^
+         } else { ^
+             Write-Host 'ERROR: Could not extract certificate from MSIX' -ForegroundColor Red; ^
+             exit 1 ^
+         }"
+    
+    if %errorLevel% neq 0 (
+        echo ERROR: Certificate installation failed!
+        pause
+        exit /b 1
+    )
+) else (
+    echo Found certificate: %CER_FILE%
+    echo.
+    echo [1/2] Installing certificate...
+    
+    :: Install certificate from .cer file
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "Import-Certificate -FilePath '%CER_FILE%' -CertStoreLocation 'Cert:\LocalMachine\Root'"
+    
+    if %errorLevel% neq 0 (
+        echo ERROR: Certificate installation failed!
+        pause
+        exit /b 1
+    )
+    
+    echo Certificate installed successfully.
 )
 
 echo.

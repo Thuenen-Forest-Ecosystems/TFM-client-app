@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to update (e.g., v1.0.0). Leave empty to skip upload.'
+        description: "Release tag to update (e.g., v1.0.0). Leave empty to skip upload."
         required: false
         type: string
 
@@ -186,9 +186,9 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Verifying ci.thuenen.de SSL certificate is bundled with app..."
-          
+
           $certPath = "assets/certs/ci_thuenen_root.pem"
-          
+
           if (Test-Path $certPath) {
             $cert = Get-Content $certPath -Raw
             Write-Host "Certificate found and will be bundled with app"
@@ -250,6 +250,15 @@ jobs:
             Write-Host "Warning: No sideload MSIX file found"
           }
 
+          # Also rename the certificate file for clarity
+          $cerFile = Get-ChildItem build/windows/x64/runner/Release/*.cer | Select-Object -First 1
+          if ($cerFile) {
+            Rename-Item $cerFile.FullName -NewName "terrestrial_forest_monitor.cer"
+            Write-Host "Renamed certificate to: terrestrial_forest_monitor.cer"
+          } else {
+            Write-Host "Warning: No certificate file found"
+          }
+
       - name: Build MSIX (Store)
         run: dart run msix:create --build-windows false --store
 
@@ -296,6 +305,7 @@ jobs:
           files: |
             build/windows/x64/runner/Release/TFM-windows-portable.zip
             build/windows/x64/runner/Release/*.msix
+            build/windows/x64/runner/Release/*.cer
             install.bat
             install_certificate.ps1
         env:
