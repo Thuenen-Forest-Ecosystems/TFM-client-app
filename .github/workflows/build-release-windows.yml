@@ -11,221 +11,44 @@ on:
         type: string
 
 jobs:
-  prepare-cache:
-    runs-on: windows-latest
-
-    env:
-      PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-          flutter-version: "3.38.4"
-          cache: false
-
-      - name: Disable Windows Defender real-time protection
-        shell: powershell
-        run: |
-          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-          Set-MpPreference -ExclusionPath $env:PUB_CACHE -ErrorAction SilentlyContinue
-
-      - name: Resolve dependencies (Windows)
-        shell: powershell
-        run: |
-          $pubCache = $env:PUB_CACHE
-          Write-Host "Using PUB_CACHE: $pubCache"
-
-          if (-not (Test-Path $pubCache)) {
-            New-Item -ItemType Directory -Force -Path $pubCache | Out-Null
-          }
-
-          flutter config --no-analytics
-
-          $maxRetries = 5
-          $retryCount = 0
-          $success = $false
-
-          while (-not $success -and $retryCount -lt $maxRetries) {
-            $retryCount++
-            Write-Host "Attempt $retryCount of $maxRetries..."
-
-            # Kill processes that may hold locks
-            Get-Process | Where-Object { $_.ProcessName -match "^(dart|flutter|pub|flutter_tester)$" } | Stop-Process -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 3
-
-            # Clear caches to avoid stale locks
-            if (Test-Path $pubCache) {
-              Remove-Item -Recurse -Force $pubCache -ErrorAction SilentlyContinue
-            }
-            New-Item -ItemType Directory -Force -Path $pubCache | Out-Null
-
-            $hostedCache = Join-Path $env:FLUTTER_ROOT ".pub-cache"
-            if (Test-Path $hostedCache) {
-              Remove-Item -Recurse -Force $hostedCache -ErrorAction SilentlyContinue
-            }
-            $userCache = Join-Path $env:LOCALAPPDATA "Pub\Cache"
-            if (Test-Path $userCache) {
-              Remove-Item -Recurse -Force $userCache -ErrorAction SilentlyContinue
-            }
-            Start-Sleep -Seconds 5
-
-            try {
-              flutter clean
-              flutter pub get
-
-              if ($LASTEXITCODE -eq 0) {
-                $success = $true
-                Write-Host "Dependencies installed successfully"
-              } else {
-                throw "Exit code $LASTEXITCODE"
-              }
-            } catch {
-              Write-Host "Error: $_"
-              if ($retryCount -lt $maxRetries) {
-                $backoff = 15 * $retryCount
-                Write-Host "Retrying in $backoff seconds..."
-                Start-Sleep -Seconds $backoff
-              }
-            }
-          }
-
-          if (-not $success) { throw "Failed to install dependencies" }
-
-      - name: Package pub cache
-        shell: powershell
-        run: |
-          $cacheDir = $env:PUB_CACHE
-          $pkgCfg = ".dart_tool/package_config.json"
-          $items = @()
-          if (Test-Path $cacheDir) { $items += $cacheDir }
-          if (Test-Path $pkgCfg) { $items += $pkgCfg }
-          if ($items.Count -eq 0) {
-            Write-Host "No pub cache found; creating empty archive"
-            New-Item -ItemType File -Force pub-cache.tgz | Out-Null
-          } else {
-            tar -czf pub-cache.tgz $items
-          }
-
-      - name: Upload cache artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: flutter-pub-cache
-          path: pub-cache.tgz
-
   build-windows:
     runs-on: windows-latest
-    needs: prepare-cache
 
     permissions:
       contents: write
 
-    env:
-      PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Setup Flutter with caching
         uses: subosito/flutter-action@v2
         with:
           channel: "stable"
           flutter-version: "3.38.4"
-          cache: false
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: ${{ runner.tool_cache }}/flutter
 
-      - name: Disable Windows Defender real-time protection
+      - name: Disable Windows Defender (performance)
         shell: powershell
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-          Set-MpPreference -ExclusionPath $env:PUB_CACHE -ErrorAction SilentlyContinue
-          Write-Host "Windows Defender real-time protection disabled"
-
-      - name: Download pub cache artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: flutter-pub-cache
-          path: C:\tmp
-
-      - name: Extract pub cache
-        shell: powershell
-        run: |
-          tar -xf C:\tmp\pub-cache.tgz -C C:\tmp
-          # Ensure PUB_CACHE dir exists
-          New-Item -ItemType Directory -Force -Path $env:PUB_CACHE | Out-Null
-
-          # Locate extracted .pub-cache anywhere under C:\tmp
-          $cacheDir = Get-ChildItem -Directory -Recurse -Path C:\tmp -Filter ".pub-cache" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($cacheDir) {
-            Remove-Item -Recurse -Force $env:PUB_CACHE -ErrorAction SilentlyContinue
-            Move-Item -Force $cacheDir.FullName $env:PUB_CACHE
-          } else {
-            Write-Host "Warning: .pub-cache not found in extracted artifact"
-          }
-
-          # Restore package_config.json from any location under C:\tmp
-          $pkgConfig = Get-ChildItem -Recurse -Path C:\tmp -Filter "package_config.json" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($pkgConfig) {
-            New-Item -ItemType Directory -Force -Path ".dart_tool" | Out-Null
-            Copy-Item -Force $pkgConfig.FullName ".dart_tool\package_config.json"
-          } else {
-            Write-Host "Warning: package_config.json not found in extracted artifact"
-          }
+          Set-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
+          Write-Host "Excluded workspace from Windows Defender"
 
       - name: Install dependencies
-        shell: powershell
         run: |
           flutter config --no-analytics
           flutter pub get
 
-      - name: Verify SSL certificate bundle
+      - name: Patch speech_to_text_windows headers
         shell: powershell
         run: |
-          Write-Host "Verifying ci.thuenen.de SSL certificate is bundled with app..."
-
-          $certPath = "assets/certs/ci_thuenen_root.pem"
-
-          if (Test-Path $certPath) {
-            $cert = Get-Content $certPath -Raw
-            Write-Host "Certificate found and will be bundled with app"
-            Write-Host "Certificate file: $certPath"
-            Write-Host "Size: $((Get-Item $certPath).Length) bytes"
-          } else {
-            Write-Host "Warning: Certificate not found at $certPath"
-            Write-Host "App will use fallback badCertificateCallback"
-          }
-
-      - name: Patch speech_to_text_windows headers (CI workaround)
-        shell: powershell
-        run: |
-          # Patch public header guard collision
           $publicHdr = "windows/flutter/ephemeral/.plugin_symlinks/speech_to_text_windows/windows/include/speech_to_text_windows/speech_to_text_windows.h"
           if (Test-Path $publicHdr) {
             (Get-Content $publicHdr) -replace "FLUTTER_PLUGIN_LOCAL_AUTH_WINDOWS_PLUGIN_H_", "FLUTTER_PLUGIN_SPEECH_TO_TEXT_WINDOWS_PUBLIC_H_" | Set-Content $publicHdr
-            Write-Host "Patched public header guard in $publicHdr"
-          } else {
-            Write-Host "Public header not found: $publicHdr"
           }
-
-          # Ensure plugin header has correct guard
-          $pluginHdr = "windows/flutter/ephemeral/.plugin_symlinks/speech_to_text_windows/windows/speech_to_text_windows_plugin.h"
-          if (Test-Path $pluginHdr) {
-            $content = Get-Content $pluginHdr -Raw
-            if ($content -notmatch "namespace speech_to_text_windows") {
-              Write-Host "WARNING: Plugin header missing namespace declaration"
-            } else {
-              Write-Host "Plugin header looks OK"
-            }
-          } else {
-            Write-Host "Plugin header not found: $pluginHdr"
-          }
-
-      - name: Enable Windows desktop
-        run: flutter config --enable-windows-desktop
 
       - name: Create .env file
         shell: powershell
@@ -239,17 +62,15 @@ jobs:
       - name: Create Inno Setup Installer
         shell: powershell
         run: |
-          # Download and install Inno Setup
-          Write-Host "Downloading Inno Setup..."
-          $innoUrl = "https://jrsoftware.org/download.php/is.exe"
-          $innoInstaller = "$env:TEMP\innosetup.exe"
-          Invoke-WebRequest -Uri $innoUrl -OutFile $innoInstaller
-
-          Write-Host "Installing Inno Setup..."
-          Start-Process -FilePath $innoInstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+          # Download and install Inno Setup (cached by runner)
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $innoPath)) {
+            Write-Host "Installing Inno Setup..."
+            Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "$env:TEMP\innosetup.exe"
+            Start-Process -FilePath "$env:TEMP\innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+          }
 
           # Create installer script
-          Write-Host "Creating installer script..."
           @'
           #define MyAppName "Terrestrial Forest Monitor"
           #define MyAppVersion "1.0.48"
@@ -293,23 +114,14 @@ jobs:
           '@ | Out-File -FilePath "installer.iss" -Encoding UTF8
 
           # Compile installer
-          Write-Host "Compiling installer..."
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Installer created successfully: build\windows\x64\runner\Release\TFM-Setup.exe"
-          } else {
-            Write-Error "Installer compilation failed with exit code $LASTEXITCODE"
-            exit 1
-          }
+          & $innoPath installer.iss
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
-          files: |
-            build/windows/x64/runner/Release/TFM-Setup.exe
+          files: build/windows/x64/runner/Release/TFM-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -318,4 +130,3 @@ jobs:
         shell: powershell
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
-          Write-Host "Windows Defender real-time protection re-enabled"
