@@ -36,57 +36,56 @@ Manually trigger the workflow:
 2. Enter the release tag (e.g., `v1.0.48`)
 3. Artifacts will be rebuilt and uploaded to that release
 
-### Publishing to Microsoft Store (Recommended for End Users)
+## Installation
 
-The Microsoft Store eliminates certificate issues and provides automatic updates.
+### Android
 
-**Setup (One-time):**
+**Installation**
 
-1. Create a [Microsoft Partner Center](https://partner.microsoft.com/dashboard) account
-2. Reserve app name: "Terrestrial Forest Monitor"
-3. Create app submission
-4. Add GitHub secrets:
-   - `MS_TENANT_ID` - Your Azure tenant ID
-   - `MS_SELLER_ID` - Your seller ID from Partner Center
-   - `MS_CLIENT_ID` - Azure AD app client ID
-   - `MS_CLIENT_SECRET` - Azure AD app client secret
-   - `MS_PRODUCT_ID` - Product ID from Partner Center
+1. Gehe zu [Releases](../../releases/latest)
+2. Lade `app-release.apk` herunter
+3. Öffne die heruntergeladene APK-Datei
 
-**Publishing:**
+**Bei erster Installation:**
 
-1. Uncomment the Microsoft Store CLI steps in `.github/workflows/build-release-windows.yml`
-2. Create a release - Store MSIX will be automatically submitted
-3. Microsoft reviews and publishes (usually 24-48 hours)
-
-**Benefits:**
-
-- No certificate installation needed
-- Users trust Microsoft Store
-- Automatic updates
-- Better discoverability
-
-Read the [GitHub CLI documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) for more information.
-
-## Installation (End Users)
+- Android zeigt eine Sicherheitswarnung
+- Tippe auf **"Einstellungen"** oder **"Trotzdem installieren"**
+- Aktiviere **"Apps aus dieser Quelle zulassen"** (nur für Browser/Dateimanager)
+- Gehe zurück und installiere die App
 
 ### Windows
 
-**Installer (Empfohlen)**
+**Installation**
 
 1. Gehe zu [Releases](../../releases/latest)
 2. Lade `TFM-Setup.exe` herunter
 3. **Doppelklick** auf die heruntergeladene Datei
-4. Folge dem Installationsassistenten
-5. Fertig! Die App ist jetzt installiert
 
-✨ **Vorteile:**
+**Windows SmartScreen Warnung (normal):**
 
-- Ein-Klick-Installation
-- Keine Zertifikate erforderlich
-- Kein Entwicklermodus nötig
-- Professioneller Windows-Installer
-- Desktop-Verknüpfung optional
-- Saubere Deinstallation möglich
+Windows zeigt eine Sicherheitswarnung, da die App nicht im Microsoft Store ist:
+
+**Windows 11:**
+
+1. Warnung: "Windows hat den Start dieser unbekannten App verhindert"
+2. Klicke auf **"Weitere Informationen"**
+3. Klicke auf **"Trotzdem ausführen"**
+4. Bei UAC-Abfrage auf **"Ja"** klicken (für Installation)
+
+**Windows 10:**
+
+1. Warnung: "Der Computer wurde durch Windows geschützt"
+2. Klicke auf **"Weitere Informationen"**
+3. Klicke auf **"Trotzdem ausführen"**
+4. Bei UAC-Abfrage auf **"Ja"** klicken (für Installation)
+
+💡 **Warum diese Warnung?**
+
+- Die App ist nicht mit einem Microsoft-Zertifikat signiert
+- Dies ist normal für Open-Source-Software
+- Die App ist sicher - der Quellcode ist öffentlich einsehbar
+
+**Alternative:** Wenn Ihre IT-Abteilung die Installation blockiert, kontaktieren Sie Ihren Administrator.
 
 ### Updating
 
