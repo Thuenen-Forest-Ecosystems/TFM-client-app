@@ -35,8 +35,10 @@ import 'package:upgrader/upgrader.dart';
 import 'package:terrestrial_forest_monitor/screens/start.dart';
 import 'package:terrestrial_forest_monitor/screens/login.dart';
 import 'package:terrestrial_forest_monitor/screens/profile.dart';
+import 'package:terrestrial_forest_monitor/screens/logger.dart';
 // provider
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/services/log_service.dart';
 
 BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
   return BeamerDelegate(
@@ -45,7 +47,15 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
     updateListenable: authProvider,
     guards: [
       BeamGuard(
-        pathPatterns: ['/settings', '/admin', '/admin-permissions', '/headless', '/', '/profile'],
+        pathPatterns: [
+          '/settings',
+          '/admin',
+          '/admin-permissions',
+          '/headless',
+          '/',
+          '/profile',
+          '/logs',
+        ],
         check: (context, location) {
           final authProvider = context.read<AuthProvider>();
           return authProvider.isAuthenticated;
@@ -86,6 +96,12 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           key: ValueKey('profile'),
           title: 'Profile',
           child: Profile(),
+          type: BeamPageType.noTransition,
+        ),
+        '/logs': (context, state, data) => BeamPage(
+          key: ValueKey('logs'),
+          title: 'Logs',
+          child: LoggerScreen(),
           type: BeamPageType.noTransition,
         ),
         //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
@@ -286,15 +302,17 @@ class _WindowsCertificateOverride extends HttpOverrides {
   Future<void> initialize() async {
     if (kIsWeb || !Platform.isWindows) return;
 
+    final logger = LogService();
+
     try {
       // Enhanced platform detection
       final osVersion = Platform.operatingSystemVersion;
       final executable = Platform.resolvedExecutable;
 
-      print('🔧 Windows Platform Detection:');
-      print('   OS Version: $osVersion');
-      print('   Executable: $executable');
-      print('   Environment: ${Platform.environment}');
+      logger.log('🔧 Windows Platform Detection:', level: LogLevel.info);
+      logger.log('   OS Version: $osVersion', level: LogLevel.info);
+      logger.log('   Executable: $executable', level: LogLevel.debug);
+      logger.log('   Environment: ${Platform.environment}', level: LogLevel.debug);
 
       // Detect architecture
       final isARM =
@@ -303,57 +321,65 @@ class _WindowsCertificateOverride extends HttpOverrides {
       final isX86 =
           executable.contains('x86') || Platform.environment['PROCESSOR_ARCHITECTURE'] == 'x86';
 
-      print(
+      logger.log(
         '   Architecture: ${isARM
             ? "ARM"
             : isX86
             ? "x86"
             : "x64"}',
+        level: LogLevel.info,
       );
 
       // Load bundled certificate from assets
       final certData = await rootBundle.load('assets/certs/ci_thuenen_root.pem');
       final certBytes = certData.buffer.asUint8List();
 
-      print('📄 Certificate loaded: ${certBytes.length} bytes');
+      logger.log('📄 Certificate loaded: ${certBytes.length} bytes', level: LogLevel.info);
 
       // Try multiple approaches for different Windows configurations
       try {
         // Approach 1: Fresh context with trusted roots (works on most systems)
         _customContext = SecurityContext(withTrustedRoots: true);
         _customContext!.setTrustedCertificatesBytes(certBytes);
-        print('✅ Method 1: Fresh SecurityContext with trusted roots');
+        logger.log('✅ Method 1: Fresh SecurityContext with trusted roots', level: LogLevel.info);
       } catch (e) {
-        print('⚠️ Method 1 failed: $e');
+        logger.log('⚠️ Method 1 failed: $e', level: LogLevel.warning);
         try {
           // Approach 2: Fresh context WITHOUT trusted roots (for restricted devices)
           _customContext = SecurityContext(withTrustedRoots: false);
           _customContext!.setTrustedCertificatesBytes(certBytes);
-          print('✅ Method 2: Fresh SecurityContext without system roots');
+          logger.log(
+            '✅ Method 2: Fresh SecurityContext without system roots',
+            level: LogLevel.info,
+          );
         } catch (e2) {
-          print('⚠️ Method 2 failed: $e2');
+          logger.log('⚠️ Method 2 failed: $e2', level: LogLevel.warning);
           // Approach 3: Use default context (last resort)
           _customContext = SecurityContext.defaultContext;
           _customContext!.setTrustedCertificatesBytes(certBytes);
-          print('✅ Method 3: Using default context');
+          logger.log('✅ Method 3: Using default context', level: LogLevel.warning);
         }
       }
 
-      print('✅ Bundled SSL certificate loaded successfully for ci.thuenen.de');
+      logger.log(
+        '✅ Bundled SSL certificate loaded successfully for ci.thuenen.de',
+        level: LogLevel.info,
+      );
     } catch (e, stackTrace) {
-      print('❌ ERROR: Could not load bundled certificate - $e');
-      print('   Stack trace: $stackTrace');
-      print('   Falling back to accepting all certificates');
+      logger.log('❌ ERROR: Could not load bundled certificate - $e', level: LogLevel.error);
+      logger.log('   Stack trace: $stackTrace', level: LogLevel.error);
+      logger.log('   Falling back to accepting all certificates', level: LogLevel.warning);
       _customContext = null;
     }
   }
 
   @override
   HttpClient createHttpClient(SecurityContext? context) {
+    final logger = LogService();
     final osVersion = Platform.operatingSystemVersion;
     final arch = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'unknown';
 
-    print('Creating HttpClient - OS: $osVersion, Arch: $arch');
+    logger.log('Creating HttpClient - OS: $osVersion, Arch: $arch', level: LogLevel.debug);
 
     // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
     // Pass our custom context with the bundled certificate
@@ -361,23 +387,26 @@ class _WindowsCertificateOverride extends HttpOverrides {
 
     // Enhanced certificate callback with detailed logging
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      print('🔒 Certificate check for: $host:$port');
-      print('   Issuer: ${cert.issuer}');
-      print('   Subject: ${cert.subject}');
-      print('   Valid from: ${cert.startValidity}');
-      print('   Valid until: ${cert.endValidity}');
-      print('   OS: $osVersion');
-      print('   Architecture: $arch');
+      logger.log('🔒 Certificate check for: $host:$port', level: LogLevel.debug);
+      logger.log('   Issuer: ${cert.issuer}', level: LogLevel.debug);
+      logger.log('   Subject: ${cert.subject}', level: LogLevel.debug);
+      logger.log('   Valid from: ${cert.startValidity}', level: LogLevel.debug);
+      logger.log('   Valid until: ${cert.endValidity}', level: LogLevel.debug);
+      logger.log('   OS: $osVersion', level: LogLevel.debug);
+      logger.log('   Architecture: $arch', level: LogLevel.debug);
 
       // Accept certificates for our specific domain (fallback if bundled cert doesn't work)
       if (host.contains('ci.thuenen.de') ||
           host.contains('supabase.co') ||
           host.contains('supabase.io')) {
-        print('   ✓ Accepting certificate for $host (bundled cert or fallback)');
+        logger.log(
+          '   ✓ Accepting certificate for $host (bundled cert or fallback)',
+          level: LogLevel.info,
+        );
         return true;
       }
 
-      print('   ✗ Rejecting certificate for $host');
+      logger.log('   ✗ Rejecting certificate for $host', level: LogLevel.warning);
       return false;
     };
 

@@ -149,6 +149,15 @@ class Profile extends StatelessWidget {
                 }
               },
             ),
+
+            const SizedBox(height: 16),
+            // Button to logger.dart
+            ElevatedButton(
+              onPressed: () {
+                context.beamToNamed('/logs');
+              },
+              child: const Text('Protokolle anzeigen'),
+            ),
           ],
         ),
       ),
