@@ -181,7 +181,12 @@ class Layout extends StatelessWidget {
     //context.watch<MapState>().mapOpen
 
     return UpgradeAlert(
-      upgrader: Upgrader(durationUntilAlertAgain: Duration(days: 1)),
+      upgrader: Upgrader(
+        durationUntilAlertAgain: Duration(days: 1),
+        countryCode: 'DE',
+        messages: UpgraderMessages(code: selectedLanguage),
+        shouldPopScope: () => true,
+      ),
       dialogStyle: UpgradeDialogStyle.material,
       showLater: true,
       showIgnore: false,

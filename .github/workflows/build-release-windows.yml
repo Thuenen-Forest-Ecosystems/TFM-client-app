@@ -296,6 +296,8 @@ jobs:
           files: |
             build/windows/x64/runner/Release/TFM-windows-portable.zip
             build/windows/x64/runner/Release/*.msix
+            install.bat
+            install_certificate.ps1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
