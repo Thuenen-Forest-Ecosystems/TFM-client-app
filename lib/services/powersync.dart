@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:powersync/powersync.dart';
 import 'package:powersync/sqlite3_common.dart';
@@ -9,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'package:terrestrial_forest_monitor/services/log_service.dart';
 import 'powersync_io.dart' if (dart.library.html) 'powersync_web.dart';
 
 import 'schema.dart';
@@ -278,15 +280,11 @@ Future<PowerSyncDatabase> openDatabase() async {
   bool isSyncMode = true;
 
   final dbPath = await getDatabasePath();
+  final logger = LogService();
 
-  // Windows certificate workaround: Disable SSL verification for WebSocket connections
-  // PowerSync uses web_socket_channel which doesn't respect HttpOverrides.global
-  // This is a known issue with Flutter on Windows + BoringSSL
+  // Windows certificate workaround: PowerSync uses WebSockets which bypass HttpOverrides
   if (!kIsWeb && Platform.isWindows) {
-    print('Applying Windows SSL workaround for PowerSync WebSocket connections');
-    // Set environment to disable SSL verification for development
-    // In production, you should install proper certificates or use a reverse proxy
-    HttpClient.enableTimelineLogging = false;
+    logger.log('🔌 PowerSync on Windows - relying on global HttpOverrides', level: LogLevel.info);
   }
 
   db = PowerSyncDatabase(schema: schema, path: dbPath, logger: attachedLogger);
@@ -309,10 +307,7 @@ Future<PowerSyncDatabase> openDatabase() async {
   try {
     var config = await getServerConfig();
 
-    await Supabase.initialize(
-      url: config['supabaseUrl'] ?? '',
-      anonKey: config['anonKey'] ?? '',
-    );
+    await Supabase.initialize(url: config['supabaseUrl'] ?? '', anonKey: config['anonKey'] ?? '');
   } catch (e) {
     print('Error initializing Supabase: $e');
     rethrow;

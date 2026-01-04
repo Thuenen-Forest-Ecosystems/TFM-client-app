@@ -330,45 +330,25 @@ class _WindowsCertificateOverride extends HttpOverrides {
         level: LogLevel.info,
       );
 
-      // Load bundled certificate from assets
-      final certData = await rootBundle.load('assets/certs/ci_thuenen_root.pem');
+      // Load the ROOT and INTERMEDIATE CA certificates (not the server cert)
+      final certData = await rootBundle.load('assets/certs/ca-bundle.pem');
       final certBytes = certData.buffer.asUint8List();
 
-      logger.log('📄 Certificate loaded: ${certBytes.length} bytes', level: LogLevel.info);
+      logger.log('📄 CA Bundle loaded: ${certBytes.length} bytes', level: LogLevel.info);
 
-      // Try multiple approaches for different Windows configurations
+      // Create SecurityContext with the proper CA chain
       try {
-        // Approach 1: Fresh context with trusted roots (works on most systems)
         _customContext = SecurityContext(withTrustedRoots: true);
         _customContext!.setTrustedCertificatesBytes(certBytes);
-        logger.log('✅ Method 1: Fresh SecurityContext with trusted roots', level: LogLevel.info);
+        logger.log('✅ CA certificates loaded into SecurityContext', level: LogLevel.info);
       } catch (e) {
-        logger.log('⚠️ Method 1 failed: $e', level: LogLevel.warning);
-        try {
-          // Approach 2: Fresh context WITHOUT trusted roots (for restricted devices)
-          _customContext = SecurityContext(withTrustedRoots: false);
-          _customContext!.setTrustedCertificatesBytes(certBytes);
-          logger.log(
-            '✅ Method 2: Fresh SecurityContext without system roots',
-            level: LogLevel.info,
-          );
-        } catch (e2) {
-          logger.log('⚠️ Method 2 failed: $e2', level: LogLevel.warning);
-          // Approach 3: Use default context (last resort)
-          _customContext = SecurityContext.defaultContext;
-          _customContext!.setTrustedCertificatesBytes(certBytes);
-          logger.log('✅ Method 3: Using default context', level: LogLevel.warning);
-        }
+        logger.log('⚠️ Failed to load CA bundle: $e', level: LogLevel.warning);
+        _customContext = SecurityContext(withTrustedRoots: true);
       }
-
-      logger.log(
-        '✅ Bundled SSL certificate loaded successfully for ci.thuenen.de',
-        level: LogLevel.info,
-      );
     } catch (e, stackTrace) {
-      logger.log('❌ ERROR: Could not load bundled certificate - $e', level: LogLevel.error);
+      logger.log('❌ ERROR: Certificate setup failed - $e', level: LogLevel.error);
       logger.log('   Stack trace: $stackTrace', level: LogLevel.error);
-      logger.log('   Falling back to accepting all certificates', level: LogLevel.warning);
+      logger.log('   Will rely on badCertificateCallback only', level: LogLevel.warning);
       _customContext = null;
     }
   }

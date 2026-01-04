@@ -51,3 +51,7 @@ service-account.json
 service-account.json.base64
 
 .tmp
+# Ignore source certs folder (we only need the bundled ca-bundle.pem in assets)
+certs/
+# But don't ignore the assets/certs folder
+!assets/certs/
