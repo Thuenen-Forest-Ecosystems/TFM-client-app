@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to update (e.g., v1.0.0). Leave empty to skip upload.'
+        required: false
+        type: string
 
 jobs:
   prepare-cache:
@@ -177,40 +182,20 @@ jobs:
           flutter config --no-analytics
           flutter pub get
 
-      - name: Export and bundle SSL certificate
+      - name: Verify SSL certificate bundle
         shell: powershell
         run: |
-          Write-Host "Exporting ci.thuenen.de SSL certificate to bundle with app..."
+          Write-Host "Verifying ci.thuenen.de SSL certificate is bundled with app..."
           
-          # Create assets/certs directory
-          New-Item -ItemType Directory -Force -Path "assets/certs" | Out-Null
+          $certPath = "assets/certs/ci_thuenen_root.pem"
           
-          $url = "ci.thuenen.de"
-          $outputPath = "assets/certs/ci_thuenen_root.pem"
-          
-          try {
-            # Connect and get certificate
-            $tcpClient = New-Object System.Net.Sockets.TcpClient($url, 443)
-            $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, {$true})
-            $sslStream.AuthenticateAsClient($url)
-            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($sslStream.RemoteCertificate)
-            
-            # Export to PEM format
-            $pemCert = "-----BEGIN CERTIFICATE-----`n"
-            $pemCert += [Convert]::ToBase64String($cert.RawData, [System.Base64FormattingOptions]::InsertLineBreaks)
-            $pemCert += "`n-----END CERTIFICATE-----"
-            
-            [System.IO.File]::WriteAllText($outputPath, $pemCert)
-            
-            $tcpClient.Close()
-            
-            Write-Host "Certificate exported and will be bundled with app"
-            Write-Host "Subject: $($cert.Subject)"
-            Write-Host "Issuer: $($cert.Issuer)"
-            Write-Host "Valid: $($cert.NotBefore) to $($cert.NotAfter)"
-            
-          } catch {
-            Write-Host "Warning: Could not export certificate - $($_.Exception.Message)"
+          if (Test-Path $certPath) {
+            $cert = Get-Content $certPath -Raw
+            Write-Host "Certificate found and will be bundled with app"
+            Write-Host "Certificate file: $certPath"
+            Write-Host "Size: $((Get-Item $certPath).Length) bytes"
+          } else {
+            Write-Host "Warning: Certificate not found at $certPath"
             Write-Host "App will use fallback badCertificateCallback"
           }
 
@@ -305,8 +290,9 @@ jobs:
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         with:
+          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
           files: |
             build/windows/x64/runner/Release/TFM-windows-portable.zip
             build/windows/x64/runner/Release/*.msix
