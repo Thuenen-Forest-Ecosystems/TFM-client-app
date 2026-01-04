@@ -369,28 +369,26 @@ class _WindowsCertificateOverride extends HttpOverrides {
     final client = super.createHttpClient(_customContext ?? context);
 
     // Enhanced certificate callback with detailed logging
+    // CRITICAL: PowerSync WebSocket may bypass SecurityContext, so this callback
+    // is our last line of defense
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      logger.log('🔒 Certificate validation triggered for: $host:$port', level: LogLevel.warning);
-      logger.log('   Issuer: ${cert.issuer}', level: LogLevel.info);
-      logger.log('   Subject: ${cert.subject}', level: LogLevel.info);
-      logger.log('   Valid from: ${cert.startValidity}', level: LogLevel.debug);
-      logger.log('   Valid until: ${cert.endValidity}', level: LogLevel.debug);
-      logger.log('   OS: $osVersion', level: LogLevel.debug);
-      logger.log('   Architecture: $arch', level: LogLevel.debug);
-
-      // Accept certificates for our specific domain (fallback if bundled cert doesn't work)
-      if (host.contains('ci.thuenen.de') ||
+      final isTrusted =
+          host.contains('ci.thuenen.de') ||
           host.contains('supabase.co') ||
-          host.contains('supabase.io')) {
+          host.contains('supabase.io');
+
+      if (isTrusted) {
         logger.log(
-          '   ✓ Accepting certificate for $host (bundled cert or fallback)',
-          level: LogLevel.info,
+          '🔓 Accepting certificate for trusted host: $host:$port',
+          level: LogLevel.warning,
         );
-        return true;
+        logger.log('   Issuer: ${cert.issuer}', level: LogLevel.debug);
+        logger.log('   Subject: ${cert.subject}', level: LogLevel.debug);
+      } else {
+        logger.log('🔒 Rejecting certificate for: $host:$port', level: LogLevel.warning);
       }
 
-      logger.log('   ✗ Rejecting certificate for $host', level: LogLevel.warning);
-      return false;
+      return isTrusted;
     };
 
     client.connectionTimeout = const Duration(seconds: 30);

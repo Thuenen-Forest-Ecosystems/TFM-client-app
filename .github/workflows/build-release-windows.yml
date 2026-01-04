@@ -104,14 +104,102 @@ jobs:
 
           [Files]
           Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "assets\certs\ca-bundle.pem"; DestDir: "{app}\certs"; Flags: ignoreversion
+          Source: "install-certificates.ps1"; DestDir: "{app}\certs"; Flags: ignoreversion
 
           [Icons]
           Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
           Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+          Name: "{group}\Install SSL Certificates"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\certs\install-certificates.ps1"""; Comment: "Install SSL certificates for PowerSync connectivity"
 
           [Run]
           Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
           '@ | Out-File -FilePath "installer.iss" -Encoding UTF8
+
+          # Create PowerShell script to install certificates
+          @'
+          # Install SSL Certificates for Terrestrial Forest Monitor
+          # This script installs the required CA certificates to Windows Certificate Store
+
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "TFM Certificate Installer" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host ""
+
+          $certPath = Join-Path $PSScriptRoot "ca-bundle.pem"
+
+          if (-not (Test-Path $certPath)) {
+              Write-Host "ERROR: Certificate file not found: $certPath" -ForegroundColor Red
+              Read-Host "Press Enter to exit"
+              exit 1
+          }
+
+          Write-Host "Certificate file: $certPath" -ForegroundColor Green
+          Write-Host ""
+
+          # Read and split the certificate bundle
+          $certContent = Get-Content $certPath -Raw
+          $certs = $certContent -split "(?=-----BEGIN CERTIFICATE-----)"
+
+          $installed = 0
+          $failed = 0
+
+          foreach ($cert in $certs) {
+              if ($cert -match "BEGIN CERTIFICATE") {
+                  try {
+                      # Save to temp file
+                      $tempCert = [System.IO.Path]::GetTempFileName() + ".crt"
+                      $cert | Set-Content $tempCert -Encoding ASCII
+
+                      # Import certificate
+                      $certObj = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+                      $certObj.Import($tempCert)
+
+                      # Get certificate store
+                      $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "CurrentUser")
+                      $store.Open("ReadWrite")
+
+                      # Check if already installed
+                      $existing = $store.Certificates | Where-Object { $_.Thumbprint -eq $certObj.Thumbprint }
+                      
+                      if ($existing) {
+                          Write-Host "  [SKIP] Already installed: $($certObj.Subject)" -ForegroundColor Yellow
+                      } else {
+                          $store.Add($certObj)
+                          Write-Host "  [OK] Installed: $($certObj.Subject)" -ForegroundColor Green
+                          $installed++
+                      }
+
+                      $store.Close()
+                      Remove-Item $tempCert -ErrorAction SilentlyContinue
+
+                  } catch {
+                      Write-Host "  [ERROR] Failed to install certificate: $_" -ForegroundColor Red
+                      $failed++
+                  }
+              }
+          }
+
+          Write-Host ""
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "Summary:" -ForegroundColor Cyan
+          Write-Host "  Installed: $installed" -ForegroundColor Green
+          Write-Host "  Failed: $failed" -ForegroundColor $(if ($failed -gt 0) { "Red" } else { "Green" })
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host ""
+
+          if ($installed -gt 0) {
+              Write-Host "Certificates installed successfully!" -ForegroundColor Green
+              Write-Host "Please restart the Terrestrial Forest Monitor app." -ForegroundColor Yellow
+          } elseif ($failed -eq 0) {
+              Write-Host "All certificates were already installed." -ForegroundColor Yellow
+          } else {
+              Write-Host "Some certificates failed to install." -ForegroundColor Red
+          }
+
+          Write-Host ""
+          Read-Host "Press Enter to exit"
+          '@ | Out-File -FilePath "install-certificates.ps1" -Encoding UTF8
 
           # Compile installer
           & $innoPath installer.iss

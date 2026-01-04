@@ -41,6 +41,25 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
           logger.log('   Connected: ${event.connected}', level: LogLevel.error);
           logger.log('   Connecting: ${event.connecting}', level: LogLevel.error);
           logger.log('   Last Synced: ${event.lastSyncedAt}', level: LogLevel.error);
+
+          // Check for certificate error
+          if (event.anyError.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+            logger.log('', level: LogLevel.error);
+            logger.log('🚨 CERTIFICATE ERROR DETECTED', level: LogLevel.error);
+            logger.log(
+              'PowerSync WebSocket bypasses Flutter certificate handling on Windows.',
+              level: LogLevel.error,
+            );
+            logger.log('', level: LogLevel.error);
+            logger.log('MANUAL FIX REQUIRED:', level: LogLevel.error);
+            logger.log('1. Download: assets/certs/ca-bundle.pem', level: LogLevel.error);
+            logger.log('2. Open certificate file', level: LogLevel.error);
+            logger.log(
+              '3. Install certificates to "Trusted Root Certification Authorities"',
+              level: LogLevel.error,
+            );
+            logger.log('4. Restart app', level: LogLevel.error);
+          }
         }
       }
     });
