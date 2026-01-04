@@ -126,20 +126,10 @@ jobs:
 
     env:
       PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
-      PFX_BASE64: ${{ secrets.PFX_BASE64 }}
-      PFX_PASSWORD: ${{ secrets.PFX_PASSWORD }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Restore code-signing certificate (PFX)
-        if: env.PFX_BASE64 != '' && env.PFX_PASSWORD != ''
-        shell: powershell
-        run: |
-          $pfxPath = "windows_signing.pfx"
-          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:PFX_BASE64))
-          Write-Host "Restored code-signing certificate to $pfxPath"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -313,91 +303,6 @@ jobs:
             exit 1
           }
 
-      - name: Export public certificate (.cer)
-        if: env.PFX_BASE64 != '' && env.PFX_PASSWORD != ''
-        shell: powershell
-        run: |
-          $pfxPath = "windows_signing.pfx"
-          if (-not (Test-Path $pfxPath)) { throw "PFX not found at $pfxPath" }
-
-          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($pfxPath, $env:PFX_PASSWORD)
-          $cerPath = "build/windows/x64/runner/Release/terrestrial_forest_monitor.cer"
-          Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
-          Write-Host "Exported CER to $cerPath"
-
-      - name: Build MSIX (Sideload)
-        shell: powershell
-        run: |
-          if (Test-Path "windows_signing.pfx") {
-            Write-Host "Using custom PFX certificate"
-            dart run msix:create --build-windows false --store false --install-certificate false --certificate-path windows_signing.pfx --certificate-password "$env:PFX_PASSWORD"
-          } else {
-            Write-Host "Using auto-generated certificate"
-            dart run msix:create --build-windows false --store false --install-certificate true
-          }
-
-      - name: Rename Sideload MSIX
-        shell: powershell
-        run: |
-          $sideloadMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Select-Object -First 1
-          if ($sideloadMsix) {
-            Rename-Item $sideloadMsix.FullName -NewName "terrestrial_forest_monitor_sideload.msix"
-            Write-Host "Renamed sideload MSIX to: terrestrial_forest_monitor_sideload.msix"
-          } else {
-            Write-Host "Warning: No sideload MSIX file found"
-          }
-
-          # Also rename the certificate file for clarity
-          $cerFile = Get-ChildItem build/windows/x64/runner/Release/*.cer | Select-Object -First 1
-          if ($cerFile) {
-            Rename-Item $cerFile.FullName -NewName "terrestrial_forest_monitor.cer"
-            Write-Host "Renamed certificate to: terrestrial_forest_monitor.cer"
-          } else {
-            Write-Host "Warning: No certificate file found"
-          }
-
-      - name: Build MSIX (Store)
-        if: env.PFX_BASE64 != '' && env.PFX_PASSWORD != ''
-        shell: powershell
-        run: |
-          Write-Host "Building MSIX for Microsoft Store with custom certificate"
-          dart run msix:create --build-windows false --store --install-certificate false --certificate-path windows_signing.pfx --certificate-password "$env:PFX_PASSWORD"
-
-      - name: Install Microsoft Store CLI
-        uses: microsoft/setup-msstore-cli@v1
-
-      #- name: Configure Microsoft Store CLI
-      #  shell: powershell
-      #  run: |
-      #      $tenant = '${{ secrets.MS_TENANT_ID }}'
-      #      $seller = '${{ secrets.MS_SELLER_ID }}'
-      #      $clientId = '${{ secrets.MS_CLIENT_ID }}'
-      #      $clientSecret = '${{ secrets.MS_CLIENT_SECRET }}'
-      #
-      #      if ([string]::IsNullOrWhiteSpace($tenant)) { Write-Error "Missing secret: MS_TENANT_ID"; exit 1 }
-      #      if ([string]::IsNullOrWhiteSpace($seller)) { Write-Error "Missing secret: MS_SELLER_ID"; exit 1 }
-      #      if ([string]::IsNullOrWhiteSpace($clientId)) { Write-Error "Missing secret: MS_CLIENT_ID"; exit 1 }
-      #      if ([string]::IsNullOrWhiteSpace($clientSecret)) { Write-Error "Missing secret: MS_CLIENT_SECRET"; exit 1 }
-      #
-      #      msstore settings --tenantId $tenant --sellerId $seller --clientId $clientId --clientSecret $clientSecret
-      #
-      #- name: Show msstore settings (debug)
-      #  run: msstore settings show
-      #
-      #- name: Publish to Microsoft Store
-      #  shell: powershell
-      #  run: |
-      #      $storeMsix = Get-ChildItem build/windows/x64/runner/Release/*.msix | Where-Object { $_.Name -notlike "*sideload*" } | Select-Object -First 1
-      #      if (-not $storeMsix) { throw "No store MSIX found" }
-      #      msstore publish --path "$($storeMsix.FullName)" --productId ${{ secrets.MS_PRODUCT_ID }}
-
-      - name: Create portable ZIP archive
-        uses: thedoctor0/zip-release@0.7.6
-        with:
-          type: "zip"
-          filename: "TFM-windows-portable.zip"
-          directory: build/windows/x64/runner/Release
-
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
@@ -405,11 +310,6 @@ jobs:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
           files: |
             build/windows/x64/runner/Release/TFM-Setup.exe
-            build/windows/x64/runner/Release/TFM-windows-portable.zip
-            build/windows/x64/runner/Release/*.msix
-            build/windows/x64/runner/Release/*.cer
-            install.bat
-            install_certificate.ps1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
