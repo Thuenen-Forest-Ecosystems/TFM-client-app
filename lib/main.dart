@@ -379,7 +379,10 @@ class _WindowsCertificateOverride extends HttpOverrides {
     final osVersion = Platform.operatingSystemVersion;
     final arch = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'unknown';
 
-    logger.log('Creating HttpClient - OS: $osVersion, Arch: $arch', level: LogLevel.debug);
+    logger.log(
+      '🌐 Creating HttpClient - OS: $osVersion, Arch: $arch, CustomContext: ${_customContext != null}',
+      level: LogLevel.info,
+    );
 
     // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
     // Pass our custom context with the bundled certificate
@@ -387,9 +390,9 @@ class _WindowsCertificateOverride extends HttpOverrides {
 
     // Enhanced certificate callback with detailed logging
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      logger.log('🔒 Certificate check for: $host:$port', level: LogLevel.debug);
-      logger.log('   Issuer: ${cert.issuer}', level: LogLevel.debug);
-      logger.log('   Subject: ${cert.subject}', level: LogLevel.debug);
+      logger.log('🔒 Certificate validation triggered for: $host:$port', level: LogLevel.warning);
+      logger.log('   Issuer: ${cert.issuer}', level: LogLevel.info);
+      logger.log('   Subject: ${cert.subject}', level: LogLevel.info);
       logger.log('   Valid from: ${cert.startValidity}', level: LogLevel.debug);
       logger.log('   Valid until: ${cert.endValidity}', level: LogLevel.debug);
       logger.log('   OS: $osVersion', level: LogLevel.debug);
@@ -411,6 +414,8 @@ class _WindowsCertificateOverride extends HttpOverrides {
     };
 
     client.connectionTimeout = const Duration(seconds: 30);
+
+    logger.log('✅ HttpClient configured with 30s timeout', level: LogLevel.debug);
 
     return client;
   }
