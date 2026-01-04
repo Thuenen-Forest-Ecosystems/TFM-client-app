@@ -185,7 +185,6 @@ class Layout extends StatelessWidget {
         durationUntilAlertAgain: Duration(days: 1),
         countryCode: 'DE',
         messages: UpgraderMessages(code: selectedLanguage),
-        shouldPopScope: () => true,
       ),
       dialogStyle: UpgradeDialogStyle.material,
       showLater: true,
