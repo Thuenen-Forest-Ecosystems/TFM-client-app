@@ -126,10 +126,27 @@ jobs:
 
     env:
       PUB_CACHE: C:\tmp\.pub-cache-${{ github.run_id }}-${{ github.run_attempt }}
+      PFX_PASSWORD: ${{ secrets.PFX_PASSWORD }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Restore code-signing certificate (PFX)
+        if: env.PFX_PASSWORD != ''
+        shell: powershell
+        run: |
+          if (-not $env:PFX_BASE64) {
+            Write-Error "Missing secret: PFX_BASE64"; exit 1
+          }
+          if (-not $env:PFX_PASSWORD) {
+            Write-Error "Missing secret: PFX_PASSWORD"; exit 1
+          }
+
+          $pfxPath = "windows_signing.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:PFX_BASE64))
+          Write-Host "Restored code-signing certificate to $pfxPath"
+
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -236,8 +253,26 @@ jobs:
       - name: Build Windows Release
         run: flutter build windows --release
 
+      - name: Export public certificate (.cer)
+        if: env.PFX_PASSWORD != ''
+        shell: powershell
+        run: |
+          $pfxPath = "windows_signing.pfx"
+          if (-not (Test-Path $pfxPath)) { throw "PFX not found at $pfxPath" }
+
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($pfxPath, $env:PFX_PASSWORD)
+          $cerPath = "build/windows/x64/runner/Release/terrestrial_forest_monitor.cer"
+          Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
+          Write-Host "Exported CER to $cerPath"
+
       - name: Build MSIX (Sideload)
-        run: dart run msix:create --build-windows false --store false --install-certificate true
+        run: >
+          dart run msix:create
+          --build-windows false
+          --store false
+          --install-certificate false
+          --certificate-path windows_signing.pfx
+          --certificate-password "$PFX_PASSWORD"
 
       - name: Rename Sideload MSIX
         shell: powershell
@@ -260,7 +295,13 @@ jobs:
           }
 
       - name: Build MSIX (Store)
-        run: dart run msix:create --build-windows false --store
+        run: >
+          dart run msix:create
+          --build-windows false
+          --store
+          --install-certificate false
+          --certificate-path windows_signing.pfx
+          --certificate-password "$PFX_PASSWORD"
 
       - name: Install Microsoft Store CLI
         uses: microsoft/setup-msstore-cli@v1

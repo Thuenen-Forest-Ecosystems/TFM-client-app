@@ -20,6 +20,20 @@ echo.
 echo Working directory: %CD%
 echo.
 
+:: Check and enable sideloading
+echo Checking Windows sideloading settings...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'; ^
+     if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }; ^
+     Set-ItemProperty -Path $regPath -Name 'AllowAllTrustedApps' -Value 1 -Type DWord -Force; ^
+     Write-Host 'Sideloading enabled' -ForegroundColor Green"
+
+if %errorLevel% neq 0 (
+    echo WARNING: Could not enable sideloading automatically
+)
+
+echo.
+
 :: Find MSIX file
 for %%F in (*.msix) do set MSIX_FILE=%%F
 
@@ -46,11 +60,16 @@ if not defined CER_FILE (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "$cert = (Get-AuthenticodeSignature '%MSIX_FILE%').SignerCertificate; ^
          if ($cert) { ^
-             $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','LocalMachine'); ^
-             $store.Open('ReadWrite'); ^
-             $store.Add($cert); ^
-             $store.Close(); ^
-             Write-Host 'Certificate installed successfully' -ForegroundColor Green ^
+             $rootStore = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','LocalMachine'); ^
+             $rootStore.Open('ReadWrite'); ^
+             $rootStore.Add($cert); ^
+             $rootStore.Close(); ^
+             Write-Host 'Certificate added to Root store' -ForegroundColor Green; ^
+             $peopleStore = New-Object System.Security.Cryptography.X509Certificates.X509Store('TrustedPeople','LocalMachine'); ^
+             $peopleStore.Open('ReadWrite'); ^
+             $peopleStore.Add($cert); ^
+             $peopleStore.Close(); ^
+             Write-Host 'Certificate added to TrustedPeople store' -ForegroundColor Green ^
          } else { ^
              Write-Host 'ERROR: Could not extract certificate from MSIX' -ForegroundColor Red; ^
              exit 1 ^
@@ -66,9 +85,10 @@ if not defined CER_FILE (
     echo.
     echo [1/2] Installing certificate...
     
-    :: Install certificate from .cer file
+    :: Install certificate to both Root and TrustedPeople stores
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "Import-Certificate -FilePath '%CER_FILE%' -CertStoreLocation 'Cert:\LocalMachine\Root'"
+        "Import-Certificate -FilePath '%CER_FILE%' -CertStoreLocation 'Cert:\LocalMachine\Root'; ^
+         Import-Certificate -FilePath '%CER_FILE%' -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople'"
     
     if %errorLevel% neq 0 (
         echo ERROR: Certificate installation failed!
@@ -76,7 +96,7 @@ if not defined CER_FILE (
         exit /b 1
     )
     
-    echo Certificate installed successfully.
+    echo Certificate installed successfully to Root and TrustedPeople stores.
 )
 
 echo.
@@ -97,7 +117,24 @@ if %errorLevel% equ 0 (
     echo.
 ) else (
     echo.
-    echo ERROR: Installation failed!
+    echo ============================================
+    echo FEHLER: Installation fehlgeschlagen!
+    echo ============================================
+    echo.
+    echo Falls Zertifikatfehler angezeigt wird:
+    echo.
+    echo Windows 11:
+    echo   Einstellungen -^> Datenschutz und Sicherheit -^> Fuer Entwickler
+    echo   -^> "Entwicklermodus" ODER "Apps querladen" aktivieren
+    echo.
+    echo Windows 10:
+    echo   Einstellungen -^> Update und Sicherheit -^> Fuer Entwickler
+    echo   -^> "Entwicklermodus" ODER "Apps querladen" aktivieren
+    echo.
+    echo Dann diesen Installer erneut ausfuehren.
+    echo.
+    echo Alternative: Portable ZIP-Version verwenden
+    echo (keine Installation oder Zertifikat erforderlich)
     echo.
 )
 

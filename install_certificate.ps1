@@ -47,13 +47,22 @@ try {
     Write-Host "  Valid: $($cert.NotBefore) to $($cert.NotAfter)"
     Write-Host ""
     
-    # Install to Trusted Root Certification Authorities
-    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
-    $store.Open("ReadWrite")
-    $store.Add($cert)
-    $store.Close()
+    # Install to Root Certification Authorities
+    $rootStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
+    $rootStore.Open("ReadWrite")
+    $rootStore.Add($cert)
+    $rootStore.Close()
+    Write-Host "Certificate installed to Trusted Root Certification Authorities" -ForegroundColor Green
     
-    Write-Host "SUCCESS: Certificate installed to Trusted Root Certification Authorities" -ForegroundColor Green
+    # Install to TrustedPeople (required for MSIX sideloading)
+    $peopleStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("TrustedPeople", "LocalMachine")
+    $peopleStore.Open("ReadWrite")
+    $peopleStore.Add($cert)
+    $peopleStore.Close()
+    Write-Host "Certificate installed to Trusted People" -ForegroundColor Green
+    
+    Write-Host ""
+    Write-Host "SUCCESS: Certificate installed successfully" -ForegroundColor Green
     Write-Host ""
     Write-Host "You can now double-click the MSIX file to install the application" -ForegroundColor Yellow
     Write-Host ""

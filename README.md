@@ -67,27 +67,37 @@ Read the [GitHub CLI documentation](https://docs.github.com/en/repositories/rele
 
 ### Windows
 
-**Option 1: Single-Click Installer (Easiest - Recommended)**
-1. Go to [Releases](../../releases/latest)
-2. Download **both files**:
+**Option 1: Ein-Klick-Installer (Einfachste Methode - Empfohlen)**
+1. Gehe zu [Releases](../../releases/latest)
+2. Lade **beide Dateien** herunter:
    - `terrestrial_forest_monitor_sideload.msix`
    - `install.bat`
-3. Put both files in the same folder
-4. **Double-click** `install.bat`
-5. Click "Yes" when asked for administrator access
-6. Wait for installation to complete
-7. Done! ✅
+3. Lege beide Dateien in **denselben Ordner**
+4. **Doppelklick** auf `install.bat`
+5. Klicke auf „Ja" bei Administrator-Abfrage
 
-**Option 2: Microsoft Store (Coming Soon - No certificate needed)**
-- Search "Terrestrial Forest Monitor" in Microsoft Store
-- Click Install
-- Automatic updates included
+⚠️ **Falls Zertifikatfehler erscheint:**
 
-**Option 3: Portable (No installation)**
-1. Go to [Releases](../../releases/latest)
-2. Download `TFM-windows-portable.zip`
-3. Extract and run `terrestrial_forest_monitor.exe`
-4. Manual updates required
+**Windows 11:**
+1. Einstellungen → Datenschutz und Sicherheit → Für Entwickler
+2. Aktiviere **"Entwicklermodus"** oder **"Apps querladen"**
+3. Führe `install.bat` erneut aus
+
+**Windows 10:**
+1. Einstellungen → Update und Sicherheit → Für Entwickler  
+2. Aktiviere **"Entwicklermodus"** oder **"Apps querladen"**
+3. Führe `install.bat` erneut aus
+
+**Option 2: Microsoft Store (Demnächst - Keine Zertifikate nötig)**
+- Suche „Terrestrial Forest Monitor" im Microsoft Store
+- Klicke auf Installieren
+- Automatische Updates inklusive
+
+**Option 3: Portable (Ohne Installation)**
+1. Gehe zu [Releases](../../releases/latest)
+2. Lade `TFM-windows-portable.zip` herunter
+3. Entpacke und starte `terrestrial_forest_monitor.exe`
+4. Manuelle Updates erforderlich
 
 ### Updating
 
