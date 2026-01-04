@@ -55,13 +55,39 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
     ],
     locationBuilder: RoutesLocationBuilder(
       routes: {
-        '/login': (context, state, data) => BeamPage(key: ValueKey('login'), title: 'Login', child: Login(), type: BeamPageType.noTransition),
-        '/': (context, state, data) => BeamPage(key: ValueKey('home'), title: 'TFM', child: Schema(), type: BeamPageType.noTransition),
+        '/login': (context, state, data) => BeamPage(
+          key: ValueKey('login'),
+          title: 'Login',
+          child: Login(),
+          type: BeamPageType.noTransition,
+        ),
+        '/': (context, state, data) => BeamPage(
+          key: ValueKey('home'),
+          title: 'TFM',
+          child: Schema(),
+          type: BeamPageType.noTransition,
+        ),
         //'/schema-selection': (context, state, data) => BeamPage(key: ValueKey('start-${DateTime.now()}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-        '/records-selection/:intervalName': (context, state, data) => BeamPage(key: ValueKey('records-${state.pathParameters['intervalName']}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-        '/properties-edit/:clusterName/:plotName': (context, state, data) =>
-            BeamPage(key: ValueKey('properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}'), title: 'TFM', child: Start(), type: BeamPageType.noTransition),
-        '/profile': (context, state, data) => BeamPage(key: ValueKey('profile'), title: 'Profile', child: Profile(), type: BeamPageType.noTransition),
+        '/records-selection/:intervalName': (context, state, data) => BeamPage(
+          key: ValueKey('records-${state.pathParameters['intervalName']}'),
+          title: 'TFM',
+          child: Start(),
+          type: BeamPageType.noTransition,
+        ),
+        '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(
+          key: ValueKey(
+            'properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}',
+          ),
+          title: 'TFM',
+          child: Start(),
+          type: BeamPageType.noTransition,
+        ),
+        '/profile': (context, state, data) => BeamPage(
+          key: ValueKey('profile'),
+          title: 'Profile',
+          child: Profile(),
+          type: BeamPageType.noTransition,
+        ),
         //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
         //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
         //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
@@ -73,7 +99,7 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Apply Windows SSL workaround with bundled certificate
   if (!kIsWeb && Platform.isWindows) {
     final certOverride = _WindowsCertificateOverride();
@@ -81,13 +107,15 @@ void main() async {
     HttpOverrides.global = certOverride;
     print('Windows certificate override enabled with bundled certificate');
   }
-  
+
   usePathUrlStrategy();
 
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
-  final ThemeMode initialThemeMode = brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
+  final ThemeMode initialThemeMode = brightness == Brightness.dark
+      ? ThemeMode.dark
+      : ThemeMode.light;
 
   try {
     await dotenv.load(fileName: '.env');
@@ -203,14 +231,20 @@ class Layout extends StatelessWidget {
           // https://stackoverflow.com/questions/71597644/flutter-web-remove-default-page-transition-on-named-routes
           pageTransitionsTheme: PageTransitionsTheme(
             builders: kIsWeb
-                ? {for (final platform in TargetPlatform.values) platform: const NoTransitionsBuilder()}
+                ? {
+                    for (final platform in TargetPlatform.values)
+                      platform: const NoTransitionsBuilder(),
+                  }
                 : {
                     // Disable swipe-back gestures for both platforms
                     TargetPlatform.android: const NoTransitionsBuilder(),
                     TargetPlatform.iOS: const NoTransitionsBuilder(),
                   },
           ),
-          colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.light).copyWith(error: Colors.red.shade700),
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.green,
+            brightness: Brightness.light,
+          ).copyWith(error: Colors.red.shade700),
           primaryColor: const Color(0xFFC3E399),
           appBarTheme: AppBarTheme(color: const Color(0xFFC3E399)),
           useMaterial3: true,
@@ -218,10 +252,20 @@ class Layout extends StatelessWidget {
 
         darkTheme: ThemeData(
           scaffoldBackgroundColor: Color(0xFF333333),
-          colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.green, brightness: Brightness.dark).copyWith(error: Colors.red.shade400),
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.green,
+            brightness: Brightness.dark,
+          ).copyWith(error: Colors.red.shade400),
           primaryColor: const Color(0xFFC3E399),
-          appBarTheme: AppBarTheme(color: const Color.fromARGB(255, 224, 241, 203), foregroundColor: Colors.black), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
-          bottomNavigationBarTheme: BottomNavigationBarThemeData(backgroundColor: const Color(0xFFC3E399), selectedItemColor: Colors.black, unselectedItemColor: Colors.black),
+          appBarTheme: AppBarTheme(
+            color: const Color.fromARGB(255, 224, 241, 203),
+            foregroundColor: Colors.black,
+          ), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
+          bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            backgroundColor: const Color(0xFFC3E399),
+            selectedItemColor: Colors.black,
+            unselectedItemColor: Colors.black,
+          ),
           useMaterial3: true,
           /* dark theme settings */
         ),
@@ -241,19 +285,27 @@ class _WindowsCertificateOverride extends HttpOverrides {
 
   Future<void> initialize() async {
     if (kIsWeb || !Platform.isWindows) return;
-    
+
     try {
+      print('🔧 Windows Platform: ${Platform.operatingSystemVersion}');
+
       // Load bundled certificate from assets
       final certData = await rootBundle.load('assets/certs/ci_thuenen_root.pem');
       final certBytes = certData.buffer.asUint8List();
-      
-      // Create a custom SecurityContext with the bundled certificate
-      _customContext = SecurityContext.defaultContext;
+
+      print('📄 Certificate loaded: ${certBytes.length} bytes');
+
+      // Create a NEW SecurityContext with trusted roots (instead of using defaultContext)
+      // This is more reliable on Windows 11
+      _customContext = SecurityContext(withTrustedRoots: true);
       _customContext!.setTrustedCertificatesBytes(certBytes);
-      
+
       print('✅ Bundled SSL certificate loaded successfully for ci.thuenen.de');
-    } catch (e) {
+      print('   Windows version: ${Platform.operatingSystemVersion}');
+      print('   Using fresh SecurityContext with trusted roots');
+    } catch (e, stackTrace) {
       print('⚠️ Warning: Could not load bundled certificate - $e');
+      print('   Stack trace: $stackTrace');
       print('   Falling back to accepting all certificates');
     }
   }
@@ -261,29 +313,35 @@ class _WindowsCertificateOverride extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     print('Creating HttpClient with bundled certificate');
-    
+    print('Windows version: ${Platform.operatingSystemVersion}');
+
     // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
     // Pass our custom context with the bundled certificate
     final client = super.createHttpClient(_customContext ?? context);
-    
-    // Fallback: if certificate loading failed, accept ci.thuenen.de anyway
+
+    // Enhanced certificate callback with detailed logging
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
       print('🔒 Certificate check for: $host:$port');
-      
+      print('   Issuer: ${cert.issuer}');
+      print('   Subject: ${cert.subject}');
+      print('   Valid from: ${cert.startValidity}');
+      print('   Valid until: ${cert.endValidity}');
+      print('   Windows version: ${Platform.operatingSystemVersion}');
+
       // Accept certificates for our specific domain (fallback if bundled cert doesn't work)
-      if (host.contains('ci.thuenen.de') || 
-          host.contains('supabase.co') || 
+      if (host.contains('ci.thuenen.de') ||
+          host.contains('supabase.co') ||
           host.contains('supabase.io')) {
         print('   ✓ Accepting certificate for $host (bundled cert or fallback)');
         return true;
       }
-      
+
       print('   ✗ Rejecting certificate for $host');
       return false;
     };
-    
+
     client.connectionTimeout = const Duration(seconds: 30);
-    
+
     return client;
   }
 }

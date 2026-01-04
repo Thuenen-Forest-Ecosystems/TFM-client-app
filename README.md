@@ -31,6 +31,7 @@ flutter run
 ### Updating an Existing Release
 
 Manually trigger the workflow:
+
 1. Go to Actions → "Build Windows Release" → "Run workflow"
 2. Enter the release tag (e.g., `v1.0.48`)
 3. Artifacts will be rebuilt and uploaded to that release
@@ -40,6 +41,7 @@ Manually trigger the workflow:
 The Microsoft Store eliminates certificate issues and provides automatic updates.
 
 **Setup (One-time):**
+
 1. Create a [Microsoft Partner Center](https://partner.microsoft.com/dashboard) account
 2. Reserve app name: "Terrestrial Forest Monitor"
 3. Create app submission
@@ -51,11 +53,13 @@ The Microsoft Store eliminates certificate issues and provides automatic updates
    - `MS_PRODUCT_ID` - Product ID from Partner Center
 
 **Publishing:**
+
 1. Uncomment the Microsoft Store CLI steps in `.github/workflows/build-release-windows.yml`
 2. Create a release - Store MSIX will be automatically submitted
 3. Microsoft reviews and publishes (usually 24-48 hours)
 
 **Benefits:**
+
 - No certificate installation needed
 - Users trust Microsoft Store
 - Automatic updates
@@ -67,40 +71,26 @@ Read the [GitHub CLI documentation](https://docs.github.com/en/repositories/rele
 
 ### Windows
 
-**Option 1: Ein-Klick-Installer (Einfachste Methode - Empfohlen)**
+**Installer (Empfohlen)**
+
 1. Gehe zu [Releases](../../releases/latest)
-2. Lade **beide Dateien** herunter:
-   - `terrestrial_forest_monitor_sideload.msix`
-   - `install.bat`
-3. Lege beide Dateien in **denselben Ordner**
-4. **Doppelklick** auf `install.bat`
-5. Klicke auf „Ja" bei Administrator-Abfrage
+2. Lade `TFM-Setup.exe` herunter
+3. **Doppelklick** auf die heruntergeladene Datei
+4. Folge dem Installationsassistenten
+5. Fertig! Die App ist jetzt installiert
 
-⚠️ **Falls Zertifikatfehler erscheint:**
+✨ **Vorteile:**
 
-**Windows 11:**
-1. Einstellungen → Datenschutz und Sicherheit → Für Entwickler
-2. Aktiviere **"Entwicklermodus"** oder **"Apps querladen"**
-3. Führe `install.bat` erneut aus
-
-**Windows 10:**
-1. Einstellungen → Update und Sicherheit → Für Entwickler  
-2. Aktiviere **"Entwicklermodus"** oder **"Apps querladen"**
-3. Führe `install.bat` erneut aus
-
-**Option 2: Microsoft Store (Demnächst - Keine Zertifikate nötig)**
-- Suche „Terrestrial Forest Monitor" im Microsoft Store
-- Klicke auf Installieren
-- Automatische Updates inklusive
-
-**Option 3: Portable (Ohne Installation)**
-1. Gehe zu [Releases](../../releases/latest)
-2. Lade `TFM-windows-portable.zip` herunter
-3. Entpacke und starte `terrestrial_forest_monitor.exe`
-4. Manuelle Updates erforderlich
+- Ein-Klick-Installation
+- Keine Zertifikate erforderlich
+- Kein Entwicklermodus nötig
+- Professioneller Windows-Installer
+- Desktop-Verknüpfung optional
+- Saubere Deinstallation möglich
 
 ### Updating
 
-**MSIX users**: The app checks for updates on startup and shows a notification when a new version is available. Click "Update" to download and install the latest MSIX.
+Um die App zu aktualisieren:
 
-**Portable users**: Download the latest ZIP from releases and replace your existing files.
+1. Lade die neueste Version von `TFM-Setup.exe` herunter
+2. Führe den Installer aus - er aktualisiert die bestehende Installation automatisch
