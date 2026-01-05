@@ -273,7 +273,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       }
     });
     //device.cancelWhenDisconnected(blueConnectionSubscription!, delayed: true, next: true);
-    await device.connect(autoConnect: true, mtu: null);
+    await device.connect(autoConnect: true).catchError((error) {
+      print('Error connecting to device: $error');
+      _isConnecting = false;
+      notifyListeners();
+    });
   }
 
   @override
