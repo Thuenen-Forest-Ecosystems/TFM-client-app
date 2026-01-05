@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:powersync/powersync.dart' hide Column;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/permissions-selection.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -18,6 +19,39 @@ class SchemaSelection extends StatefulWidget {
 }
 
 class _SchemaSelectionState extends State<SchemaSelection> {
+  bool _isDatabaseAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDatabaseAdminStatus();
+  }
+
+  Future<void> _checkDatabaseAdminStatus() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        setState(() => _isDatabaseAdmin = false);
+        return;
+      }
+
+      final result = await db.getAll('SELECT is_database_admin FROM users_profile WHERE id = ?', [
+        user.id,
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _isDatabaseAdmin = result.isNotEmpty && result.first['is_database_admin'] == 1;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking database admin status: $e');
+      if (mounted) {
+        setState(() => _isDatabaseAdmin = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repository = context.read<SchemaRepository>();
@@ -25,7 +59,9 @@ class _SchemaSelectionState extends State<SchemaSelection> {
     final scrollController = context.watch<ScrollController?>();
 
     return StreamBuilder<List<SchemaModel>>(
-      stream: repository.watchUniqueByInterval(),
+      stream: _isDatabaseAdmin
+          ? repository.watchUniqueByIntervalAll()
+          : repository.watchUniqueByInterval(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -238,18 +274,7 @@ class _SchemaCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Text(
-                      schema.title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
+              ListTile(title: Text(schema.title)),
               Divider(height: 1),
 
               // Show permissions only if user is logged in

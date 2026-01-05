@@ -24,7 +24,21 @@ class CurrentNMEA {
   double? heading;
   double? speedKnots;
 
-  CurrentNMEA({this.pdop, this.hdop, this.vdop, this.satellites, this.altitude, this.fixQuality, this.timestamp, this.longitude, this.latitude, this.mode, this.fixType, this.heading, this.speedKnots});
+  CurrentNMEA({
+    this.pdop,
+    this.hdop,
+    this.vdop,
+    this.satellites,
+    this.altitude,
+    this.fixQuality,
+    this.timestamp,
+    this.longitude,
+    this.latitude,
+    this.mode,
+    this.fixType,
+    this.heading,
+    this.speedKnots,
+  });
 
   @override
   String toString() {
@@ -136,7 +150,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
             characteristic.onValueReceived.listen((value) {
               _currentNMEA = parseData(value, _currentNMEA);
               // merge with current NMEA only not null and has valid coordinates
-              if (_currentNMEA != null && _currentNMEA!.latitude != null && _currentNMEA!.longitude != null) {
+              if (_currentNMEA != null &&
+                  _currentNMEA!.latitude != null &&
+                  _currentNMEA!.longitude != null) {
                 // Calculate accuracy from HDOP (horizontal dilution of precision)
                 // HDOP * 5 gives approximate accuracy in meters (rough estimation)
                 double calculatedAccuracy = (_currentNMEA!.hdop ?? 1.0) * 5.0;
@@ -190,7 +206,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
                 }
 
                 // Add position to stream for map widget
-                _positionStreamController.add(LocationMarkerPosition(latitude: _lastPosition!.latitude, longitude: _lastPosition!.longitude, accuracy: _lastPosition!.accuracy));
+                _positionStreamController.add(
+                  LocationMarkerPosition(
+                    latitude: _lastPosition!.latitude,
+                    longitude: _lastPosition!.longitude,
+                    accuracy: _lastPosition!.accuracy,
+                  ),
+                );
 
                 _isConnecting = false;
                 notifyListeners();
@@ -258,7 +280,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     }
     _isConnecting = true;
     notifyListeners();
-    blueConnectionSubscription = device.connectionState.listen((BluetoothConnectionState state) async {
+    blueConnectionSubscription = device.connectionState.listen((
+      BluetoothConnectionState state,
+    ) async {
       if (state == BluetoothConnectionState.disconnected) {
         // try to reconnect after 2 seconds
         await Future.delayed(const Duration(seconds: 2));
@@ -273,7 +297,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       }
     });
     //device.cancelWhenDisconnected(blueConnectionSubscription!, delayed: true, next: true);
-    await device.connect(autoConnect: true).catchError((error) {
+    await device.connect(autoConnect: true, mtu: null).catchError((error) {
       print('Error connecting to device: $error');
       _isConnecting = false;
       notifyListeners();
@@ -331,7 +355,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _lastPosition = await Geolocator.getLastKnownPosition();
     }
     if (_lastPosition != null) {
-      _positionStreamController.add(LocationMarkerPosition(latitude: _lastPosition!.latitude, longitude: _lastPosition!.longitude, accuracy: _lastPosition!.accuracy));
+      _positionStreamController.add(
+        LocationMarkerPosition(
+          latitude: _lastPosition!.latitude,
+          longitude: _lastPosition!.longitude,
+          accuracy: _lastPosition!.accuracy,
+        ),
+      );
       notifyListeners();
     }
   }
@@ -339,7 +369,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   void startTrackingLocation() async {
     // Check permissions and service status first
     try {
-      Map<Permission, PermissionStatus> statuses = await [Permission.location, Permission.storage].request();
+      Map<Permission, PermissionStatus> statuses = await [
+        Permission.location,
+        Permission.storage,
+      ].request();
       if (statuses[Permission.location] != PermissionStatus.granted) {
         print('Location permission denied. Cannot start tracking.');
         // Optionally show a message to the user
@@ -369,8 +402,16 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         .listen((Position position) {
           _lastPosition = position;
 
-          _positionStreamController.add(LocationMarkerPosition(latitude: position.latitude, longitude: position.longitude, accuracy: position.accuracy));
-          _headingStreamController.add(LocationMarkerHeading(heading: position.heading, accuracy: position.headingAccuracy));
+          _positionStreamController.add(
+            LocationMarkerPosition(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              accuracy: position.accuracy,
+            ),
+          );
+          _headingStreamController.add(
+            LocationMarkerHeading(heading: position.heading, accuracy: position.headingAccuracy),
+          );
           _listeningPosition = true;
           _isConnecting = false;
           notifyListeners();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class DownloadSchemasBtn extends StatefulWidget {
@@ -15,6 +16,22 @@ class _DownloadSchemasBtnState extends State<DownloadSchemasBtn> {
   int _currentDirectory = 0;
   int _totalDirectories = 0;
 
+  Future<bool> _isDatabaseAdmin() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return false;
+
+      final result = await db.getAll('SELECT is_database_admin FROM users_profile WHERE id = ?', [
+        user.id,
+      ]);
+
+      return result.isNotEmpty && result.first['is_database_admin'] == 1;
+    } catch (e) {
+      debugPrint('Error checking database admin status: $e');
+      return false;
+    }
+  }
+
   Future<void> _downloadSchemas({bool force = false}) async {
     setState(() {
       _isDownloading = true;
@@ -25,9 +42,13 @@ class _DownloadSchemasBtnState extends State<DownloadSchemasBtn> {
     });
 
     try {
-      // Get all schema directories
+      // Check if user is database admin
+      final isDatabaseAdmin = await _isDatabaseAdmin();
+
+      // Get all schema directories - include hidden schemas if database admin
+      final visibilityCondition = isDatabaseAdmin ? '' : 'AND is_visible = 1';
       final results = await db.getAll(
-        "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' AND is_visible = 1",
+        "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' $visibilityCondition",
       );
 
       if (results.isEmpty) {

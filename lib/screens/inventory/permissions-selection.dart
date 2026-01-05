@@ -35,7 +35,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     //}
   }
 
-  Future<void> _selectOrganizationAndRoute(String organizationId) async {
+  /*Future<void> _selectOrganizationAndRoute(String organizationId) async {
     await _selectionService.setSelectedOrganizationId(organizationId);
     if (mounted) {
       //setState(() {
@@ -43,7 +43,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
       //});
       Beamer.of(context).beamToNamed('/records-selection/${widget.schemaId}');
     }
-  }
+  }*/
 
   Future<void> _selectePermissionAndRoute(
     String permissionId,
@@ -55,11 +55,6 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     await _selectionService.setSelectedOrganizationId(organizationId);
     await _selectionService.setIsOrganizationAdmin(isAdmin);
     await _selectionService.setSelectedTroopId(troopId);
-
-    print('Selected permission: $permissionId');
-    print('Selected organization: $organizationId');
-    print('Is admin: $isAdmin');
-    print('Selected troop: $troopId');
 
     if (mounted) {
       //setState(() {

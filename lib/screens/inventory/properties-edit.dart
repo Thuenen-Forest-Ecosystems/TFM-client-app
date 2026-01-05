@@ -8,11 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart';
-import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/form-elements/form-wrapper.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
@@ -31,7 +32,7 @@ class PropertiesEdit extends StatefulWidget {
 }
 
 class _PropertiesEditState extends State<PropertiesEdit> {
-  Record? _record;
+  repo.Record? _record;
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _jsonSchema;
@@ -342,13 +343,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     });
 
     try {
-      final records = await RecordsRepository().getRecordsByClusterAndPlot(
+      final records = await repo.RecordsRepository().getRecordsByClusterAndPlot(
         widget.clusterName,
         widget.plotName,
       );
       _formData = records.isNotEmpty ? records.first.properties : null;
       // print _formData.plot_coordinates to debug console
-      debugPrint('Loaded form data: ${_formData?['plot_coordinates']}');
+
       _previousFormData = records.isNotEmpty ? records.first.previousProperties : null;
       if (mounted) {
         setState(() {
@@ -434,7 +435,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
 
       // Create updated record for local state
-      final updatedRecord = Record(
+      final updatedRecord = repo.Record(
         id: _record!.id,
         properties: _formData!,
         schemaName: _record!.schemaName,
@@ -806,6 +807,121 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
+  Future<void> _showSchemaSelector() async {
+    if (_record == null) return;
+
+    try {
+      // Get all schemas for this interval
+      final results = await db.getAll(
+        'SELECT * FROM schemas WHERE interval_name = ? ORDER BY created_at DESC, version DESC',
+        [_record!.schemaName],
+      );
+
+      if (results.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('No schemas found for this interval')));
+        }
+        return;
+      }
+
+      final schemas = results.map((row) => SchemaModel.fromJson(row)).toList();
+      final currentSchemaId = _record!.schemaIdValidatedBy;
+
+      if (!mounted) return;
+
+      final selectedSchema = await showDialog<SchemaModel>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Select Schema Version'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: schemas.length,
+              itemBuilder: (context, index) {
+                final schema = schemas[index];
+                final isCurrentSchema = schema.id == currentSchemaId;
+                final isVisible = schema.isVisible;
+
+                return ListTile(
+                  leading: Icon(
+                    isCurrentSchema ? Icons.check_circle : Icons.circle_outlined,
+                    color: isCurrentSchema ? Colors.green : null,
+                  ),
+                  title: Text(
+                    'v${schema.version ?? "Unknown"} - ${schema.title}',
+                    style: TextStyle(
+                      fontWeight: isCurrentSchema ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Directory: ${schema.directory ?? "Embedded"}'),
+                      Text(
+                        'Created: ${schema.createdAt.toLocal().toString().split('.')[0]}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      if (!isVisible)
+                        const Text(
+                          'Hidden (Admin only)',
+                          style: TextStyle(fontSize: 11, color: Colors.orange),
+                        ),
+                    ],
+                  ),
+                  trailing: isCurrentSchema
+                      ? const Text('Current', style: TextStyle(color: Colors.green))
+                      : null,
+                  onTap: () => Navigator.of(context).pop(schema),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          ],
+        ),
+      );
+
+      if (selectedSchema != null && selectedSchema.id != currentSchemaId) {
+        // Update the record to use the selected schema
+        await db.execute('UPDATE records SET schema_id_validated_by = ? WHERE id = ?', [
+          selectedSchema.id,
+          _record!.id,
+        ]);
+
+        // Update local record state
+        setState(() {
+          _record = _record!.copyWith(schemaIdValidatedBy: selectedSchema.id);
+        });
+
+        // Reload the schema with the selected one
+        await _loadSchema(_record!.schemaName, schemaIdValidatedBy: selectedSchema.id);
+
+        // Re-validate with new schema
+        if (_formData != null) {
+          await _onFormDataChanged(_formData!);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Schema changed to v${selectedSchema.version}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error showing schema selector: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -912,6 +1028,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       });
                     },
                   ),
+                  IfDatabaseAdmin(
+                    child: IconButton(
+                      icon: const Icon(Icons.admin_panel_settings, size: 20),
+                      onPressed: _showSchemaSelector,
+                      tooltip: 'Select Schema Version',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -934,6 +1057,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                   : FormWrapper(
                       key: _formWrapperKey,
                       jsonSchema: _jsonSchema,
+                      rawRecord: _record,
                       formData: _formData,
                       previousFormData: _previousFormData,
                       onFormDataChanged: _onFormDataChanged,

@@ -125,7 +125,7 @@ class FormLayout extends LayoutItem {
 /// Layout for array data
 /// Property can be a path (e.g., 'tree' or 'plot.tree' or 'position.coordinates.points')
 class ArrayLayout extends LayoutItem {
-  final String property; // Supports dot-notation paths
+  final String? property; // Supports dot-notation paths
   final String component;
   final Map<String, dynamic>? options; // UI options (autoIncrement, etc.)
   final Map<String, dynamic>?
@@ -134,7 +134,7 @@ class ArrayLayout extends LayoutItem {
   ArrayLayout({
     required super.id,
     super.label,
-    required this.property,
+    this.property,
     required this.component,
     this.options,
     this.columns,
@@ -144,7 +144,7 @@ class ArrayLayout extends LayoutItem {
     return ArrayLayout(
       id: json['id'] as String,
       label: json['label'] as String?,
-      property: json['property'] as String,
+      property: json['property'] as String?,
       component: json['component'] as String? ?? 'datagrid',
       options: json['options'] as Map<String, dynamic>?,
       columns: json['columns'] as Map<String, dynamic>?,
@@ -155,7 +155,7 @@ class ArrayLayout extends LayoutItem {
 /// Layout for object data
 /// Property can be a path (e.g., 'position' or 'plot.coordinates')
 class ObjectLayout extends LayoutItem {
-  final String property; // Supports dot-notation paths
+  final String? property; // Supports dot-notation paths
   final String component;
   final List<LayoutItem>? children;
 
@@ -164,7 +164,7 @@ class ObjectLayout extends LayoutItem {
   ObjectLayout({
     required super.id,
     super.label,
-    required this.property,
+    this.property,
     required this.component,
     this.children,
     this.options,
@@ -176,7 +176,7 @@ class ObjectLayout extends LayoutItem {
     return ObjectLayout(
       id: json['id'] as String,
       label: json['label'] as String?,
-      property: json['property'] as String,
+      property: json['property'] as String?,
       component: json['component'] as String? ?? 'form',
       children: childrenJson
           ?.map((item) => LayoutItem.fromJson(item as Map<String, dynamic>))

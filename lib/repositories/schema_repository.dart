@@ -136,6 +136,19 @@ class SchemaRepository {
         .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }
 
+  // Watch unique intervals with their latest schema (including hidden ones for admins)
+  Stream<List<SchemaModel>> watchUniqueByIntervalAll() {
+    return db
+        .watch('''SELECT s1.* FROM schemas s1
+         WHERE s1.created_at = (
+             SELECT MAX(s2.created_at)
+             FROM schemas s2
+             WHERE s2.interval_name = s1.interval_name
+           )
+         ORDER BY s1.interval_name DESC''')
+        .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
+  }
+
   // Get list of unique interval names
   Stream<List<String>> watchIntervalNames() {
     return db

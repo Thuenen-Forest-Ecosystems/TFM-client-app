@@ -17,6 +17,7 @@ class Record {
   final String plotName;
   final String clusterName;
   final Map<String, dynamic>? previousProperties;
+  final Map<String, dynamic>? previousPositionData;
   final int? isValid;
   final String? responsibleAdministration;
   final String? responsibleProvider;
@@ -42,6 +43,7 @@ class Record {
     required this.plotName,
     required this.clusterName,
     this.previousProperties,
+    this.previousPositionData,
     this.isValid,
     this.responsibleAdministration,
     this.responsibleProvider,
@@ -71,6 +73,9 @@ class Record {
       previousProperties: row['previous_properties'] != null
           ? jsonDecode(row['previous_properties'] as String) as Map<String, dynamic>
           : null,
+      previousPositionData: row['previous_position_data'] != null
+          ? jsonDecode(row['previous_position_data'] as String) as Map<String, dynamic>
+          : null,
       isValid: row['is_valid'] as int?,
       responsibleAdministration: row['responsible_administration'] as String?,
       responsibleProvider: row['responsible_provider'] as String?,
@@ -97,6 +102,9 @@ class Record {
       'plot_name': plotName,
       'cluster_name': clusterName,
       'previous_properties': previousProperties != null ? jsonEncode(previousProperties) : null,
+      'previous_position_data': previousPositionData != null
+          ? jsonEncode(previousPositionData)
+          : null,
       'is_valid': isValid,
       'responsible_administration': responsibleAdministration,
       'responsible_provider': responsibleProvider,
@@ -183,6 +191,61 @@ class Record {
   /// Convenience getters for latitude and longitude
   double? get latitude => getCoordinates()?['latitude'];
   double? get longitude => getCoordinates()?['longitude'];
+
+  /// Creates a copy of this Record with the specified fields replaced with new values.
+  Record copyWith({
+    String? id,
+    Map<String, dynamic>? properties,
+    String? schemaName,
+    String? schemaId,
+    String? schemaIdValidatedBy,
+    int? schemaVersion,
+    String? plotId,
+    String? clusterId,
+    String? plotName,
+    String? clusterName,
+    Map<String, dynamic>? previousProperties,
+    Map<String, dynamic>? previousPositionData,
+    int? isValid,
+    String? responsibleAdministration,
+    String? responsibleProvider,
+    String? responsibleState,
+    String? responsibleTroop,
+    String? updatedAt,
+    String? localUpdatedAt,
+    String? completedAtState,
+    String? completedAtTroop,
+    String? completedAtAdministration,
+    int? isToBeRecorded,
+    String? note,
+  }) {
+    return Record(
+      id: id ?? this.id,
+      properties: properties ?? this.properties,
+      schemaName: schemaName ?? this.schemaName,
+      schemaId: schemaId ?? this.schemaId,
+      schemaIdValidatedBy: schemaIdValidatedBy ?? this.schemaIdValidatedBy,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      plotId: plotId ?? this.plotId,
+      clusterId: clusterId ?? this.clusterId,
+      plotName: plotName ?? this.plotName,
+      clusterName: clusterName ?? this.clusterName,
+      previousProperties: previousProperties ?? this.previousProperties,
+      previousPositionData: previousPositionData ?? this.previousPositionData,
+      isValid: isValid ?? this.isValid,
+      responsibleAdministration: responsibleAdministration ?? this.responsibleAdministration,
+      responsibleProvider: responsibleProvider ?? this.responsibleProvider,
+      responsibleState: responsibleState ?? this.responsibleState,
+      responsibleTroop: responsibleTroop ?? this.responsibleTroop,
+      updatedAt: updatedAt ?? this.updatedAt,
+      localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
+      completedAtState: completedAtState ?? this.completedAtState,
+      completedAtTroop: completedAtTroop ?? this.completedAtTroop,
+      completedAtAdministration: completedAtAdministration ?? this.completedAtAdministration,
+      isToBeRecorded: isToBeRecorded ?? this.isToBeRecorded,
+      note: note ?? this.note,
+    );
+  }
 }
 
 class RecordsRepository {

@@ -6,7 +6,9 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-t
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-selection.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
+import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 
 class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? jsonSchema;
@@ -14,6 +16,7 @@ class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? previousFormData;
   final TFMValidationResult? validationResult;
   final String? layoutDirectory;
+  final repo.Record? rawRecord;
 
   final Function(Map<String, dynamic>)? onFormDataChanged;
   final Function(String?)? onNavigateToTab;
@@ -27,6 +30,7 @@ class FormWrapper extends StatefulWidget {
     this.validationResult,
     this.onNavigateToTab,
     this.layoutDirectory,
+    this.rawRecord,
   });
   @override
   State<FormWrapper> createState() => FormWrapperState();
@@ -39,7 +43,7 @@ class FormTab {
   FormTab({required this.id, required this.label});
 }
 
-class FormWrapperState extends State<FormWrapper> with SingleTickerProviderStateMixin {
+class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin {
   late Map<String, dynamic> _localFormData;
   late Map<String, dynamic> _previousProperties;
   TabController? _tabController;
@@ -415,6 +419,9 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
     } else if (layoutItem is ArrayLayout) {
       // Array layout - render with appropriate component (supports paths)
       final propertyPath = layoutItem.property;
+      if (propertyPath == null) {
+        return Center(child: Text('Array layout "${layoutItem.id}" is missing property field'));
+      }
       final propertyName = propertyPath.split('.').last; // Use last segment for key
 
       // Use layoutItem.id as the key to ensure uniqueness (keys pre-created in _initializeLayout)
@@ -449,6 +456,18 @@ class FormWrapperState extends State<FormWrapper> with SingleTickerProviderState
     } else if (layoutItem is ObjectLayout) {
       // Object layout - render with appropriate component (supports paths)
       final propertyPath = layoutItem.property;
+
+      // Special handling for components that don't require a property path
+      if (layoutItem.component == 'previous_positions_selection') {
+        // PreviousPositionsSelection component - works with entire form data
+        print('object layout previous_positions_selection');
+        return PreviousPositionsSelection(rawRecord: widget.rawRecord);
+      }
+
+      // For other components, property path is required
+      if (propertyPath == null) {
+        return Center(child: Text('Object layout "${layoutItem.id}" is missing property field'));
+      }
 
       // Get schema and data using path
       final propertySchema = LayoutService.getSchemaByPath(schemaProperties, propertyPath);

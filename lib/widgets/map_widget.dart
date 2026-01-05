@@ -7,7 +7,6 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -42,7 +41,9 @@ class _MapWidgetState extends State<MapWidget> {
   DateTime? _lastManualFocusTime;
   LatLng? _currentPosition;
   double? _currentAccuracy;
-  Set<String> _selectedBasemaps = {'topo_offline'}; // Can select multiple: 'osm', 'topo_offline', 'dop'
+  Set<String> _selectedBasemaps = {
+    'topo_offline',
+  }; // Can select multiple: 'osm', 'topo_offline', 'dop'
   double _currentZoom = 5.5;
   LatLngBounds? _lastBounds;
   bool _storesInitialized = false;
@@ -50,6 +51,7 @@ class _MapWidgetState extends State<MapWidget> {
   List<Map<String, dynamic>> _treePositions = [];
   Map<String, List<LatLng>> _clusterPolygons = {};
   List<CircleMarker>? _cachedTreeCircles;
+  Map<String, Map<String, List<LatLng>>> _historicalPositionPolygons = {};
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -117,7 +119,9 @@ class _MapWidgetState extends State<MapWidget> {
       final focusedRecord = mapControllerProvider.focusedRecord;
 
       if (focusedRecord != _focusedRecord) {
-        final treePositions = focusedRecord != null ? await _calculateTreePositions(focusedRecord) : <Map<String, dynamic>>[];
+        final treePositions = focusedRecord != null
+            ? await _calculateTreePositions(focusedRecord)
+            : <Map<String, dynamic>>[];
 
         if (!_isDisposed && mounted) {
           setState(() {
@@ -135,7 +139,10 @@ class _MapWidgetState extends State<MapWidget> {
 
   Future<List<Map<String, dynamic>>> _calculateTreePositions(Record record) async {
     // Offload tree position calculations to isolate
-    return compute(_computeTreePositions, {'recordCoords': record.getCoordinates(), 'properties': record.properties});
+    return compute(_computeTreePositions, {
+      'recordCoords': record.getCoordinates(),
+      'properties': record.properties,
+    });
   }
 
   Map<String, List<LatLng>> _buildClusterPolygons(List<Record> records) {
@@ -181,6 +188,109 @@ class _MapWidgetState extends State<MapWidget> {
     return polygons;
   }
 
+  Map<String, Map<String, List<LatLng>>> _buildHistoricalPositionPolygons(List<Record> records) {
+    final Map<String, Map<String, List<LatLng>>> polygons = {};
+
+    // Group records by cluster_id
+    final Map<String, List<Record>> clusterGroups = {};
+    for (final record in records) {
+      final clusterId = record.clusterId;
+      if (!clusterGroups.containsKey(clusterId)) {
+        clusterGroups[clusterId] = [];
+      }
+      clusterGroups[clusterId]!.add(record);
+    }
+
+    // For each cluster, extract positions grouped by measurement period
+    clusterGroups.forEach((clusterId, clusterRecords) {
+      final Map<String, List<LatLng>> measurementPolygons = {};
+
+      for (final record in clusterRecords) {
+        if (record.previousPositionData != null) {
+          // Iterate through all measurements (bwi2012, bwi2022, etc.)
+          record.previousPositionData!.forEach((measurementKey, measurementData) {
+            if (measurementData is Map) {
+              // Try to extract coordinates - prefer median over mean
+              final latMedian = _extractDouble(measurementData['latitude_median']);
+              final lngMedian = _extractDouble(measurementData['longitude_median']);
+              final latMean = _extractDouble(measurementData['latitude_mean']);
+              final lngMean = _extractDouble(measurementData['longitude_mean']);
+
+              final lat = latMedian ?? latMean;
+              final lng = lngMedian ?? lngMean;
+
+              if (lat != null && lng != null) {
+                // Group by measurement period
+                if (!measurementPolygons.containsKey(measurementKey)) {
+                  measurementPolygons[measurementKey] = [];
+                }
+                measurementPolygons[measurementKey]!.add(LatLng(lat, lng));
+              }
+            }
+          });
+        }
+      }
+
+      // For each measurement period, create a polygon if there are at least 3 points
+      measurementPolygons.forEach((measurementKey, points) {
+        if (points.length >= 3) {
+          // Calculate centroid
+          double centerLat = 0, centerLng = 0;
+          for (final point in points) {
+            centerLat += point.latitude;
+            centerLng += point.longitude;
+          }
+          centerLat /= points.length;
+          centerLng /= points.length;
+
+          // Sort points by angle from centroid to create proper polygon
+          points.sort((a, b) {
+            final angleA = atan2(a.latitude - centerLat, a.longitude - centerLng);
+            final angleB = atan2(b.latitude - centerLat, b.longitude - centerLng);
+            return angleA.compareTo(angleB);
+          });
+
+          // Store this measurement period's polygon
+          if (!polygons.containsKey(clusterId)) {
+            polygons[clusterId] = {};
+          }
+          polygons[clusterId]![measurementKey] = points;
+        }
+      });
+    });
+
+    return polygons;
+  }
+
+  /// Get color for a specific measurement period
+  Color _getColorForMeasurementPeriod(String measurementKey) {
+    // Define colors for different measurement periods
+    final Map<String, Color> periodColors = {
+      'bwi2012': Colors.purple.withOpacity(0.6),
+      'bwi2022': Colors.orange.withOpacity(0.6),
+      'bwi2002': Colors.green.withOpacity(0.6),
+      'bwi1987': Colors.brown.withOpacity(0.6),
+    };
+
+    // Return predefined color or generate from hash for unknown periods
+    return periodColors[measurementKey] ??
+        Color.fromARGB(
+          150,
+          (measurementKey.hashCode % 200) + 55,
+          ((measurementKey.hashCode ~/ 200) % 200) + 55,
+          ((measurementKey.hashCode ~/ 40000) % 200) + 55,
+        );
+  }
+
+  /// Helper method to safely extract a double value
+  double? _extractDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   static List<Map<String, dynamic>> _computeTreePositions(Map<String, dynamic> params) {
     final List<Map<String, dynamic>> positions = [];
     final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
@@ -220,13 +330,28 @@ class _MapWidgetState extends State<MapWidget> {
           // Convert distance from cm to meters then to kilometers
           final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
 
-          debugPrint('Tree ${treeNumber}: azimuth=${azimuthDegrees}°, distance=${distanceKm}km, dbh=${dbh}mm');
+          debugPrint(
+            'Tree ${treeNumber}: azimuth=${azimuthDegrees}°, distance=${distanceKm}km, dbh=${dbh}mm',
+          );
 
           // Use Turf's destination to calculate the new position
-          final destinationPoint = turf.destination(centerPoint, distanceKm, azimuthDegrees, turf.Unit.kilometers);
+          final destinationPoint = turf.destination(
+            centerPoint,
+            distanceKm,
+            azimuthDegrees,
+            turf.Unit.kilometers,
+          );
 
           final coords = destinationPoint.coordinates;
-          positions.add({'lat': coords.lat, 'lng': coords.lng, 'tree_number': treeNumber, 'azimuth': azimuth, 'distance': distance, 'dbh': dbh, 'data': tree});
+          positions.add({
+            'lat': coords.lat,
+            'lng': coords.lng,
+            'tree_number': treeNumber,
+            'azimuth': azimuth,
+            'distance': distance,
+            'dbh': dbh,
+            'data': tree,
+          });
         }
       }
     } catch (e) {
@@ -334,7 +459,9 @@ class _MapWidgetState extends State<MapWidget> {
         final records = cachedData.map((item) => item['record'] as Record).toList();
 
         // Filter to only records with coordinates
-        final recordsWithCoords = records.where((record) => record.getCoordinates() != null).toList();
+        final recordsWithCoords = records
+            .where((record) => record.getCoordinates() != null)
+            .toList();
 
         debugPrint('MapWidget: Loaded ${recordsWithCoords.length} records from provider cache');
 
@@ -345,11 +472,16 @@ class _MapWidgetState extends State<MapWidget> {
             // Build cluster polygons
             _clusterPolygons = _buildClusterPolygons(recordsWithCoords);
 
+            // Build historical position polygons from previous_position_data
+            _historicalPositionPolygons = _buildHistoricalPositionPolygons(recordsWithCoords);
+
             // Always update visible records immediately (filtered or all)
             if (!_isMapReady) {
               // If map not ready, show all records
               _visibleRecords = recordsWithCoords;
-              debugPrint('MapWidget: Map not ready, showing all ${recordsWithCoords.length} records');
+              debugPrint(
+                'MapWidget: Map not ready, showing all ${recordsWithCoords.length} records',
+              );
             } else {
               // If map is ready, filter immediately (synchronously for removed records)
               final bounds = _mapController.camera.visibleBounds;
@@ -361,9 +493,14 @@ class _MapWidgetState extends State<MapWidget> {
                 final lng = coords['longitude'];
                 if (lat == null || lng == null) return false;
 
-                return lat >= bounds.south && lat <= bounds.north && lng >= bounds.west && lng <= bounds.east;
+                return lat >= bounds.south &&
+                    lat <= bounds.north &&
+                    lng >= bounds.west &&
+                    lng <= bounds.east;
               }).toList();
-              debugPrint('MapWidget: Updated visible records: ${_visibleRecords.length} out of ${recordsWithCoords.length}');
+              debugPrint(
+                'MapWidget: Updated visible records: ${_visibleRecords.length} out of ${recordsWithCoords.length}',
+              );
             }
 
             if (!_markersLoaded && recordsWithCoords.isNotEmpty) {
@@ -378,6 +515,8 @@ class _MapWidgetState extends State<MapWidget> {
           setState(() {
             _records = [];
             _visibleRecords = [];
+            _clusterPolygons = {};
+            _historicalPositionPolygons = {};
           });
           debugPrint('MapWidget: Cache cleared, removed all markers');
         }
@@ -400,10 +539,14 @@ class _MapWidgetState extends State<MapWidget> {
         _lastFocusTimestamp = timestamp;
         _lastManualFocusTime = DateTime.now(); // Track manual focus
 
-        debugPrint('Focusing map on bounds: SW(${focusBounds.south}, ${focusBounds.west}) NE(${focusBounds.north}, ${focusBounds.east})');
+        debugPrint(
+          'Focusing map on bounds: SW(${focusBounds.south}, ${focusBounds.west}) NE(${focusBounds.north}, ${focusBounds.east})',
+        );
 
         // Fit camera to the requested bounds
-        _mapController.fitCamera(CameraFit.bounds(bounds: focusBounds, padding: const EdgeInsets.all(50)));
+        _mapController.fitCamera(
+          CameraFit.bounds(bounds: focusBounds, padding: const EdgeInsets.all(50)),
+        );
 
         // Clear the focus bounds after applying
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -471,7 +614,13 @@ class _MapWidgetState extends State<MapWidget> {
     _lastBounds = bounds;
 
     // Offload filtering to isolate for large datasets
-    final visibleRecords = await compute(_filterVisibleRecords, {'records': _records, 'south': bounds.south, 'north': bounds.north, 'west': bounds.west, 'east': bounds.east});
+    final visibleRecords = await compute(_filterVisibleRecords, {
+      'records': _records,
+      'south': bounds.south,
+      'north': bounds.north,
+      'west': bounds.west,
+      'east': bounds.east,
+    });
 
     if (!_isDisposed && mounted) {
       setState(() {
@@ -507,7 +656,9 @@ class _MapWidgetState extends State<MapWidget> {
     if (_lastManualFocusTime != null) {
       final timeSinceManualFocus = DateTime.now().difference(_lastManualFocusTime!);
       if (timeSinceManualFocus.inSeconds < 5) {
-        debugPrint('Skipping auto-fit due to recent manual focus (${timeSinceManualFocus.inSeconds}s ago)');
+        debugPrint(
+          'Skipping auto-fit due to recent manual focus (${timeSinceManualFocus.inSeconds}s ago)',
+        );
         return;
       }
     }
@@ -540,12 +691,17 @@ class _MapWidgetState extends State<MapWidget> {
 
       debugPrint('Bounding box: SW($minLng, $minLat) NE($maxLng, $maxLat)');
 
-      final bounds = LatLngBounds(LatLng(minLat - latPadding, minLng - lngPadding), LatLng(maxLat + latPadding, maxLng + lngPadding));
+      final bounds = LatLngBounds(
+        LatLng(minLat - latPadding, minLng - lngPadding),
+        LatLng(maxLat + latPadding, maxLng + lngPadding),
+      );
 
       // Fit camera to bounds
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_isDisposed && mounted) {
-          _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)));
+          _mapController.fitCamera(
+            CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
+          );
           debugPrint('Camera moved to fit all markers');
         }
       });
@@ -553,71 +709,91 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   List<Marker> _buildMarkers(List<Record> records) {
-    // Use cached visible records
-    return _visibleRecords.map((record) {
-      final coords = record.getCoordinates()!;
-      final lat = coords['latitude']!;
-      final lng = coords['longitude']!;
+    // Use cached visible records, excluding the focused record
+    return _visibleRecords
+        .where(
+          (record) =>
+              _focusedRecord == null ||
+              record.clusterName != _focusedRecord!.clusterName ||
+              record.plotName != _focusedRecord!.plotName,
+        )
+        .map((record) {
+          final coords = record.getCoordinates()!;
+          final lat = coords['latitude']!;
+          final lng = coords['longitude']!;
 
-      return Marker(
-        point: LatLng(lat, lng),
-        width: 16,
-        height: 16,
-        child: GestureDetector(
-          onTap: () {
-            _onMarkerTapped(record);
-          },
-          child: Container(
+          return Marker(
+            point: LatLng(lat, lng),
             width: 16,
             height: 16,
-            decoration: BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
+            child: GestureDetector(
+              onTap: () {
+                _onMarkerTapped(record);
+              },
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+              ),
             ),
-          ),
-        ),
-      );
-    }).toList();
+          );
+        })
+        .toList();
   }
 
   List<Marker> _buildLabelMarkers(List<Record> records) {
-    // Use cached visible records
-    return _visibleRecords.map((record) {
-      final coords = record.getCoordinates()!;
-      final lat = coords['latitude']!;
-      final lng = coords['longitude']!;
+    // Use cached visible records, excluding the focused record
+    return _visibleRecords
+        .where(
+          (record) =>
+              _focusedRecord == null ||
+              record.clusterName != _focusedRecord!.clusterName ||
+              record.plotName != _focusedRecord!.plotName,
+        )
+        .map((record) {
+          final coords = record.getCoordinates()!;
+          final lat = coords['latitude']!;
+          final lng = coords['longitude']!;
 
-      final label = '${record.clusterName} | ${record.plotName}';
+          final label = '${record.clusterName} | ${record.plotName}';
 
-      return Marker(
-        point: LatLng(lat, lng),
-        width: 85,
-        height: 20,
-        alignment: Alignment.bottomCenter,
+          return Marker(
+            point: LatLng(lat, lng),
+            width: 85,
+            height: 20,
+            alignment: Alignment.bottomCenter,
 
-        child: GestureDetector(
-          onTap: () {
-            _onMarkerTapped(record);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.black54, width: 1),
+            child: GestureDetector(
+              onTap: () {
+                _onMarkerTapped(record);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.black54, width: 1),
+                ),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
             ),
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
-            ),
-          ),
-        ),
-      );
-    }).toList();
+          );
+        })
+        .toList();
   }
 
   void _onMarkerTapped(Record record) {
@@ -637,7 +813,8 @@ class _MapWidgetState extends State<MapWidget> {
 
       // Request navigation through provider (same as from records-selection card tap)
       // This will be handled by start.dart's nested BeamerDelegate
-      final navPath = '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}';
+      final navPath =
+          '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}';
       mapControllerProvider.requestNavigation(navPath);
     } catch (e) {
       debugPrint('Error marking manual interaction or requesting navigation: $e');
@@ -739,33 +916,36 @@ class _MapWidgetState extends State<MapWidget> {
 
     return [
       // 25m radius circle
-      CircleMarker(point: LatLng(_focusedRecord!.getCoordinates()!['latitude']!, _focusedRecord!.getCoordinates()!['longitude']!), radius: 25.0, useRadiusInMeter: true, color: const Color.fromARGB(25, 0, 159, 224)),
-      // 10m radius circle
-      CircleMarker(point: LatLng(_focusedRecord!.getCoordinates()!['latitude']!, _focusedRecord!.getCoordinates()!['longitude']!), radius: 10.0, useRadiusInMeter: true, color: const Color.fromARGB(25, 0, 170, 130)),
-      // 5m radius circle
-      CircleMarker(point: LatLng(_focusedRecord!.getCoordinates()!['latitude']!, _focusedRecord!.getCoordinates()!['longitude']!), radius: 5.0, useRadiusInMeter: true, color: const Color.fromARGB(25, 0, 170, 170)),
-    ];
-  }
-
-  Marker _buildFocusedRecordMarker(Record record) {
-    final coords = record.getCoordinates()!;
-    final lat = coords['latitude']!;
-    final lng = coords['longitude']!;
-
-    return Marker(
-      point: LatLng(lat, lng),
-      width: 40,
-      height: 40,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.orange,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 3),
-          boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)],
+      CircleMarker(
+        point: LatLng(
+          _focusedRecord!.getCoordinates()!['latitude']!,
+          _focusedRecord!.getCoordinates()!['longitude']!,
         ),
-        child: const Center(child: Icon(Icons.location_on, color: Colors.white, size: 24)),
+        radius: 25.0,
+        useRadiusInMeter: true,
+        color: const Color.fromARGB(25, 0, 159, 224),
       ),
-    );
+      // 10m radius circle
+      CircleMarker(
+        point: LatLng(
+          _focusedRecord!.getCoordinates()!['latitude']!,
+          _focusedRecord!.getCoordinates()!['longitude']!,
+        ),
+        radius: 10.0,
+        useRadiusInMeter: true,
+        color: const Color.fromARGB(25, 0, 170, 130),
+      ),
+      // 5m radius circle
+      CircleMarker(
+        point: LatLng(
+          _focusedRecord!.getCoordinates()!['latitude']!,
+          _focusedRecord!.getCoordinates()!['longitude']!,
+        ),
+        radius: 5.0,
+        useRadiusInMeter: true,
+        color: const Color.fromARGB(25, 0, 170, 170),
+      ),
+    ];
   }
 
   void _openMapSettings() {
@@ -780,7 +960,10 @@ class _MapWidgetState extends State<MapWidget> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Karteneinstellungen', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Karteneinstellungen',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
 
                   CheckboxListTile(
@@ -863,7 +1046,9 @@ class _MapWidgetState extends State<MapWidget> {
         initialZoom: initialZoom,
         minZoom: 4.0,
         maxZoom: 22.0,
-        interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
         onMapReady: () {
           setState(() {
             _isMapReady = true;
@@ -912,19 +1097,31 @@ class _MapWidgetState extends State<MapWidget> {
             //    ? 14
             //    : 19, // Limit to zoom 14 if DOP is enabled
             //maxNativeZoom: 18,
-            tileProvider: FMTCStore('opencyclemap').getTileProvider(settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst)),
+            tileProvider: FMTCStore('opencyclemap').getTileProvider(
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+            ),
           ),
 
         // Layer 3: DOP (offline aerial imagery, zoom 15-19)
-        if (_selectedBasemaps.contains('dop') && _storesInitialized && dotenv.env['DMZ_KEY'] != null && dotenv.env['DMZ_KEY']!.isNotEmpty)
+        if (_selectedBasemaps.contains('dop') &&
+            _storesInitialized &&
+            dotenv.env['DMZ_KEY'] != null &&
+            dotenv.env['DMZ_KEY']!.isNotEmpty)
           TileLayer(
-            wmsOptions: WMSTileLayerOptions(baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?', layers: const ['rgb'], format: 'image/jpeg'),
+            wmsOptions: WMSTileLayerOptions(
+              baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
+              layers: const ['rgb'],
+              format: 'image/jpeg',
+            ),
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
             minZoom: 15, // Only show from zoom 15 onwards
             maxNativeZoom: 19,
             tileProvider: FMTCStore('wms_dop__').getTileProvider(
-              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst, cachedValidDuration: const Duration(days: 30)),
+              settings: FMTCTileProviderSettings(
+                behavior: CacheBehavior.cacheFirst,
+                cachedValidDuration: const Duration(days: 30),
+              ),
             ),
             errorTileCallback: (tile, error, stackTrace) {
               debugPrint('Error loading DOP tile ${tile.coordinates}: $error');
@@ -934,7 +1131,12 @@ class _MapWidgetState extends State<MapWidget> {
         // Clustered Markers from records
         if (markers.isNotEmpty)
           MarkerClusterLayerWidget(
-            options: MarkerClusterLayerOptions(maxClusterRadius: 50, size: const Size(40, 40), markers: markers, builder: _buildClusterMarker),
+            options: MarkerClusterLayerOptions(
+              maxClusterRadius: 50,
+              size: const Size(40, 40),
+              markers: markers,
+              builder: _buildClusterMarker,
+            ),
           ),
 
         // Cluster polygons (shown at zoom 16+)
@@ -949,10 +1151,39 @@ class _MapWidgetState extends State<MapWidget> {
 
                   return Polygon(
                     points: points,
-                    color: aggregatedMarkerColors[0].withAlpha(25), // Color.fromARGB(15, 0, 0, 255),
+                    color: aggregatedMarkerColors[0].withAlpha(
+                      25,
+                    ), // Color.fromARGB(15, 0, 0, 255),
                     borderColor: aggregatedMarkerColors[0].withAlpha(100),
                     borderStrokeWidth: 1.0,
                   );
+                })
+                .whereType<Polygon>()
+                .toList(),
+          ),
+
+        // Historical position polygons from previous_position_data (shown at zoom 16+)
+        // Only show for the focused record's cluster
+        if (_historicalPositionPolygons.isNotEmpty && _currentZoom > 14 && _focusedRecord != null)
+          PolygonLayer(
+            polygons: _historicalPositionPolygons.entries
+                .where((clusterEntry) => clusterEntry.key == _focusedRecord!.clusterId)
+                .expand((clusterEntry) {
+                  // For each cluster, create polygons for all measurement periods
+                  return clusterEntry.value.entries.map((measurementEntry) {
+                    final points = measurementEntry.value;
+                    final measurementKey = measurementEntry.key;
+
+                    // Only draw polygon if there are at least 3 points
+                    if (points.length < 3) return null;
+
+                    return Polygon(
+                      points: points,
+                      color: _getColorForMeasurementPeriod(measurementKey).withOpacity(0.15),
+                      borderColor: _getColorForMeasurementPeriod(measurementKey),
+                      borderStrokeWidth: 2.0,
+                    );
+                  });
                 })
                 .whereType<Polygon>()
                 .toList(),
@@ -962,12 +1193,17 @@ class _MapWidgetState extends State<MapWidget> {
         if (distanceLineFrom != null && distanceLineTo != null)
           PolylineLayer(
             polylines: [
-              Polyline(points: [distanceLineFrom, distanceLineTo], color: Colors.orange, strokeWidth: 3.0),
+              Polyline(
+                points: [distanceLineFrom, distanceLineTo],
+                color: Colors.orange,
+                strokeWidth: 3.0,
+              ),
             ],
           ),
 
         // Record Labels (shown at zoom 14+)
-        if (_currentZoom > 14 && _records.isNotEmpty) MarkerLayer(markers: _buildLabelMarkers(_records)),
+        if (_currentZoom > 14 && _records.isNotEmpty)
+          MarkerLayer(markers: _buildLabelMarkers(_records)),
 
         // Line from center to trees
         //if (_focusedRecord != null && _treePositions.isNotEmpty)
@@ -975,12 +1211,22 @@ class _MapWidgetState extends State<MapWidget> {
         if (_focusedRecord != null) CircleLayer(circles: _getDefaultCircles(_focusedRecord!)),
 
         // Tree positions for focused record (cached)
-        if (_focusedRecord != null && _cachedTreeCircles != null) CircleLayer(circles: _cachedTreeCircles!),
+        if (_focusedRecord != null && _cachedTreeCircles != null)
+          CircleLayer(circles: _cachedTreeCircles!),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)
           CircleLayer(
-            circles: [CircleMarker(point: _currentPosition!, radius: _currentAccuracy! < 5 ? 5.0 : _currentAccuracy!, useRadiusInMeter: true, color: Colors.blue.withOpacity(0.2), borderColor: Colors.blue.withOpacity(0.5), borderStrokeWidth: 1)],
+            circles: [
+              CircleMarker(
+                point: _currentPosition!,
+                radius: _currentAccuracy! < 5 ? 5.0 : _currentAccuracy!,
+                useRadiusInMeter: true,
+                color: Colors.blue.withOpacity(0.2),
+                borderColor: Colors.blue.withOpacity(0.5),
+                borderStrokeWidth: 1,
+              ),
+            ],
           ),
 
         // GPS Location Marker (center dot)
@@ -1006,7 +1252,9 @@ class _MapWidgetState extends State<MapWidget> {
         // Account for both sheet height and map vertical offset
         Positioned(
           left: 8,
-          bottom: widget.sheetPosition != null ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8 : MediaQuery.of(context).size.height * 0.075 + 8,
+          bottom: widget.sheetPosition != null
+              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8
+              : MediaQuery.of(context).size.height * 0.075 + 8,
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -1015,7 +1263,11 @@ class _MapWidgetState extends State<MapWidget> {
               border: Border.all(color: Colors.black26, width: 1),
             ),
             child: Scalebar(
-              textStyle: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold),
+              textStyle: const TextStyle(
+                color: Colors.black,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
               lineColor: Colors.black,
               strokeWidth: 2,
               padding: EdgeInsets.zero,
