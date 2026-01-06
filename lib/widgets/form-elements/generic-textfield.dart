@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
+import 'package:math_expressions/math_expressions.dart';
 //import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 
 class GenericTextField extends StatefulWidget {
@@ -14,6 +15,7 @@ class GenericTextField extends StatefulWidget {
   final bool dense;
   final bool autofocus;
   final double? width; // Optional width constraint from layout
+  final Map<String, dynamic>? previousData; // For calculated fields
 
   const GenericTextField({
     super.key,
@@ -26,6 +28,7 @@ class GenericTextField extends StatefulWidget {
     this.dense = false,
     this.autofocus = false,
     this.width,
+    this.previousData,
   });
 
   @override
@@ -42,9 +45,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    debugPrint(
-      'Errors for field ${widget.fieldName}: ${widget.errors.map((e) => e.message).join(', ')}',
-    );
     _initializeControllers();
 
     if (widget.autofocus && !_hasRequestedInitialFocus) {
@@ -91,7 +91,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     if (type == 'boolean') {
       _boolValue = effectiveValue == true;
-      debugPrint('Initialized boolean field ${widget.fieldName} with value $_boolValue');
     } else {
       _controller = TextEditingController(text: effectiveValue?.toString() ?? '');
       if (widget.autofocus) {
@@ -150,6 +149,67 @@ class _GenericTextFieldState extends State<GenericTextField> {
     return widget.errors.map((e) => e.message).join(', ');
   }
 
+  String _evaluateExpression() {
+    try {
+      final expression = widget.fieldSchema['expression'] as String?;
+      if (expression == null || expression.isEmpty) {
+        return 'No expression';
+      }
+
+      // If no previous data, return empty string (tree not in previous inventory)
+      if (widget.previousData == null) {
+        return '';
+      }
+
+      // Find all variable names in the expression
+      final variablePattern = RegExp(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b');
+      final matches = variablePattern.allMatches(expression);
+
+      // Create a map of variable names to values
+      final Map<String, double> variableValues = {};
+
+      for (var match in matches) {
+        final varName = match.group(0)!;
+
+        // Remove "previous_" prefix if present
+        final fieldKey = varName.startsWith('previous_')
+            ? varName.substring(9) // Remove "previous_"
+            : varName;
+
+        final value = widget.previousData![fieldKey];
+
+        if (value != null && value is num) {
+          variableValues[varName] = value.toDouble();
+        } else {
+          // If value is null or not a number, bind 0
+          variableValues[varName] = 0.0;
+        }
+      }
+
+      // Parse the expression
+      final parser = GrammarParser();
+      Expression exp = parser.parse(expression);
+
+      // Create variable context
+      final contextModel = ContextModel();
+      variableValues.forEach((varName, value) {
+        contextModel.bindVariable(Variable(varName), Number(value));
+      });
+
+      // Evaluate the expression
+      final result = exp.evaluate(EvaluationType.REAL, contextModel);
+
+      // Format result
+      if (result is double) {
+        // Remove trailing zeros
+        return result.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+      }
+      return result.toString();
+    } catch (e) {
+      return 'Error: ${e.toString()}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final type = _getType();
@@ -161,6 +221,55 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     // Check if field is readonly (JSON Schema standard)
     final isReadonly = widget.fieldSchema['readonly'] as bool? ?? false;
+
+    // Handle calculated type
+    if (type == 'calculated') {
+      final calculatedValue = _evaluateExpression();
+      final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+      final unit = tfmData?['unit_short'] as String?;
+
+      final displayValue = unit != null && unit.isNotEmpty
+          ? '$calculatedValue $unit'
+          : calculatedValue;
+
+      final child = Container(
+        padding: widget.compact
+            ? const EdgeInsets.symmetric(horizontal: 4, vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        decoration: widget.compact
+            ? null
+            : BoxDecoration(
+                color: isDark ? Colors.grey[800] : Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+        child: Row(
+          children: [
+            if (!widget.compact)
+              Expanded(
+                child: Text(
+                  _getLabel() ?? '',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+              ),
+            Text(
+              displayValue,
+              style: TextStyle(
+                fontSize: widget.compact ? 14 : 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
+    }
 
     // Handle boolean with Switch
     if (type == 'boolean') {

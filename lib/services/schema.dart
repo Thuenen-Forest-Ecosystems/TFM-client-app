@@ -133,6 +133,7 @@ Schema schema = Schema(([
     Column.integer('is_to_be_recorded'),
     Column.text('note'),
     Column.text('previous_position_data'),
+    Column.text('validation_errors'),
   ]),
   const Table('organizations', [
     Column.text('apex_domain'),

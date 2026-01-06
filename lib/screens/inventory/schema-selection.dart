@@ -10,6 +10,7 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/user-info-tile.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-tiles-download.dart';
+import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
 
 class SchemaSelection extends StatefulWidget {
   const SchemaSelection({super.key});
@@ -85,6 +86,9 @@ class _SchemaSelectionState extends State<SchemaSelection> {
         return Column(
           children: [
             const UserInfoTile(),
+
+            const VersionControl(),
+
             if (schemas.isNotEmpty)
               Card(margin: const EdgeInsets.all(16), child: const MapTilesDownload()),
 

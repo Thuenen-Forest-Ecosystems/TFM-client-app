@@ -40,6 +40,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Map<String, dynamic>? _previousFormData;
   TFMValidationResult? _validationResult;
   bool _isValidating = false;
+  bool _isSaving = false;
   StreamSubscription? _gpsSubscription;
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
@@ -388,27 +389,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
-  void saveRecord() async {
-    await _onFormDataChanged(_formData ?? {});
-
-    String? saveAction;
-
-    // Check validation before saving (show dialog for errors OR warnings)
-    if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
-      // Show validation errors/warnings dialog
-      saveAction = await ValidationErrorsDialog.show(
-        context,
-        _validationResult!,
-        onNavigateToTab: _navigateToTabFromError,
-        record: _record,
-      );
-
-      // If user didn't confirm save from dialog, return
-      if (saveAction == null) {
-        return;
-      }
-    }
-
+  Future<void> save(String type) async {
     if (_record == null || _formData == null) {
       debugPrint('Cannot save: record or form data is null');
       return;
@@ -422,12 +403,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       // Update properties, schema_id_validated_by, and local_updated_at
       // PowerSync will track this change and sync to server
-      if (saveAction == 'save') {
+      setState(() {
+        _isSaving = true;
+      });
+      if (type == 'save') {
         await db.execute(
           'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
           [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
         );
-      } else if (saveAction == 'complete') {
+      } else if (type == 'complete') {
         await db.execute(
           'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?',
           [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id],
@@ -463,6 +447,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Update local state
       setState(() {
         _record = updatedRecord;
+        _isSaving = false;
       });
 
       // Show success message and navigate based on save action
@@ -472,7 +457,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         rootScaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text(
-              saveAction == 'complete'
+              type == 'complete'
                   ? 'Datensatz gespeichert und abgeschlossen'
                   : 'Datensatz erfolgreich gespeichert',
             ),
@@ -488,7 +473,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         );
 
         // Only navigate away if "complete" was chosen
-        if (saveAction == 'complete' || saveAction == 'save') {
+        if (type == 'complete') {
           Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
         }
       }
@@ -514,6 +499,34 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         );
       }
     }
+  }
+
+  void saveRecord() async {
+    _onFormDataChanged(_formData ?? {});
+
+    String? saveAction;
+
+    // Check validation before saving (show dialog for errors OR warnings)
+    if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
+      // Show validation errors/warnings dialog
+      saveAction = await ValidationErrorsDialog.show(
+        context,
+        _validationResult!,
+        onNavigateToTab: _navigateToTabFromError,
+        record: _record,
+      );
+
+      // If user didn't confirm save from dialog, return
+      if (saveAction == null) {
+        return;
+      }
+    } else {
+      // No validation issues, default to 'complete'
+      saveAction = 'complete';
+    }
+
+    // Call save with the determined action
+    await save(saveAction);
   }
 
   Future<void> _onFormDataChanged(Map<String, dynamic> updatedData) async {
@@ -962,6 +975,17 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       ],
                     ),
                   ),
+
+                  IconButton.outlined(
+                    onPressed: _isSaving ? null : () => save('save'),
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Icon(Icons.save),
+                  ),
                   Badge.count(
                     count: _validationResult?.allIssues.length ?? 0,
                     isLabelVisible:
@@ -978,63 +1002,79 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                           : const Text('FERTIG'),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {
-                      showMenu<String>(
-                        context: context,
-                        position: RelativeRect.fromLTRB(
-                          MediaQuery.of(context).size.width,
-                          kToolbarHeight,
-                          0,
-                          0,
-                        ),
-                        items: <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'json',
-                            child: Row(
-                              children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')],
-                            ),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'schema',
-                            child: Row(
-                              children: [
-                                Icon(Icons.schema),
-                                SizedBox(width: 8),
-                                Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'style',
-                            child: Row(
-                              children: [
-                                Icon(Icons.palette),
-                                SizedBox(width: 8),
-                                Text('Show Style'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ).then((value) {
-                        if (value == 'json') {
-                          _showCurrentAsJson();
-                        } else if (value == 'schema') {
-                          _showCurrentSchema();
-                        } else if (value == 'style') {
-                          _showCurrentStyle();
-                        }
-                      });
-                    },
-                  ),
                   IfDatabaseAdmin(
+                    child: IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      onPressed: () {
+                        showMenu<String>(
+                          context: context,
+                          position: RelativeRect.fromLTRB(
+                            MediaQuery.of(context).size.width,
+                            kToolbarHeight,
+                            0,
+                            0,
+                          ),
+                          items: <PopupMenuEntry<String>>[
+                            const PopupMenuItem<String>(
+                              value: 'json',
+                              child: Row(
+                                children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')],
+                              ),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'schema',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.schema),
+                                  SizedBox(width: 8),
+                                  Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'style',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.palette),
+                                  SizedBox(width: 8),
+                                  Text('Show Style'),
+                                ],
+                              ),
+                            ),
+                            //Divider
+                            const PopupMenuDivider(),
+                            const PopupMenuItem<String>(
+                              value: 'select_schema',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.admin_panel_settings),
+                                  SizedBox(width: 8),
+                                  Text('Select Schema Version'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ).then((value) {
+                          if (value == 'json') {
+                            _showCurrentAsJson();
+                          } else if (value == 'schema') {
+                            _showCurrentSchema();
+                          } else if (value == 'style') {
+                            _showCurrentStyle();
+                          } else if (value == 'select_schema') {
+                            _showSchemaSelector();
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  /*IfDatabaseAdmin(
                     child: IconButton(
                       icon: const Icon(Icons.admin_panel_settings, size: 20),
                       onPressed: _showSchemaSelector,
                       tooltip: 'Select Schema Version',
                     ),
-                  ),
+                  ),*/
                 ],
               ),
             ),

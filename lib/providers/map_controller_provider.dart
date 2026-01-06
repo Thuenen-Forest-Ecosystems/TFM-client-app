@@ -23,6 +23,9 @@ class MapControllerProvider with ChangeNotifier {
   String? _navigationPath;
   DateTime? _navigationTimestamp;
 
+  // Visible previous positions per record (recordId -> Set of position keys)
+  final Map<String, Set<String>> _visiblePreviousPositions = {};
+
   MapController? get flutterMapController => _flutterMapController;
   LatLng? get distanceLineFrom => _distanceLineFrom;
   LatLng? get distanceLineTo => _distanceLineTo;
@@ -121,10 +124,30 @@ class MapControllerProvider with ChangeNotifier {
     _navigationTimestamp = null;
   }
 
+  /// Set which previous positions should be visible for a record
+  void setVisiblePreviousPositions(String recordId, Set<String> visibleKeys) {
+    _visiblePreviousPositions[recordId] = Set.from(visibleKeys);
+    debugPrint('Visible previous positions for $recordId: $visibleKeys');
+    notifyListeners();
+  }
+
+  /// Get visible previous positions for a record (returns all if not set)
+  Set<String>? getVisiblePreviousPositions(String recordId) {
+    return _visiblePreviousPositions[recordId];
+  }
+
+  /// Check if a specific previous position is visible for a record
+  bool isPreviousPositionVisible(String recordId, String positionKey) {
+    final visible = _visiblePreviousPositions[recordId];
+    // If not set, all are visible by default
+    return visible == null || visible.contains(positionKey);
+  }
+
   @override
   void dispose() {
     clearDistanceLine();
     _flutterMapController = null;
+    _visiblePreviousPositions.clear();
     super.dispose();
   }
 }

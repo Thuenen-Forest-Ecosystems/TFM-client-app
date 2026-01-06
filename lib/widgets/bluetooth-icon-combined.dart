@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
 import 'package:flutter_blue_classic/flutter_blue_classic.dart' as classic;
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -85,30 +84,18 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
   Future<bool> _checkBluetoothAvailable() async {
     try {
-      // Check if Bluetooth is available on this platform
-      final isSupported = await ble.FlutterBluePlus.isSupported;
-      debugPrint('Bluetooth isSupported: $isSupported (Platform: ${Platform.operatingSystem})');
-      
-      if (isSupported == false) {
+      // Check if Bluetooth is available
+      if (await ble.FlutterBluePlus.isSupported == false) {
         return false;
       }
 
       // Check if Bluetooth is on
       final adapterState = await ble.FlutterBluePlus.adapterState.first;
-      debugPrint('Bluetooth adapter state: $adapterState');
-      
-      // On Windows, adapter state may be unknown but still functional
-      // Accept 'on' or 'unknown' states, reject 'off' or 'unavailable'
-      if (adapterState == ble.BluetoothAdapterState.off || 
-          adapterState == ble.BluetoothAdapterState.unavailable ||
-          adapterState == ble.BluetoothAdapterState.unauthorized) {
+      if (adapterState != ble.BluetoothAdapterState.on) {
         return false;
       }
 
       return true;
-    } on MissingPluginException catch (e) {
-      debugPrint('Bluetooth plugin missing on this platform: $e');
-      return false;
     } catch (e) {
       debugPrint('Error checking Bluetooth availability: $e');
       return false;
@@ -222,7 +209,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   }
 
   void _showDeviceMenu() async {
-    // Check if Bluetooth is available before showing modal (cached to avoid repeated checks)
+    // Check if Bluetooth is available before showing modal
     final isBluetoothAvailable = await _checkBluetoothAvailable();
 
     if (!mounted) return;
@@ -302,21 +289,27 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     if (!_isScanning)
-                      // Use cached bluetooth availability to avoid repeated platform checks
-                      isBluetoothAvailable
-                          ? IconButton(
-                              icon: const Icon(Icons.refresh),
-                              onPressed: () {
-                                _startScan();
-                              },
-                            )
-                          : const Padding(
+                      FutureBuilder<bool>(
+                        future: _checkBluetoothAvailable(),
+                        builder: (context, snapshot) {
+                          final isAvailable = snapshot.data ?? false;
+                          if (!isAvailable) {
+                            return const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 8.0),
                               child: Text(
                                 'Bluetooth Off',
                                 style: TextStyle(color: Colors.orange, fontSize: 12),
                               ),
-                            ),
+                            );
+                          }
+                          return IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: () {
+                              _startScan();
+                            },
+                          );
+                        },
+                      ),
                   ],
                 ),
                 const SizedBox(height: 16),

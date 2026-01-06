@@ -431,20 +431,24 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       // Get schema and data using path
       final propertySchema = LayoutService.getSchemaByPath(schemaProperties, propertyPath);
       final propertyData = LayoutService.getValueByPath(_localFormData, propertyPath);
+      final previousPropertyData = LayoutService.getValueByPath(_previousProperties, propertyPath);
 
       if (propertySchema == null) {
         return Center(child: Text('Schema not found for property: $propertyPath'));
       }
 
       if (layoutItem.component == 'datagrid') {
+        final arrayLayout = layoutItem as ArrayLayout;
         return ArrayElementTrina(
           key: key,
           jsonSchema: propertySchema,
           data: propertyData,
+          previousData: previousPropertyData,
           propertyName: propertyName,
+          identifierField: arrayLayout.identifierField,
           validationResult: widget.validationResult,
-          columnConfig: layoutItem.columns,
-          layoutOptions: layoutItem.options,
+          columnConfig: arrayLayout.columns,
+          layoutOptions: arrayLayout.options,
           onDataChanged: (updatedData) {
             LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
             widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
@@ -769,6 +773,60 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
   }
 
+  /// Extract all property paths that belong to a specific tab based on layout
+  List<String> _getPropertyPathsForTab(String tabId) {
+    final propertyPaths = <String>[];
+
+    if (_layoutConfig == null) {
+      // Fallback for tabs without layout config
+      return [tabId];
+    }
+
+    final tabItem = LayoutService.findItemById(_layoutConfig, tabId);
+    if (tabItem == null) return [];
+
+    _extractPropertyPaths(tabItem, propertyPaths);
+    return propertyPaths;
+  }
+
+  /// Recursively extract property paths from layout items
+  void _extractPropertyPaths(LayoutItem item, List<String> paths) {
+    if (item is FormLayout) {
+      // Add all properties from form
+      paths.addAll(item.properties.map((p) => p.name));
+    } else if (item is ArrayLayout) {
+      // Add the array property path
+      if (item.property != null) {
+        paths.add(item.property!);
+      }
+    } else if (item is ObjectLayout) {
+      // Add the object property path
+      if (item.property != null) {
+        paths.add(item.property!);
+      }
+    } else if (item is ColumnLayout) {
+      // Recursively process children
+      for (final child in item.items) {
+        _extractPropertyPaths(child, paths);
+      }
+    } else if (item is TabsLayout) {
+      // Recursively process tab items
+      for (final child in item.items) {
+        _extractPropertyPaths(child, paths);
+      }
+    } else if (item is CardLayout) {
+      // Process card properties or children
+      if (item.properties != null) {
+        paths.addAll(item.properties!);
+      }
+      if (item.children != null) {
+        for (final child in item.children!) {
+          _extractPropertyPaths(child, paths);
+        }
+      }
+    }
+  }
+
   bool _hasErrorsForTab(String tabId) {
     if (widget.validationResult == null || widget.validationResult!.isValid) {
       return false;
@@ -794,58 +852,26 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         ? (error.instancePath ?? '')
         : ((error as TFMValidationError).instancePath ?? '');
 
-    // For 'info' tab, only show errors for primitive fields (not arrays/objects)
-    if (tabId == 'info') {
-      // List of properties that are arrays/objects and have their own tabs
-      final excludedProperties = [
-        'position',
-        'tree',
-        'edges',
-        'structure_lt4m',
-        'structure_gt4m',
-        'regeneration',
-        'deadwood',
-      ];
+    // Get all property paths that belong to this tab
+    final tabPropertyPaths = _getPropertyPathsForTab(tabId);
+    if (tabPropertyPaths.isEmpty) return false;
 
-      // Handle required errors at root level
+    // Check if error path matches any of the tab's property paths
+    for (final propertyPath in tabPropertyPaths) {
+      // Check if error path starts with this property path
+      if (path.startsWith('/$propertyPath')) {
+        return true;
+      }
+
+      // Check if it's a root-level required error for this property
       final keyword = error is ValidationError ? error.keyword : null;
       if (path.isEmpty && keyword == 'required') {
         final params = error is ValidationError ? error.params : null;
         final missingProperty = params?['missingProperty'] as String?;
-        // Only show if it's NOT one of the excluded (array/object) properties
-        return missingProperty != null && !excludedProperties.contains(missingProperty);
-      }
-
-      // Handle field-specific errors
-      if (path.isNotEmpty) {
-        final pathSegments = path.split('/').where((s) => s.isNotEmpty).toList();
-        if (pathSegments.length == 1) {
-          // Single segment = root-level field error
-          // Only show if it's NOT one of the excluded properties
-          return !excludedProperties.contains(pathSegments[0]);
+        if (missingProperty == propertyPath) {
+          return true;
         }
-        // Multiple segments = nested error, don't show in info tab
-        return false;
       }
-
-      // Other root-level errors (not field-specific)
-      return false;
-    }
-
-    // For other tabs, use tabId as property name
-    String propertyName = tabId;
-
-    // Check if error path starts with the property name
-    if (path.startsWith('/$propertyName')) {
-      return true;
-    }
-
-    // Check if it's a root-level required error for this property
-    final keyword = error is ValidationError ? error.keyword : null;
-    if (path.isEmpty && keyword == 'required') {
-      final params = error is ValidationError ? error.params : null;
-      final missingProperty = params?['missingProperty'] as String?;
-      return missingProperty == propertyName;
     }
 
     return false;

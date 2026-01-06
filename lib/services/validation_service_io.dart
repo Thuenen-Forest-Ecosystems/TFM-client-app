@@ -243,7 +243,8 @@ class ValidationService {
       // Run TFM validation (runPlots expects array of plot objects)
       // Wrap data in array as runPlots expects: [plotData, ...]
       final dataJson = jsonEncode([data]);
-      final previousDataJson = previousData != null ? jsonEncode([previousData]) : 'null';
+      // Pass empty array instead of null when no previous data to avoid undefined errors in TFM
+      final previousDataJson = previousData != null ? jsonEncode([previousData]) : '[]';
 
       final jsCode =
           '''

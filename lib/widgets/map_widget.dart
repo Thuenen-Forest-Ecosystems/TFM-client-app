@@ -12,6 +12,7 @@ import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart'
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/map-settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -52,6 +53,7 @@ class _MapWidgetState extends State<MapWidget> {
   Map<String, List<LatLng>> _clusterPolygons = {};
   List<CircleMarker>? _cachedTreeCircles;
   Map<String, Map<String, List<LatLng>>> _historicalPositionPolygons = {};
+  double _treeDiameterMultiplier = 1.0;
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -408,6 +410,15 @@ class _MapWidgetState extends State<MapWidget> {
         await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
         debugPrint('First installation: enabled all basemaps by default');
       }
+
+      // Load tree diameter multiplier
+      final savedMultiplier = prefs.getDouble('tree_diameter_multiplier');
+      if (savedMultiplier != null) {
+        setState(() {
+          _treeDiameterMultiplier = savedMultiplier;
+        });
+        debugPrint('Loaded tree diameter multiplier: $savedMultiplier');
+      }
     } catch (e) {
       debugPrint('Error loading map settings: $e');
     }
@@ -417,7 +428,7 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
-      debugPrint('Saved basemap preferences: $_selectedBasemaps');
+      await prefs.setDouble('tree_diameter_multiplier', _treeDiameterMultiplier);
     } catch (e) {
       debugPrint('Error saving map settings: $e');
     }
@@ -886,15 +897,20 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   List<CircleMarker> _treeCircles(List<Map<String, dynamic>> treePositions) {
-    debugPrint('Building ${treePositions.length} tree circle markers');
+    debugPrint(
+      'Building ${treePositions.length} tree circle markers with multiplier $_treeDiameterMultiplier',
+    );
     return treePositions.map((tree) {
       final lat = tree['lat'] as double;
       final lng = tree['lng'] as double;
       final dbh = tree['dbh']; // DBH in millimeters
 
       // Calculate radius: DBH is in mm, convert to meters and divide by 2
+      // Apply the diameter multiplier
       // If dbh is null, use a default small radius of 0.05m (5cm)
-      final radiusMeters = dbh != null ? ((dbh as num).toDouble() / 1000.0 / 2.0) : 0.1;
+      final radiusMeters = dbh != null
+          ? ((dbh as num).toDouble() / 1000.0 / 2.0) * _treeDiameterMultiplier
+          : 0.1;
 
       final isNull = dbh == null;
 
@@ -949,60 +965,25 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void _openMapSettings() {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Karteneinstellungen',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-
-                  CheckboxListTile(
-                    title: const Text('OpenCycleMap (offline)'),
-                    subtitle: const Text('Mittlere Zoomstufen'),
-                    value: _selectedBasemaps.contains('opencycle'),
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedBasemaps.add('opencycle');
-                        } else {
-                          _selectedBasemaps.remove('opencycle');
-                        }
-                      });
-                      setModalState(() {});
-                      _saveMapSettings();
-                    },
-                  ),
-                  CheckboxListTile(
-                    title: const Text('Luftbilder (offline)'),
-                    subtitle: const Text('nur höchste Zoomstufen'),
-                    value: _selectedBasemaps.contains('dop'),
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedBasemaps.add('dop');
-                        } else {
-                          _selectedBasemaps.remove('dop');
-                        }
-                      });
-                      setModalState(() {});
-                      _saveMapSettings();
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
+    MapSettingsModal.show(
+      context,
+      selectedBasemaps: _selectedBasemaps,
+      treeDiameterMultiplier: _treeDiameterMultiplier,
+      onBasemapsChanged: (newBasemaps) {
+        setState(() {
+          _selectedBasemaps = newBasemaps;
+        });
+        _saveMapSettings();
+      },
+      onTreeDiameterMultiplierChanged: (newMultiplier) {
+        setState(() {
+          _treeDiameterMultiplier = newMultiplier;
+          // Rebuild tree circles with new multiplier
+          if (_treePositions.isNotEmpty) {
+            _cachedTreeCircles = _treeCircles(_treePositions);
+          }
+        });
+        _saveMapSettings();
       },
     );
   }
@@ -1164,26 +1145,39 @@ class _MapWidgetState extends State<MapWidget> {
 
         // Historical position polygons from previous_position_data (shown at zoom 16+)
         // Only show for the focused record's cluster
+        // Filter based on visibility settings from MapControllerProvider
         if (_historicalPositionPolygons.isNotEmpty && _currentZoom > 14 && _focusedRecord != null)
           PolygonLayer(
             polygons: _historicalPositionPolygons.entries
                 .where((clusterEntry) => clusterEntry.key == _focusedRecord!.clusterId)
                 .expand((clusterEntry) {
                   // For each cluster, create polygons for all measurement periods
-                  return clusterEntry.value.entries.map((measurementEntry) {
-                    final points = measurementEntry.value;
-                    final measurementKey = measurementEntry.key;
+                  return clusterEntry.value.entries
+                      .where((measurementEntry) {
+                        // Filter based on visibility from MapControllerProvider
+                        final measurementKey = measurementEntry.key;
+                        final recordId = _focusedRecord?.id;
+                        // If no record ID, show all by default
+                        if (recordId == null) return true;
+                        return mapControllerProvider.isPreviousPositionVisible(
+                          recordId,
+                          measurementKey,
+                        );
+                      })
+                      .map((measurementEntry) {
+                        final points = measurementEntry.value;
+                        final measurementKey = measurementEntry.key;
 
-                    // Only draw polygon if there are at least 3 points
-                    if (points.length < 3) return null;
+                        // Only draw polygon if there are at least 3 points
+                        if (points.length < 3) return null;
 
-                    return Polygon(
-                      points: points,
-                      color: _getColorForMeasurementPeriod(measurementKey).withOpacity(0.15),
-                      borderColor: _getColorForMeasurementPeriod(measurementKey),
-                      borderStrokeWidth: 2.0,
-                    );
-                  });
+                        return Polygon(
+                          points: points,
+                          color: _getColorForMeasurementPeriod(measurementKey).withOpacity(0.15),
+                          borderColor: _getColorForMeasurementPeriod(measurementKey),
+                          borderStrokeWidth: 2.0,
+                        );
+                      });
                 })
                 .whereType<Polygon>()
                 .toList(),

@@ -159,6 +159,7 @@ class _GenericFormState extends State<GenericForm> {
                 errors: fieldErrors,
                 onChanged: (value) => _updateField(fieldName, value),
                 dense: widget.isDense,
+                previousData: widget.previous_properties,
                 //width: width,
               ),
             ),

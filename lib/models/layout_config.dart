@@ -130,6 +130,7 @@ class ArrayLayout extends LayoutItem {
   final Map<String, dynamic>? options; // UI options (autoIncrement, etc.)
   final Map<String, dynamic>?
   columns; // Column-specific styling (pinning, grouping, display, width)
+  final String? identifierField; // Field name for matching rows with previous data
 
   ArrayLayout({
     required super.id,
@@ -138,6 +139,7 @@ class ArrayLayout extends LayoutItem {
     required this.component,
     this.options,
     this.columns,
+    this.identifierField,
   }) : super(type: 'array');
 
   factory ArrayLayout.fromJson(Map<String, dynamic> json) {
@@ -148,6 +150,7 @@ class ArrayLayout extends LayoutItem {
       component: json['component'] as String? ?? 'datagrid',
       options: json['options'] as Map<String, dynamic>?,
       columns: json['columns'] as Map<String, dynamic>?,
+      identifierField: json['identifierField'] as String?,
     );
   }
 }

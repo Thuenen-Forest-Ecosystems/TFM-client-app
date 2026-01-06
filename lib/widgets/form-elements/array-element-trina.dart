@@ -22,13 +22,19 @@ class ArrayElementTrina extends StatefulWidget {
   final List<dynamic>? data;
   final TFMValidationResult? validationResult;
   final String? propertyName;
-  final Function(List<dynamic>)? onDataChanged;
+  final Function(List<dynamic>?)? onDataChanged;
 
   /// Optional column styling configuration from layout (takes precedence over schema $tfm.form)
   final Map<String, dynamic>? columnConfig;
 
   /// Optional layout options (e.g., fullSize, autoIncrement defaults)
   final Map<String, dynamic>? layoutOptions;
+
+  /// Previous data array for calculated fields (same-index matching)
+  final List<dynamic>? previousData;
+
+  /// Optional identifier field for matching rows between current and previous data
+  final String? identifierField;
 
   const ArrayElementTrina({
     super.key,
@@ -39,6 +45,8 @@ class ArrayElementTrina extends StatefulWidget {
     this.onDataChanged,
     this.columnConfig,
     this.layoutOptions,
+    this.previousData,
+    this.identifierField,
   });
 
   @override
@@ -146,6 +154,31 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return null;
   }
 
+  /// Check if current row has matching data in previous inventory (by identifier)
+  bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) {
+    if (widget.previousData == null) return false;
+
+    // Use configured identifier field or fall back to common fields
+    final identifierFields = widget.identifierField != null
+        ? [widget.identifierField!]
+        : ['tree_number', 'edge_number', 'row_number', 'id'];
+
+    for (final idField in identifierFields) {
+      if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
+        final currentId = currentRowData[idField];
+
+        // Find matching row in previousData by this identifier
+        final matchFound = (widget.previousData as List).cast<Map<String, dynamic>?>().any(
+          (prevRow) => prevRow != null && prevRow[idField] == currentId,
+        );
+
+        if (matchFound) return true;
+      }
+    }
+
+    return false;
+  }
+
   List<TrinaColumn> _buildColumns() {
     final columns = <TrinaColumn>[];
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
@@ -175,7 +208,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
-          // Always show menu, never enter edit mode
+          // Check if row has previous data (exists in previous inventory)
+          final currentRowData = rendererContext.row.cells.map(
+            (key, cell) => MapEntry(key, cell.value),
+          );
+
+          final hasPreviousData = _hasMatchingPreviousData(currentRowData);
+
           return Container(
             alignment: Alignment.center,
             child: PopupMenuButton<String>(
@@ -200,13 +239,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
+                  enabled: !hasPreviousData, // Only allow delete if no previous data
                   child: Row(
                     children: [
-                      Icon(Icons.delete, size: 18),
-                      SizedBox(width: 8),
-                      Text('Zeile löschen'),
+                      Icon(Icons.delete, size: 18, color: hasPreviousData ? Colors.grey : null),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Zeile löschen',
+                        style: TextStyle(color: hasPreviousData ? Colors.grey : null),
+                      ),
                     ],
                   ),
                 ),
@@ -255,12 +298,29 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         : properties.keys;
 
     for (final key in fieldsToProcess) {
-      // Skip if property doesn't exist in schema
+      // For calculated fields defined only in layout, create a synthetic schema
+      Map<String, dynamic> propertySchema;
+
       if (!properties.containsKey(key)) {
-        continue;
+        // Check if this is a calculated field defined in columnConfig
+        final layoutConfig = widget.columnConfig?[key] as Map<String, dynamic>?;
+        if (layoutConfig != null && layoutConfig['type'] == 'calculated') {
+          // Create synthetic schema for calculated field
+          propertySchema = {
+            'type': 'calculated',
+            'title': layoutConfig['title'] ?? key,
+            'expression': layoutConfig['expression'],
+            if (layoutConfig['unit_short'] != null)
+              '\$tfm': {'unit_short': layoutConfig['unit_short']},
+          };
+        } else {
+          // Skip if property doesn't exist in schema and isn't a calculated field
+          continue;
+        }
+      } else {
+        propertySchema = properties[key] as Map<String, dynamic>;
       }
 
-      final propertySchema = properties[key] as Map<String, dynamic>;
       final config = _getColumnConfig(key, propertySchema);
 
       // Skip if explicitly set to not display
@@ -314,8 +374,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       bool isEnum = false;
       bool isNumeric = false;
       bool isBoolean = false;
+      bool isCalculated = false;
 
-      if (propertySchema.containsKey('enum')) {
+      if (type == 'calculated') {
+        // Calculated column - always readonly
+        columnType = TrinaColumnTypeText();
+        isCalculated = true;
+      } else if (propertySchema.containsKey('enum')) {
         // Enum column - will use custom renderer with GenericEnumDialog
         columnType = TrinaColumnTypeText();
         isEnum = true;
@@ -368,9 +433,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableSorting: false,
           enableColumnDrag: false,
           enableContextMenu: false,
-          readOnly: isReadOnly,
-          // Custom renderer for enum, numeric, boolean, or grouped columns
-          renderer: isEnum
+          readOnly: isReadOnly || isCalculated,
+          // Custom renderer for calculated, enum, numeric, boolean, or grouped columns
+          renderer: isCalculated
+              ? (rendererContext) => _buildGenericFieldCell(rendererContext, propertySchema, key)
+              : isEnum
               ? (rendererContext) => _buildEnumCell(rendererContext, propertySchema, key)
               : isNumeric
               ? (rendererContext) => _buildNumericEditableCell(rendererContext, propertySchema, key)
@@ -406,13 +473,28 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         : properties.keys;
 
     for (final key in fieldsToProcess) {
-      // Skip if property doesn't exist in schema
-      if (!properties.containsKey(key)) {
-        continue;
-      }
+      // For calculated fields defined only in layout, create a synthetic schema
+      Map<String, dynamic> propertySchema;
+      Map<String, dynamic> config;
 
-      final propertySchema = properties[key] as Map<String, dynamic>;
-      final config = _getColumnConfig(key, propertySchema);
+      if (!properties.containsKey(key)) {
+        // Check if this is a calculated field defined in columnConfig
+        final layoutConfig = widget.columnConfig?[key] as Map<String, dynamic>?;
+        if (layoutConfig != null && layoutConfig['type'] == 'calculated') {
+          // For calculated fields, extract groupBy directly from layout config
+          config = <String, dynamic>{
+            'groupBy': layoutConfig['groupBy'],
+            'display': layoutConfig['display'] ?? true,
+            'sortBy': 999,
+          };
+        } else {
+          // Skip if property doesn't exist in schema and isn't a calculated field
+          continue;
+        }
+      } else {
+        propertySchema = properties[key] as Map<String, dynamic>;
+        config = _getColumnConfig(key, propertySchema);
+      }
 
       // Skip if explicitly set to not display
       if (config['display'] == false) {
@@ -640,6 +722,57 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
   }
 
+  Widget _buildGenericFieldCell(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+  ) {
+    final rowIndex = rendererContext.rowIdx;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+
+    // Get current row data to find matching previous row by identifier
+    final currentRowData = rendererContext.row.cells.map((key, cell) => MapEntry(key, cell.value));
+
+    // Find matching previous row by identifier (tree_number, edge_number, etc.)
+    Map<String, dynamic>? previousRowData;
+    if (widget.previousData != null) {
+      // Use configured identifier field or fall back to common fields
+      final identifierFields = widget.identifierField != null
+          ? [widget.identifierField!]
+          : ['tree_number', 'edge_number', 'row_number', 'id'];
+
+      for (final idField in identifierFields) {
+        if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
+          final currentId = currentRowData[idField];
+
+          // Find matching row in previousData by this identifier
+          previousRowData = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
+            (prevRow) => prevRow != null && prevRow[idField] == currentId,
+            orElse: () => null,
+          );
+
+          if (previousRowData != null) {
+            break;
+          }
+        }
+      }
+    }
+
+    return Container(
+      color: bgColor,
+      child: GenericTextField(
+        key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+        fieldName: fieldKey,
+        fieldSchema: propertySchema,
+        value: rendererContext.cell.value,
+        errors: const [],
+        compact: true,
+        previousData: previousRowData,
+      ),
+    );
+  }
+
   Future<void> _openEnumDialog(
     TrinaColumnRendererContext rendererContext,
     Map<String, dynamic> propertySchema,
@@ -672,10 +805,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   void _setEmptyArray() {
-    // data is null and should be set to empty array
+    // Clear all rows - this will set data to null via _notifyDataChanged
     _rows.clear();
     _stateManager?.removeAllRows();
-    _notifyDataChanged();
+    _notifyDataChanged(true);
   }
 
   Future<void> _addRowAsFormDialog() async {
@@ -905,7 +1038,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
   }
 
-  void _notifyDataChanged() {
+  void _notifyDataChanged([bool forceData = false]) {
     // Sync _rows from state manager if available (source of truth)
     final rowsToUse = _stateManager?.rows ?? _rows;
 
@@ -920,7 +1053,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return rowData;
     }).toList();
 
-    widget.onDataChanged?.call(data);
+    if (forceData) {
+      widget.onDataChanged?.call(data);
+      return;
+    }
+
+    // If last row is deleted, data should be null not empty array.
+    if (data.isEmpty) {
+      widget.onDataChanged?.call(null);
+    } else {
+      widget.onDataChanged?.call(data);
+    }
   }
 
   @override

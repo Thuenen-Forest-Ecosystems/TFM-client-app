@@ -121,6 +121,7 @@ dependencies:
 
   #windows
   app_links: ^6.2.0
+  math_expressions: ^3.1.0
 
 dependency_overrides:
   # because of https://github.com/jpnurmi/flutter_libserialport/issues/128
