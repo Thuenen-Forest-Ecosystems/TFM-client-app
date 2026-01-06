@@ -147,13 +147,26 @@ class _LoginState extends State<Login> {
       } else {
         print('Login: Non-AuthException error - $e');
 
+        // Check for timeout errors
+        if (e.toString().contains('ClientException') &&
+            (e.toString().contains('Zeitlimit') ||
+                e.toString().contains('Semaphore') ||
+                e.toString().contains('timeout'))) {
+          errorMessage =
+              'Verbindungszeitüberschreitung: Der Server konnte nicht rechtzeitig erreicht werden.\n\n'
+              'Bitte versuchen Sie:\n'
+              '• Eine andere Internetverbindung (z.B. WLAN statt mobile Daten)\n'
+              '• Es später erneut\n'
+              '• Kontaktieren Sie Ihren Netzwerkadministrator, falls Sie in einem Firmen-/Institutionsnetzwerk sind';
+        }
         // Check for certificate/SSL errors
-        if (e.toString().contains('HandshakeException') ||
+        else if (e.toString().contains('HandshakeException') ||
             e.toString().contains('CERTIFICATE_VERIFY_FAILED') ||
             e.toString().contains('unable to get local certificate') ||
             e.toString().contains('unable to get local issuer certificate')) {
           errorMessage =
-              'Verbindungsfehler: Bitte überprüfen Sie Ihre Internetverbindung und stellen Sie sicher, dass Datum und Uhrzeit korrekt eingestellt sind.';
+              'Verbindungsfehler: Bitte überprüfen Sie Ihre Internetverbindung und stellen Sie sicher, dass Datum und Uhrzeit korrekt eingestellt sind.\n\n'
+              'Falls das Problem weiterhin besteht, kontaktieren Sie bwi-support@thuenen.de.';
         } else {
           errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
         }
