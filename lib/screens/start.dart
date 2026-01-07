@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
 //import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
+import 'package:terrestrial_forest_monitor/widgets/serial-port-gps-icon.dart';
 //import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon.dart';
 //import 'package:terrestrial_forest_monitor/widgets/map_widget_maplibre.dart'; // not supported in windows
 import 'package:terrestrial_forest_monitor/widgets/map_widget.dart';
@@ -245,7 +247,11 @@ class _StartState extends State<Start> {
       child: Row(
         children: [
           //const SyncStatusButton(),
-          const BluetoothIconCombined(),
+          // Use platform-specific GPS widget
+          if (Platform.isWindows)
+            const SerialPortGpsIcon()
+          else
+            const BluetoothIconCombined(),
         ],
       ),
     );

@@ -99,7 +99,7 @@ dependencies:
   vector_tile_renderer: ^5.2.1
   vector_map_tiles_pmtiles: ^1.5.0 # .pmtiles support
   vector_map_tiles_mbtiles: ^1.0.0 # .mbtiles support
-  #flutter_libserialport: ^0.6.0
+  flutter_libserialport: ^0.6.0
   #libserialport: ^0.3.0+1
 
   #maplibre: ^0.3.1
@@ -125,10 +125,10 @@ dependencies:
 
 dependency_overrides:
   # because of https://github.com/jpnurmi/flutter_libserialport/issues/128
-  #flutter_libserialport:
-  #  git:
-  #    url: https://github.com/NeariX67/flutter_libserialport
-  #    ref: main
+  flutter_libserialport:
+    git:
+      url: https://github.com/NeariX67/flutter_libserialport
+      ref: main
   sqlite3: ^2.4.7 # Use a stable version
   ffi: ^2.1.0 # Ensure compatible FFI version
 
