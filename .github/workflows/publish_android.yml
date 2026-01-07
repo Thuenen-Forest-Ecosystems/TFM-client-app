@@ -109,9 +109,10 @@ jobs:
         run: flutter build apk --release
 
       - name: Upload APK to Release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '')
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.event_name == 'release' && github.ref_name || github.event.inputs.release_tag }}
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
