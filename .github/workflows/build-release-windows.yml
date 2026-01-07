@@ -37,6 +37,25 @@ jobs:
           Set-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
           Write-Host "Excluded workspace from Windows Defender"
 
+      - name: Enable flutter_libserialport for Windows
+        shell: powershell
+        run: |
+          # Uncomment flutter_libserialport dependencies for Windows build
+          $pubspecPath = "pubspec.yaml"
+          $content = Get-Content $pubspecPath -Raw
+
+          # Uncomment flutter_libserialport in dependencies
+          $content = $content -replace "#flutter_libserialport: \^0\.6\.0", "flutter_libserialport: ^0.6.0"
+
+          # Uncomment flutter_libserialport in dependency_overrides
+          $content = $content -replace "#flutter_libserialport:", "flutter_libserialport:"
+          $content = $content -replace "#  git:", "  git:"
+          $content = $content -replace "#    url: https://github.com/NeariX67/flutter_libserialport", "    url: https://github.com/NeariX67/flutter_libserialport"
+          $content = $content -replace "#    ref: main", "    ref: main"
+
+          Set-Content $pubspecPath -Value $content
+          Write-Host "Enabled flutter_libserialport for Windows build"
+
       - name: Install dependencies
         run: |
           flutter config --no-analytics

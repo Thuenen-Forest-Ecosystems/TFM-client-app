@@ -102,6 +102,7 @@ Schema schema = Schema(([
     Column.text('updated_at'),
     Column.text('interval_name'),
     Column.integer('is_visible'),
+    Column.integer('is_deprecated'),
     Column.text('title'),
     Column.text('description'),
     Column.text('bucket_schema_file_name'),

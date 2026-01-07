@@ -57,9 +57,9 @@ class SchemaRepository {
   Future<void> create(SchemaModel schema) async {
     await db.execute(
       '''INSERT INTO schemas (
-        id, created_at, interval_name, title, description, is_visible,
+        id, created_at, interval_name, title, description, is_visible, is_deprecated,
         bucket_schema_file_name, bucket_plausability_file_name, schema, version, directory
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
       [
         schema.id,
         schema.createdAt.toIso8601String(),
@@ -67,6 +67,7 @@ class SchemaRepository {
         schema.title,
         schema.description,
         schema.isVisible ? 1 : 0,
+        schema.isDeprecated ? 1 : 0,
         schema.bucketSchemaFileName,
         schema.bucketPlausabilityFileName,
         schema.schemaData != null ? jsonEncode(schema.schemaData) : null,
@@ -80,7 +81,7 @@ class SchemaRepository {
   Future<void> update(SchemaModel schema) async {
     await db.execute(
       '''UPDATE schemas 
-         SET interval_name = ?, title = ?, description = ?, is_visible = ?,
+         SET interval_name = ?, title = ?, description = ?, is_visible = ?, is_deprecated = ?,
              bucket_schema_file_name = ?, bucket_plausability_file_name = ?,
              schema = ?, version = ?, directory = ?
          WHERE id = ?''',
@@ -89,6 +90,7 @@ class SchemaRepository {
         schema.title,
         schema.description,
         schema.isVisible ? 1 : 0,
+        schema.isDeprecated ? 1 : 0,
         schema.bucketSchemaFileName,
         schema.bucketPlausabilityFileName,
         schema.schemaData != null ? jsonEncode(schema.schemaData) : null,
@@ -165,6 +167,7 @@ class SchemaModel {
   final String title;
   final String? description;
   final bool isVisible;
+  final bool isDeprecated;
   final String? bucketSchemaFileName;
   final String? bucketPlausabilityFileName;
   final Map<String, dynamic>? schemaData;
@@ -178,6 +181,7 @@ class SchemaModel {
     required this.title,
     this.description,
     required this.isVisible,
+    required this.isDeprecated,
     this.bucketSchemaFileName,
     this.bucketPlausabilityFileName,
     this.schemaData,
@@ -193,6 +197,7 @@ class SchemaModel {
       title: json['title'] as String,
       description: json['description'] as String?,
       isVisible: (json['is_visible'] as int?) == 1,
+      isDeprecated: (json['is_deprecated'] as int?) == 1,
       bucketSchemaFileName: json['bucket_schema_file_name'] as String?,
       bucketPlausabilityFileName: json['bucket_plausability_file_name'] as String?,
       schemaData: json['schema'] != null
@@ -228,6 +233,7 @@ class SchemaModel {
     String? title,
     String? description,
     bool? isVisible,
+    bool? isDeprecated,
     String? bucketSchemaFileName,
     String? bucketPlausabilityFileName,
     Map<String, dynamic>? schemaData,
@@ -241,6 +247,7 @@ class SchemaModel {
       title: title ?? this.title,
       description: description ?? this.description,
       isVisible: isVisible ?? this.isVisible,
+      isDeprecated: isDeprecated ?? this.isDeprecated,
       bucketSchemaFileName: bucketSchemaFileName ?? this.bucketSchemaFileName,
       bucketPlausabilityFileName: bucketPlausabilityFileName ?? this.bucketPlausabilityFileName,
       schemaData: schemaData ?? this.schemaData,

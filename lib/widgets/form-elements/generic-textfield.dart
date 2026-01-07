@@ -219,8 +219,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
         ? (isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2))
         : null;
 
-    // Check if field is readonly (JSON Schema standard)
-    final isReadonly = widget.fieldSchema['readonly'] as bool? ?? false;
+    // Check if field is readonly (support both 'readOnly' camelCase and 'readonly' lowercase)
+    final isReadonly =
+        (widget.fieldSchema['readOnly'] as bool? ??
+        widget.fieldSchema['readonly'] as bool? ??
+        false);
 
     // Handle calculated type
     if (type == 'calculated') {

@@ -87,8 +87,6 @@ class _SchemaSelectionState extends State<SchemaSelection> {
           children: [
             const UserInfoTile(),
 
-            const VersionControl(),
-
             if (schemas.isNotEmpty)
               Card(margin: const EdgeInsets.all(16), child: const MapTilesDownload()),
 
@@ -111,6 +109,8 @@ class _SchemaSelectionState extends State<SchemaSelection> {
                       },
                     ),
             ),
+
+            const VersionControl(),
           ],
         );
       },

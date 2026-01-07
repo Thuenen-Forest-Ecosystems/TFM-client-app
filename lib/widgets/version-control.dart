@@ -134,24 +134,32 @@ class _VersionControlState extends State<VersionControl> {
 
   @override
   Widget build(BuildContext context) {
-    // Show nothing if we're on the latest version or still checking
-    if (_latestVersion == null) {
+    // Show nothing if we're still checking or haven't checked yet
+    if (!_hasChecked || _currentVersion == null) {
       return const SizedBox.shrink();
     }
 
+    final hasUpdate = _latestVersion != null;
+    final cardColor = hasUpdate
+        ? Theme.of(context).colorScheme.primaryContainer
+        : Theme.of(context).colorScheme.surfaceContainerHighest;
+    final textColor = hasUpdate
+        ? Theme.of(context).colorScheme.onPrimaryContainer
+        : Theme.of(context).colorScheme.onSurface;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Theme.of(context).colorScheme.primaryContainer,
+      color: cardColor,
       child: InkWell(
-        onTap: _openReleaseUrl,
+        onTap: hasUpdate ? _openReleaseUrl : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Icon(
-                Icons.system_update,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                hasUpdate ? Icons.system_update : Icons.check_circle,
+                color: textColor,
                 size: 32,
               ),
               const SizedBox(width: 16),
@@ -160,29 +168,20 @@ class _VersionControlState extends State<VersionControl> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Neue Version verfügbar',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+                      hasUpdate ? 'Neue Version verfügbar' : 'Aktuelle Version',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Version $_latestVersion ist verfügbar (Aktuell: $_currentVersion)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8),
-                      ),
+                      hasUpdate
+                          ? 'Version $_latestVersion ist verfügbar (Aktuell: $_currentVersion)'
+                          : 'Version $_currentVersion',
+                      style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.8)),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.open_in_new,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                size: 20,
-              ),
+              if (hasUpdate) Icon(Icons.open_in_new, color: textColor, size: 20),
             ],
           ),
         ),

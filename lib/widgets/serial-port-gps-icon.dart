@@ -3,16 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'dart:async';
-import 'package:flutter_libserialport/flutter_libserialport.dart';
+
+// Conditional import: use real serial port on Windows, stub on other platforms
+import 'package:flutter_libserialport/flutter_libserialport.dart'
+    if (dart.library.html) 'package:terrestrial_forest_monitor/services/serial_port_stub.dart'
+    if (dart.library.io) 'package:terrestrial_forest_monitor/services/serial_port_stub.dart';
 
 class SerialPortDevice {
   final String name;
   final String description;
 
-  SerialPortDevice({
-    required this.name,
-    required this.description,
-  });
+  SerialPortDevice({required this.name, required this.description});
 }
 
 class SerialPortGpsIcon extends StatefulWidget {
@@ -54,10 +55,12 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
         try {
           final port = SerialPort(portName);
           final description = port.description ?? 'Unknown Device';
-          devices.add(SerialPortDevice(
-            name: portName,
-            description: description.isEmpty ? 'Serial Device' : description,
-          ));
+          devices.add(
+            SerialPortDevice(
+              name: portName,
+              description: description.isEmpty ? 'Serial Device' : description,
+            ),
+          );
           port.dispose();
         } catch (e) {
           debugPrint('Error reading port $portName: $e');
@@ -89,7 +92,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
 
       // Open serial port
       _activePort = SerialPort(portName);
-      
+
       if (!_activePort!.openReadWrite()) {
         throw Exception('Failed to open port: ${SerialPort.lastError}');
       }
@@ -128,11 +131,9 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
 
       if (mounted && context.mounted) {
         try {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Connecting to GPS on $portName...'),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Connecting to GPS on $portName...')));
         } catch (e) {
           debugPrint('Could not show snackbar: $e');
         }
@@ -149,9 +150,9 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
   Future<void> _disconnectSerialPort() async {
     await _readerSubscription?.cancel();
     _readerSubscription = null;
-    
+
     _reader = null;
-    
+
     _activePort?.close();
     _activePort?.dispose();
     _activePort = null;
@@ -293,10 +294,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
 
                             return Card(
                               child: ListTile(
-                                leading: Icon(
-                                  Icons.usb,
-                                  color: isConnected ? Colors.green : null,
-                                ),
+                                leading: Icon(Icons.usb, color: isConnected ? Colors.green : null),
                                 title: Text(device.name),
                                 subtitle: Text(device.description),
                                 trailing: isConnected
@@ -354,10 +352,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           title: const Text('Error'),
           content: Text(message),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
           ],
         ),
       );
@@ -379,7 +374,10 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
 
     // GPS has valid position if connected AND has valid lat/lon coordinates
     final hasValidPosition =
-        (_connectedPort != null && nmea != null && nmea.latitude != null && nmea.longitude != null) ||
+        (_connectedPort != null &&
+            nmea != null &&
+            nmea.latitude != null &&
+            nmea.longitude != null) ||
         (isInternalGPS && lastPos != null);
 
     // Choose icon based on GPS source

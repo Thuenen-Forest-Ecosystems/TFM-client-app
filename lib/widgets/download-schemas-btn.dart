@@ -44,12 +44,25 @@ class _DownloadSchemasBtnState extends State<DownloadSchemasBtn> {
     try {
       // Check if user is database admin
       final isDatabaseAdmin = await _isDatabaseAdmin();
+      debugPrint('Is database admin: $isDatabaseAdmin');
+
+      // First, check what schemas we have in total
+      final allSchemas = await db.getAll(
+        'SELECT id, directory, is_visible, is_deprecated FROM schemas',
+      );
+      debugPrint('Total schemas in local DB: ${allSchemas.length}');
+      for (var schema in allSchemas) {
+        debugPrint(
+          'Schema: ${schema['id']}, directory: ${schema['directory']}, visible: ${schema['is_visible']}, deprecated: ${schema['is_deprecated']}',
+        );
+      }
 
       // Get all schema directories - include hidden schemas if database admin
       final visibilityCondition = isDatabaseAdmin ? '' : 'AND is_visible = 1';
       final results = await db.getAll(
-        "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' $visibilityCondition",
+        "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND is_deprecated = 0 AND directory != '' $visibilityCondition",
       );
+      debugPrint('Query result count: ${results.length}');
 
       if (results.isEmpty) {
         setState(() {
@@ -141,12 +154,6 @@ class _DownloadSchemasBtnState extends State<DownloadSchemasBtn> {
             LinearProgressIndicator(value: _progress),
             const SizedBox(height: 8),
             Text(_statusMessage, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
-            if (_totalDirectories > 0)
-              Text(
-                'Schema $_currentDirectory/$_totalDirectories',
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
             const SizedBox(height: 16),
           ],
           if (!_isDownloading && _statusMessage.isNotEmpty) ...[

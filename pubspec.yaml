@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+51
+version: 1.0.0+52
 
 environment:
   sdk: ">=3.9.2 <4.0.0"
@@ -99,7 +99,8 @@ dependencies:
   vector_tile_renderer: ^5.2.1
   vector_map_tiles_pmtiles: ^1.5.0 # .pmtiles support
   vector_map_tiles_mbtiles: ^1.0.0 # .mbtiles support
-  flutter_libserialport: ^0.6.0
+  # Windows only - uncomment when building for Windows:
+  #flutter_libserialport: ^0.6.0
   #libserialport: ^0.3.0+1
 
   #maplibre: ^0.3.1
@@ -124,11 +125,12 @@ dependencies:
   math_expressions: ^3.1.0
 
 dependency_overrides:
+  # Windows only - uncomment when building for Windows:
   # because of https://github.com/jpnurmi/flutter_libserialport/issues/128
-  flutter_libserialport:
-    git:
-      url: https://github.com/NeariX67/flutter_libserialport
-      ref: main
+  #flutter_libserialport:
+  #  git:
+  #    url: https://github.com/NeariX67/flutter_libserialport
+  #    ref: main
   sqlite3: ^2.4.7 # Use a stable version
   ffi: ^2.1.0 # Ensure compatible FFI version
 
