@@ -58,6 +58,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   List<TrinaRow> _rows = [];
   List<TrinaColumnGroup> _columnGroups = [];
   TrinaGridStateManager? _stateManager;
+  bool _isArrayReadOnly = false;
 
   @override
   void initState() {
@@ -74,6 +75,24 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     bool shouldRebuild = false;
 
     if (widget.jsonSchema != oldWidget.jsonSchema) {
+      debugPrint('🔄 ArrayElementTrina: Schema changed for ${widget.propertyName}');
+
+      // Debug: Check if readonly status changed in schema
+      final oldItems = oldWidget.jsonSchema['items'] as Map<String, dynamic>?;
+      final newItems = widget.jsonSchema['items'] as Map<String, dynamic>?;
+      final oldProps = oldItems?['properties'] as Map<String, dynamic>?;
+      final newProps = newItems?['properties'] as Map<String, dynamic>?;
+
+      if (oldProps != null && newProps != null) {
+        newProps.forEach((key, value) {
+          final oldReadOnly = oldProps[key]?['readOnly'];
+          final newReadOnly = value['readOnly'];
+          if (oldReadOnly != newReadOnly) {
+            debugPrint('  📝 Field $key: readOnly changed from $oldReadOnly to $newReadOnly');
+          }
+        });
+      }
+
       shouldRebuild = true;
     }
 
@@ -83,6 +102,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     if (shouldRebuild) {
+      debugPrint('♻️ Rebuilding ArrayElementTrina grid for ${widget.propertyName}');
       _initializeGrid();
     }
 
@@ -93,6 +113,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   void _initializeGrid() {
+    // Check if the entire array is readonly
+    _isArrayReadOnly = widget.jsonSchema['readonly'] as bool? ?? false;
+    if (_isArrayReadOnly) {
+      debugPrint('🔒 Array ${widget.propertyName} is READONLY - row operations disabled');
+    }
+
     _columns = _buildColumns();
     _columnGroups = _buildColumnGroups();
     _rows = _buildRows();
@@ -229,26 +255,40 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'copy',
+                  enabled: !_isArrayReadOnly,
                   child: Row(
                     children: [
-                      Icon(Icons.content_copy, size: 18),
+                      Icon(
+                        Icons.content_copy,
+                        size: 18,
+                        color: _isArrayReadOnly ? Colors.grey : null,
+                      ),
                       SizedBox(width: 8),
-                      Text('Zeile kopieren'),
+                      Text(
+                        'Zeile kopieren',
+                        style: TextStyle(color: _isArrayReadOnly ? Colors.grey : null),
+                      ),
                     ],
                   ),
                 ),
                 PopupMenuItem(
                   value: 'delete',
-                  enabled: !hasPreviousData, // Only allow delete if no previous data
+                  enabled: !hasPreviousData && !_isArrayReadOnly,
                   child: Row(
                     children: [
-                      Icon(Icons.delete, size: 18, color: hasPreviousData ? Colors.grey : null),
+                      Icon(
+                        Icons.delete,
+                        size: 18,
+                        color: (hasPreviousData || _isArrayReadOnly) ? Colors.grey : null,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Zeile löschen',
-                        style: TextStyle(color: hasPreviousData ? Colors.grey : null),
+                        style: TextStyle(
+                          color: (hasPreviousData || _isArrayReadOnly) ? Colors.grey : null,
+                        ),
                       ),
                     ],
                   ),
@@ -408,6 +448,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       // Check if field is readonly
       final isReadOnly = entry.value['readonly'] as bool? ?? false;
 
+      /*if (isReadOnly) {
+        debugPrint('🔒 Column $key is READONLY');
+      }*/
+
       // Determine frozen position from pinned value
       final frozen = pinnedValue == 'left'
           ? TrinaColumnFrozen.start
@@ -442,7 +486,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               : isNumeric
               ? (rendererContext) => _buildNumericEditableCell(rendererContext, propertySchema, key)
               : isBoolean
-              ? (rendererContext) => _buildBooleanCell(rendererContext, key)
+              ? (rendererContext) => _buildBooleanCell(rendererContext, propertySchema, key)
               : groupName != null
               ? (rendererContext) => _buildTextCell(rendererContext, key)
               : (rendererContext) => _buildTextCell(rendererContext, key),
@@ -618,6 +662,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
+    // Check if field is readonly
+    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+
     // Get display text
     String displayText = '';
     if (value != null && nameDe != null && enumValues != null) {
@@ -633,7 +680,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     return InkWell(
-      onTap: () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
+      onTap: isReadOnly ? null : () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -699,12 +746,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
   }
 
-  Widget _buildBooleanCell(TrinaColumnRendererContext rendererContext, String fieldKey) {
+  Widget _buildBooleanCell(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+  ) {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final boolValue = value == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+
+    // Check if field is readonly
+    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -713,11 +767,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       color: bgColor,
       child: Switch(
         value: boolValue,
-        onChanged: (newValue) {
-          rendererContext.cell.value = newValue;
-          _stateManager?.notifyListeners();
-          _notifyDataChanged();
-        },
+        onChanged: isReadOnly
+            ? null
+            : (newValue) {
+                rendererContext.cell.value = newValue;
+                _stateManager?.notifyListeners();
+                _notifyDataChanged();
+              },
       ),
     );
   }
@@ -1083,7 +1139,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             //const Text('Kein Eintrag vorhanden', style: TextStyle(color: Colors.grey)),
             //const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: addRow,
+              onPressed: _isArrayReadOnly ? null : addRow,
               icon: const Icon(Icons.add),
               label: const Text('Eintrag hinzufügen'),
             ),
@@ -1122,7 +1178,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               ),
               Spacer(),
               OutlinedButton.icon(
-                onPressed: addRow,
+                onPressed: _isArrayReadOnly ? null : addRow,
                 label: Text('Zeile hinzufügen'),
                 icon: const Icon(Icons.add),
               ),

@@ -15,6 +15,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/form-wrapper.da
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/conditional_rules_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -36,10 +37,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _jsonSchema;
+  Map<String, dynamic>? _originalJsonSchema; // Unmodified schema for applying conditional rules
   Map<String, dynamic>? _formData;
   Map<String, dynamic>? _previousFormData;
   TFMValidationResult? _validationResult;
   bool _isValidating = false;
+  bool _hasCompletedInitialValidation = false;
   bool _isSaving = false;
   StreamSubscription? _gpsSubscription;
   late SchemaRepository schemaRepository;
@@ -47,6 +50,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   int? _loadedSchemaVersion;
   String? _schemaDirectory;
   late final GlobalKey<FormWrapperState> _formWrapperKey;
+  List<ConditionalRule> _conditionalRules = [];
 
   @override
   void initState() {
@@ -153,6 +157,34 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     super.dispose();
   }
 
+  /// Deep copy a map to avoid mutating the original
+  Map<String, dynamic> _deepCopyMap(Map<String, dynamic> original) {
+    final copy = <String, dynamic>{};
+    original.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        copy[key] = _deepCopyMap(value);
+      } else if (value is List) {
+        copy[key] = _deepCopyList(value);
+      } else {
+        copy[key] = value;
+      }
+    });
+    return copy;
+  }
+
+  /// Deep copy a list to avoid mutating the original
+  List<dynamic> _deepCopyList(List<dynamic> original) {
+    return original.map((item) {
+      if (item is Map<String, dynamic>) {
+        return _deepCopyMap(item);
+      } else if (item is List) {
+        return _deepCopyList(item);
+      } else {
+        return item;
+      }
+    }).toList();
+  }
+
   Future<void> _loadSchema(String intervalName, {String? schemaIdValidatedBy}) async {
     try {
       // Prefer validated schema if available, otherwise get latest
@@ -192,11 +224,26 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         debugPrint('Schema has no directory, using embedded schema');
         // Use the embedded schema from the database
         if (latestSchema.schemaData != null) {
+          final schema = latestSchema!.schemaData!['properties']['plot']['items'];
           setState(() {
-            _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
+            _jsonSchema = schema;
+            _originalJsonSchema = _deepCopyMap(schema);
+            // No conditional rules available for embedded schema (no directory)
+            _conditionalRules = [];
           });
         }
         return;
+      }
+
+      // Load conditional rules from directory (do this early, before validation.json check)
+      List<ConditionalRule> conditionalRules = [];
+      try {
+        conditionalRules = await ConditionalRulesService().loadRules(latestSchema.directory!);
+        debugPrint(
+          '📌 Loaded ${conditionalRules.length} conditional rules from ${latestSchema.directory}',
+        );
+      } catch (rulesError) {
+        debugPrint('❌ Error loading conditional rules: $rulesError');
       }
 
       // Load validation.json and style.json from downloaded directory
@@ -244,9 +291,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               debugPrint('validation.json successfully downloaded');
               final validationContent = await validationFile.readAsString();
               final Map<String, dynamic> validationJson = jsonDecode(validationContent);
+              final schema = validationJson['properties']['plot']['items'];
               setState(() {
-                _jsonSchema = validationJson['properties']['plot']['items'];
+                _jsonSchema = schema;
+                _originalJsonSchema = _deepCopyMap(schema);
+                _conditionalRules = conditionalRules;
               });
+              debugPrint(
+                '✅ Schema loaded from downloaded validation.json with ${conditionalRules.length} conditional rules',
+              );
               return;
             }
           } catch (downloadError) {
@@ -255,11 +308,17 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
           debugPrint('Falling back to embedded schema');
 
-          // Fallback to embedded schema
+          // Fallback to embedded schema with pre-loaded rules
           if (latestSchema.schemaData != null) {
+            final schema = latestSchema!.schemaData!['properties']['plot']['items'];
             setState(() {
-              _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
+              _jsonSchema = schema;
+              _originalJsonSchema = _deepCopyMap(schema);
+              _conditionalRules = conditionalRules;
             });
+            debugPrint(
+              '✅ Embedded schema loaded with ${conditionalRules.length} conditional rules',
+            );
           }
 
           // Try to load TFM validation code even when using fallback schema
@@ -291,9 +350,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
         debugPrint('Successfully loaded validation.json from: $validationFilePath');
 
+        // Use pre-loaded conditional rules
+        final schema = validationJson['properties']['plot']['items'];
         setState(() {
-          _jsonSchema = validationJson['properties']['plot']['items'];
+          _jsonSchema = schema;
+          _originalJsonSchema = _deepCopyMap(schema);
+          _conditionalRules = conditionalRules;
         });
+        debugPrint('✅ Schema and rules set in state (${conditionalRules.length} rules)');
 
         // Try to load TFM validation code from the same directory
         try {
@@ -322,11 +386,17 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         debugPrint('Error loading validation.json file: $e');
         debugPrint('Falling back to embedded schema');
 
-        // Fallback to embedded schema from database
+        // Fallback to embedded schema from database with pre-loaded rules
         if (latestSchema.schemaData != null) {
+          final schema = latestSchema!.schemaData!['properties']['plot']['items'];
           setState(() {
-            _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
+            _jsonSchema = schema;
+            _originalJsonSchema = _deepCopyMap(schema);
+            _conditionalRules = conditionalRules;
           });
+          debugPrint(
+            '✅ Embedded schema loaded (error fallback) with ${conditionalRules.length} conditional rules',
+          );
         }
       }
     } catch (e) {
@@ -530,12 +600,31 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   }
 
   Future<void> _onFormDataChanged(Map<String, dynamic> updatedData) async {
-    if (_jsonSchema != null) {
+    debugPrint('🔄 _onFormDataChanged called with forest_status=${updatedData['forest_status']}');
+
+    if (_originalJsonSchema != null) {
       setState(() {
         _isValidating = true;
       });
 
       try {
+        debugPrint('📋 Conditional rules count: ${_conditionalRules.length}');
+
+        // Apply conditional rules to original schema
+        // Deep copy is handled inside applyRules() to prevent mutation
+        final modifiedSchema = _conditionalRules.isNotEmpty
+            ? ConditionalRulesService().applyRules(
+                schema: _originalJsonSchema!,
+                formData: updatedData,
+                rules: _conditionalRules,
+              )
+            : _originalJsonSchema!;
+
+        if (_conditionalRules.isEmpty) {
+          debugPrint('⚠️ No conditional rules to apply');
+        }
+        ;
+
         // Merge properties with record metadata for TFM validation
         // TFM needs: id, intkey, cluster_id, plot_id, and all properties
         final currentDataWithMeta = {
@@ -567,7 +656,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             : null;
 
         final result = await ValidationService.instance.validateWithTFM(
-          schema: _jsonSchema!,
+          schema: modifiedSchema,
           data: currentDataWithMeta,
           previousData: previousDataWithMeta,
         );
@@ -576,8 +665,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           setState(() {
             _validationResult = result;
             _isValidating = false;
+            _hasCompletedInitialValidation = true;
             // Always update form data, regardless of validation result
             _formData = updatedData;
+            // Update schema with conditional rules applied
+            _jsonSchema = modifiedSchema;
           });
         }
 
@@ -977,7 +1069,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                   ),
 
                   IconButton.outlined(
-                    onPressed: _isSaving ? null : () => save('save'),
+                    onPressed: (_isSaving || !_hasCompletedInitialValidation)
+                        ? null
+                        : () => save('save'),
                     icon: _isSaving
                         ? const SizedBox(
                             width: 16,
@@ -992,7 +1086,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                         _validationResult != null && _validationResult!.allIssues.isNotEmpty,
                     textColor: Colors.white,
                     child: ElevatedButton(
-                      onPressed: _jsonSchema != null ? saveRecord : null,
+                      onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
+                          ? saveRecord
+                          : null,
                       child: _isValidating
                           ? const SizedBox(
                               width: 16,
@@ -1094,6 +1190,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     )
                   : _record == null
                   ? const Center(child: Text('No record found'))
+                  : !_hasCompletedInitialValidation
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text(
+                            'Formular wird erstellt',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    )
                   : FormWrapper(
                       key: _formWrapperKey,
                       jsonSchema: _jsonSchema,
