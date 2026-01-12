@@ -154,6 +154,12 @@ class Profile extends StatelessWidget {
             // Button to logger.dart
             ElevatedButton(
               onPressed: () {
+                context.beamToNamed('/records-raw');
+              },
+              child: const Text('Records anzeigen'),
+            ),
+            ElevatedButton(
+              onPressed: () {
                 context.beamToNamed('/logs');
               },
               child: const Text('Protokolle anzeigen'),

@@ -19,6 +19,7 @@ import 'package:terrestrial_forest_monitor/services/conditional_rules_service.da
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
 
 import 'package:beamer/beamer.dart';
 
@@ -44,7 +45,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   bool _isValidating = false;
   bool _hasCompletedInitialValidation = false;
   bool _isSaving = false;
-  StreamSubscription? _gpsSubscription;
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
   int? _loadedSchemaVersion;
@@ -86,52 +86,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         debugPrint('MapControllerProvider not available: $e');
       }
     }
-
-    // Schedule updates after frame to avoid calling notifyListeners during build
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _updateDistanceLine();
-    });
-    _subscribeToGPS();
-  }
-
-  void _subscribeToGPS() {
-    if (_gpsSubscription != null) return;
-
-    try {
-      final gpsProvider = context.read<GpsPositionProvider>();
-      _gpsSubscription = gpsProvider.positionStreamController.listen((position) {
-        _updateDistanceLine();
-      });
-    } catch (e) {
-      debugPrint('Error subscribing to GPS: $e');
-    }
-  }
-
-  void _updateDistanceLine() {
-    if (_record == null) return;
-
-    try {
-      final mapProvider = context.read<MapControllerProvider>();
-      final gpsProvider = context.read<GpsPositionProvider>();
-
-      final recordCoords = _record!.getCoordinates();
-      final userPosition = gpsProvider.lastPosition;
-
-      if (recordCoords != null && userPosition != null) {
-        final from = LatLng(userPosition.latitude, userPosition.longitude);
-        final to = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
-
-        mapProvider.showDistanceLine(from, to);
-      }
-    } catch (e) {
-      debugPrint('Error updating distance line: $e');
-    }
   }
 
   @override
   void dispose() {
-    _gpsSubscription?.cancel();
-
     // Clear distance line and focused record immediately when leaving
     // Only clear if the focused record matches this page's record
     // This prevents clearing when navigating between different properties-edit pages
@@ -433,7 +391,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
         // Update distance line after record is loaded
         if (_record != null) {
-          _updateDistanceLine();
+          //_updateDistanceLine();
 
           // Schedule focus operations after frame to avoid race conditions with dispose
           SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -1041,6 +999,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               clipBehavior: Clip.none,
               child: Row(
                 children: [
+                  ClusterInfoButton(record: _record, tooltip: 'Cluster-Informationen'),
                   IconButton(
                     icon: const Icon(Icons.map, size: 20),
                     onPressed: () => _focusRecord(context),

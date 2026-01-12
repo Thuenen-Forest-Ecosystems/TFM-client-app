@@ -143,7 +143,7 @@ class _MapWidgetState extends State<MapWidget> {
     // Offload tree position calculations to isolate
     return compute(_computeTreePositions, {
       'recordCoords': record.getCoordinates(),
-      'properties': record.properties,
+      'properties': record.previousProperties,
     });
   }
 
@@ -208,8 +208,43 @@ class _MapWidgetState extends State<MapWidget> {
       final Map<String, List<LatLng>> measurementPolygons = {};
 
       for (final record in clusterRecords) {
+        // First try previousProperties.plot_coordinates
+        if (record.previousProperties != null) {
+          final plotCoordinates = record.previousProperties!['plot_coordinates'];
+          if (plotCoordinates is Map<String, dynamic>) {
+            plotCoordinates.forEach((measurementKey, measurementData) {
+              if (measurementData is Map<String, dynamic>) {
+                // Try to extract from center_location
+                final centerLocation = measurementData['center_location'];
+                if (centerLocation is Map<String, dynamic>) {
+                  final lat = _extractDouble(centerLocation['latitude']);
+                  final lng = _extractDouble(centerLocation['longitude']);
+
+                  if (lat != null && lng != null) {
+                    if (!measurementPolygons.containsKey(measurementKey)) {
+                      measurementPolygons[measurementKey] = [];
+                    }
+                    measurementPolygons[measurementKey]!.add(LatLng(lat, lng));
+                  }
+                } else {
+                  // Try direct latitude/longitude
+                  final lat = _extractDouble(measurementData['latitude']);
+                  final lng = _extractDouble(measurementData['longitude']);
+
+                  if (lat != null && lng != null) {
+                    if (!measurementPolygons.containsKey(measurementKey)) {
+                      measurementPolygons[measurementKey] = [];
+                    }
+                    measurementPolygons[measurementKey]!.add(LatLng(lat, lng));
+                  }
+                }
+              }
+            });
+          }
+        }
+
+        // Also check previousPositionData as fallback (bwi2012, bwi2022, etc.)
         if (record.previousPositionData != null) {
-          // Iterate through all measurements (bwi2012, bwi2022, etc.)
           record.previousPositionData!.forEach((measurementKey, measurementData) {
             if (measurementData is Map) {
               // Try to extract coordinates - prefer median over mean
@@ -222,7 +257,7 @@ class _MapWidgetState extends State<MapWidget> {
               final lng = lngMedian ?? lngMean;
 
               if (lat != null && lng != null) {
-                // Group by measurement period
+                // Group by measurement period (only add if not already added from plot_coordinates)
                 if (!measurementPolygons.containsKey(measurementKey)) {
                   measurementPolygons[measurementKey] = [];
                 }

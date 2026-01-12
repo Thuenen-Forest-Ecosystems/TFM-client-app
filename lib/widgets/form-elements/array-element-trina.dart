@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 
 /// ArrayElementTrina - TrinaGrid-based array data editor widget
 ///
@@ -139,6 +141,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       config['autoIncrement'] = layoutConfig['autoIncrement'];
       config['groupBy'] = layoutConfig['groupBy'];
       config['readonly'] = layoutConfig['readonly'];
+      config['title'] = layoutConfig['title'];
     }
 
     // Fallback to schema $tfm.form if layout config not provided
@@ -210,13 +213,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
 
     if (itemSchema == null) {
-      print('No items found in schema');
+      debugPrint('❌ No items found in schema for ${widget.propertyName}');
+      debugPrint('Schema keys: ${widget.jsonSchema.keys}');
       return columns;
     }
 
     final properties = itemSchema['properties'] as Map<String, dynamic>?;
     if (properties == null) {
-      print('No properties found in items schema');
+      debugPrint('❌ No properties found in items schema for ${widget.propertyName}');
+      debugPrint('ItemSchema keys: ${itemSchema.keys}');
       return columns;
     }
 
@@ -382,6 +387,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           'pinned': pinned,
           'width': config['width'],
           'readonly': config['readonly'],
+          'title': config['title'],
         }),
       );
     }
@@ -396,7 +402,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     for (final entry in columnEntries) {
       final key = entry.key;
       final propertySchema = entry.value['schema'] as Map<String, dynamic>;
-      final title = propertySchema['title'] as String? ?? key;
+      // Use title from layout config if provided, otherwise from schema
+      final title = entry.value['title'] as String? ?? propertySchema['title'] as String? ?? key;
       final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
       final unit = tfm?['unit_short'] as String?;
 
@@ -415,8 +422,22 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       bool isNumeric = false;
       bool isBoolean = false;
       bool isCalculated = false;
+      bool isNestedArray = false;
+      Map<String, dynamic>? nestedArrayConfig;
 
-      if (type == 'calculated') {
+      // Check if this is a nested array column
+      if (type == 'array') {
+        // This is a nested array - check if layout defines it as datagrid
+        final layoutConfig = widget.columnConfig?[key] as Map<String, dynamic>?;
+        if (layoutConfig?['component'] == 'datagrid') {
+          isNestedArray = true;
+          nestedArrayConfig = layoutConfig;
+          columnType = TrinaColumnTypeText();
+        } else {
+          // Not configured as datagrid, skip this column
+          continue;
+        }
+      } else if (type == 'calculated') {
         // Calculated column - always readonly
         columnType = TrinaColumnTypeText();
         isCalculated = true;
@@ -478,8 +499,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableColumnDrag: false,
           enableContextMenu: false,
           readOnly: isReadOnly || isCalculated,
-          // Custom renderer for calculated, enum, numeric, boolean, or grouped columns
-          renderer: isCalculated
+          // Custom renderer for calculated, enum, numeric, boolean, nested array, or grouped columns
+          renderer: isNestedArray
+              ? (rendererContext) =>
+                    _buildNestedArrayCell(rendererContext, propertySchema, key, nestedArrayConfig!)
+              : isCalculated
               ? (rendererContext) => _buildGenericFieldCell(rendererContext, propertySchema, key)
               : isEnum
               ? (rendererContext) => _buildEnumCell(rendererContext, propertySchema, key)
@@ -587,6 +611,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   List<TrinaRow> _buildRows() {
     if (widget.data == null) return [];
 
+    final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
+    final properties = itemSchema?['properties'] as Map<String, dynamic>?;
+
     return widget.data!.map((item) {
       final rowData = Map<String, dynamic>.from(item is Map ? item : {});
       final cells = <String, TrinaCell>{};
@@ -596,7 +623,21 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         if (column.field == '__row_number__' || column.field == '__row_menu__') {
           cells[column.field] = TrinaCell(value: null);
         } else {
-          cells[column.field] = TrinaCell(value: rowData[column.field]);
+          // Get value from data, or apply schema default if missing/null
+          dynamic cellValue = rowData[column.field];
+
+          // Apply schema default if value is null and schema has a default
+          if (cellValue == null && properties != null && properties.containsKey(column.field)) {
+            final propertySchema = properties[column.field] as Map<String, dynamic>;
+            if (propertySchema.containsKey('default')) {
+              cellValue = propertySchema['default'];
+              // Also update the rowData so the default is persisted
+              rowData[column.field] = cellValue;
+              debugPrint('  ⚙️ Applied default for ${column.field} = $cellValue during grid init');
+            }
+          }
+
+          cells[column.field] = TrinaCell(value: cellValue);
         }
       }
 
@@ -776,6 +817,117 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               },
       ),
     );
+  }
+
+  Widget _buildNestedArrayCell(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+    Map<String, dynamic> nestedArrayConfig,
+  ) {
+    final value = rendererContext.cell.value;
+    final rowIndex = rendererContext.rowIdx;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+
+    // Get nested array data
+    List<dynamic>? nestedData;
+    if (value is List) {
+      nestedData = value;
+    } else if (value is String && nestedArrayConfig['options']?['asJson'] == true) {
+      // Try to parse JSON string
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          nestedData = decoded;
+        }
+      } catch (e) {
+        debugPrint('Failed to parse nested array JSON: $e');
+      }
+    }
+
+    final itemCount = nestedData?.length ?? 0;
+    final displayText = itemCount == 0 ? 'Leer' : '$itemCount Einträge';
+
+    // Check if parent array or this field is readonly
+    final isReadOnly = _isArrayReadOnly || (propertySchema['readonly'] as bool? ?? false);
+
+    return Container(
+      color: bgColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              displayText,
+              style: TextStyle(fontSize: 14, color: itemCount == 0 ? Colors.grey : null),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Bearbeiten',
+            onPressed: isReadOnly
+                ? null
+                : () => _openNestedArrayDialog(
+                    rendererContext,
+                    propertySchema,
+                    fieldKey,
+                    nestedArrayConfig,
+                    nestedData,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openNestedArrayDialog(
+    TrinaColumnRendererContext rendererContext,
+    Map<String, dynamic> propertySchema,
+    String fieldKey,
+    Map<String, dynamic> nestedArrayConfig,
+    List<dynamic>? currentData,
+  ) async {
+    // Create schema for nested array from property schema
+    final nestedArraySchema = Map<String, dynamic>.from(propertySchema);
+
+    // Get nested columns config and options
+    final nestedColumns = nestedArrayConfig['columns'] as Map<String, dynamic>?;
+    final nestedOptions = nestedArrayConfig['options'] as Map<String, dynamic>?;
+
+    // Build property path for validation
+    final rowIndex = rendererContext.rowIdx;
+    final nestedPath = widget.propertyName != null
+        ? '${widget.propertyName}/$rowIndex/$fieldKey'
+        : '$rowIndex/$fieldKey';
+
+    final result = await ArrayGridDialog.show(
+      context: context,
+      nestedArraySchema: nestedArraySchema,
+      data: currentData,
+      title: propertySchema['title'] as String? ?? fieldKey,
+      validationResult: widget.validationResult,
+      propertyPath: nestedPath,
+      columnConfig: nestedColumns,
+      layoutOptions: nestedOptions,
+      parentReadOnly: _isArrayReadOnly,
+    );
+
+    if (result != null) {
+      // Update cell value based on storage format
+      if (nestedOptions?['asJson'] == true) {
+        // Store as JSON string
+        rendererContext.cell.value = jsonEncode(result);
+      } else {
+        // Store as List
+        rendererContext.cell.value = result;
+      }
+      _stateManager?.notifyListeners();
+      _notifyDataChanged();
+    }
   }
 
   Widget _buildGenericFieldCell(
@@ -977,6 +1129,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     final newRow = <String, dynamic>{};
 
+    debugPrint('🆕 Adding new row for ${widget.propertyName}');
+
     properties.forEach((key, value) {
       final propertySchema = value as Map<String, dynamic>;
       final typeValue = propertySchema['type'];
@@ -1005,8 +1159,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         newRow[key] = existingValues.isEmpty
             ? defaultValue
             : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+        debugPrint('  ✅ $key = ${newRow[key]} (autoIncrement, default: $defaultValue)');
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
+        debugPrint('  ✅ $key = ${newRow[key]} (default from schema)');
       } else {
         switch (type) {
           case 'string':

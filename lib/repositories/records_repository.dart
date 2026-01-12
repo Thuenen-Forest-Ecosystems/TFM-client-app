@@ -30,6 +30,8 @@ class Record {
   final String? completedAtAdministration;
   final int? isToBeRecorded;
   final String? note;
+  final String? validationErrors;
+  final String? cluster;
 
   Record({
     this.id,
@@ -56,6 +58,8 @@ class Record {
     this.completedAtAdministration,
     this.isToBeRecorded,
     this.note,
+    this.validationErrors,
+    this.cluster,
   });
 
   factory Record.fromRow(Map<String, dynamic> row) {
@@ -88,6 +92,8 @@ class Record {
       completedAtAdministration: row['completed_at_administration'] as String?,
       isToBeRecorded: row['is_to_be_recorded'] as int?,
       note: row['note'] as String?,
+      validationErrors: row['validation_errors'] as String?,
+      cluster: row['cluster'] as String?,
     );
   }
 
@@ -117,6 +123,8 @@ class Record {
       'completed_at_administration': completedAtAdministration,
       'is_to_be_recorded': isToBeRecorded,
       'note': note,
+      'validation_errors': validationErrors,
+      'cluster': cluster,
     };
   }
 
@@ -192,6 +200,40 @@ class Record {
   double? get latitude => getCoordinates()?['latitude'];
   double? get longitude => getCoordinates()?['longitude'];
 
+  /// Extracts cluster data from properties
+  /// Returns the cluster Map, or null if not available
+  Map<String, dynamic>? getCluster() {
+    try {
+      final cluster = properties['cluster'];
+
+      if (cluster == null) {
+        return null;
+      }
+
+      // Handle different possible formats
+      if (cluster is Map<String, dynamic>) {
+        return cluster;
+      } else if (cluster is Map) {
+        return Map<String, dynamic>.from(cluster);
+      } else if (cluster is String) {
+        // Try to parse JSON string
+        try {
+          final parsed = jsonDecode(cluster);
+          if (parsed is Map) {
+            return Map<String, dynamic>.from(parsed);
+          }
+        } catch (e) {
+          debugPrint('Error parsing cluster JSON string: $e');
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error extracting cluster data: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+
+    return null;
+  }
+
   /// Creates a copy of this Record with the specified fields replaced with new values.
   Record copyWith({
     String? id,
@@ -218,6 +260,8 @@ class Record {
     String? completedAtAdministration,
     int? isToBeRecorded,
     String? note,
+    String? validationErrors,
+    String? cluster,
   }) {
     return Record(
       id: id ?? this.id,
@@ -244,6 +288,8 @@ class Record {
       completedAtAdministration: completedAtAdministration ?? this.completedAtAdministration,
       isToBeRecorded: isToBeRecorded ?? this.isToBeRecorded,
       note: note ?? this.note,
+      validationErrors: validationErrors ?? this.validationErrors,
+      cluster: cluster ?? this.cluster,
     );
   }
 }

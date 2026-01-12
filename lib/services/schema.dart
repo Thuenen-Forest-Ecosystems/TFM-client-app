@@ -135,6 +135,7 @@ Schema schema = Schema(([
     Column.text('note'),
     Column.text('previous_position_data'),
     Column.text('validation_errors'),
+    Column.text('cluster'),
   ]),
   const Table('organizations', [
     Column.text('apex_domain'),

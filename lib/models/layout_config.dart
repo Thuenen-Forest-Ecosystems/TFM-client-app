@@ -57,9 +57,15 @@ class ColumnLayout extends LayoutItem {
 class TabsLayout extends LayoutItem {
   final List<LayoutItem> items;
   final Map<String, dynamic>? typeProperties;
+  final int? defaultTab;
 
-  TabsLayout({required super.id, super.label, required this.items, this.typeProperties})
-    : super(type: 'tabs');
+  TabsLayout({
+    required super.id,
+    super.label,
+    required this.items,
+    this.typeProperties,
+    this.defaultTab,
+  }) : super(type: 'tabs');
 
   factory TabsLayout.fromJson(Map<String, dynamic> json) {
     final itemsJson = json['items'] as List<dynamic>? ?? [];
@@ -69,6 +75,7 @@ class TabsLayout extends LayoutItem {
       label: json['label'] as String?,
       items: itemsJson.map((item) => LayoutItem.fromJson(item as Map<String, dynamic>)).toList(),
       typeProperties: json['typeProperties'] as Map<String, dynamic>?,
+      defaultTab: json['defaultTab'] as int?,
     );
   }
 }

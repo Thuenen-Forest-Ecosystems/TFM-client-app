@@ -79,6 +79,11 @@ class LayoutService {
         final found = _findItemByIdRecursive(child, id);
         if (found != null) return found;
       }
+    } else if (item is ColumnLayout) {
+      for (final child in item.items) {
+        final found = _findItemByIdRecursive(child, id);
+        if (found != null) return found;
+      }
     } else if (item is ObjectLayout && item.children != null) {
       for (final child in item.children!) {
         final found = _findItemByIdRecursive(child, id);

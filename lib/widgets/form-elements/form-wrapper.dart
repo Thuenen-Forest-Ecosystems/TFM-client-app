@@ -6,6 +6,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-t
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-navigation.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-selection.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
@@ -91,8 +92,18 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
       // Initialize tab controller
       if (_tabs.isNotEmpty) {
+        // Try to use defaultTab from layout config, fallback to 'position', then to 0
+        int? defaultTabIndex;
+        if (_layoutConfig?.layout is TabsLayout) {
+          defaultTabIndex = (_layoutConfig!.layout as TabsLayout).defaultTab;
+        }
+
         final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
-        final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
+
+        final initialIndex =
+            (defaultTabIndex != null && defaultTabIndex >= 0 && defaultTabIndex < _tabs.length)
+            ? defaultTabIndex
+            : (positionTabIndex >= 0 ? positionTabIndex : 0);
 
         _tabController = TabController(
           length: _tabs.length,
@@ -235,9 +246,18 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         _tabController?.removeListener(_onTabChanged);
         _tabController?.dispose();
         if (_tabs.isNotEmpty) {
-          // Find position tab index, default to 0 if not found
+          // Try to use defaultTab from layout config, fallback to 'position', then to 0
+          int? defaultTabIndex;
+          if (_layoutConfig?.layout is TabsLayout) {
+            defaultTabIndex = (_layoutConfig!.layout as TabsLayout).defaultTab;
+          }
+
           final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
-          final initialIndex = positionTabIndex >= 0 ? positionTabIndex : 0;
+
+          final initialIndex =
+              (defaultTabIndex != null && defaultTabIndex >= 0 && defaultTabIndex < _tabs.length)
+              ? defaultTabIndex
+              : (positionTabIndex >= 0 ? positionTabIndex : 0);
 
           _tabController = TabController(
             length: _tabs.length,
@@ -467,10 +487,15 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         print('object layout previous_positions_selection');
         return PreviousPositionsSelection(rawRecord: widget.rawRecord);
       }
+      if (layoutItem.component == 'previous_positions_navigation') {
+        // PreviousPositionsNavigation component - works with entire form data
+        print('object layout previous_positions_navigation');
+        return PreviousPositionsNavigation(rawRecord: widget.rawRecord);
+      }
 
       // For other components, property path is required
       if (propertyPath == null) {
-        return Center(child: Text('Object layout "${layoutItem.id}" is missing property field'));
+        return Card(child: Text('Object layout "${layoutItem.id}" is missing property field'));
       }
 
       // Get schema and data using path

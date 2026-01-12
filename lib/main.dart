@@ -36,6 +36,7 @@ import 'package:terrestrial_forest_monitor/screens/start.dart';
 import 'package:terrestrial_forest_monitor/screens/login.dart';
 import 'package:terrestrial_forest_monitor/screens/profile.dart';
 import 'package:terrestrial_forest_monitor/screens/logger.dart';
+import 'package:terrestrial_forest_monitor/screens/records-raw.dart';
 // provider
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
@@ -55,6 +56,7 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           '/',
           '/profile',
           '/logs',
+          '/records-raw',
         ],
         check: (context, location) {
           final authProvider = context.read<AuthProvider>();
@@ -102,6 +104,12 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           key: ValueKey('logs'),
           title: 'Logs',
           child: LoggerScreen(),
+          type: BeamPageType.noTransition,
+        ),
+        '/records-raw': (context, state, data) => BeamPage(
+          key: ValueKey('records-raw'),
+          title: 'Records Raw',
+          child: RecordsRawScreen(),
           type: BeamPageType.noTransition,
         ),
         //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
