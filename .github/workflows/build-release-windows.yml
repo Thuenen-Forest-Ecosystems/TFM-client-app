@@ -89,6 +89,12 @@ jobs:
             Start-Process -FilePath "$env:TEMP\innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
           }
 
+          # Download Visual C++ Redistributable
+          Write-Host "Downloading Visual C++ Redistributable..."
+          $vcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          $vcRedistPath = "vc_redist.x64.exe"
+          Invoke-WebRequest -Uri $vcRedistUrl -OutFile $vcRedistPath
+
           # Create installer script
           @'
           #define MyAppName "Terrestrial Forest Monitor"
@@ -125,6 +131,7 @@ jobs:
           Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
           Source: "assets\certs\ca-bundle.pem"; DestDir: "{app}\certs"; Flags: ignoreversion
           Source: "install-certificates.ps1"; DestDir: "{app}\certs"; Flags: ignoreversion
+          Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
           [Icons]
           Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -132,6 +139,7 @@ jobs:
           Name: "{group}\Install SSL Certificates"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\certs\install-certificates.ps1"""; Comment: "Install SSL certificates for PowerSync connectivity"
 
           [Run]
+          Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; StatusMsg: "Installing Visual C++ Redistributable..."; Flags: waituntilterminated
           Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
           '@ | Out-File -FilePath "installer.iss" -Encoding UTF8
 
