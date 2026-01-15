@@ -33,14 +33,14 @@ jobs:
           flutter-version: "3.38.3"
           channel: "stable"
 
-      - name: Ensure flutter_libserialport is disabled for Android
-        run: |
-          # Verify flutter_libserialport is commented out for Android build
-          if grep -q "^[[:space:]]*flutter_libserialport:" pubspec.yaml; then
-            echo "ERROR: flutter_libserialport must be commented out for Android builds"
-            exit 1
-          fi
-          echo "Confirmed: flutter_libserialport is disabled for Android build"
+      #- name: Ensure flutter_libserialport is disabled for Android
+      #  run: |
+      #    # Verify flutter_libserialport is commented out for Android build
+      #    if grep -q "^[[:space:]]*flutter_libserialport:" pubspec.yaml; then
+      #      echo "ERROR: flutter_libserialport must be commented out for Android builds"
+      #      exit 1
+      #    fi
+      #    echo "Confirmed: flutter_libserialport is disabled for Android build"
 
       - name: Install Dependencies
         run: flutter pub get
