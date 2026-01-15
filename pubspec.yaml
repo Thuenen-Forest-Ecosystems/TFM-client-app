@@ -100,8 +100,8 @@ dependencies:
   vector_map_tiles_pmtiles: ^1.5.0 # .pmtiles support
   vector_map_tiles_mbtiles: ^1.0.0 # .mbtiles support
   # Windows only - uncomment when building for Windows:
-  #flutter_libserialport: ^0.6.0
-  #libserialport: ^0.3.0+1
+  flutter_libserialport: ^0.6.0
+  libserialport: ^0.3.0+1
 
   #maplibre: ^0.3.1
   #maplibre_gl: ^0.24.1

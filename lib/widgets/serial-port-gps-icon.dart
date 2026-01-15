@@ -4,10 +4,9 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'dart:async';
 
-// Conditional import: use real serial port on Windows, stub on other platforms
+// Conditional import: use real serial port on native platforms (Windows/Linux/macOS), stub on web
 import 'package:flutter_libserialport/flutter_libserialport.dart'
-    if (dart.library.html) 'package:terrestrial_forest_monitor/services/serial_port_stub.dart'
-    if (dart.library.io) 'package:terrestrial_forest_monitor/services/serial_port_stub.dart';
+    if (dart.library.html) 'package:terrestrial_forest_monitor/services/serial_port_stub.dart';
 
 class SerialPortDevice {
   final String name;
