@@ -12,35 +12,60 @@ class LayoutService {
   static LayoutConfig? _cachedLayout;
   static String? _cachedDirectory;
 
-  /// Load a layout configuration from downloaded directory
+  /// Load a layout configuration from schema data or downloaded directory
   ///
-  /// [directory] - Directory name containing the style.json file (e.g., 'v73')
-  /// Returns null if the layout file doesn't exist or is invalid
-  static Future<LayoutConfig?> loadLayout(String directory) async {
-    // Return cached layout if already loaded
+  /// [styleData] - Optional style data from schema table
+  /// [directory] - Directory name containing the style.json file (e.g., 'v73'), used as fallback
+  /// Returns null if the layout cannot be loaded
+  static Future<LayoutConfig?> loadLayout({
+    Map<String, dynamic>? styleData,
+    String? directory,
+  }) async {
+    // Return cached layout if already loaded for this directory
     if (_cachedLayout != null && _cachedDirectory == directory) {
       return _cachedLayout;
     }
 
     try {
-      final appDirectory = await getApplicationDocumentsDirectory();
-      final stylePath = path.join(appDirectory.path, 'TFM', 'validation', directory, 'style.json');
+      Map<String, dynamic>? jsonData;
 
-      final file = File(stylePath);
-      if (!await file.exists()) {
-        print('Style file not found: $stylePath');
-        return null;
+      // First try: Use provided style data from schema table
+      if (styleData != null) {
+        print('Loading layout from schema table data');
+        jsonData = styleData;
+      }
+      // Fallback: Load from file if directory is provided
+      else if (directory != null) {
+        print('Falling back to loading layout from file: $directory');
+        final appDirectory = await getApplicationDocumentsDirectory();
+        final stylePath = path.join(
+          appDirectory.path,
+          'TFM',
+          'validation',
+          directory,
+          'style.json',
+        );
+
+        final file = File(stylePath);
+        if (await file.exists()) {
+          final jsonString = await file.readAsString();
+          jsonData = json.decode(jsonString) as Map<String, dynamic>;
+        } else {
+          print('Style file not found: $stylePath');
+        }
       }
 
-      final jsonString = await file.readAsString();
-      final jsonData = json.decode(jsonString) as Map<String, dynamic>;
+      if (jsonData == null) {
+        print('No layout data available');
+        return null;
+      }
 
       _cachedLayout = LayoutConfig.fromJson(jsonData);
       _cachedDirectory = directory;
 
       return _cachedLayout;
     } catch (e) {
-      print('Failed to load layout from directory $directory: $e');
+      print('Failed to load layout: $e');
       return null;
     }
   }

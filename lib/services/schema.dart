@@ -71,6 +71,8 @@ Schema schema = Schema(([
     Column.text('value'),
     Column.text('key'),
     Column.text('user_id'),
+    Column.text('updated_at'),
+    Column.text('schema'),
   ]),
   const Table.localOnly('settings', [
     Column.text('sortGeneral'),
@@ -109,6 +111,8 @@ Schema schema = Schema(([
     Column.text('bucket_schema_file_name'),
     Column.text('bucket_plausability_file_name'),
     Column.text('schema'),
+    Column.text('style_default'),
+    Column.text('plausability_script'),
     Column.integer('version'),
     Column.text('directory'),
   ]),

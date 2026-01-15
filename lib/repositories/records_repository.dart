@@ -589,9 +589,9 @@ class RecordsRepository {
     );
   }
 
-  Future<void> deleteRecord(String id) async {
+  /*Future<void> deleteRecord(String id) async {
     await db.execute('DELETE FROM records WHERE id = ?', [id]);
-  }
+  }*/
 
   Future<Record?> getRecordById(String id) async {
     final results = await db.execute('SELECT * FROM records WHERE id = ?', [id]);

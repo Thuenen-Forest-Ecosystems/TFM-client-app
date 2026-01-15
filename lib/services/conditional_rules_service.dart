@@ -13,30 +13,49 @@ class ConditionalRulesService {
   List<ConditionalRule>? _cachedRules;
   String? _cachedDirectory;
 
-  /// Load conditional rules from file
-  Future<List<ConditionalRule>> loadRules(String directory) async {
+  /// Load conditional rules from schema data or file
+  ///
+  /// [styleData] - Optional style data from schema table
+  /// [directory] - Directory name for file fallback
+  Future<List<ConditionalRule>> loadRules({
+    Map<String, dynamic>? styleData,
+    String? directory,
+  }) async {
     // Return cached rules if directory hasn't changed
     if (_cachedRules != null && _cachedDirectory == directory) {
       return _cachedRules!;
     }
 
     try {
-      final appDirectory = await getApplicationDocumentsDirectory();
-      final styleMapPath = '${appDirectory.path}/TFM/validation/$directory/style.json';
+      Map<String, dynamic>? styleMapJson;
 
-      final styleMapFile = File(styleMapPath);
+      // First try: Use provided style data from schema table
+      if (styleData != null) {
+        debugPrint('✓ Loading conditional rules from schema table data');
+        styleMapJson = styleData;
+      }
+      // Fallback: Load from file if directory is provided
+      else if (directory != null) {
+        debugPrint('⚠️ Falling back to loading conditional rules from file: $directory');
+        final appDirectory = await getApplicationDocumentsDirectory();
+        final styleMapPath = '${appDirectory.path}/TFM/validation/$directory/style.json';
 
-      if (!await styleMapFile.exists()) {
-        debugPrint('❌ style-map.json not found at: $styleMapPath');
+        final styleMapFile = File(styleMapPath);
+
+        if (await styleMapFile.exists()) {
+          final styleMapContent = await styleMapFile.readAsString();
+          styleMapJson = jsonDecode(styleMapContent);
+        } else {
+          debugPrint('❌ style.json not found at: $styleMapPath');
+        }
+      }
+
+      if (styleMapJson == null) {
+        debugPrint('❌ No style data available for conditional rules');
         return [];
       }
 
-      final styleMapContent = await styleMapFile.readAsString();
-      final styleMapJson = jsonDecode(styleMapContent);
-
-      //final rulesJson = styleMapJson['conditionalRules'];
-
-      // Extract conditional rules from style-map.json
+      // Extract conditional rules from style data
       final rules =
           (styleMapJson['conditionalRules'] as List?)
               ?.map((rule) => ConditionalRule.fromJson(rule))
@@ -47,6 +66,7 @@ class ConditionalRulesService {
       _cachedRules = rules;
       _cachedDirectory = directory;
 
+      debugPrint('✓ Loaded ${rules.length} conditional rules');
       return rules;
     } catch (e, stackTrace) {
       debugPrint('❌ Error loading conditional rules: $e');

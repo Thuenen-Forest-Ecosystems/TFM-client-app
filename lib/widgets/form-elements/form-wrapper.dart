@@ -19,6 +19,7 @@ class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? formData;
   final Map<String, dynamic>? previousFormData;
   final TFMValidationResult? validationResult;
+  final Map<String, dynamic>? layoutStyleData;
   final String? layoutDirectory;
   final repo.Record? rawRecord;
 
@@ -33,6 +34,7 @@ class FormWrapper extends StatefulWidget {
     this.onFormDataChanged,
     this.validationResult,
     this.onNavigateToTab,
+    this.layoutStyleData,
     this.layoutDirectory,
     this.rawRecord,
   });
@@ -73,13 +75,16 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   }
 
   Future<void> _initializeLayout() async {
-    // Try to load layout configuration if layoutDirectory is provided
-    if (widget.layoutDirectory != null) {
-      _layoutConfig = await LayoutService.loadLayout(widget.layoutDirectory!);
+    // Try to load layout configuration if styleData or layoutDirectory is provided
+    if (widget.layoutStyleData != null || widget.layoutDirectory != null) {
+      _layoutConfig = await LayoutService.loadLayout(
+        styleData: widget.layoutStyleData,
+        directory: widget.layoutDirectory,
+      );
       if (_layoutConfig != null) {
-        debugPrint('Loaded layout from directory: ${widget.layoutDirectory}');
+        debugPrint('Loaded layout successfully');
       } else {
-        debugPrint('Failed to load layout from ${widget.layoutDirectory}, using fallback');
+        debugPrint('Failed to load layout, using fallback');
       }
     }
 

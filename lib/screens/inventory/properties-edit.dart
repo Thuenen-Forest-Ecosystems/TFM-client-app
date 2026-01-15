@@ -49,6 +49,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   MapControllerProvider? _mapProvider;
   int? _loadedSchemaVersion;
   String? _schemaDirectory;
+  Map<String, dynamic>? _styleData;
   late final GlobalKey<FormWrapperState> _formWrapperKey;
   List<ConditionalRule> _conditionalRules = [];
 
@@ -193,140 +194,96 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         return;
       }
 
-      // Load conditional rules from directory (do this early, before validation.json check)
+      // Load conditional rules from schema table data first, with file fallback
       List<ConditionalRule> conditionalRules = [];
       try {
-        conditionalRules = await ConditionalRulesService().loadRules(latestSchema.directory!);
-        debugPrint(
-          '📌 Loaded ${conditionalRules.length} conditional rules from ${latestSchema.directory}',
+        conditionalRules = await ConditionalRulesService().loadRules(
+          styleData: latestSchema.styleDefault,
+          directory: latestSchema.directory,
         );
+        debugPrint('📌 Loaded ${conditionalRules.length} conditional rules');
       } catch (rulesError) {
         debugPrint('❌ Error loading conditional rules: $rulesError');
       }
 
-      // Load validation.json and style.json from downloaded directory
-      final directory = latestSchema.directory!;
-      debugPrint('Loading validation.json and style.json from directory: $directory');
-
-      // On web, validation files aren't downloaded, so use embedded schema
-      /*if (kIsWeb) {
-        debugPrint('Web platform: using embedded schema instead of downloaded files');
-        if (latestSchema.schemaData != null) {
-          setState(() {
-            _jsonSchema = latestSchema!.schemaData!['properties']['plot']['items'];
-          });
-        }
-        return;
-      }*/
+      debugPrint('Loading schema data (from database or files)');
 
       try {
-        final appDirectory = await getApplicationDocumentsDirectory();
-        final validationFilePath = '${appDirectory.path}/TFM/validation/$directory/validation.json';
-        final validationFile = File(validationFilePath);
+        Map<String, dynamic>? validationSchema;
+        String? tfmValidationCode;
+        final directory = latestSchema.directory;
 
-        // Check if directory exists and list files
-        final validationDir = Directory('${appDirectory.path}/TFM/validation/$directory');
-        if (await validationDir.exists()) {
-          final files = await validationDir.list().toList();
-          debugPrint(
-            'Files in validation directory ($directory): ${files.map((f) => f.path.split('/').last).join(', ')}',
-          );
-        } else {
-          debugPrint('Validation directory does not exist: ${validationDir.path}');
+        // First try: Use data from schema table columns
+        if (latestSchema.schemaData != null) {
+          debugPrint('✅ Using validation schema from database');
+          validationSchema = latestSchema.schemaData!['properties']['plot']['items'];
         }
 
-        if (!await validationFile.exists()) {
-          debugPrint('validation.json not found at: $validationFilePath');
-          debugPrint('Attempting to download validation files for directory: $directory');
+        if (latestSchema.plausabilityScript != null) {
+          debugPrint('✅ Using plausability script from database');
+          tfmValidationCode = latestSchema.plausabilityScript;
+        }
 
-          // Try to download the validation files
-          try {
-            final result = await downloadValidationFiles(directory, force: true);
-            debugPrint('Download result: $result');
+        // Fallback: Load from downloaded files if not in database
+        if (directory != null) {
+          final appDirectory = await getApplicationDocumentsDirectory();
 
-            // Check again if file now exists
+          if (validationSchema == null) {
+            debugPrint('⚠️ Falling back to loading validation.json from file: $directory');
+            final validationFilePath =
+                '${appDirectory.path}/TFM/validation/$directory/validation.json';
+            final validationFile = File(validationFilePath);
+
             if (await validationFile.exists()) {
-              debugPrint('validation.json successfully downloaded');
               final validationContent = await validationFile.readAsString();
               final Map<String, dynamic> validationJson = jsonDecode(validationContent);
-              final schema = validationJson['properties']['plot']['items'];
-              setState(() {
-                _jsonSchema = schema;
-                _originalJsonSchema = _deepCopyMap(schema);
-                _conditionalRules = conditionalRules;
-              });
-              debugPrint(
-                '✅ Schema loaded from downloaded validation.json with ${conditionalRules.length} conditional rules',
-              );
-              return;
+              validationSchema = validationJson['properties']['plot']['items'];
+              debugPrint('✅ Loaded validation schema from file');
+            } else {
+              debugPrint('❌ validation.json not found at: $validationFilePath');
             }
-          } catch (downloadError) {
-            debugPrint('Error downloading validation files: $downloadError');
           }
 
-          debugPrint('Falling back to embedded schema');
-
-          // Fallback to embedded schema with pre-loaded rules
-          if (latestSchema.schemaData != null) {
-            final schema = latestSchema!.schemaData!['properties']['plot']['items'];
-            setState(() {
-              _jsonSchema = schema;
-              _originalJsonSchema = _deepCopyMap(schema);
-              _conditionalRules = conditionalRules;
-            });
-            debugPrint(
-              '✅ Embedded schema loaded with ${conditionalRules.length} conditional rules',
-            );
-          }
-
-          // Try to load TFM validation code even when using fallback schema
-          try {
-            final appDirectory = await getApplicationDocumentsDirectory();
+          if (tfmValidationCode == null) {
+            debugPrint('⚠️ Falling back to loading bundle.umd.js from file: $directory');
             final tfmFilePath = '${appDirectory.path}/TFM/validation/$directory/bundle.umd.js';
             final tfmFile = File(tfmFilePath);
 
             if (await tfmFile.exists()) {
-              debugPrint('Loading TFM validation code from: $tfmFilePath');
-              final tfmValidationCode = await tfmFile.readAsString();
-              await ValidationService.instance.initialize(tfmValidationCode: tfmValidationCode);
-              debugPrint('ValidationService reinitialized with TFM validation');
-
-              // Small delay to ensure WebView is fully ready
-              await Future.delayed(Duration(milliseconds: 200));
-              debugPrint('Waited for ValidationService to be fully ready');
+              tfmValidationCode = await tfmFile.readAsString();
+              debugPrint('✅ Loaded plausability script from file');
+            } else {
+              debugPrint('❌ bundle.umd.js not found at: $tfmFilePath');
             }
-          } catch (tfmError) {
-            debugPrint('Error loading TFM validation code: $tfmError');
           }
+        }
 
+        // Check if we have the required validation schema
+        if (validationSchema == null) {
+          debugPrint('❌ No validation schema available');
+          if (mounted) {
+            setState(() {
+              _error = 'Validation schema not available in database or files';
+              _isLoading = false;
+            });
+          }
           return;
         }
 
-        // Read and parse validation.json
-        final validationContent = await validationFile.readAsString();
-        final Map<String, dynamic> validationJson = jsonDecode(validationContent);
-
-        debugPrint('Successfully loaded validation.json from: $validationFilePath');
-
-        // Use pre-loaded conditional rules
-        final schema = validationJson['properties']['plot']['items'];
+        // Set the schema with conditional rules
+        final originalSchema = _deepCopyMap(validationSchema);
         setState(() {
-          _jsonSchema = schema;
-          _originalJsonSchema = _deepCopyMap(schema);
+          _jsonSchema = validationSchema;
+          _originalJsonSchema = originalSchema;
           _conditionalRules = conditionalRules;
+          _styleData = latestSchema?.styleDefault;
+          _isLoading = false;
         });
         debugPrint('✅ Schema and rules set in state (${conditionalRules.length} rules)');
 
-        // Try to load TFM validation code from the same directory
-        try {
-          final tfmFilePath = '${appDirectory.path}/TFM/validation/$directory/bundle.umd.js';
-          final tfmFile = File(tfmFilePath);
-
-          if (await tfmFile.exists()) {
-            debugPrint('Loading TFM validation code from: $tfmFilePath');
-            final tfmValidationCode = await tfmFile.readAsString();
-
-            // Reinitialize ValidationService with TFM code
+        // Initialize TFM validation code if available
+        if (tfmValidationCode != null) {
+          try {
             debugPrint('Reinitializing ValidationService with TFM validation code');
             await ValidationService.instance.initialize(tfmValidationCode: tfmValidationCode);
             debugPrint('ValidationService reinitialized with TFM validation');
@@ -334,27 +291,23 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             // Small delay to ensure WebView is fully ready
             await Future.delayed(Duration(milliseconds: 200));
             debugPrint('Waited for ValidationService to be fully ready');
-          } else {
-            debugPrint('TFM validation file not found at: $tfmFilePath');
+          } catch (tfmError) {
+            debugPrint('Error initializing TFM validation code: $tfmError');
           }
-        } catch (tfmError) {
-          debugPrint('Error loading TFM validation code: $tfmError');
+        }
+
+        // Trigger initial validation
+        if (_formData != null && _originalJsonSchema != null) {
+          debugPrint('Triggering initial validation...');
+          await _onFormDataChanged(_formData!);
         }
       } catch (e) {
-        debugPrint('Error loading validation.json file: $e');
-        debugPrint('Falling back to embedded schema');
-
-        // Fallback to embedded schema from database with pre-loaded rules
-        if (latestSchema.schemaData != null) {
-          final schema = latestSchema!.schemaData!['properties']['plot']['items'];
+        debugPrint('Error loading schema: $e');
+        if (mounted) {
           setState(() {
-            _jsonSchema = schema;
-            _originalJsonSchema = _deepCopyMap(schema);
-            _conditionalRules = conditionalRules;
+            _error = 'Error loading schema: $e';
+            _isLoading = false;
           });
-          debugPrint(
-            '✅ Embedded schema loaded (error fallback) with ${conditionalRules.length} conditional rules',
-          );
         }
       }
     } catch (e) {
@@ -781,31 +734,41 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   }
 
   void _showCurrentStyle() async {
-    if (_schemaDirectory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No style available'),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height * 0.7,
-            left: 16,
-            right: 16,
-          ),
-        ),
-      );
-      return;
-    }
-
     try {
-      final appDirectory = await getApplicationDocumentsDirectory();
-      final stylePath = '${appDirectory.path}/TFM/validation/$_schemaDirectory/style.json';
-      final styleFile = File(stylePath);
+      Map<String, dynamic>? styleJson;
 
-      if (!await styleFile.exists()) {
+      // First try: Get style from current schema's styleDefault
+      final results = await db.getAll('SELECT style_default FROM schemas WHERE id = ?', [
+        _record?.schemaIdValidatedBy ?? _record?.schemaId,
+      ]);
+
+      if (results.isNotEmpty && results.first['style_default'] != null) {
+        final styleData = results.first['style_default'];
+        if (styleData is String) {
+          styleJson = jsonDecode(styleData);
+        } else {
+          styleJson = styleData as Map<String, dynamic>;
+        }
+        debugPrint('✅ Loaded style from database');
+      }
+      // Fallback: Load from file
+      else if (_schemaDirectory != null) {
+        debugPrint('⚠️ Falling back to loading style from file');
+        final appDirectory = await getApplicationDocumentsDirectory();
+        final stylePath = '${appDirectory.path}/TFM/validation/$_schemaDirectory/style.json';
+        final styleFile = File(stylePath);
+
+        if (await styleFile.exists()) {
+          final styleContent = await styleFile.readAsString();
+          styleJson = jsonDecode(styleContent);
+        }
+      }
+
+      if (styleJson == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Style file not found'),
+              content: Text('Style schema not available'),
               behavior: SnackBarBehavior.floating,
               margin: EdgeInsets.only(
                 bottom: MediaQuery.of(context).size.height * 0.7,
@@ -818,8 +781,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         return;
       }
 
-      final styleContent = await styleFile.readAsString();
-      final styleJson = jsonDecode(styleContent);
       final jsonString = const JsonEncoder.withIndent('  ').convert(styleJson);
 
       if (mounted) {
@@ -1172,7 +1133,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       onFormDataChanged: _onFormDataChanged,
                       validationResult: _validationResult,
                       onNavigateToTab: _navigateToTabFromError,
-                      layoutDirectory: _schemaDirectory, // Use schema directory for layout
+                      layoutStyleData: _styleData,
+                      layoutDirectory: _schemaDirectory, // Fallback for file loading
                     ),
             ),
           ],

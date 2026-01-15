@@ -54,12 +54,12 @@ class SchemaRepository {
   }
 
   // Create new schema (syncs to server via PowerSync)
-  Future<void> create(SchemaModel schema) async {
+  /*Future<void> create(SchemaModel schema) async {
     await db.execute(
       '''INSERT INTO schemas (
         id, created_at, interval_name, title, description, is_visible, is_deprecated,
-        bucket_schema_file_name, bucket_plausability_file_name, schema, version, directory
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        bucket_schema_file_name, bucket_plausability_file_name, schema, style_default, plausability_script, version, directory
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
       [
         schema.id,
         schema.createdAt.toIso8601String(),
@@ -71,6 +71,8 @@ class SchemaRepository {
         schema.bucketSchemaFileName,
         schema.bucketPlausabilityFileName,
         schema.schemaData != null ? jsonEncode(schema.schemaData) : null,
+        schema.styleDefault != null ? jsonEncode(schema.styleDefault) : null,
+        schema.plausabilityScript,
         schema.version,
         schema.directory,
       ],
@@ -83,7 +85,7 @@ class SchemaRepository {
       '''UPDATE schemas 
          SET interval_name = ?, title = ?, description = ?, is_visible = ?, is_deprecated = ?,
              bucket_schema_file_name = ?, bucket_plausability_file_name = ?,
-             schema = ?, version = ?, directory = ?
+             schema = ?, style_default = ?, plausability_script = ?, version = ?, directory = ?
          WHERE id = ?''',
       [
         schema.intervalName,
@@ -94,6 +96,8 @@ class SchemaRepository {
         schema.bucketSchemaFileName,
         schema.bucketPlausabilityFileName,
         schema.schemaData != null ? jsonEncode(schema.schemaData) : null,
+        schema.styleDefault != null ? jsonEncode(schema.styleDefault) : null,
+        schema.plausabilityScript,
         schema.version,
         schema.directory,
         schema.id,
@@ -109,7 +113,7 @@ class SchemaRepository {
   // Delete schema
   Future<void> delete(String id) async {
     await db.execute('DELETE FROM schemas WHERE id = ?', [id]);
-  }
+  }*/
 
   // Get latest schema for interval
   Future<SchemaModel?> getLatestForInterval(String intervalName) async {
@@ -171,6 +175,8 @@ class SchemaModel {
   final String? bucketSchemaFileName;
   final String? bucketPlausabilityFileName;
   final Map<String, dynamic>? schemaData;
+  final Map<String, dynamic>? styleDefault;
+  final String? plausabilityScript;
   final int? version;
   final String? directory;
 
@@ -185,6 +191,8 @@ class SchemaModel {
     this.bucketSchemaFileName,
     this.bucketPlausabilityFileName,
     this.schemaData,
+    this.styleDefault,
+    this.plausabilityScript,
     this.version,
     this.directory,
   });
@@ -205,6 +213,12 @@ class SchemaModel {
                 ? jsonDecode(json['schema'] as String)
                 : json['schema'] as Map<String, dynamic>)
           : null,
+      styleDefault: json['style_default'] != null
+          ? (json['style_default'] is String
+                ? jsonDecode(json['style_default'] as String)
+                : json['style_default'] as Map<String, dynamic>)
+          : null,
+      plausabilityScript: json['plausability_script'] as String?,
       version: json['version'] as int?,
       directory: json['directory'] as String?,
     );
@@ -221,6 +235,8 @@ class SchemaModel {
       'bucket_schema_file_name': bucketSchemaFileName,
       'bucket_plausability_file_name': bucketPlausabilityFileName,
       'schema': schemaData,
+      'style_default': styleDefault,
+      'plausability_script': plausabilityScript,
       'version': version,
       'directory': directory,
     };
@@ -237,6 +253,8 @@ class SchemaModel {
     String? bucketSchemaFileName,
     String? bucketPlausabilityFileName,
     Map<String, dynamic>? schemaData,
+    Map<String, dynamic>? styleDefault,
+    String? plausabilityScript,
     int? version,
     String? directory,
   }) {
@@ -251,6 +269,8 @@ class SchemaModel {
       bucketSchemaFileName: bucketSchemaFileName ?? this.bucketSchemaFileName,
       bucketPlausabilityFileName: bucketPlausabilityFileName ?? this.bucketPlausabilityFileName,
       schemaData: schemaData ?? this.schemaData,
+      styleDefault: styleDefault ?? this.styleDefault,
+      plausabilityScript: plausabilityScript ?? this.plausabilityScript,
       version: version ?? this.version,
       directory: directory ?? this.directory,
     );
