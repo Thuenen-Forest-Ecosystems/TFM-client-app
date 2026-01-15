@@ -200,6 +200,8 @@ class _RecordCardState extends State<RecordCard> {
                               Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
                             ],
                           ),
+                        if (widget.record.previousProperties?['plot_support_points'].length > 0)
+                          Row(children: [const Text('Mit Hilfspunkten')]),
                         const SizedBox(height: 8),
                         // Last update and sync status
                         Row(

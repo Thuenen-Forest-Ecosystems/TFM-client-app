@@ -319,9 +319,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                     controller: _searchController,
                     autofocus: true,
                     decoration: const InputDecoration(
-                      hintText: 'Suche Trakt...',
+                      hintText: 'Suche Traktnummer...',
                       border: InputBorder.none,
                     ),
+                    keyboardType: TextInputType.numberWithOptions(signed: false, decimal: false),
                     onChanged: (value) {
                       setState(() {
                         _searchQuery = value;

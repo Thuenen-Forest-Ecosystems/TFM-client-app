@@ -54,6 +54,7 @@ const listOfLookupTables = [
   'lookup_biotope',
   'lookup_harvest_restriction',
   'lookup_accessibility',
+  'lookup_support_point_type',
 ];
 
 const lookupTemplate = [

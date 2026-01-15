@@ -179,14 +179,6 @@ class _DownloadSchemasBtnState extends State<DownloadSchemasBtn> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Lädt Validierungs-Schemas aus dem Supabase Storage. '
-            '"Fehlende laden" überspringt existierende Dateien. '
-            '"Alle neu laden" überschreibt alle Dateien.',
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );

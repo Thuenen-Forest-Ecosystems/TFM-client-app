@@ -223,93 +223,91 @@ class _RecordPositionState extends State<RecordPosition> {
     final gpsProvider = context.watch<GpsPositionProvider>();
     final hasGpsDevice = gpsProvider.lastPosition != null;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Progress indicator
-            if (isRecording) ...[
-              LinearProgressIndicator(value: progress),
-              const SizedBox(height: 8),
-              Text(
-                'Recording: ${_recordedPositions.length} / $_targetCount positions',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ] else if (_aggregatedData != null) ...[
-              LinearProgressIndicator(value: 1.0),
-              const SizedBox(height: 8),
-              Text(
-                'Abgeschlossen: ${_aggregatedData!['measurement_count']} Positionen aufgezeichnet',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.green, fontWeight: FontWeight.bold),
-              ),
-            ],
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _aggregatedData != null && _recordedPositions.isNotEmpty
-                      ? () => setState(() => showDetails = !showDetails)
-                      : null,
-                  icon: Icon(showDetails ? Icons.expand_less : Icons.expand_more),
-                  label: Text('Details'),
-                ),
-                const Spacer(),
-                // Control button
-                ElevatedButton.icon(
-                  onPressed: (isRecording || hasGpsDevice) ? _toggleRecording : null,
-                  icon: Icon(isRecording ? Icons.stop : Icons.gps_fixed),
-                  label: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isRecording ? Colors.red : Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Progress indicator
+          if (isRecording) ...[
+            LinearProgressIndicator(value: progress),
+            const SizedBox(height: 8),
+            Text(
+              'Recording: ${_recordedPositions.length} / $_targetCount positions',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            // Display aggregated data (always visible when data exists)
-            if (_aggregatedData != null && _recordedPositions.isNotEmpty && showDetails) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text('Aggregated Data', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              _buildDataRow('Quality', _getQualityText(_aggregatedData!['quality'] as int)),
-              _buildDataRow(
-                'mittlere Position',
-                '${_aggregatedData!['position_mean']['latitude'].toStringAsFixed(8)}, ${_aggregatedData!['position_mean']['longitude'].toStringAsFixed(8)}',
-              ),
-              //_buildDataRow(
-              //  'Median Position',
-              //  '${_aggregatedData!['position_median']['latitude'].toStringAsFixed(6)}, ${_aggregatedData!['position_median']['longitude'].toStringAsFixed(6)}',
-              //),
-              if (_aggregatedData!['satellites_count_mean'] != null)
-                _buildDataRow(
-                  'Satellites (avg)',
-                  '${_aggregatedData!['satellites_count_mean'].toStringAsFixed(1)}',
-                ),
-              if (_aggregatedData!['pdop_mean'] != null)
-                _buildDataRow('PDOP (avg)', '${_aggregatedData!['pdop_mean'].toStringAsFixed(2)}'),
-              if (_aggregatedData!['hdop_mean'] != null)
-                _buildDataRow('HDOP (avg)', '${_aggregatedData!['hdop_mean'].toStringAsFixed(2)}'),
-              if (_aggregatedData!['start_measurement'] != null)
-                _buildDataRow(
-                  'Start Time',
-                  _formatTimestamp(_aggregatedData!['start_measurement'] as String),
-                ),
-              if (_aggregatedData!['stop_measurement'] != null)
-                _buildDataRow(
-                  'End Time',
-                  _formatTimestamp(_aggregatedData!['stop_measurement'] as String),
-                ),
-            ],
+          ] else if (_aggregatedData != null) ...[
+            LinearProgressIndicator(value: 1.0),
+            const SizedBox(height: 8),
+            Text(
+              'Abgeschlossen: ${_aggregatedData!['measurement_count']} Positionen aufgezeichnet',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.green, fontWeight: FontWeight.bold),
+            ),
           ],
-        ),
+
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: _aggregatedData != null && _recordedPositions.isNotEmpty
+                    ? () => setState(() => showDetails = !showDetails)
+                    : null,
+                icon: Icon(showDetails ? Icons.expand_less : Icons.expand_more),
+                label: Text('Details'),
+              ),
+              const Spacer(),
+              // Control button
+              ElevatedButton.icon(
+                onPressed: (isRecording || hasGpsDevice) ? _toggleRecording : null,
+                icon: Icon(isRecording ? Icons.stop : Icons.gps_fixed),
+                label: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isRecording ? Colors.red : Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          // Display aggregated data (always visible when data exists)
+          if (_aggregatedData != null && _recordedPositions.isNotEmpty && showDetails) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text('Aggregated Data', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            _buildDataRow('Quality', _getQualityText(_aggregatedData!['quality'] as int)),
+            _buildDataRow(
+              'mittlere Position',
+              '${_aggregatedData!['position_mean']['latitude'].toStringAsFixed(8)}, ${_aggregatedData!['position_mean']['longitude'].toStringAsFixed(8)}',
+            ),
+            //_buildDataRow(
+            //  'Median Position',
+            //  '${_aggregatedData!['position_median']['latitude'].toStringAsFixed(6)}, ${_aggregatedData!['position_median']['longitude'].toStringAsFixed(6)}',
+            //),
+            if (_aggregatedData!['satellites_count_mean'] != null)
+              _buildDataRow(
+                'Satellites (avg)',
+                '${_aggregatedData!['satellites_count_mean'].toStringAsFixed(1)}',
+              ),
+            if (_aggregatedData!['pdop_mean'] != null)
+              _buildDataRow('PDOP (avg)', '${_aggregatedData!['pdop_mean'].toStringAsFixed(2)}'),
+            if (_aggregatedData!['hdop_mean'] != null)
+              _buildDataRow('HDOP (avg)', '${_aggregatedData!['hdop_mean'].toStringAsFixed(2)}'),
+            if (_aggregatedData!['start_measurement'] != null)
+              _buildDataRow(
+                'Start Time',
+                _formatTimestamp(_aggregatedData!['start_measurement'] as String),
+              ),
+            if (_aggregatedData!['stop_measurement'] != null)
+              _buildDataRow(
+                'End Time',
+                _formatTimestamp(_aggregatedData!['stop_measurement'] as String),
+              ),
+          ],
+        ],
       ),
     );
   }

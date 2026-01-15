@@ -5,7 +5,10 @@ import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/manuell-relative-position.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/nested-tabs.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/plot-support-points.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-navigation.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-selection.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
@@ -273,14 +276,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
   // Public method to allow external navigation to tabs
   void navigateToTab(String? tabId) {
-    debugPrint('FormWrapperState.navigateToTab called with: $tabId');
-    debugPrint('Current tab index: ${_tabController?.index}, length: ${_tabController?.length}');
-    debugPrint('Tabs: ${_tabs.map((t) => '${t.id}:${t.label}').toList()}');
     _navigateToTab(tabId);
   }
 
   void _navigateToTab(String? tabId) {
-    debugPrint('_navigateToTab called with tabId: $tabId');
     if (tabId == null) {
       debugPrint('Early return: tabId is null');
       return;
@@ -390,8 +389,12 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         }).toList(),
       );
     } else if (layoutItem is TabsLayout) {
-      // Nested tabs - create a nested tab view
-      return _buildNestedTabs(layoutItem, schemaProperties);
+      // Nested tabs - create a nested tab view using separate widget
+      return NestedTabs(
+        tabsLayout: layoutItem,
+        schemaProperties: schemaProperties,
+        buildWidgetFromLayout: _buildWidgetFromLayout,
+      );
     } else if (layoutItem is FormLayout) {
       // Form layout for primitive fields
       // Check if horizontal scrolling is enabled
@@ -479,22 +482,52 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       return Center(child: Text('Unsupported array component: ${layoutItem.component}'));
     } else if (layoutItem is ObjectLayout) {
       // Object layout - render with appropriate component (supports paths)
+      debugPrint(
+        'ObjectLayout: id=${layoutItem.id}, component=${layoutItem.component}, property=${layoutItem.property}',
+      );
       final propertyPath = layoutItem.property;
 
       // Special handling for components that don't require a property path
       if (layoutItem.component == 'previous_positions_selection') {
         // PreviousPositionsSelection component - works with entire form data
-        print('object layout previous_positions_selection');
+        debugPrint('object layout previous_positions_selection');
         return PreviousPositionsSelection(rawRecord: widget.rawRecord);
       }
       if (layoutItem.component == 'previous_positions_navigation') {
         // PreviousPositionsNavigation component - works with entire form data
-        print('object layout previous_positions_navigation');
-        return PreviousPositionsNavigation(rawRecord: widget.rawRecord);
+        debugPrint('object layout previous_positions_navigation');
+        return PreviousPositionsNavigation(
+          rawRecord: widget.rawRecord,
+          jsonSchema: widget.jsonSchema,
+        );
+      }
+      if (layoutItem.component == 'plot_support_points') {
+        // PlotSupportPoints component - for manual position entry
+        debugPrint('object layout plot_support_points - rendering PlotSupportPoints');
+        return PlotSupportPoints(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          previousProperties: _previousProperties,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            setState(() {
+              _localFormData.addAll(updatedData);
+            });
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          },
+        );
+      }
+      if (layoutItem.component == 'manuell_relative_position') {
+        // ManuellRelativePosition component - for manual navigation when GPS is unavailable
+        debugPrint('object layout manuell_relative_position - rendering ManuellRelativePosition');
+        return ManuellRelativePosition(formData: _localFormData, onFieldChanged: _updateField);
       }
 
       // For other components, property path is required
       if (propertyPath == null) {
+        debugPrint(
+          'ObjectLayout ${layoutItem.id} is missing property field and has no special handling',
+        );
         return Card(child: Text('Object layout "${layoutItem.id}" is missing property field'));
       }
 
@@ -550,39 +583,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     }
 
     return Center(child: Text('Unknown layout type: ${layoutItem.type}'));
-  }
-
-  /// Build nested tabs widget
-  Widget _buildNestedTabs(TabsLayout tabsLayout, Map<String, dynamic> schemaProperties) {
-    // Check if tab content should be scrollable (defaults to true)
-    final scrollableTabView = tabsLayout.typeProperties?['scrollableTabView'] as bool? ?? true;
-
-    final tabBarView = TabBarView(
-      physics: const NeverScrollableScrollPhysics(),
-      children: tabsLayout.items.map((item) {
-        final content = _buildWidgetFromLayout(item, schemaProperties);
-        // Only wrap in ScrollView if scrollableTabView is true
-        return scrollableTabView ? SingleChildScrollView(child: content) : content;
-      }).toList(),
-    );
-
-    return DefaultTabController(
-      length: tabsLayout.items.length,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TabBar(
-            isScrollable: true,
-            tabs: tabsLayout.items.map((item) {
-              final label = item.label ?? item.id;
-              return Tab(text: label);
-            }).toList(),
-          ),
-          // Use fixed height for both cases to avoid unbounded constraint issues
-          SizedBox(height: scrollableTabView ? 400 : 600, child: tabBarView),
-        ],
-      ),
-    );
   }
 
   /// Build card with nested children

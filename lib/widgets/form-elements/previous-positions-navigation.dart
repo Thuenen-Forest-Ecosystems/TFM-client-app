@@ -6,14 +6,16 @@ import 'dart:math' as math;
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 /// Widget for navigating to previous position measurements
 /// Displays a list of previous positions from previousProperties.plot_coordinates and
 /// previousPositionData, allowing selection to show a distance line from current GPS position
 class PreviousPositionsNavigation extends StatefulWidget {
   final repo.Record? rawRecord;
+  final Map<String, dynamic>? jsonSchema;
 
-  const PreviousPositionsNavigation({super.key, this.rawRecord});
+  const PreviousPositionsNavigation({super.key, this.rawRecord, this.jsonSchema});
 
   @override
   State<PreviousPositionsNavigation> createState() => _PreviousPositionsNavigationState();
@@ -23,6 +25,10 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   String? _selectedPositionKey;
   List<String> _positionKeys = [];
   Map<String, LatLng> _positionCoordinates = {};
+  List<String> _supportPointKeys = [];
+  Map<String, LatLng> _supportPointCoordinates = {};
+  Map<String, String> _supportPointNotes = {};
+  Map<int, String> _supportPointTypeLabels = {}; // Cache for point type labels
   StreamSubscription? _gpsSubscription;
 
   @override
@@ -60,8 +66,8 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       final lat = recordCoords['latitude'];
       final lng = recordCoords['longitude'];
       if (lat != null && lng != null) {
-        _positionKeys.add('Aktuelle Position');
-        _positionCoordinates['Aktuelle Position'] = LatLng(lat, lng);
+        _positionKeys.add('SOLL Position');
+        _positionCoordinates['SOLL Position'] = LatLng(lat, lng);
       }
     }
 
@@ -130,17 +136,163 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       });
     }
 
+    // Load support points
+    _loadSupportPoints();
+
     // Set current position as default selection if available
-    if (_positionKeys.contains('Aktuelle Position') && _selectedPositionKey == null) {
+    if (_positionKeys.contains('SOLL Position') && _selectedPositionKey == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {
-            _selectedPositionKey = 'Aktuelle Position';
+            _selectedPositionKey = 'SOLL Position';
           });
-          _showDistanceLineToPosition('Aktuelle Position');
+          _showDistanceLineToPosition('SOLL Position');
         }
       });
     }
+  }
+
+  Future<void> _loadSupportPoints() async {
+    if (widget.rawRecord?.previousProperties == null) return;
+
+    final supportPoints =
+        widget.rawRecord!.previousProperties!['plot_support_points'] as List<dynamic>? ?? [];
+
+    // Get reference point (SOLL Position) to calculate support point coordinates
+    final referenceCoords = _positionCoordinates['SOLL Position'];
+    if (referenceCoords == null || supportPoints.isEmpty) return;
+
+    // Keep track of type=3 point for type=4 calculation
+    LatLng? type3Coords;
+
+    for (int i = 0; i < supportPoints.length; i++) {
+      final point = supportPoints[i] as Map<String, dynamic>;
+      final azimuth = point['azimuth'] as num?;
+      final distanceCm = point['distance'] as num?;
+      final pointType = point['point_type'] as int?;
+      final note = point['note'] as String? ?? '';
+
+      if (azimuth != null && distanceCm != null && pointType != null) {
+        // Convert distance from cm to meters
+        final distanceM = distanceCm / 100;
+
+        // Convert azimuth from degrees to gon
+        final azimuthGon = azimuth * (400 / 360);
+
+        final distance = Distance();
+        LatLng? supportPointCoords;
+
+        // Calculate position based on point type
+        switch (pointType) {
+          case 2:
+            // Type 2: azimuth/distance FROM SOLL Position
+            // Use azimuth directly
+            supportPointCoords = distance.offset(referenceCoords, distanceM, azimuthGon);
+            break;
+
+          case 1:
+          case 3:
+          case 5:
+            // Types 1, 3, 5: azimuth/distance TO SOLL Position
+            // Apply reverse azimuth (add 200 gon)
+            final reverseAzimuth = (azimuthGon + 200) % 400;
+            supportPointCoords = distance.offset(referenceCoords, distanceM, reverseAzimuth);
+
+            // Save type=3 position for potential type=4 reference
+            if (pointType == 3) {
+              type3Coords = supportPointCoords;
+            }
+            break;
+
+          case 4:
+            // Type 4: azimuth/distance TO Point type=3
+            // Need type=3 coordinates, apply reverse azimuth
+            if (type3Coords != null) {
+              final reverseAzimuth = (azimuthGon + 200) % 400;
+              supportPointCoords = distance.offset(type3Coords, distanceM, reverseAzimuth);
+            } else {
+              debugPrint('Warning: Point type=4 encountered before type=3');
+              // Fallback to SOLL Position with reverse azimuth
+              final reverseAzimuth = (azimuthGon + 200) % 400;
+              supportPointCoords = distance.offset(referenceCoords, distanceM, reverseAzimuth);
+            }
+            break;
+
+          default:
+            debugPrint('Unknown point type: $pointType');
+            // Default fallback: use azimuth directly from SOLL Position
+            supportPointCoords = distance.offset(referenceCoords, distanceM, azimuthGon);
+        }
+
+        if (supportPointCoords != null) {
+          // Create label for support point
+          final label = await _getPointTypeLabel(pointType, i + 1);
+          _supportPointKeys.add(label);
+          _supportPointCoordinates[label] = supportPointCoords;
+          _supportPointNotes[label] = note;
+        }
+      }
+    }
+  }
+
+  Future<String> _getPointTypeLabel(int? pointType, int index) async {
+    if (pointType == null) return 'Punkt $index';
+
+    // Check cache first
+    if (_supportPointTypeLabels.containsKey(pointType)) {
+      return _supportPointTypeLabels[pointType]!;
+    }
+
+    // Try to get label from jsonSchema first
+    if (widget.jsonSchema != null) {
+      try {
+        final properties = widget.jsonSchema!['properties'] as Map<String, dynamic>?;
+        if (properties != null) {
+          final plotSupportPoints = properties['plot_support_points'] as Map<String, dynamic>?;
+          if (plotSupportPoints != null) {
+            final items = plotSupportPoints['items'] as Map<String, dynamic>?;
+            if (items != null) {
+              final itemProperties = items['properties'] as Map<String, dynamic>?;
+              if (itemProperties != null) {
+                final pointTypeField = itemProperties['point_type'] as Map<String, dynamic>?;
+                if (pointTypeField != null) {
+                  final tfm = pointTypeField['\$tfm'] as Map<String, dynamic>?;
+                  if (tfm != null) {
+                    final nameDe = tfm['name_de'] as List<dynamic>?;
+                    if (nameDe != null && pointType >= 1 && pointType <= nameDe.length) {
+                      // pointType is 1-based, array is 0-based
+                      final label = nameDe[pointType - 1] as String;
+                      _supportPointTypeLabels[pointType] = label; // Cache the result
+                      return label;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error extracting label from jsonSchema: $e');
+      }
+    }
+
+    // Fallback to database lookup
+    debugPrint('Loading label for support point type from database: $pointType');
+    try {
+      final result = await db.get('SELECT name_de FROM lookup_support_point_type WHERE code = ?', [
+        pointType,
+      ]);
+      if (result != null && result['name_de'] != null) {
+        final label = result['name_de'] as String;
+        _supportPointTypeLabels[pointType] = label; // Cache the result
+        return label;
+      }
+    } catch (e) {
+      debugPrint('Error loading support point type label from database: $e');
+    }
+
+    // Fallback to generic label
+    return 'Punkt $index';
   }
 
   /// Extract coordinates from position data
@@ -220,11 +372,19 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       // Toggle selection - if already selected, clear it
       if (_selectedPositionKey == positionKey) {
         _selectedPositionKey = null;
-        // Clear distance line
+        // Clear distance line and navigation target
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.clearDistanceLine();
+        mapProvider.clearNavigationTarget();
       } else {
         _selectedPositionKey = positionKey;
+        // Set navigation target - check both position types
+        final targetCoords =
+            _positionCoordinates[positionKey] ?? _supportPointCoordinates[positionKey];
+        if (targetCoords != null) {
+          final mapProvider = context.read<MapControllerProvider>();
+          mapProvider.setNavigationTarget(targetCoords, label: positionKey);
+        }
         // Show distance line to selected position
         _showDistanceLineToPosition(positionKey);
       }
@@ -232,7 +392,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   }
 
   void _showDistanceLineToPosition(String positionKey) {
-    final targetCoords = _positionCoordinates[positionKey];
+    final targetCoords = _positionCoordinates[positionKey] ?? _supportPointCoordinates[positionKey];
     if (targetCoords == null) {
       debugPrint('No coordinates found for position: $positionKey');
       return;
@@ -259,8 +419,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     // Show distance line on map
     final mapProvider = context.read<MapControllerProvider>();
     mapProvider.showDistanceLine(fromPosition, targetCoords);
-
-    debugPrint('Distance line set: from $fromPosition to $targetCoords');
   }
 
   Widget _buildNavigationItem({
@@ -338,7 +496,9 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     double? bearing;
 
     if (_selectedPositionKey != null && userPosition != null) {
-      final targetCoords = _positionCoordinates[_selectedPositionKey];
+      final targetCoords =
+          _positionCoordinates[_selectedPositionKey] ??
+          _supportPointCoordinates[_selectedPositionKey];
       if (targetCoords != null) {
         distance = _calculateDistance(
           userPosition.latitude,
@@ -364,18 +524,93 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           children: [
             Text('Navigation zu', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 16.0),
-            Wrap(
-              spacing: 8.0,
-              runSpacing: 8.0,
-              children: availablePositions.map((key) {
-                final isSelected = _selectedPositionKey == key;
-                return ChoiceChip(
-                  label: Text(key),
-                  selected: isSelected,
-                  showCheckmark: false,
-                  onSelected: (_) => _selectPosition(key),
-                );
-              }).toList(),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount:
+                  availablePositions.length +
+                  _supportPointKeys.length +
+                  (_supportPointKeys.isNotEmpty ? 2 : 1), // +headers
+              itemBuilder: (context, index) {
+                // First group: Gemessene Werte
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+                    child: Text(
+                      'Gemessene Werte',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  );
+                }
+
+                // Gemessene Werte items
+                if (index <= availablePositions.length) {
+                  final positionIndex = index - 1;
+                  final key = availablePositions[positionIndex];
+                  final isSelected = _selectedPositionKey == key;
+
+                  return Column(
+                    children: [
+                      ListTile(
+                        selected: isSelected,
+                        leading: Icon(
+                          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: isSelected ? Theme.of(context).primaryColor : null,
+                        ),
+                        title: Text(key),
+                        onTap: () => _selectPosition(key),
+                      ),
+                      if (positionIndex < availablePositions.length - 1) const Divider(height: 1),
+                    ],
+                  );
+                }
+
+                // Second group header: Hilfspunkte
+                if (index == availablePositions.length + 1 && _supportPointKeys.isNotEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+                    child: Text(
+                      'Hilfspunkte',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  );
+                }
+
+                // Hilfspunkte items
+                final supportPointIndex = index - availablePositions.length - 2;
+                if (supportPointIndex >= 0 && supportPointIndex < _supportPointKeys.length) {
+                  final key = _supportPointKeys[supportPointIndex];
+                  final isSelected = _selectedPositionKey == key;
+                  final note = _supportPointNotes[key] ?? '';
+
+                  return Column(
+                    children: [
+                      ListTile(
+                        selected: isSelected,
+                        leading: Icon(
+                          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: isSelected ? Theme.of(context).primaryColor : null,
+                        ),
+                        title: Text(key),
+                        subtitle: note.isNotEmpty ? Text(note) : null,
+                        onTap: () => _selectPosition(key),
+                      ),
+                      if (supportPointIndex < _supportPointKeys.length - 1)
+                        const Divider(height: 1),
+                    ],
+                  );
+                }
+
+                return const SizedBox.shrink();
+              },
             ),
             if (_selectedPositionKey != null) ...[
               const SizedBox(height: 16.0),
@@ -446,11 +681,15 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     if (propertiesChanged || positionDataChanged) {
       _positionKeys.clear();
       _positionCoordinates.clear();
+      _supportPointKeys.clear();
+      _supportPointCoordinates.clear();
+      _supportPointNotes.clear();
       _loadPositionData();
       // Clear selection if data changed
       if (_selectedPositionKey != null) {
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.clearDistanceLine();
+        mapProvider.clearNavigationTarget();
         _selectedPositionKey = null;
       }
     }
@@ -460,11 +699,12 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   void dispose() {
     _gpsSubscription?.cancel();
 
-    // Clear distance line when widget is disposed
+    // Clear distance line and navigation target when widget is disposed
     if (_selectedPositionKey != null && mounted) {
       try {
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.clearDistanceLine();
+        mapProvider.clearNavigationTarget();
       } catch (e) {
         debugPrint('Error clearing distance line on dispose: $e');
       }

@@ -26,6 +26,10 @@ class MapControllerProvider with ChangeNotifier {
   // Visible previous positions per record (recordId -> Set of position keys)
   final Map<String, Set<String>> _visiblePreviousPositions = {};
 
+  // Selected navigation target position
+  LatLng? _navigationTarget;
+  String? _navigationTargetLabel;
+
   MapController? get flutterMapController => _flutterMapController;
   LatLng? get distanceLineFrom => _distanceLineFrom;
   LatLng? get distanceLineTo => _distanceLineTo;
@@ -35,6 +39,8 @@ class MapControllerProvider with ChangeNotifier {
   DateTime? get lastManualMoveTimestamp => _lastManualMoveTimestamp;
   String? get navigationPath => _navigationPath;
   DateTime? get navigationTimestamp => _navigationTimestamp;
+  LatLng? get navigationTarget => _navigationTarget;
+  String? get navigationTargetLabel => _navigationTargetLabel;
 
   void setFlutterMapController(MapController? controller) {
     _flutterMapController = controller;
@@ -141,6 +147,26 @@ class MapControllerProvider with ChangeNotifier {
     final visible = _visiblePreviousPositions[recordId];
     // If not set, all are visible by default
     return visible == null || visible.contains(positionKey);
+  }
+
+  /// Set the navigation target position
+  void setNavigationTarget(LatLng target, {String? label}) {
+    _navigationTarget = target;
+    _navigationTargetLabel = label;
+    debugPrint(
+      'Navigation target set: ${label ?? "unnamed"} at (${target.latitude}, ${target.longitude})',
+    );
+    notifyListeners();
+  }
+
+  /// Clear the navigation target
+  void clearNavigationTarget() {
+    if (_navigationTarget != null) {
+      _navigationTarget = null;
+      _navigationTargetLabel = null;
+      debugPrint('Navigation target cleared');
+      notifyListeners();
+    }
   }
 
   @override

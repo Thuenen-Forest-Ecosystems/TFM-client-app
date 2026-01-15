@@ -98,8 +98,8 @@ jobs:
           # Create installer script
           @'
           #define MyAppName "Terrestrial Forest Monitor"
-          #define MyAppVersion "1.0.48"
-          #define MyAppPublisher "Grünecho e.U."
+          #define MyAppVersion "1.0.55"
+          #define MyAppPublisher "Thuenen Institute"
           #define MyAppExeName "terrestrial_forest_monitor.exe"
 
           [Setup]
