@@ -11,6 +11,7 @@ class _GenericEnumDialogWidget extends StatefulWidget {
   final dynamic currentValue;
   final List enumValues;
   final List? nameDe;
+  final List? interval;
   final bool fullscreen;
 
   const _GenericEnumDialogWidget({
@@ -20,7 +21,8 @@ class _GenericEnumDialogWidget extends StatefulWidget {
     this.currentValue,
     required this.enumValues,
     this.nameDe,
-    this.fullscreen = false,
+    this.interval,
+    this.fullscreen = true,
   });
 
   @override
@@ -58,11 +60,39 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
   List<int> _getFilteredIndices() {
     final indices = <int>[];
 
+    // Debug: Check if interval data is provided
+    if (widget.interval != null) {
+      debugPrint('GenericEnumDialog: Filtering with interval data (${widget.interval!.length} entries)');
+    } else {
+      debugPrint('GenericEnumDialog: No interval data provided - showing all values');
+    }
+
     for (int i = 0; i < widget.enumValues.length; i++) {
       final enumValue = widget.enumValues[i];
 
       // Skip null values
       if (enumValue == null) continue;
+
+      // Apply interval filter if provided
+      // Only show values where interval[i] is null, empty, or contains "ci2027"
+      if (widget.interval != null && i < widget.interval!.length) {
+        final intervalValue = widget.interval![i];
+        debugPrint('  Enum[$i] = $enumValue, interval = $intervalValue');
+        
+        // If intervalValue is a non-empty list, check if it contains "ci2027"
+        if (intervalValue != null && intervalValue is List && intervalValue.isNotEmpty) {
+          if (!intervalValue.contains('ci2027')) {
+            // Skip this value - it's restricted to other inventory periods
+            debugPrint('    -> FILTERED OUT (no ci2027)');
+            continue;
+          } else {
+            debugPrint('    -> SHOWN (contains ci2027)');
+          }
+        } else {
+          debugPrint('    -> SHOWN (unrestricted)');
+        }
+        // If intervalValue is null or empty list, show it (unrestricted)
+      }
 
       // Apply text filter if active
       if (_filterText.isNotEmpty) {
@@ -86,9 +116,9 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     final filteredIndices = _getFilteredIndices();
 
     return AlertDialog(
-      insetPadding: widget.fullscreen
+      /*insetPadding: widget.fullscreen
           ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+          : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),*/
       titlePadding: EdgeInsets.zero,
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -99,45 +129,45 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
             topRight: Radius.circular(28),
           ),
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            /*Text(_getLabel(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            if (_getDescription().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                _getDescription(),
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+            Expanded(
+              child: TextField(
+                controller: _filterController,
+                focusNode: _searchFocusNode,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: _getLabel(),
+                  helperText: _getDescription(),
+                  hintText: 'Suchen...',
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(50)),
+                  ),
+                  suffixIcon: _filterText.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _filterController.clear();
+                              _filterText = '';
+                            });
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _filterText = value;
+                  });
+                },
               ),
-            ],*/
-            const SizedBox(height: 10),
-            TextField(
-              controller: _filterController,
-              focusNode: _searchFocusNode,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: _getLabel(),
-                helperText: _getDescription(),
-                hintText: 'Suchen...',
-                border: const OutlineInputBorder(),
-                suffixIcon: _filterText.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _filterController.clear();
-                            _filterText = '';
-                          });
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _filterText = value;
-                });
-              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.of(context).pop(),
+              tooltip: 'Schließen',
             ),
           ],
         ),
@@ -186,18 +216,13 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
               bottomRight: Radius.circular(28),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(const ClearSelection()),
-                child: const Text('Leeren'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Schließen'),
-              ),
-            ],
+          child: OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(const ClearSelection()),
+            child: const Text('Inhalt des Feldes löschen'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onError,
+              side: BorderSide(color: Theme.of(context).colorScheme.onError),
+            ),
           ),
         ),
       ],
@@ -213,7 +238,8 @@ class GenericEnumDialog {
     dynamic currentValue,
     required List enumValues,
     List? nameDe,
-    bool fullscreen = false,
+    List? interval,
+    bool fullscreen = true,
   }) {
     return showDialog<dynamic>(
       context: context,
@@ -223,6 +249,7 @@ class GenericEnumDialog {
         currentValue: currentValue,
         enumValues: enumValues,
         nameDe: nameDe,
+        interval: interval,
         fullscreen: fullscreen,
       ),
     );

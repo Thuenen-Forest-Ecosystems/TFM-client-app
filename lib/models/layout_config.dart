@@ -84,9 +84,17 @@ class TabsLayout extends LayoutItem {
 class PropertyConfig {
   final String name;
   final double? width;
+  final double? minWidth;
+  final double? maxWidth;
   final bool? useSpeechToText;
 
-  PropertyConfig({required this.name, this.width, this.useSpeechToText});
+  PropertyConfig({
+    required this.name,
+    this.width,
+    this.minWidth,
+    this.maxWidth,
+    this.useSpeechToText,
+  });
 
   factory PropertyConfig.fromJson(dynamic json) {
     if (json is String) {
@@ -95,6 +103,8 @@ class PropertyConfig {
       return PropertyConfig(
         name: json['name'] as String,
         width: (json['width'] as num?)?.toDouble(),
+        minWidth: (json['minWidth'] as num?)?.toDouble(),
+        maxWidth: (json['maxWidth'] as num?)?.toDouble(),
         useSpeechToText: json['useSpeechToText'] as bool?,
       );
     }
@@ -136,7 +146,8 @@ class ArrayLayout extends LayoutItem {
   final String component;
   final Map<String, dynamic>? options; // UI options (autoIncrement, etc.)
   final Map<String, dynamic>?
-  columns; // Column-specific styling (pinning, grouping, display, width)
+  columns; // Column-specific styling (pinning, grouping, display, width) - OLD STRUCTURE
+  final List<dynamic>? items; // Column items array with groups - NEW STRUCTURE
   final String? identifierField; // Field name for matching rows with previous data
 
   ArrayLayout({
@@ -146,6 +157,7 @@ class ArrayLayout extends LayoutItem {
     required this.component,
     this.options,
     this.columns,
+    this.items,
     this.identifierField,
   }) : super(type: 'array');
 
@@ -157,6 +169,7 @@ class ArrayLayout extends LayoutItem {
       component: json['component'] as String? ?? 'datagrid',
       options: json['options'] as Map<String, dynamic>?,
       columns: json['columns'] as Map<String, dynamic>?,
+      items: json['items'] as List<dynamic>?,
       identifierField: json['identifierField'] as String?,
     );
   }

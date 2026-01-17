@@ -406,13 +406,20 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       final typeProperties = layoutItem.typeProperties ?? {};
       final scrollHorizontal = typeProperties['scrollHorizontal'] as bool? ?? false;
       final dense = typeProperties['dense'] as bool? ?? false;
+      final responsive = typeProperties['responsive'] as bool? ?? false;
+      final wrap = typeProperties['wrap'] as bool? ?? false;
 
       // Extract field options from property configs
       final fieldOptions = <String, Map<String, dynamic>>{};
       for (final prop in layoutItem.properties) {
-        if (prop.width != null || prop.useSpeechToText != null) {
+        if (prop.width != null ||
+            prop.minWidth != null ||
+            prop.maxWidth != null ||
+            prop.useSpeechToText != null) {
           fieldOptions[prop.name] = {
             if (prop.width != null) 'width': prop.width,
+            if (prop.minWidth != null) 'minWidth': prop.minWidth,
+            if (prop.maxWidth != null) 'maxWidth': prop.maxWidth,
             if (prop.useSpeechToText != null) 'useSpeechToText': prop.useSpeechToText,
           };
         }
@@ -430,7 +437,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           _updateField('', updatedData);
         },
         isDense: dense,
-        layout: scrollHorizontal ? 'horizontal-scroll' : null,
+        layout: scrollHorizontal
+            ? 'horizontal-scroll'
+            : (responsive || wrap)
+            ? 'responsive-wrap'
+            : null,
       );
 
       // Wrap in horizontal scroll if needed
@@ -476,6 +487,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           identifierField: arrayLayout.identifierField,
           validationResult: widget.validationResult,
           columnConfig: arrayLayout.columns,
+          columnItems: arrayLayout.items, // NEW STRUCTURE
           layoutOptions: arrayLayout.options,
           onDataChanged: (updatedData) {
             LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);

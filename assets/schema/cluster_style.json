@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "76+4",
+  "description": "Layout configuration for Schema",
+  "layout": {
+    "id": "general",
+    "type": "form",
+    "typeProperties": {
+        "responsive": true
+    },
+    "properties": [
+        {
+            "name": "cluster_name"
+        },
+        {
+            "name": "cluster_situation"
+        },
+        {
+            "name": "cluster_status"
+        },
+        {
+            "name": "cluster_description"
+        },
+        {
+            "name": "inspire_grid_cell"
+        },
+        {
+            "name": "is_training"
+        },
+        {
+            "name": "state_responsible"
+        },
+        {
+            "name": "states_affected"
+        },
+        {
+            "name": "topo_map_sheet"
+        }
+    ]
+  }
+}

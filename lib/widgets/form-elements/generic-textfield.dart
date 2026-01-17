@@ -279,9 +279,12 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: widget.compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: widget.compact
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
               children: [
                 if (!widget.compact)
                   Expanded(
@@ -339,6 +342,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
       // Get the $tfm metadata if available
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
       final nameDe = tfmData?['name_de'] as List?;
+      final interval = tfmData?['interval'] as List?;
 
       // Get display text for current value
       String getDisplayText(dynamic value) {
@@ -390,6 +394,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                     currentValue: widget.value,
                     enumValues: enumValues,
                     nameDe: nameDe,
+                    interval: interval,
                     fullscreen: true,
                   );
 
@@ -416,13 +421,45 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
       final unit = tfmData?['unit_short'] as String?;
 
+      // Check for upDownBtn (spinner buttons)
+      int? upDownBtn = widget.fieldSchema['upDownBtn'] as int?;
+      bool hasSpinner = upDownBtn != null && type == 'integer';
+
+      // Get min/max values from schema
+      final minimum = widget.fieldSchema['minimum'] as num?;
+      final maximum = widget.fieldSchema['maximum'] as num?;
+
+      // IF max - min is small, add upDownBtn +1
+      debugPrint('Minumum: ${widget.fieldName}: ${minimum}');
+      if (minimum != null && maximum != null && (maximum - minimum) <= 1000) {
+        // Override upDownBtn to 1
+        debugPrint('Setting upDownBtn to 1 for field ${widget.fieldName} due to small range');
+        hasSpinner = true;
+        upDownBtn = 1;
+      }
+
+      // Helper function to increment/decrement value
+      void adjustValue(int delta) {
+        if (isReadonly) return;
+
+        final currentValue = int.tryParse(_controller.text) ?? (minimum?.toInt() ?? 0);
+        final newValue = currentValue + delta;
+
+        // Respect min/max bounds
+        if (minimum != null && newValue < minimum.toInt()) return;
+        if (maximum != null && newValue > maximum.toInt()) return;
+
+        _controller.text = newValue.toString();
+        widget.onChanged?.call(newValue);
+      }
+
       final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: TextField(
           focusNode: _focusNode,
           controller: _controller,
           readOnly: isReadonly,
-          textAlign: TextAlign.right,
+          textAlign: hasSpinner ? TextAlign.center : TextAlign.right,
           decoration: widget.compact
               ? InputDecoration(
                   border: InputBorder.none,
@@ -431,6 +468,30 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   isDense: true,
                   filled: hasErrors,
                   fillColor: errorBgColor,
+                  prefixIcon: hasSpinner
+                      ? SizedBox(
+                          width: 20,
+                          child: IconButton(
+                            icon: const Icon(Icons.remove, size: 14),
+                            onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                            iconSize: 14,
+                          ),
+                        )
+                      : null,
+                  suffixIcon: hasSpinner
+                      ? SizedBox(
+                          width: 20,
+                          child: IconButton(
+                            icon: const Icon(Icons.add, size: 14),
+                            onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                            iconSize: 14,
+                          ),
+                        )
+                      : null,
                 )
               : InputDecoration(
                   labelText: _getLabel(),
@@ -443,6 +504,18 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   isDense: widget.dense,
                   fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
                   suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
+                  prefixIcon: hasSpinner
+                      ? IconButton(
+                          icon: const Icon(Icons.remove),
+                          onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                        )
+                      : null,
+                  suffixIcon: hasSpinner
+                      ? IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                        )
+                      : null,
                   /*suffixIcon: SpeechToTextButton(
                     controller: _controller,
                     fieldType: type,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 
 /// ClusterInfoButton - Shows an info icon that opens a dialog with cluster JSON data
 ///
@@ -11,6 +12,7 @@ class ClusterInfoButton extends StatelessWidget {
   final Color? iconColor;
   final double? iconSize;
   final String? tooltip;
+  final Map<String, dynamic>? rootSchema;
 
   const ClusterInfoButton({
     super.key,
@@ -18,10 +20,10 @@ class ClusterInfoButton extends StatelessWidget {
     this.iconColor,
     this.iconSize,
     this.tooltip,
+    this.rootSchema,
   });
 
   Future<void> _showClusterInfo(BuildContext context) async {
-    
     if (record == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kein Datensatz verfügbar'), duration: Duration(seconds: 2)),
@@ -31,7 +33,6 @@ class ClusterInfoButton extends StatelessWidget {
 
     // Get cluster data using the getCluster() method
     final clusterMap = record!.getCluster();
-
 
     if (clusterMap == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -45,8 +46,11 @@ class ClusterInfoButton extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (context) =>
-          ClusterInfoDialog(clusterData: clusterMap, clusterName: record!.clusterName),
+      builder: (context) => ClusterInfoDialog(
+        clusterData: clusterMap,
+        clusterName: record!.clusterName,
+        rootSchema: rootSchema,
+      ),
     );
   }
 
@@ -56,7 +60,7 @@ class ClusterInfoButton extends StatelessWidget {
     if (record == null || record!.getCluster() == null) {
       return const SizedBox.shrink();
     }
-    
+
     return IconButton(
       icon: Icon(Icons.info_outline, color: iconColor, size: iconSize),
       tooltip: tooltip ?? 'Cluster-Informationen anzeigen',
@@ -65,40 +69,56 @@ class ClusterInfoButton extends StatelessWidget {
   }
 }
 
-/// Dialog that displays cluster information in a formatted list
-class ClusterInfoDialog extends StatelessWidget {
+/// Dialog that displays cluster information using FormWrapper
+class ClusterInfoDialog extends StatefulWidget {
   final Map<String, dynamic> clusterData;
   final String clusterName;
+  final Map<String, dynamic>? rootSchema;
 
-  const ClusterInfoDialog({super.key, required this.clusterData, required this.clusterName});
+  const ClusterInfoDialog({
+    super.key,
+    required this.clusterData,
+    required this.clusterName,
+    this.rootSchema,
+  });
 
-  /// Format value for display
-  String _formatValue(dynamic value) {
-    if (value == null) return 'null';
-    if (value is String) return value;
-    if (value is num) return value.toString();
-    if (value is bool) return value ? 'Ja' : 'Nein';
-    if (value is List) return 'Liste (${value.length} Einträge)';
-    if (value is Map) return 'Objekt (${value.length} Felder)';
-    return value.toString();
+  @override
+  State<ClusterInfoDialog> createState() => _ClusterInfoDialogState();
+}
+
+class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
+  Map<String, dynamic>? _clusterStyleData;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClusterStyle();
   }
 
-  /// Build a list tile for a cluster field
-  Widget _buildFieldTile(String key, dynamic value) {
-    return ListTile(
-      dense: true,
-      title: Text(key, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-      subtitle: Text(_formatValue(value), style: const TextStyle(fontSize: 13)),
-      trailing: value != null && (value is Map || value is List)
-          ? Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[600])
-          : null,
-    );
+  Future<void> _loadClusterStyle() async {
+    try {
+      // Load cluster style from assets
+      final styleString = await rootBundle.loadString('assets/schema/cluster_style.json');
+      final styleJson = jsonDecode(styleString) as Map<String, dynamic>;
+
+      setState(() {
+        _clusterStyleData = styleJson;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading cluster style: $e');
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sortedKeys = clusterData.keys.toList()..sort();
 
     return Dialog(
       child: Container(
@@ -115,18 +135,13 @@ class ClusterInfoDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: theme.primaryColor),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Cluster-Informationen', style: theme.textTheme.titleLarge),
+                        Text('Informationen', style: theme.textTheme.titleLarge),
                         const SizedBox(height: 4),
-                        Text(
-                          'Trakt: $clusterName',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                        ),
+                        Text('Trakt: ${widget.clusterName}', style: theme.textTheme.bodyMedium),
                       ],
                     ),
                   ),
@@ -139,55 +154,93 @@ class ClusterInfoDialog extends StatelessWidget {
               ),
             ),
 
-            // List of cluster fields
+            // Content
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: sortedKeys.length,
-                separatorBuilder: (context, index) =>
-                    Divider(height: 1, indent: 16, endIndent: 16, color: Colors.grey[300]),
-                itemBuilder: (context, index) {
-                  final key = sortedKeys[index];
-                  final value = clusterData[key];
-                  return _buildFieldTile(key, value);
-                },
-              ),
-            ),
-
-            // Footer with actions
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: theme.dividerColor)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      final jsonString = const JsonEncoder.withIndent('  ').convert(clusterData);
-                      Clipboard.setData(ClipboardData(text: jsonString));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('JSON in Zwischenablage kopiert'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text('JSON kopieren'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Schließen'),
-                  ),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null || widget.rootSchema == null || _clusterStyleData == null
+                  ? _buildFallbackList()
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Text('sdasd'),
+                          Padding(padding: const EdgeInsets.all(16.0), child: _buildFormWrapper()),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Build GenericForm for cluster data
+  Widget _buildFormWrapper() {
+    // Extract layout configuration from cluster style
+    final layoutConfig = _clusterStyleData!['layout'] as Map<String, dynamic>?;
+    final typeProperties = layoutConfig?['typeProperties'] as Map<String, dynamic>?;
+    final properties = layoutConfig?['properties'] as List<dynamic>?;
+
+    // Determine layout mode
+    final responsive = typeProperties?['responsive'] as bool? ?? false;
+    final layoutMode = responsive ? 'responsive-wrap' : null;
+
+    // Extract property names from layout config
+    final includeProperties = properties
+        ?.map((p) {
+          if (p is String) return p;
+          if (p is Map) return p['name'] as String?;
+          return null;
+        })
+        .whereType<String>()
+        .toList();
+
+    return GenericForm(
+      jsonSchema: widget.rootSchema,
+      data: widget.clusterData,
+      layout: layoutMode,
+      includeProperties: includeProperties,
+    );
+  }
+
+  /// Fallback to simple list view
+  Widget _buildFallbackList() {
+    final sortedKeys = widget.clusterData.keys.toList()..sort();
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: sortedKeys.length,
+      separatorBuilder: (context, index) =>
+          Divider(height: 1, indent: 16, endIndent: 16, color: Colors.grey[300]),
+      itemBuilder: (context, index) {
+        final key = sortedKeys[index];
+        final value = widget.clusterData[key];
+        return _buildFieldTile(key, value);
+      },
+    );
+  }
+
+  /// Format value for display
+  String _formatValue(dynamic value) {
+    if (value == null) return 'null';
+    if (value is String) return value;
+    if (value is num) return value.toString();
+    if (value is bool) return value ? 'Ja' : 'Nein';
+    if (value is List) return 'Liste (${value.length} Einträge)';
+    if (value is Map) return 'Objekt (${value.length} Felder)';
+    return value.toString();
+  }
+
+  /// Build a list tile for a cluster field (fallback)
+  Widget _buildFieldTile(String key, dynamic value) {
+    return ListTile(
+      dense: true,
+      title: Text(key, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+      subtitle: Text(_formatValue(value), style: const TextStyle(fontSize: 13)),
+      trailing: value != null && (value is Map || value is List)
+          ? Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[600])
+          : null,
     );
   }
 }

@@ -223,10 +223,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
 
                 return ExpansionTile(
                   initiallyExpanded: true,
-                  leading: Icon(
-                    errorCountInGroup > 0 ? Icons.error : Icons.warning,
-                    color: errorCountInGroup > 0 ? Colors.red : Colors.orange,
-                  ),
                   title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(
                     '${errorCountInGroup > 0 ? '$errorCountInGroup Fehler' : ''}${errorCountInGroup > 0 && warningCountInGroup > 0 ? ', ' : ''}${warningCountInGroup > 0 ? '$warningCountInGroup Warnungen' : ''}',

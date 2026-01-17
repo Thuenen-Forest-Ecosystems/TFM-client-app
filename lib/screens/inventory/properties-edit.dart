@@ -39,6 +39,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   String? _error;
   Map<String, dynamic>? _jsonSchema;
   Map<String, dynamic>? _originalJsonSchema; // Unmodified schema for applying conditional rules
+  Map<String, dynamic>? _rootSchema; // Full root schema (not just plot items)
   Map<String, dynamic>? _formData;
   Map<String, dynamic>? _previousFormData;
   TFMValidationResult? _validationResult;
@@ -52,6 +53,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Map<String, dynamic>? _styleData;
   late final GlobalKey<FormWrapperState> _formWrapperKey;
   List<ConditionalRule> _conditionalRules = [];
+  Timer? _validationDebounceTimer;
 
   @override
   void initState() {
@@ -91,6 +93,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   @override
   void dispose() {
+    // Cancel any pending validation timer
+    _validationDebounceTimer?.cancel();
+
     // Clear distance line and focused record immediately when leaving
     // Only clear if the focused record matches this page's record
     // This prevents clearing when navigating between different properties-edit pages
@@ -187,6 +192,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           setState(() {
             _jsonSchema = schema;
             _originalJsonSchema = _deepCopyMap(schema);
+            _rootSchema = latestSchema!.schemaData;
             // No conditional rules available for embedded schema (no directory)
             _conditionalRules = [];
           });
@@ -275,6 +281,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         setState(() {
           _jsonSchema = validationSchema;
           _originalJsonSchema = originalSchema;
+          _rootSchema = latestSchema?.schemaData;
           _conditionalRules = conditionalRules;
           _styleData = latestSchema?.styleDefault;
           _isLoading = false;
@@ -511,97 +518,92 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   }
 
   Future<void> _onFormDataChanged(Map<String, dynamic> updatedData) async {
-    debugPrint('🔄 _onFormDataChanged called with forest_status=${updatedData['forest_status']}');
+    // Always update form data immediately (UI-responsive)
+    setState(() {
+      _formData = updatedData;
+    });
 
-    if (_originalJsonSchema != null) {
-      setState(() {
-        _isValidating = true;
-      });
+    // Cancel any pending validation
+    _validationDebounceTimer?.cancel();
 
-      try {
-        debugPrint('📋 Conditional rules count: ${_conditionalRules.length}');
+    // Debounce validation to avoid running on every keystroke
+    _validationDebounceTimer = Timer(const Duration(milliseconds: 800), () async {
+      if (_originalJsonSchema != null) {
+        setState(() {
+          _isValidating = true;
+        });
 
-        // Apply conditional rules to original schema
-        // Deep copy is handled inside applyRules() to prevent mutation
-        final modifiedSchema = _conditionalRules.isNotEmpty
-            ? ConditionalRulesService().applyRules(
-                schema: _originalJsonSchema!,
-                formData: updatedData,
-                rules: _conditionalRules,
-              )
-            : _originalJsonSchema!;
+        try {
+          // Apply conditional rules to original schema
+          // Deep copy is handled inside applyRules() to prevent mutation
+          final modifiedSchema = _conditionalRules.isNotEmpty
+              ? ConditionalRulesService().applyRules(
+                  schema: _originalJsonSchema!,
+                  formData: updatedData,
+                  rules: _conditionalRules,
+                )
+              : _originalJsonSchema!;
 
-        if (_conditionalRules.isEmpty) {
-          debugPrint('⚠️ No conditional rules to apply');
-        }
-        ;
+          if (_conditionalRules.isEmpty) {
+            debugPrint('⚠️ No conditional rules to apply');
+          }
+          ;
 
-        // Merge properties with record metadata for TFM validation
-        // TFM needs: id, intkey, cluster_id, plot_id, and all properties
-        final currentDataWithMeta = {
-          ...updatedData,
-          if (_record?.id != null) 'id': _record!.id,
-          if (_record?.plotId != null) 'plot_id': _record!.plotId,
-          if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
-        };
+          // Merge properties with record metadata for TFM validation
+          // TFM needs: id, intkey, cluster_id, plot_id, and all properties
+          final currentDataWithMeta = {
+            ...updatedData,
+            if (_record?.id != null) 'id': _record!.id,
+            if (_record?.plotId != null) 'plot_id': _record!.plotId,
+            if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
+          };
 
-        // Generate intkey if we have the necessary data
-        if (_record != null &&
-            updatedData['cluster_name'] != null &&
-            updatedData['plot_name'] != null) {
-          currentDataWithMeta['intkey'] =
-              '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
-        }
+          // Generate intkey if we have the necessary data
+          if (_record != null &&
+              updatedData['cluster_name'] != null &&
+              updatedData['plot_name'] != null) {
+            currentDataWithMeta['intkey'] =
+                '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
+          }
 
-        final previousDataWithMeta = _previousFormData != null
-            ? {
-                ..._previousFormData!,
-                if (_record?.id != null) 'id': _record!.id,
-                if (_record?.plotId != null) 'plot_id': _record!.plotId,
-                if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
-                if (_previousFormData!['cluster_name'] != null &&
-                    _previousFormData!['plot_name'] != null)
-                  'intkey':
-                      '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
-              }
-            : null;
+          final previousDataWithMeta = _previousFormData != null
+              ? {
+                  ..._previousFormData!,
+                  if (_record?.id != null) 'id': _record!.id,
+                  if (_record?.plotId != null) 'plot_id': _record!.plotId,
+                  if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
+                  if (_previousFormData!['cluster_name'] != null &&
+                      _previousFormData!['plot_name'] != null)
+                    'intkey':
+                        '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
+                }
+              : null;
 
-        final result = await ValidationService.instance.validateWithTFM(
-          schema: modifiedSchema,
-          data: currentDataWithMeta,
-          previousData: previousDataWithMeta,
-        );
+          final result = await ValidationService.instance.validateWithTFM(
+            schema: modifiedSchema,
+            data: currentDataWithMeta,
+            previousData: previousDataWithMeta,
+          );
 
-        if (mounted) {
-          setState(() {
-            _validationResult = result;
-            _isValidating = false;
-            _hasCompletedInitialValidation = true;
-            // Always update form data, regardless of validation result
-            _formData = updatedData;
-            // Update schema with conditional rules applied
-            _jsonSchema = modifiedSchema;
-          });
-        }
-
-        debugPrint(
-          'Form validation errors: ${result.allErrors.length} total (AJV: ${result.ajvErrors.length}, TFM: ${result.tfmOnlyErrors.length})',
-        );
-        debugPrint('tfmAvailable: ${result.tfmAvailable}, isValid: ${result.isValid}');
-      } catch (e) {
-        debugPrint('Validation error: $e');
-        if (mounted) {
-          setState(() {
-            _isValidating = false;
-          });
+          if (mounted) {
+            setState(() {
+              _validationResult = result;
+              _isValidating = false;
+              _hasCompletedInitialValidation = true;
+              // Update schema with conditional rules applied
+              _jsonSchema = modifiedSchema;
+            });
+          }
+        } catch (e) {
+          debugPrint('Validation error: $e');
+          if (mounted) {
+            setState(() {
+              _isValidating = false;
+            });
+          }
         }
       }
-    } else {
-      // No schema available, accept changes without validation
-      setState(() {
-        _formData = updatedData;
-      });
-    }
+    });
   }
 
   void _setFocusedRecord(BuildContext context) {
@@ -960,7 +962,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               clipBehavior: Clip.none,
               child: Row(
                 children: [
-                  ClusterInfoButton(record: _record, tooltip: 'Cluster-Informationen'),
+                  ClusterInfoButton(
+                    record: _record,
+                    rootSchema: _rootSchema,
+                    tooltip: 'Informationen',
+                  ),
                   IconButton(
                     icon: const Icon(Icons.map, size: 20),
                     onPressed: () => _focusRecord(context),
@@ -988,36 +994,49 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     ),
                   ),
 
-                  IconButton.outlined(
-                    onPressed: (_isSaving || !_hasCompletedInitialValidation)
-                        ? null
-                        : () => save('save'),
-                    icon: _isSaving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Icon(Icons.save),
-                  ),
-                  Badge.count(
-                    count: _validationResult?.allIssues.length ?? 0,
-                    isLabelVisible:
-                        _validationResult != null && _validationResult!.allIssues.isNotEmpty,
-                    textColor: Colors.white,
-                    child: ElevatedButton(
-                      onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
-                          ? saveRecord
-                          : null,
-                      child: _isValidating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('FERTIG'),
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      // card background color
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: (_isSaving || !_hasCompletedInitialValidation)
+                              ? null
+                              : () => save('save'),
+                          icon: _isSaving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Icon(Icons.save),
+                        ),
+                        //Vertical divider
+                        Container(width: 1, height: 24, color: Colors.white54),
+                        Badge.count(
+                          count: _validationResult?.allIssues.length ?? 0,
+                          isLabelVisible:
+                              _validationResult != null && _validationResult!.allIssues.isNotEmpty,
+                          textColor: Colors.white,
+                          child: TextButton(
+                            onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
+                                ? saveRecord
+                                : null,
+                            child: const Text('FERTIG'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+
                   IfDatabaseAdmin(
                     child: IconButton(
                       icon: const Icon(Icons.more_vert),

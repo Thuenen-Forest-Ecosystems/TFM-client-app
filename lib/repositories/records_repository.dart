@@ -200,30 +200,45 @@ class Record {
   double? get latitude => getCoordinates()?['latitude'];
   double? get longitude => getCoordinates()?['longitude'];
 
-  /// Extracts cluster data from properties
+  /// Extracts cluster data from properties or direct cluster field
   /// Returns the cluster Map, or null if not available
   Map<String, dynamic>? getCluster() {
     try {
-      final cluster = properties['cluster'];
+      // First check the direct cluster field from the database
+      if (cluster != null && cluster!.isNotEmpty) {
+        try {
+          final parsed = jsonDecode(cluster!);
+          if (parsed is Map<String, dynamic>) {
+            return parsed;
+          } else if (parsed is Map) {
+            return Map<String, dynamic>.from(parsed);
+          }
+        } catch (e) {
+          debugPrint('Error parsing cluster field JSON: $e');
+        }
+      }
 
-      if (cluster == null) {
+      // Fallback: check properties['cluster']
+      final clusterFromProperties = properties['cluster'];
+
+      if (clusterFromProperties == null) {
         return null;
       }
 
       // Handle different possible formats
-      if (cluster is Map<String, dynamic>) {
-        return cluster;
-      } else if (cluster is Map) {
-        return Map<String, dynamic>.from(cluster);
-      } else if (cluster is String) {
+      if (clusterFromProperties is Map<String, dynamic>) {
+        return clusterFromProperties;
+      } else if (clusterFromProperties is Map) {
+        return Map<String, dynamic>.from(clusterFromProperties);
+      } else if (clusterFromProperties is String) {
         // Try to parse JSON string
         try {
-          final parsed = jsonDecode(cluster);
+          final parsed = jsonDecode(clusterFromProperties);
           if (parsed is Map) {
             return Map<String, dynamic>.from(parsed);
           }
         } catch (e) {
-          debugPrint('Error parsing cluster JSON string: $e');
+          debugPrint('Error parsing cluster JSON string from properties: $e');
         }
       }
     } catch (e, stackTrace) {

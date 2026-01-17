@@ -248,10 +248,7 @@ class _StartState extends State<Start> {
         children: [
           //const SyncStatusButton(),
           // Use platform-specific GPS widget
-          if (Platform.isWindows)
-            const SerialPortGpsIcon()
-          else
-            const BluetoothIconCombined(),
+          if (Platform.isWindows) const SerialPortGpsIcon() else const BluetoothIconCombined(),
         ],
       ),
     );
@@ -349,7 +346,7 @@ class _StartState extends State<Start> {
     bool? shouldNavigate = true;
 
     if (currentPath.startsWith('/properties-edit')) {
-      title = 'Aufnahme abbrechen';
+      title = 'Abbrechen';
 
       shouldNavigate = await showDialog<bool>(
         context: context,
@@ -443,7 +440,10 @@ class _StartState extends State<Start> {
                     if (_sheetController.isAttached) {
                       final screenHeight = MediaQuery.of(context).size.height;
                       final delta = -details.delta.dy / screenHeight;
-                      final newSize = (_sheetController.size + delta).clamp(_minChildSize, _maxChildSize);
+                      final newSize = (_sheetController.size + delta).clamp(
+                        _minChildSize,
+                        _maxChildSize,
+                      );
                       _sheetController.jumpTo(newSize);
                     }
                   },

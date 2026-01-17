@@ -11,6 +11,7 @@ class GenericForm extends StatefulWidget {
   final Function(Map<String, dynamic>)? onDataChanged;
   final List<String>? includeProperties; // Optional filter for which properties to show
   final Map<String, dynamic>? fieldOptions; // Per-field configuration (width, etc.)
+  final Map<String, dynamic>? layoutOptions; // General layout configuration
   final bool isDense;
   final String? layout;
   const GenericForm({
@@ -23,6 +24,7 @@ class GenericForm extends StatefulWidget {
     this.onDataChanged,
     this.includeProperties,
     this.fieldOptions,
+    this.layoutOptions,
     this.isDense = false,
     this.layout,
   });
@@ -129,56 +131,119 @@ class _GenericFormState extends State<GenericForm> {
       return const Center(child: Text('No primitive fields in schema'));
     }
 
+    debugPrint('GenericForm layout mode: ${widget.layout}');
+    debugPrint('GenericForm fieldOptions: ${widget.fieldOptions}');
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Determine number of columns based on available width
-        /*final int columns;
-        if (constraints.maxWidth >= 1200) {
-          columns = 3; // Large tablets/desktops
-        } else if (constraints.maxWidth >= 800) {
-          columns = 2; // Medium tablets
-        } else {
-          columns = 1; // Phones
-        }*/
-
-        Widget buildFieldWidget(MapEntry<String, Map<String, dynamic>> entry) {
+        Widget buildFieldWidget(
+          MapEntry<String, Map<String, dynamic>> entry, {
+          bool isFlexible = false,
+        }) {
           final fieldName = entry.key;
           final fieldSchema = entry.value;
           final fieldErrors = _getErrorsForField(fieldName);
           final fieldConfig = widget.fieldOptions?[fieldName] as Map<String, dynamic>?;
-          final width = (fieldConfig?['width'] as num?)?.toDouble();
 
+          // Support width, minWidth, maxWidth
+          final width = (fieldConfig?['width'] as num?)?.toDouble();
+          final minWidth = (fieldConfig?['minWidth'] as num?)?.toDouble() ?? 100.0;
+          final maxWidth = (fieldConfig?['maxWidth'] as num?)?.toDouble() ?? double.infinity;
+
+          final textField = GenericTextField(
+            fieldName: fieldName,
+            fieldSchema: fieldSchema,
+            value: _localData[fieldName],
+            errors: fieldErrors,
+            onChanged: (value) => _updateField(fieldName, value),
+            dense: widget.isDense,
+            previousData: widget.previous_properties,
+          );
+
+          // If fixed width is specified, use SizedBox
+          if (width != null) {
+            return Padding(
+              padding: const EdgeInsets.all(10),
+              child: SizedBox(width: width, child: textField),
+            );
+          }
+
+          // If flexible layout, use Expanded with constraints
+          if (isFlexible) {
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: minWidth, maxWidth: maxWidth),
+                  child: textField,
+                ),
+              ),
+            );
+          }
+
+          // Default: fixed width of 200
           return Padding(
             padding: const EdgeInsets.all(10),
-            child: SizedBox(
-              width: width,
-              child: GenericTextField(
-                fieldName: fieldName,
-                fieldSchema: fieldSchema,
-                value: _localData[fieldName],
-                errors: fieldErrors,
-                onChanged: (value) => _updateField(fieldName, value),
-                dense: widget.isDense,
-                previousData: widget.previous_properties,
-                //width: width,
-              ),
-            ),
+            child: SizedBox(child: textField),
           );
         }
 
-        final fieldWidgets = fieldsToShow.map(buildFieldWidget).toList();
-
         if (widget.layout == 'horizontal-scroll') {
+          final fieldWidgets = fieldsToShow.map((e) => buildFieldWidget(e)).toList();
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: fieldWidgets),
           );
+        } else if (widget.layout == 'responsive-wrap') {
+          // Grid system based on screen width
+          final screenWidth = constraints.maxWidth;
+          int columns;
+
+          // Determine number of columns based on screen width breakpoints
+          if (screenWidth >= 1200) {
+            columns = 3; // Large screens: 3 columns
+          } else if (screenWidth >= 700) {
+            columns = 2; // Medium screens: 2 columns
+          } else {
+            columns = 1; // Small screens: 1 column
+          }
+
+          debugPrint('Responsive grid: screenWidth=$screenWidth, columns=$columns');
+
+          // Calculate column width
+          final spacing = 10.0;
+          final totalSpacing = spacing * (columns - 1);
+          final columnWidth = (screenWidth - totalSpacing) / columns;
+
+          // Build fields with fixed column width
+          final fieldWidgets = fieldsToShow.map((entry) {
+            final fieldName = entry.key;
+            final fieldSchema = entry.value;
+            final fieldErrors = _getErrorsForField(fieldName);
+
+            return Padding(
+              padding: const EdgeInsets.all(5),
+              child: SizedBox(
+                width: columnWidth - 10, // Account for padding
+                child: GenericTextField(
+                  fieldName: fieldName,
+                  fieldSchema: fieldSchema,
+                  value: _localData[fieldName],
+                  errors: fieldErrors,
+                  onChanged: (value) => _updateField(fieldName, value),
+                  dense: widget.isDense,
+                  previousData: widget.previous_properties,
+                ),
+              ),
+            );
+          }).toList();
+
+          // Wrap layout will automatically flow to next row
+          return Wrap(spacing: spacing, runSpacing: spacing, children: fieldWidgets);
         } else {
-          return Wrap(
-            spacing: 5, // Horizontal spacing between items
-            runSpacing: 5, // Vertical spacing between rows
-            children: fieldWidgets,
-          );
+          // Default Wrap layout with fixed widths
+          final fieldWidgets = fieldsToShow.map((e) => buildFieldWidget(e)).toList();
+          return Wrap(spacing: 5, runSpacing: 5, children: fieldWidgets);
         }
         /*
         if (columns == 1) {
