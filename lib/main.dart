@@ -40,6 +40,7 @@ import 'package:terrestrial_forest_monitor/screens/records-raw.dart';
 // provider
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
+import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 
 BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
   return BeamerDelegate(
@@ -133,6 +134,10 @@ void main() async {
   }
 
   usePathUrlStrategy();
+
+  // Initialize proxy service (must be done early, before any HTTP requests)
+  await ProxyService.initialize();
+  print('Proxy service initialized');
 
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
@@ -376,6 +381,16 @@ class _WindowsCertificateOverride extends HttpOverrides {
     // Pass our custom context with the bundled certificate
     final client = super.createHttpClient(_customContext ?? context);
 
+    // Configure proxy settings (system proxy or manual configuration)
+    // This runs synchronously during client creation, so we can't await
+    // The proxy service will use cached configuration or defaults
+    try {
+      final proxyService = ProxyService();
+      proxyService.configureHttpClient(client);
+    } catch (e) {
+      logger.log('⚠️ Failed to configure proxy: $e', level: LogLevel.warning);
+    }
+
     // Enhanced certificate callback with detailed logging
     // CRITICAL: PowerSync WebSocket may bypass SecurityContext, so this callback
     // is our last line of defense
@@ -401,7 +416,7 @@ class _WindowsCertificateOverride extends HttpOverrides {
 
     client.connectionTimeout = const Duration(seconds: 30);
 
-    logger.log('✅ HttpClient configured with 30s timeout', level: LogLevel.debug);
+    logger.log('✅ HttpClient configured with 30s timeout and proxy support', level: LogLevel.debug);
 
     return client;
   }

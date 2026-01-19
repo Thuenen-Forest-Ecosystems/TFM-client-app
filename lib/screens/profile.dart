@@ -6,6 +6,7 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/download-schemas-btn.dart';
+import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
@@ -55,6 +56,28 @@ class Profile extends StatelessWidget {
               ),
             ),
             Card(child: DownloadSchemasBtn()),
+
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              child: const Text(
+                'Netzwerk',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.vpn_lock),
+                title: const Text('Proxy-Einstellungen'),
+                subtitle: const Text('Konfiguration für Landesdatennetze'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (context) => const ProxySettingsScreen()));
+                },
+              ),
+            ),
 
             /*const SizedBox(height: 16),
             // In your profile or settings screen
