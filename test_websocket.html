@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket-Test für TFM</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .test-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        .test-button:hover {
+            background-color: #2980b9;
+        }
+        .test-button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .result {
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 16px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .detail {
+            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket-Test für TFM-App</h1>
+        
+        <div class="info">
+            <strong>📋 Anleitung:</strong><br>
+            Klicken Sie auf den Button unten, um zu testen, ob WebSocket-Verbindungen 
+            zum TFM-Server (ci.thuenen.de) funktionieren.<br><br>
+            <strong>Wichtig:</strong> Führen Sie diesen Test im Landesnetz (am Arbeitsplatz) durch!
+        </div>
+
+        <button id="testBtn" class="test-button" onclick="runTest()">
+            🚀 WebSocket-Verbindung testen
+        </button>
+
+        <div id="spinner" class="spinner"></div>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let timeout = null;
+
+        function runTest() {
+            const resultDiv = document.getElementById('result');
+            const spinner = document.getElementById('spinner');
+            const testBtn = document.getElementById('testBtn');
+            
+            // Reset
+            resultDiv.style.display = 'none';
+            resultDiv.className = 'result';
+            spinner.style.display = 'block';
+            testBtn.disabled = true;
+            testBtn.textContent = 'Teste Verbindung...';
+
+            // Close existing connection
+            if (ws) {
+                ws.close();
+            }
+
+            // Clear existing timeout
+            if (timeout) {
+                clearTimeout(timeout);
+            }
+
+            // Set timeout
+            timeout = setTimeout(() => {
+                if (ws && ws.readyState !== WebSocket.OPEN) {
+                    ws.close();
+                    showResult(false, 'Timeout', 
+                        'Die WebSocket-Verbindung konnte nicht innerhalb von 10 Sekunden hergestellt werden.<br><br>' +
+                        '<strong>Mögliche Ursachen:</strong><br>' +
+                        '• WebSocket-Verbindungen werden im Netzwerk blockiert<br>' +
+                        '• Proxy blockiert die CONNECT-Methode<br>' +
+                        '• Firewall blockiert Port 443 für WebSocket<br><br>' +
+                        '<strong>Lösung:</strong> Kontaktieren Sie Ihre IT-Abteilung und bitten Sie um Freigabe für:<br>' +
+                        '• Host: ci.thuenen.de<br>' +
+                        '• Port: 443<br>' +
+                        '• Protokoll: WebSocket (wss://)'
+                    );
+                }
+            }, 10000);
+
+            try {
+                // Test WebSocket connection to TFM server
+                ws = new WebSocket('wss://ci.thuenen.de/sync/');
+
+                ws.onopen = function() {
+                    clearTimeout(timeout);
+                    showResult(true, 'Erfolgreich! ✅', 
+                        'Die WebSocket-Verbindung zum TFM-Server funktioniert.<br><br>' +
+                        '<strong>Das bedeutet:</strong><br>' +
+                        '• Die TFM-App kann Daten synchronisieren<br>' +
+                        '• Ihr Netzwerk erlaubt WebSocket-Verbindungen<br>' +
+                        '• Keine weiteren Netzwerk-Konfigurationen erforderlich<br><br>' +
+                        '<strong>Nächster Schritt:</strong> Starten Sie die TFM-App und aktivieren Sie ' +
+                        '"System-Proxy verwenden" in den Proxy-Einstellungen.'
+                    );
+                    ws.close();
+                };
+
+                ws.onerror = function(error) {
+                    clearTimeout(timeout);
+                    console.error('WebSocket Error:', error);
+                    showResult(false, 'Fehler beim Verbinden ❌', 
+                        'Die WebSocket-Verbindung zum TFM-Server ist fehlgeschlagen.<br><br>' +
+                        '<strong>Mögliche Ursachen:</strong><br>' +
+                        '• WebSocket-Verbindungen werden vom Proxy blockiert<br>' +
+                        '• Firewall blockiert wss:// Protokoll<br>' +
+                        '• Netzwerk erlaubt nur HTTP/HTTPS, nicht WebSocket<br><br>' +
+                        '<strong>Lösung:</strong><br>' +
+                        '1. Kontaktieren Sie Ihre IT-Abteilung<br>' +
+                        '2. Bitten Sie um Freigabe für WebSocket-Verbindungen zu ci.thuenen.de<br>' +
+                        '3. Alternativ: Nutzen Sie die TFM-App außerhalb des Landesdatennetzes für Synchronisation'
+                    );
+                };
+
+                ws.onclose = function(event) {
+                    if (!event.wasClean) {
+                        clearTimeout(timeout);
+                        showResult(false, 'Verbindung geschlossen ⚠️', 
+                            'Die WebSocket-Verbindung wurde unerwartet geschlossen.<br><br>' +
+                            '<strong>Fehlercode:</strong> ' + event.code + '<br>' +
+                            '<strong>Grund:</strong> ' + (event.reason || 'Keine Angabe') + '<br><br>' +
+                            'Dies deutet darauf hin, dass WebSocket-Verbindungen blockiert werden.'
+                        );
+                    }
+                };
+
+            } catch (error) {
+                clearTimeout(timeout);
+                showResult(false, 'Technischer Fehler', 
+                    'Ein unerwarteter Fehler ist aufgetreten:<br><br>' +
+                    '<code>' + error.message + '</code>'
+                );
+            }
+        }
+
+        function showResult(success, title, message) {
+            const resultDiv = document.getElementById('result');
+            const spinner = document.getElementById('spinner');
+            const testBtn = document.getElementById('testBtn');
+
+            spinner.style.display = 'none';
+            testBtn.disabled = false;
+            testBtn.textContent = '🔄 Erneut testen';
+
+            resultDiv.className = 'result ' + (success ? 'success' : 'error');
+            resultDiv.innerHTML = '<strong>' + title + '</strong><div class="detail">' + message + '</div>';
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

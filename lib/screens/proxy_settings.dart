@@ -193,18 +193,27 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                     RadioListTile<bool>(
                       title: const Text('System-Proxy verwenden'),
                       subtitle: const Text(
-                        'Nutzt die Windows-Proxy-Einstellungen (empfohlen für Landesdatennetz)',
+                        'Nutzt die Windows-Proxy-Einstellungen (EMPFOHLEN - unterstützt WebSocket)',
                       ),
                       value: true,
                       groupValue: _useSystemProxy,
                       onChanged: (value) => setState(() => _useSystemProxy = value!),
                     ),
                     RadioListTile<bool>(
-                      title: const Text('Manuelle Konfiguration'),
-                      subtitle: const Text('Proxy-Server manuell angeben'),
+                      title: Row(
+                        children: [
+                          const Text('Manuelle Konfiguration'),
+                          const SizedBox(width: 8),
+                          Icon(Icons.warning_amber, size: 20, color: Colors.orange.shade700),
+                        ],
+                      ),
+                      subtitle: const Text(
+                        'Veraltet: sollte nicht mehr genutzt werden.',
+                        style: TextStyle(color: Colors.deepOrange),
+                      ),
                       value: false,
                       groupValue: _useSystemProxy,
-                      onChanged: (value) => setState(() => _useSystemProxy = value!),
+                      onChanged: (value) => null, //setState(() => _useSystemProxy = value!),
                     ),
                   ],
                 ),

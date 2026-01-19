@@ -1,31 +1,46 @@
 # Proxy-Unterstützung für TFM Windows-App
 
+## ⚠️ WICHTIG: WebSocket-Einschränkung
+
+**Die manuelle Proxy-Konfiguration funktioniert NUR für HTTP, NICHT für WebSocket!**
+
+Die TFM-App nutzt:
+
+- **HTTP/HTTPS** für Login und API-Anfragen ✅
+- **WebSocket (wss://)** für Datensynchronisation (PowerSync) ⚠️
+
+**Lösung:** Verwenden Sie **System-Proxy** (siehe unten) statt manueller Konfiguration!
+
 ## Überblick
 
-Die TFM Windows-App unterstützt jetzt vollständige Proxy-Konfiguration für den Einsatz in Landesdatennetzen und anderen proxy-geschützten Netzwerken.
+Die TFM Windows-App unterstützt Proxy-Konfiguration für den Einsatz in Landesdatennetzen und anderen proxy-geschützten Netzwerken.
 
 ## Funktionen
 
-- ✅ **Automatische System-Proxy-Erkennung** (empfohlen)
-- ✅ **Manuelle Proxy-Konfiguration**
-- ✅ **Proxy-Authentifizierung** (Benutzername/Passwort)
-- ✅ **Verbindungstest**
+- ✅ **Automatische System-Proxy-Erkennung** (EMPFOHLEN - unterstützt WebSocket)
+- ⚠️ **Manuelle Proxy-Konfiguration** (nur HTTP, WebSocket funktioniert nicht!)
+- ✅ **Proxy-Authentifizierung** über Windows Credential Manager
+- ✅ **Verbindungstest** (HTTP + WebSocket)
 - ✅ **Umgebungsvariablen-Support**
 
 ## Verwendung
 
 ### Für Anwender (Landesdatennetz Sachsen-Anhalt)
 
-1. **Starten Sie die TFM-App**
-2. **Melden Sie sich an** (falls außerhalb des Landesdatennetzes möglich)
-3. **Navigieren Sie zu Einstellungen** (Profil-Symbol)
-4. **Klicken Sie auf "Proxy-Einstellungen"** unter dem Abschnitt "Netzwerk"
-5. **Aktivieren Sie "Proxy aktivieren"**
-6. **Wählen Sie "System-Proxy verwenden"** (Standard und empfohlen)
-   - Die App nutzt automatisch die Windows-Proxy-Einstellungen
-   - Konfiguriert über: Systemsteuerung → Internetoptionen → Verbindungen → LAN-Einstellungen
+**EMPFOHLENE KONFIGURATION:**
+
+1. **Konfigurieren Sie den Windows-Systemproxy** (siehe unten)
+2. **Starten Sie die TFM-App**
+3. **VOR dem Login:** Klicken Sie auf **"Netzwerk-Einstellungen (Proxy)"**
+4. **Aktivieren Sie "Proxy aktivieren"** ✅
+5. **Wählen Sie "System-Proxy verwenden"** ✅ (Standard)
+6. **Testen Sie die Verbindung** - Sie sollten sehen:
+   ```
+   ✓ HTTP-Verbindung erfolgreich (200)
+   ✓ WebSocket (PowerSync) funktioniert
+   ```
 7. **Speichern Sie die Einstellungen**
-8. **Starten Sie die App neu**
+8. **Starten Sie die App neu** (oder klicken Sie auf "Anwendung schließen")
 
 ### System-Proxy unter Windows konfigurieren
 
@@ -39,15 +54,17 @@ Falls noch nicht geschehen, können Sie den System-Proxy in Windows wie folgt ei
 6. Geben Sie die Proxy-Adresse und den Port ein
 7. Klicken Sie auf **OK**
 
-### Manuelle Proxy-Konfiguration
+### Manuelle Proxy-Konfiguration (⚠️ NICHT EMPFOHLEN)
 
-Falls die System-Proxy-Erkennung nicht funktioniert:
+**WARNUNG:** Manuelle Konfiguration funktioniert nur für HTTP-Anfragen. Die Datensynchronisation (WebSocket) wird NICHT funktionieren!
+
+Nur verwenden für Test-Zwecke:
 
 1. Wählen Sie **"Manuelle Konfiguration"**
 2. Geben Sie **Host/IP-Adresse** des Proxys ein (z.B. `proxy.sachsen-anhalt.de`)
 3. Geben Sie den **Port** ein (z.B. `8080`)
 4. Falls erforderlich: Geben Sie **Benutzername** und **Passwort** ein
-5. **Testen Sie die Verbindung**
+5. **Testen Sie die Verbindung** - WebSocket-Test wird fehlschlagen!
 6. **Speichern** und **App neu starten**
 
 ### Verbindung testen
