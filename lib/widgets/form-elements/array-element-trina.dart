@@ -188,6 +188,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) {
     if (widget.previousData == null) return false;
 
+    if (widget.identifierField == null) {
+      debugPrint(
+        '⚠️ No identifierField provided for matching previous data in ${widget.propertyName}',
+      );
+    }
+
     // Use configured identifier field or fall back to common fields
     final identifierFields = widget.identifierField != null
         ? [widget.identifierField!]
@@ -1445,9 +1451,58 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final rowToCopy = _rows[rowIndex];
     final newCells = <String, TrinaCell>{};
 
+    // Get schema to check for autoIncrement fields
+    final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
+    final properties = itemSchema?['properties'] as Map<String, dynamic>?;
+
     rowToCopy.cells.forEach((key, cell) {
-      // Copy all cell values
-      newCells[key] = TrinaCell(value: cell.value);
+      // Skip auto-generated fields
+      if (key == '__row_number__' || key == '__row_menu__') {
+        newCells[key] = TrinaCell(value: null);
+        return;
+      }
+
+      // Check if this field has autoIncrement enabled
+      if (properties != null && properties.containsKey(key)) {
+        final propertySchema = properties[key] as Map<String, dynamic>;
+        final typeValue = propertySchema['type'];
+
+        String? type;
+        if (typeValue is String) {
+          type = typeValue;
+        } else if (typeValue is List) {
+          type =
+              typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+        }
+
+        // Check for autoIncrement
+        final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
+        final form = tfm?['form'] as Map<String, dynamic>?;
+        final autoIncrement = form?['autoIncrement'] as bool? ?? false;
+
+        if (autoIncrement && (type == 'integer' || type == 'number')) {
+          // Auto-increment: find max value and add 1 (don't copy the original value)
+          final existingValues = _rows
+              .map((row) => row.cells[key]?.value)
+              .where((v) => v != null && v is num)
+              .map((v) => (v as num).toInt())
+              .toList();
+
+          final defaultValue = propertySchema['default'] as int? ?? 1;
+          final nextValue = existingValues.isEmpty
+              ? defaultValue
+              : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+
+          newCells[key] = TrinaCell(value: nextValue);
+          debugPrint('  🔢 AutoIncrement field $key: copied value ignored, using $nextValue');
+        } else {
+          // Normal field: copy the value
+          newCells[key] = TrinaCell(value: cell.value);
+        }
+      } else {
+        // No schema info, just copy
+        newCells[key] = TrinaCell(value: cell.value);
+      }
     });
 
     final newTrinaRow = TrinaRow(cells: newCells);

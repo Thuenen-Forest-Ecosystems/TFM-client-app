@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds, MapController;
 import 'package:latlong2/latlong.dart';
@@ -6,6 +7,11 @@ import 'package:terrestrial_forest_monitor/repositories/records_repository.dart'
 class MapControllerProvider with ChangeNotifier {
   // Flutter map controller
   MapController? _flutterMapController;
+
+  // Map tap stream for position selection
+  final _mapTapController = StreamController<LatLng>.broadcast();
+  Stream<LatLng> get mapTapStream => _mapTapController.stream;
+  bool _isMapTapEnabled = false;
 
   // Distance line data for flutter_map
   LatLng? _distanceLineFrom;
@@ -30,6 +36,16 @@ class MapControllerProvider with ChangeNotifier {
   LatLng? _navigationTarget;
   String? _navigationTargetLabel;
 
+  // Selected navigation start position
+  LatLng? _navigationStart;
+  String? _navigationStartLabel;
+
+  // Navigation line string for steps (points from start through all steps)
+  List<LatLng>? _navigationStepsLineString;
+
+  // Navigation line string for target (line from last step or start to target)
+  List<LatLng>? _navigationTargetLineString;
+
   MapController? get flutterMapController => _flutterMapController;
   LatLng? get distanceLineFrom => _distanceLineFrom;
   LatLng? get distanceLineTo => _distanceLineTo;
@@ -41,6 +57,10 @@ class MapControllerProvider with ChangeNotifier {
   DateTime? get navigationTimestamp => _navigationTimestamp;
   LatLng? get navigationTarget => _navigationTarget;
   String? get navigationTargetLabel => _navigationTargetLabel;
+  LatLng? get navigationStart => _navigationStart;
+  String? get navigationStartLabel => _navigationStartLabel;
+  List<LatLng>? get navigationStepsLineString => _navigationStepsLineString;
+  List<LatLng>? get navigationTargetLineString => _navigationTargetLineString;
 
   void setFlutterMapController(MapController? controller) {
     _flutterMapController = controller;
@@ -169,11 +189,98 @@ class MapControllerProvider with ChangeNotifier {
     }
   }
 
+  /// Set the navigation start position
+  void setNavigationStart(LatLng start, {String? label}) {
+    _navigationStart = start;
+    _navigationStartLabel = label;
+    debugPrint(
+      'Navigation start set: ${label ?? "unnamed"} at (${start.latitude}, ${start.longitude})',
+    );
+    notifyListeners();
+  }
+
+  /// Clear the navigation start position
+  void clearNavigationStart() {
+    if (_navigationStart != null) {
+      _navigationStart = null;
+      _navigationStartLabel = null;
+      debugPrint('Navigation start cleared');
+      notifyListeners();
+    }
+  }
+
+  /// Set the navigation steps line string (points from start through all steps)
+  void setNavigationStepsLineString(List<LatLng>? lineString) {
+    _navigationStepsLineString = lineString != null ? List<LatLng>.from(lineString) : null;
+    if (lineString != null) {
+      debugPrint('Navigation steps line string set with ${lineString.length} points');
+    } else {
+      debugPrint('Navigation steps line string cleared');
+    }
+    notifyListeners();
+  }
+
+  /// Set the navigation target line string (line from last step or start to target)
+  void setNavigationTargetLineString(List<LatLng>? lineString) {
+    _navigationTargetLineString = lineString != null ? List<LatLng>.from(lineString) : null;
+    if (lineString != null) {
+      debugPrint('Navigation target line string set with ${lineString.length} points');
+    } else {
+      debugPrint('Navigation target line string cleared');
+    }
+    notifyListeners();
+  }
+
+  /// Clear both navigation line strings
+  void clearNavigationLineStrings() {
+    bool changed = false;
+    if (_navigationStepsLineString != null) {
+      _navigationStepsLineString = null;
+      changed = true;
+    }
+    if (_navigationTargetLineString != null) {
+      _navigationTargetLineString = null;
+      changed = true;
+    }
+    if (changed) {
+      debugPrint('Navigation line strings cleared');
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     clearDistanceLine();
     _flutterMapController = null;
     _visiblePreviousPositions.clear();
+    _mapTapController.close();
     super.dispose();
+  }
+
+  /// Enable map tap mode for position selection
+  void enableMapTapMode() {
+    _isMapTapEnabled = true;
+    debugPrint('Map tap mode enabled');
+    notifyListeners();
+  }
+
+  /// Disable map tap mode
+  void disableMapTapMode() {
+    _isMapTapEnabled = false;
+    debugPrint('Map tap mode disabled');
+    notifyListeners();
+  }
+
+  /// Check if map tap mode is enabled
+  bool get isMapTapEnabled => _isMapTapEnabled;
+
+  /// Handle a map tap event (called from map widget)
+  void onMapTapped(LatLng position) {
+    if (_isMapTapEnabled) {
+      debugPrint('Map tapped at: ${position.latitude}, ${position.longitude}');
+      _mapTapController.add(position);
+      // Automatically disable after one tap
+      disableMapTapMode();
+    }
   }
 }

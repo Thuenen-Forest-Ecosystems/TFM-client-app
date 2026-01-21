@@ -22,7 +22,6 @@ class FormWrapper extends StatefulWidget {
   final Map<String, dynamic>? layoutStyleData;
   final String? layoutDirectory;
   final repo.Record? rawRecord;
-
   final Function(Map<String, dynamic>)? onFormDataChanged;
   final Function(String?)? onNavigateToTab;
 
@@ -311,6 +310,8 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
   void _onTabChanged() {
     _updateCurrentTabType();
+    // Force rebuild to update isVisible for PreviousPositionsNavigation
+    setState(() {});
   }
 
   void _updateCurrentTabType() {
@@ -347,6 +348,37 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       'regeneration',
       'deadwood',
     ].contains(tabId);
+  }
+
+  /// Check if a layout item is in the currently visible tab
+  bool _isLayoutItemInCurrentTab(LayoutItem item) {
+    if (_tabController == null || _layoutConfig == null) return true;
+
+    final currentIndex = _tabController!.index;
+    if (currentIndex < 0 || currentIndex >= _tabs.length) return false;
+
+    final currentTabId = _tabs[currentIndex].id;
+    final currentTabItem = LayoutService.findItemById(_layoutConfig, currentTabId);
+
+    if (currentTabItem == null) return false;
+
+    // Check if the item is within the current tab's layout hierarchy
+    return _isItemInLayout(item, currentTabItem);
+  }
+
+  /// Recursively check if an item is within a layout hierarchy
+  bool _isItemInLayout(LayoutItem needle, LayoutItem haystack) {
+    if (needle.id == haystack.id) return true;
+
+    if (haystack is ColumnLayout) {
+      return haystack.items.any((child) => _isItemInLayout(needle, child));
+    } else if (haystack is CardLayout && haystack.children != null) {
+      return haystack.children!.any((child) => _isItemInLayout(needle, child));
+    } else if (haystack is TabsLayout) {
+      return haystack.items.any((child) => _isItemInLayout(needle, child));
+    }
+
+    return false;
   }
 
   /// Build tab content based on layout configuration or fallback to hard-coded logic
@@ -513,9 +545,14 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       if (layoutItem.component == 'previous_positions_navigation') {
         // PreviousPositionsNavigation component - works with entire form data
         debugPrint('object layout previous_positions_navigation');
+
+        // Determine if this component is in the currently visible tab
+        final isVisible = _isLayoutItemInCurrentTab(layoutItem);
+
         return PreviousPositionsNavigation(
           rawRecord: widget.rawRecord,
           jsonSchema: widget.jsonSchema,
+          isVisible: isVisible,
         );
       }
       if (layoutItem.component == 'plot_support_points') {

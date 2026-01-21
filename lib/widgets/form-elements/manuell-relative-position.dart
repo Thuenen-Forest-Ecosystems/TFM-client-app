@@ -70,8 +70,11 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
     final gpsProvider = Provider.of<GpsPositionProvider>(context, listen: false);
     final mapProvider = Provider.of<MapControllerProvider>(context, listen: false);
 
-    // Get start position from latest GPS measurement
-    if (gpsProvider.lastPosition != null) {
+    // Get start position from navigation start (set by previous-positions-navigation)
+    // or fall back to latest GPS measurement
+    if (mapProvider.navigationStart != null) {
+      _startPosition = mapProvider.navigationStart;
+    } else if (gpsProvider.lastPosition != null) {
       _startPosition = LatLng(
         gpsProvider.lastPosition!.latitude,
         gpsProvider.lastPosition!.longitude,
@@ -235,6 +238,12 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
   }
 
   Widget _buildStartPositionSection(GpsPositionProvider gpsProvider) {
+    final mapProvider = Provider.of<MapControllerProvider>(context, listen: false);
+    final hasNavigationStart = mapProvider.navigationStart != null;
+    final startLabel = hasNavigationStart
+        ? mapProvider.navigationStartLabel ?? 'Gewählte Position'
+        : 'GPS Position';
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
@@ -246,7 +255,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
               Icon(_startPosition != null ? Icons.check_circle : Icons.warning, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Startposition: ${_startPosition != null ? "Verfügbar" : "Keine GPS-Daten"}',
+                'Startposition: ${_startPosition != null ? startLabel : "Keine Daten"}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Spacer(),

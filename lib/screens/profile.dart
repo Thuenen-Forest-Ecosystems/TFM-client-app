@@ -110,8 +110,8 @@ class Profile extends StatelessWidget {
                   ? null
                   : () async {
                       // Disconnect and clear PowerSync database
-                      await db.disconnectAndClear();
-                      //await db.disconnect();
+                      //await db.disconnectAndClear();
+                      await db.disconnect();
                       // Logout from Supabase
                       await authProvider.logout();
                       if (context.mounted) {

@@ -421,33 +421,61 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
                 // Device list
                 Expanded(
-                  child: _combinedDevices.isEmpty
-                      ? const Center(child: Text('No devices found'))
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _combinedDevices.length,
-                          itemBuilder: (context, index) {
-                            final device = _combinedDevices[index];
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _combinedDevices.length + 1, // +1 for internal GPS
+                    itemBuilder: (context, index) {
+                      // First item is always internal GPS
+                      if (index == 0) {
+                        final gpsProvider = context.watch<GpsPositionProvider>();
+                        final isInternalGPS =
+                            gpsProvider.listeningPosition && gpsProvider.connectedDevice == null;
 
-                            return ListTile(
-                              leading: Icon(
-                                device.isBLE ? Icons.bluetooth : Icons.bluetooth_audio,
-                                color: device.isBLE ? Colors.blue[700] : Colors.orange[700],
-                              ),
-                              title: Text(device.name),
-                              subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
-                              trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
-                              onTap: () {
-                                if (device.isBLE && device.bleDevice != null) {
-                                  Navigator.pop(context); // Close modal first
-                                  _connectToBLEDevice(device.bleDevice!, context);
-                                } else if (device.classicDevice != null) {
-                                  _connectToClassicDevice(device.classicDevice!);
-                                }
-                              },
-                            );
+                        return ListTile(
+                          leading: Icon(
+                            Icons.smartphone,
+                            color: isInternalGPS ? Colors.green : Colors.grey,
+                          ),
+                          title: const Text('Internal GPS'),
+                          subtitle: const Text('Device internal GPS sensor'),
+                          trailing: isInternalGPS
+                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              : null,
+                          onTap: () {
+                            Navigator.pop(context); // Close modal first
+                            gpsProvider.stopAll();
+                            gpsProvider.startInternalGps();
                           },
+                        );
+                      }
+
+                      // Remaining items are Bluetooth devices
+                      final deviceIndex = index - 1;
+                      if (deviceIndex >= _combinedDevices.length) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final device = _combinedDevices[deviceIndex];
+
+                      return ListTile(
+                        leading: Icon(
+                          device.isBLE ? Icons.bluetooth : Icons.bluetooth_audio,
+                          color: device.isBLE ? Colors.blue[700] : Colors.orange[700],
                         ),
+                        title: Text(device.name),
+                        subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
+                        trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
+                        onTap: () {
+                          if (device.isBLE && device.bleDevice != null) {
+                            Navigator.pop(context); // Close modal first
+                            _connectToBLEDevice(device.bleDevice!, context);
+                          } else if (device.classicDevice != null) {
+                            _connectToClassicDevice(device.classicDevice!);
+                          }
+                        },
+                      );
+                    },
+                  ),
                 ),
               ],
             ),

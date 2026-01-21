@@ -163,7 +163,6 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
                   : SingleChildScrollView(
                       child: Column(
                         children: [
-                          Text('sdasd'),
                           Padding(padding: const EdgeInsets.all(16.0), child: _buildFormWrapper()),
                         ],
                       ),

@@ -1050,10 +1050,14 @@ class _MapWidgetState extends State<MapWidget> {
     final initialZoom = widget.initialZoom ?? 5.5;
     final markers = _buildMarkers(_records);
 
-    // Watch for distance line updates from provider
+    // Watch for distance line and navigation updates from provider
     final mapControllerProvider = context.watch<MapControllerProvider>();
     final distanceLineFrom = mapControllerProvider.distanceLineFrom;
     final distanceLineTo = mapControllerProvider.distanceLineTo;
+    final navigationStart = mapControllerProvider.navigationStart;
+    final navigationTarget = mapControllerProvider.navigationTarget;
+    final navigationStepsLineString = mapControllerProvider.navigationStepsLineString;
+    final navigationTargetLineString = mapControllerProvider.navigationTargetLineString;
 
     return FlutterMap(
       mapController: _mapController,
@@ -1061,7 +1065,7 @@ class _MapWidgetState extends State<MapWidget> {
         initialCenter: initialCenter,
         initialZoom: initialZoom,
         minZoom: 4.0,
-        maxZoom: 22.0,
+        maxZoom: 24.0,
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
@@ -1072,7 +1076,14 @@ class _MapWidgetState extends State<MapWidget> {
           _updateVisibleRecords();
         },
         onTap: (tapPosition, point) {
-          _openMapSettings();
+          final mapProvider = context.read<MapControllerProvider>();
+          if (mapProvider.isMapTapEnabled) {
+            // Position selection mode - emit tap event
+            mapProvider.onMapTapped(point);
+          } else {
+            // Normal mode - open map settings
+            _openMapSettings();
+          }
         },
         onPositionChanged: (position, hasGesture) {
           final newZoom = position.zoom;
@@ -1109,10 +1120,7 @@ class _MapWidgetState extends State<MapWidget> {
             urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png ',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             subdomains: const ['a', 'b', 'c'],
-            //maxZoom: _selectedBasemaps.contains('dop')
-            //    ? 14
-            //    : 19, // Limit to zoom 14 if DOP is enabled
-            //maxNativeZoom: 18,
+            maxNativeZoom: 24, // Tiles only available up to zoom 18, upscale for higher zooms
             tileProvider: FMTCStore('opencyclemap').getTileProvider(
               settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
@@ -1127,7 +1135,8 @@ class _MapWidgetState extends State<MapWidget> {
             wmsOptions: WMSTileLayerOptions(
               baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
               layers: const ['rgb'],
-              format: 'image/jpeg',
+              format: 'image/png',
+              transparent: true, // Request transparent tiles from WMS
             ),
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
@@ -1218,8 +1227,11 @@ class _MapWidgetState extends State<MapWidget> {
                 .toList(),
           ),
 
-        // Distance line (from navigation element)
-        if (distanceLineFrom != null && distanceLineTo != null)
+        // Distance line - DO NOT SHOW when navigation is active
+        if (distanceLineFrom != null &&
+            distanceLineTo != null &&
+            navigationStart == null &&
+            navigationTarget == null)
           PolylineLayer(
             polylines: [
               Polyline(
@@ -1272,6 +1284,87 @@ class _MapWidgetState extends State<MapWidget> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
+                ),
+              ),
+            ],
+          ),
+
+        // NAVIGATION LAYERS - Rendered on top
+        // Navigation line 1: Start → Steps (solid blue line)
+        if (navigationStepsLineString != null && navigationStepsLineString.length >= 2)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: navigationStepsLineString,
+                color: Colors.blue.withOpacity(0.7),
+                strokeWidth: 3.0,
+              ),
+            ],
+          ),
+
+        // Navigation line 2: Last step/Start → Target (dashed blue line)
+        if (navigationTargetLineString != null && navigationTargetLineString.length >= 2)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: navigationTargetLineString,
+                color: Colors.blue.withOpacity(0.7),
+                strokeWidth: 3.0,
+                pattern: StrokePattern.dashed(segments: [10, 5]),
+              ),
+            ],
+          ),
+
+        // Navigation step markers (intermediate points from steps line)
+        if (navigationStepsLineString != null && navigationStepsLineString.length > 1)
+          CircleLayer(
+            circles: navigationStepsLineString
+                .sublist(1, navigationStepsLineString.length) // Exclude start point
+                .map(
+                  (point) => CircleMarker(
+                    point: point,
+                    radius: 4.0,
+                    color: Colors.blue.withOpacity(0.9),
+                    borderColor: Colors.white,
+                    borderStrokeWidth: 2,
+                  ),
+                )
+                .toList(),
+          ),
+
+        // Navigation start marker (green pin)
+        if (navigationStart != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: navigationStart,
+                width: 40,
+                height: 40,
+                alignment: Alignment.topCenter,
+                child: Icon(
+                  Icons.location_on,
+                  color: Colors.blue,
+                  size: 40,
+                  shadows: [Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)],
+                ),
+              ),
+            ],
+          ),
+
+        // Navigation target marker (green pin)
+        if (navigationTarget != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: navigationTarget,
+                width: 40,
+                height: 40,
+                alignment: Alignment.topCenter,
+                child: Icon(
+                  Icons.where_to_vote,
+                  color: Colors.blue,
+                  size: 40,
+                  shadows: [Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)],
                 ),
               ),
             ],

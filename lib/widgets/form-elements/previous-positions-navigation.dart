@@ -7,6 +7,8 @@ import 'package:terrestrial_forest_monitor/repositories/records_repository.dart'
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/position-selector.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/manual-navigation-steps.dart';
 
 /// Widget for navigating to previous position measurements
 /// Displays a list of previous positions from previousProperties.plot_coordinates and
@@ -14,8 +16,14 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 class PreviousPositionsNavigation extends StatefulWidget {
   final repo.Record? rawRecord;
   final Map<String, dynamic>? jsonSchema;
+  final bool isVisible; // Whether this tab is currently visible
 
-  const PreviousPositionsNavigation({super.key, this.rawRecord, this.jsonSchema});
+  const PreviousPositionsNavigation({
+    super.key,
+    this.rawRecord,
+    this.jsonSchema,
+    this.isVisible = true,
+  });
 
   @override
   State<PreviousPositionsNavigation> createState() => _PreviousPositionsNavigationState();
@@ -23,6 +31,7 @@ class PreviousPositionsNavigation extends StatefulWidget {
 
 class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigation> {
   String? _selectedPositionKey;
+  String? _startPositionKey;
   List<String> _positionKeys = [];
   Map<String, LatLng> _positionCoordinates = {};
   List<String> _supportPointKeys = [];
@@ -30,11 +39,18 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   Map<String, String> _supportPointNotes = {};
   Map<int, String> _supportPointTypeLabels = {}; // Cache for point type labels
   StreamSubscription? _gpsSubscription;
+  Map<String, double>? _calculatedNavigation;
+  List<LatLng>? _stepPositions;
+  LatLng? _startMapTappedPosition; // Position selected from map for start
+  LatLng? _targetMapTappedPosition; // Position selected from map for target
+  StreamSubscription? _mapTapSubscription; // Subscription to map tap events
 
   @override
   void initState() {
     super.initState();
     _loadPositionData();
+    // Set GPS live tracking as default start position
+    _startPositionKey = PositionSelector.gpsLiveKey;
   }
 
   @override
@@ -49,9 +65,11 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     try {
       final gpsProvider = context.read<GpsPositionProvider>();
       _gpsSubscription = gpsProvider.positionStreamController.listen((position) {
-        // Update distance line if a target is selected
-        if (_selectedPositionKey != null) {
-          _showDistanceLineToPosition(_selectedPositionKey!);
+        // Update navigation path if positions are selected and GPS is being used
+        if ((_startPositionKey == PositionSelector.gpsLiveKey ||
+                _selectedPositionKey == PositionSelector.gpsLiveKey) &&
+            mounted) {
+          _updateNavigationPath();
         }
       });
     } catch (e) {
@@ -146,7 +164,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           setState(() {
             _selectedPositionKey = 'SOLL Position';
           });
-          _showDistanceLineToPosition('SOLL Position');
+          _updateNavigationPath();
         }
       });
     }
@@ -367,17 +385,41 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     return radians * 180.0 / math.pi;
   }
 
-  void _selectPosition(String positionKey) {
+  String _formatDistance(double meters) {
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(1)} m';
+    } else {
+      return '${(meters / 1000).toStringAsFixed(2)} km';
+    }
+  }
+
+  void _selectTargetPosition(String? positionKey) {
     setState(() {
-      // Toggle selection - if already selected, clear it
-      if (_selectedPositionKey == positionKey) {
-        _selectedPositionKey = null;
-        // Clear distance line and navigation target
+      _selectedPositionKey = positionKey;
+      if (positionKey == null) {
+        // Clear navigation target and line string
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.clearDistanceLine();
         mapProvider.clearNavigationTarget();
+        mapProvider.clearNavigationLineStrings();
+      } else if (positionKey == PositionSelector.gpsLiveKey) {
+        // GPS live tracking - don't set a fixed target, let it track
+        final mapProvider = context.read<MapControllerProvider>();
+        mapProvider.clearNavigationTarget();
+        _updateNavigationPath();
+      } else if (positionKey == PositionSelector.gpsLockedKey) {
+        // Lock current GPS position as target
+        final gpsProvider = context.read<GpsPositionProvider>();
+        if (gpsProvider.lastPosition != null) {
+          final lockedPosition = LatLng(
+            gpsProvider.lastPosition!.latitude,
+            gpsProvider.lastPosition!.longitude,
+          );
+          final mapProvider = context.read<MapControllerProvider>();
+          mapProvider.setNavigationTarget(lockedPosition, label: 'GPS Position (Gesperrt)');
+          _updateNavigationPath();
+        }
       } else {
-        _selectedPositionKey = positionKey;
         // Set navigation target - check both position types
         final targetCoords =
             _positionCoordinates[positionKey] ?? _supportPointCoordinates[positionKey];
@@ -385,71 +427,151 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           final mapProvider = context.read<MapControllerProvider>();
           mapProvider.setNavigationTarget(targetCoords, label: positionKey);
         }
-        // Show distance line to selected position
-        _showDistanceLineToPosition(positionKey);
+        _updateNavigationPath();
       }
     });
   }
 
-  void _showDistanceLineToPosition(String positionKey) {
-    final targetCoords = _positionCoordinates[positionKey] ?? _supportPointCoordinates[positionKey];
-    if (targetCoords == null) {
-      debugPrint('No coordinates found for position: $positionKey');
-      return;
-    }
+  void _selectStartPosition(String? positionKey) {
+    setState(() {
+      _startPositionKey = positionKey;
 
-    // Get current GPS position
-    final gpsProvider = context.read<GpsPositionProvider>();
-    final currentPosition = gpsProvider.lastPosition;
+      final mapProvider = context.read<MapControllerProvider>();
 
-    if (currentPosition == null) {
-      debugPrint('No current GPS position available');
-      // Show distance line from record's current position instead
-      final recordCoords = widget.rawRecord?.getCoordinates();
-      if (recordCoords != null) {
-        final fromPosition = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
-        final mapProvider = context.read<MapControllerProvider>();
-        mapProvider.showDistanceLine(fromPosition, targetCoords);
+      if (positionKey == null) {
+        // Clear navigation start
+        mapProvider.clearNavigationStart();
+        mapProvider.clearNavigationLineStrings();
+      } else if (positionKey == PositionSelector.gpsLiveKey) {
+        // GPS live tracking - don't set a fixed position, let it track
+        mapProvider.clearNavigationStart();
+      } else if (positionKey == PositionSelector.gpsLockedKey) {
+        // Lock current GPS position
+        final gpsProvider = context.read<GpsPositionProvider>();
+        if (gpsProvider.lastPosition != null) {
+          final lockedPosition = LatLng(
+            gpsProvider.lastPosition!.latitude,
+            gpsProvider.lastPosition!.longitude,
+          );
+          mapProvider.setNavigationStart(lockedPosition, label: 'GPS Position (Gesperrt)');
+        }
+      } else {
+        // Set navigation start - check both position types
+        final startCoords =
+            _positionCoordinates[positionKey] ?? _supportPointCoordinates[positionKey];
+        if (startCoords != null) {
+          mapProvider.setNavigationStart(startCoords, label: positionKey);
+        }
       }
+
+      // Update navigation path if target is selected
+      if (_selectedPositionKey != null) {
+        _updateNavigationPath();
+      }
+    });
+  }
+
+  void _focusMapOnPosition(LatLng position) {
+    final mapProvider = context.read<MapControllerProvider>();
+    mapProvider.moveToLocation(position, zoom: 18.0);
+  }
+
+  void _updateNavigationPath() {
+    // Only update navigation if tab is currently visible
+    if (!widget.isVisible) return;
+
+    final startCoords = _getCoordinatesForKey(_startPositionKey);
+    final targetCoords = _getCoordinatesForKey(_selectedPositionKey);
+    final mapProvider = context.read<MapControllerProvider>();
+
+    // Clear old distance line system
+    mapProvider.clearDistanceLine();
+
+    // Update start marker
+    if (startCoords != null) {
+      mapProvider.setNavigationStart(startCoords, label: _startPositionKey);
+    } else {
+      mapProvider.clearNavigationStart();
+    }
+
+    // Update target marker
+    if (targetCoords != null) {
+      mapProvider.setNavigationTarget(targetCoords, label: _selectedPositionKey);
+    } else {
+      mapProvider.clearNavigationTarget();
+    }
+
+    // Update linestrings
+    if (startCoords == null || targetCoords == null) {
+      mapProvider.clearNavigationLineStrings();
       return;
     }
 
-    final fromPosition = LatLng(currentPosition.latitude, currentPosition.longitude);
+    // Line 1: Start → Steps (if steps exist)
+    if (_stepPositions != null && _stepPositions!.isNotEmpty) {
+      mapProvider.setNavigationStepsLineString(_stepPositions);
 
-    // Show distance line on map
-    final mapProvider = context.read<MapControllerProvider>();
-    mapProvider.showDistanceLine(fromPosition, targetCoords);
-  }
-
-  Widget _buildNavigationItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  String _formatDistance(double meters) {
-    if (meters < 1000) {
-      return '${meters.toStringAsFixed(1)} m';
+      // Line 2: Last step → Target
+      final lastStep = _stepPositions!.last;
+      mapProvider.setNavigationTargetLineString([lastStep, targetCoords]);
     } else {
-      return '${(meters / 1000).toStringAsFixed(2)} km';
+      // No steps: clear steps line, and draw direct line from start to target
+      mapProvider.setNavigationStepsLineString(null);
+      mapProvider.setNavigationTargetLineString([startCoords, targetCoords]);
     }
+  }
+
+  LatLng? _getCoordinatesForKey(String? key) {
+    if (key == null) return null;
+
+    final gpsProvider = context.read<GpsPositionProvider>();
+
+    if (key == PositionSelector.gpsLiveKey || key == PositionSelector.gpsLockedKey) {
+      if (gpsProvider.lastPosition != null) {
+        return LatLng(gpsProvider.lastPosition!.latitude, gpsProvider.lastPosition!.longitude);
+      }
+    } else if (key == PositionSelector.mapTappedKey) {
+      // Return the appropriate map-tapped position based on context
+      // This is a simplified approach - you might need to track which selector is being used
+      return _startMapTappedPosition ?? _targetMapTappedPosition;
+    } else {
+      return _positionCoordinates[key] ?? _supportPointCoordinates[key];
+    }
+    return null;
+  }
+
+  void _enableMapTapModeForStart() {
+    final mapProvider = context.read<MapControllerProvider>();
+    // Enable map tap mode and listen for tap events
+    _mapTapSubscription?.cancel();
+    _mapTapSubscription = mapProvider.mapTapStream.listen((position) {
+      if (mounted) {
+        setState(() {
+          _startMapTappedPosition = position;
+          _startPositionKey = PositionSelector.mapTappedKey;
+        });
+        _updateNavigationPath();
+      }
+    });
+    // Enable map tap mode
+    mapProvider.enableMapTapMode();
+  }
+
+  void _enableMapTapModeForTarget() {
+    final mapProvider = context.read<MapControllerProvider>();
+    // Enable map tap mode and listen for tap events
+    _mapTapSubscription?.cancel();
+    _mapTapSubscription = mapProvider.mapTapStream.listen((position) {
+      if (mounted) {
+        setState(() {
+          _targetMapTappedPosition = position;
+          _selectedPositionKey = PositionSelector.mapTappedKey;
+        });
+        _updateNavigationPath();
+      }
+    });
+    // Enable map tap mode
+    mapProvider.enableMapTapMode();
   }
 
   @override
@@ -491,181 +613,184 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
 
     // Calculate distance and bearing if position is selected
     final gpsProvider = context.watch<GpsPositionProvider>();
-    final userPosition = gpsProvider.lastPosition;
     double? distance;
     double? bearing;
 
-    if (_selectedPositionKey != null && userPosition != null) {
-      final targetCoords =
-          _positionCoordinates[_selectedPositionKey] ??
-          _supportPointCoordinates[_selectedPositionKey];
-      if (targetCoords != null) {
+    if (_selectedPositionKey != null) {
+      LatLng? targetCoords;
+
+      // Get target coordinates
+      if (_selectedPositionKey == PositionSelector.gpsLiveKey ||
+          _selectedPositionKey == PositionSelector.gpsLockedKey) {
+        if (gpsProvider.lastPosition != null) {
+          targetCoords = LatLng(
+            gpsProvider.lastPosition!.latitude,
+            gpsProvider.lastPosition!.longitude,
+          );
+        }
+      } else {
+        targetCoords =
+            _positionCoordinates[_selectedPositionKey] ??
+            _supportPointCoordinates[_selectedPositionKey];
+      }
+
+      LatLng? fromCoords;
+
+      // Get start coordinates
+      if (_startPositionKey == PositionSelector.gpsLiveKey ||
+          _startPositionKey == PositionSelector.gpsLockedKey) {
+        if (gpsProvider.lastPosition != null) {
+          fromCoords = LatLng(
+            gpsProvider.lastPosition!.latitude,
+            gpsProvider.lastPosition!.longitude,
+          );
+        }
+      } else if (_startPositionKey != null) {
+        fromCoords =
+            _positionCoordinates[_startPositionKey] ?? _supportPointCoordinates[_startPositionKey];
+      } else {
+        // Default to current GPS position
+        final userPosition = gpsProvider.lastPosition;
+        if (userPosition != null) {
+          fromCoords = LatLng(userPosition.latitude, userPosition.longitude);
+        }
+      }
+
+      if (targetCoords != null && fromCoords != null) {
         distance = _calculateDistance(
-          userPosition.latitude,
-          userPosition.longitude,
+          fromCoords.latitude,
+          fromCoords.longitude,
           targetCoords.latitude,
           targetCoords.longitude,
         );
         bearing = _calculateBearing(
-          userPosition.latitude,
-          userPosition.longitude,
+          fromCoords.latitude,
+          fromCoords.longitude,
           targetCoords.latitude,
           targetCoords.longitude,
         );
       }
     }
 
-    return Card(
-      margin: const EdgeInsets.all(16.0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Navigation zu', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16.0),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount:
-                  availablePositions.length +
-                  _supportPointKeys.length +
-                  (_supportPointKeys.isNotEmpty ? 2 : 1), // +headers
-              itemBuilder: (context, index) {
-                // First group: Gemessene Werte
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-                    child: Text(
-                      'Gemessene Werte',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  );
-                }
-
-                // Gemessene Werte items
-                if (index <= availablePositions.length) {
-                  final positionIndex = index - 1;
-                  final key = availablePositions[positionIndex];
-                  final isSelected = _selectedPositionKey == key;
-
-                  return Column(
-                    children: [
-                      ListTile(
-                        selected: isSelected,
-                        leading: Icon(
-                          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                          color: isSelected ? Theme.of(context).primaryColor : null,
-                        ),
-                        title: Text(key),
-                        onTap: () => _selectPosition(key),
-                      ),
-                      if (positionIndex < availablePositions.length - 1) const Divider(height: 1),
-                    ],
-                  );
-                }
-
-                // Second group header: Hilfspunkte
-                if (index == availablePositions.length + 1 && _supportPointKeys.isNotEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-                    child: Text(
-                      'Hilfspunkte',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  );
-                }
-
-                // Hilfspunkte items
-                final supportPointIndex = index - availablePositions.length - 2;
-                if (supportPointIndex >= 0 && supportPointIndex < _supportPointKeys.length) {
-                  final key = _supportPointKeys[supportPointIndex];
-                  final isSelected = _selectedPositionKey == key;
-                  final note = _supportPointNotes[key] ?? '';
-
-                  return Column(
-                    children: [
-                      ListTile(
-                        selected: isSelected,
-                        leading: Icon(
-                          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                          color: isSelected ? Theme.of(context).primaryColor : null,
-                        ),
-                        title: Text(key),
-                        subtitle: note.isNotEmpty ? Text(note) : null,
-                        onTap: () => _selectPosition(key),
-                      ),
-                      if (supportPointIndex < _supportPointKeys.length - 1)
-                        const Divider(height: 1),
-                    ],
-                  );
-                }
-
-                return const SizedBox.shrink();
-              },
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Navigation:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8.0),
+          Card(
+            child: PositionSelector(
+              measuredPositionKeys: availablePositions,
+              measuredPositionCoordinates: _positionCoordinates,
+              supportPointKeys: _supportPointKeys,
+              supportPointCoordinates: _supportPointCoordinates,
+              supportPointNotes: _supportPointNotes,
+              selectedPositionKey: _startPositionKey,
+              onPositionSelected: _selectStartPosition,
+              onFocusPosition: _focusMapOnPosition,
+              label: 'Start',
+              icon: Icons.location_on,
+              hasGpsPosition: gpsProvider.lastPosition != null,
+              currentGpsPosition: gpsProvider.lastPosition != null
+                  ? LatLng(gpsProvider.lastPosition!.latitude, gpsProvider.lastPosition!.longitude)
+                  : null,
+              onSelectFromMap: _enableMapTapModeForStart,
+              mapTappedPosition: _startMapTappedPosition,
+              subtitle: _startPositionKey != null
+                  ? () {
+                      final coords = _getCoordinatesForKey(_startPositionKey);
+                      if (coords != null) {
+                        return 'Lat: ${coords.latitude.toStringAsFixed(6)}, Lon: ${coords.longitude.toStringAsFixed(6)}';
+                      }
+                      return null;
+                    }()
+                  : null,
             ),
-            if (_selectedPositionKey != null) ...[
-              const SizedBox(height: 16.0),
-              if (distance != null && bearing != null) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          ),
+
+          // Manual navigation steps
+          ManualNavigationSteps(
+            startPosition: _getCoordinatesForKey(_startPositionKey),
+            targetPosition: _getCoordinatesForKey(_selectedPositionKey),
+            onNavigationCalculated: (calculated) {
+              setState(() {
+                _calculatedNavigation = calculated;
+              });
+            },
+            onStepPositionsCalculated: (positions) {
+              setState(() {
+                _stepPositions = positions;
+                _updateNavigationPath();
+              });
+            },
+          ),
+
+          Card(
+            child: PositionSelector(
+              measuredPositionKeys: availablePositions,
+              measuredPositionCoordinates: _positionCoordinates,
+              supportPointKeys: _supportPointKeys,
+              supportPointCoordinates: _supportPointCoordinates,
+              supportPointNotes: _supportPointNotes,
+              selectedPositionKey: _selectedPositionKey,
+              onPositionSelected: _selectTargetPosition,
+              onFocusPosition: _focusMapOnPosition,
+              label: 'Ziel',
+              icon: Icons.where_to_vote,
+              hasGpsPosition: gpsProvider.lastPosition != null,
+              currentGpsPosition: gpsProvider.lastPosition != null
+                  ? LatLng(gpsProvider.lastPosition!.latitude, gpsProvider.lastPosition!.longitude)
+                  : null,
+              onSelectFromMap: _enableMapTapModeForTarget,
+              mapTappedPosition: _targetMapTappedPosition,
+              subtitle: _selectedPositionKey != null
+                  ? () {
+                      // Use calculated navigation from steps if available
+                      if (_calculatedNavigation != null) {
+                        final calcDistance = _calculatedNavigation!['distance']!;
+                        final calcBearing = _calculatedNavigation!['azimuth']!;
+                        return 'Distanz: ${_formatDistance(calcDistance)}, Azimut: ${calcBearing.toStringAsFixed(1)} gon';
+                      }
+                      // Otherwise use direct distance/bearing
+                      if (distance != null && bearing != null) {
+                        return 'Distanz: ${_formatDistance(distance)}, Azimut: ${bearing.toStringAsFixed(1)} gon';
+                      }
+                      return null;
+                    }()
+                  : null,
+            ),
+          ),
+          if (_selectedPositionKey != null && (distance == null || bearing == null)) ...[
+            const SizedBox(height: 8.0),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _buildNavigationItem(
-                        icon: Icons.straighten,
-                        label: 'Distanz',
-                        value: _formatDistance(distance),
-                      ),
+                    Text(
+                      'Keine Navigationsdaten verfügbar, verbinde ein externes GPS oder nutze das interne GPS des Geräts.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildNavigationItem(
-                        icon: Icons.explore,
-                        label: 'Richtung',
-                        value: '${bearing.toStringAsFixed(1)} gon',
-                      ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        final gpsProvider = context.read<GpsPositionProvider>();
+                        gpsProvider.setCurrentLocation();
+                        if (!gpsProvider.listeningPosition) {
+                          gpsProvider.startTrackingLocation();
+                        }
+                      },
+                      icon: const Icon(Icons.gps_fixed),
+                      label: const Text('Start GPS'),
                     ),
                   ],
                 ),
-              ] else ...[
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Keine Navigationsdaten verfügbar, verbinde ein externes GPS oder nutze das interne GPS des Geräts.',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            final gpsProvider = context.read<GpsPositionProvider>();
-                            gpsProvider.setCurrentLocation();
-                            if (!gpsProvider.listeningPosition) {
-                              gpsProvider.startTrackingLocation();
-                            }
-                          },
-                          icon: const Icon(Icons.gps_fixed),
-                          label: const Text('Start GPS'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -673,6 +798,25 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   @override
   void didUpdateWidget(PreviousPositionsNavigation oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Handle visibility changes
+    if (widget.isVisible != oldWidget.isVisible) {
+      if (widget.isVisible) {
+        // Tab became visible - restore navigation
+        if (_selectedPositionKey != null || _startPositionKey != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _updateNavigationPath();
+            }
+          });
+        }
+      } else {
+        // Tab became hidden - clear navigation
+        _clearNavigationFromMap();
+      }
+      return; // Skip other update logic when visibility changes
+    }
+
     final propertiesChanged =
         widget.rawRecord?.previousProperties != oldWidget.rawRecord?.previousProperties;
     final positionDataChanged =
@@ -686,29 +830,45 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       _supportPointNotes.clear();
       _loadPositionData();
       // Clear selection if data changed
-      if (_selectedPositionKey != null) {
+      if (_selectedPositionKey != null || _startPositionKey != null) {
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.clearDistanceLine();
         mapProvider.clearNavigationTarget();
+        mapProvider.clearNavigationStart();
         _selectedPositionKey = null;
+        _startPositionKey = null;
       }
+    }
+  }
+
+  void _clearNavigationFromMap() {
+    try {
+      final mapProvider = context.read<MapControllerProvider>();
+      mapProvider.clearDistanceLine();
+      mapProvider.clearNavigationTarget();
+      mapProvider.clearNavigationStart();
+      mapProvider.clearNavigationLineStrings();
+      mapProvider.disableMapTapMode();
+      _mapTapSubscription?.cancel();
+    } catch (e) {
+      debugPrint('Error clearing navigation: $e');
     }
   }
 
   @override
   void dispose() {
     _gpsSubscription?.cancel();
+    _mapTapSubscription?.cancel();
 
-    // Clear distance line and navigation target when widget is disposed
-    if (_selectedPositionKey != null && mounted) {
-      try {
-        final mapProvider = context.read<MapControllerProvider>();
-        mapProvider.clearDistanceLine();
-        mapProvider.clearNavigationTarget();
-      } catch (e) {
-        debugPrint('Error clearing distance line on dispose: $e');
-      }
+    // Disable map tap mode if still enabled
+    try {
+      context.read<MapControllerProvider>().disableMapTapMode();
+    } catch (e) {
+      debugPrint('Error disabling map tap mode: $e');
     }
+
+    // Clear all navigation elements when widget is disposed
+    _clearNavigationFromMap();
     super.dispose();
   }
 }
