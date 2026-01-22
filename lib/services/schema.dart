@@ -36,7 +36,6 @@ const listOfLookupTables = [
   'lookup_terrain',
   'lookup_terrain_form',
   'lookup_tree_size_class',
-  'lookup_tree_species',
   'lookup_tree_species_group',
   'lookup_tree_status',
   'lookup_trees_less_4meter_layer',
@@ -84,6 +83,19 @@ Schema schema = Schema(([
     Column.text('plot'),
     Column.text('tree'),
     Column.text('deadwood'),
+  ]),
+
+  const Table('lookup_tree_species', [
+    Column.text('name_de'),
+    Column.text('name_en'),
+    Column.text('interval'),
+    Column.text('taxonomy_order'),
+    Column.text('height_group'),
+    Column.text('genus'),
+    Column.text('species'),
+    Column.text('code'),
+    Column.integer('sort'),
+    Column.text('group_code'),
   ]),
 
   const Table('users_profile', [

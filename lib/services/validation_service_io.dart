@@ -219,6 +219,7 @@ class ValidationService {
     required Map<String, dynamic> schema,
     required Map<String, dynamic> data,
     Map<String, dynamic>? previousData,
+    List<Map<String, dynamic>>? treeSpeciesLookup,
   }) async {
     if (!_isInitialized || _webViewController == null) {
       throw Exception('Validation service not initialized. Call initialize() first.');
@@ -246,6 +247,11 @@ class ValidationService {
       // Pass empty array instead of null when no previous data to avoid undefined errors in TFM
       final previousDataJson = previousData != null ? jsonEncode([previousData]) : '[]';
 
+      // Prepare lookup tables object for TFM constructor
+      final lookupTablesJson = treeSpeciesLookup != null
+          ? jsonEncode({'tree_species': treeSpeciesLookup})
+          : '{}';
+
       final jsCode =
           '''
           try {
@@ -263,8 +269,11 @@ class ValidationService {
             }
 
             console.log('TFM is available, initializing...');
-            // Initialize TFM validator
-            const tfm = new window.TFM();
+            // Initialize TFM validator with lookup tables
+            // TFM constructor: (host, apikey, lookupTables)
+            const lookupTables = $lookupTablesJson;
+            console.log('Lookup tables:', lookupTables);
+            const tfm = new window.TFM(null, null, lookupTables);
 
             // Run TFM plot validation
             // dataJson and previousDataJson are already JSON strings, parse them
