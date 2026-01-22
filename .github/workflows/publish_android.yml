@@ -45,6 +45,22 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Patch flutter_bluetooth_serial for namespace
+        run: |
+          BLUETOOTH_BUILD_GRADLE="$HOME/.pub-cache/hosted/pub.dev/flutter_bluetooth_serial-0.4.0/android/build.gradle"
+          if [ -f "$BLUETOOTH_BUILD_GRADLE" ]; then
+            echo "Patching flutter_bluetooth_serial build.gradle..."
+            # Add namespace after 'android {' line if not already present
+            if ! grep -q "namespace" "$BLUETOOTH_BUILD_GRADLE"; then
+              sed -i "/^android {/a\\    namespace 'io.github.edufolly.flutterbluetoothserial'" "$BLUETOOTH_BUILD_GRADLE"
+              echo "Namespace added successfully"
+            else
+              echo "Namespace already present"
+            fi
+          else
+            echo "Warning: flutter_bluetooth_serial build.gradle not found at expected location"
+          fi
+
       - name: "Create .env file from secrets"
         run: |
           touch .env
