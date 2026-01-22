@@ -415,6 +415,23 @@ class _StartState extends State<Start> {
     final maxHeight = screenHeight - 20;
     _maxChildSize = maxHeight / screenHeight;
 
+    // Get keyboard height
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final hasKeyboard = keyboardHeight > 0;
+
+    // Auto-expand sheet when keyboard appears
+    if (hasKeyboard && _sheetController.isAttached) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_sheetController.isAttached && _currentSheetSize < 0.6) {
+          _sheetController.animateTo(
+            0.8,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+
     return DraggableScrollableSheet(
       controller: _sheetController,
       initialChildSize: _initialChildSize,
@@ -465,7 +482,9 @@ class _StartState extends State<Start> {
                 Expanded(
                   child: ListView(
                     controller: scrollController,
-                    padding: EdgeInsets.zero,
+                    padding: EdgeInsets.only(
+                      bottom: keyboardHeight > 0 ? keyboardHeight : 0,
+                    ),
                     children: [
                       SizedBox(
                         height: MediaQuery.of(context).size.height * _maxChildSize - 28,

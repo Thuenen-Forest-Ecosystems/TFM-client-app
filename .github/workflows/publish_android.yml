@@ -57,6 +57,11 @@ jobs:
             else
               echo "Namespace already present"
             fi
+            
+            # Patch compileSdkVersion to 34 to fix 'android:attr/lStar not found'
+            echo "Patching compileSdkVersion..."
+            sed -i 's/compileSdkVersion [0-9]*/compileSdkVersion 34/g' "$BLUETOOTH_BUILD_GRADLE"
+            sed -i 's/targetSdkVersion [0-9]*/targetSdkVersion 34/g' "$BLUETOOTH_BUILD_GRADLE"
           else
             echo "Warning: flutter_bluetooth_serial build.gradle not found at expected location"
           fi
