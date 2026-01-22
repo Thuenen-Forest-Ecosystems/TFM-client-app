@@ -45,8 +45,6 @@ class _StartState extends State<Start> {
   void initState() {
     super.initState();
 
-    debugPrint('Start: Initializing Start screen');
-
     // Listen to sheet controller changes
     _sheetController.addListener(_onSheetChanged);
 
@@ -150,7 +148,6 @@ class _StartState extends State<Start> {
       final navPath = mapProvider.navigationPath;
 
       if (navPath != null) {
-        debugPrint('Start: Handling navigation request to $navPath');
         _beamerDelegate.beamToNamed(navPath);
         mapProvider.clearNavigationRequest();
       }

@@ -579,10 +579,23 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 }
               : null;
 
+          // Fetch tree species lookup table for TFM validation
+          List<Map<String, dynamic>>? treeSpeciesLookup;
+          try {
+            final results = await db.getAll('SELECT * FROM lookup_tree_species');
+            if (results.isNotEmpty) {
+              treeSpeciesLookup = results.map((row) => Map<String, dynamic>.from(row)).toList();
+              debugPrint('Loaded ${treeSpeciesLookup.length} tree species for validation');
+            }
+          } catch (e) {
+            debugPrint('Warning: Could not load tree species lookup: $e');
+          }
+
           final result = await ValidationService.instance.validateWithTFM(
             schema: modifiedSchema,
             data: currentDataWithMeta,
             previousData: previousDataWithMeta,
+            treeSpeciesLookup: treeSpeciesLookup,
           );
 
           if (mounted) {

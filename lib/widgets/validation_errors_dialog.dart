@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/models/acknowledged_error.dart';
 
 class ValidationErrorsDialog extends StatefulWidget {
   final TFMValidationResult validationResult;
@@ -43,16 +44,42 @@ class ValidationErrorsDialog extends StatefulWidget {
 
 class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
   late final TextEditingController _noteController;
+  final Map<String, bool> _acknowledgedIssues = {};
+  final Map<String, TextEditingController> _issueNoteControllers = {};
 
   @override
   void initState() {
     super.initState();
     _noteController = TextEditingController(text: widget.record?.note ?? '');
+
+    // Initialize controllers for each issue
+    _initializeIssueControllers();
+  }
+
+  void _initializeIssueControllers() {
+    for (var i = 0; i < widget.validationResult.allIssues.length; i++) {
+      final issue = widget.validationResult.allIssues[i];
+      final issueKey = _getIssueKey(issue, i);
+      _issueNoteControllers[issueKey] = TextEditingController();
+    }
+  }
+
+  String _getIssueKey(dynamic issue, int index) {
+    final instancePath = issue is ValidationError
+        ? issue.instancePath
+        : (issue as TFMValidationError).instancePath;
+    final message = issue is ValidationError
+        ? issue.message
+        : (issue as TFMValidationError).message;
+    return '$index-$instancePath-$message';
   }
 
   @override
   void dispose() {
     _noteController.dispose();
+    for (var controller in _issueNoteControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -85,6 +112,118 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           ),
         );
       }
+    }
+  }
+
+  Future<Map<String, List<AcknowledgedError>>> _collectAcknowledgedErrors() async {
+    final validationErrors = <AcknowledgedError>[];
+    final plausibilityErrors = <AcknowledgedError>[];
+
+    for (var i = 0; i < widget.validationResult.allIssues.length; i++) {
+      final issue = widget.validationResult.allIssues[i];
+      final issueKey = _getIssueKey(issue, i);
+
+      // Only include acknowledged issues
+      if (_acknowledgedIssues[issueKey] != true) continue;
+
+      final isAJVError = issue is ValidationError;
+      final isTFMError = issue is TFMValidationError;
+      final isWarning = isTFMError && issue.isWarning;
+      final isError = !isWarning;
+
+      final instancePath = issue is ValidationError
+          ? issue.instancePath
+          : (issue as TFMValidationError).instancePath;
+      final message = issue is ValidationError
+          ? issue.message
+          : (issue as TFMValidationError).message;
+      final note = _issueNoteControllers[issueKey]?.text.trim();
+
+      // For errors, note is mandatory
+      if (isError && (note == null || note.isEmpty)) {
+        continue; // Skip errors without notes
+      }
+
+      final acknowledgedError = AcknowledgedError(
+        message: message,
+        instancePath: instancePath,
+        schemaPath: isAJVError ? issue.schemaPath : null,
+        type: isWarning ? 'warning' : 'error',
+        source: isAJVError ? 'ajv' : 'tfm',
+        note: note,
+        rawError: isAJVError ? issue.rawError : (issue as TFMValidationError).error ?? {},
+      );
+
+      if (isAJVError) {
+        validationErrors.add(acknowledgedError);
+      } else {
+        plausibilityErrors.add(acknowledgedError);
+      }
+    }
+
+    return {'validation_errors': validationErrors, 'plausibility_errors': plausibilityErrors};
+  }
+
+  Future<bool> _saveAcknowledgedErrors() async {
+    if (widget.record == null) return false;
+
+    final acknowledged = await _collectAcknowledgedErrors();
+    final validationErrors = acknowledged['validation_errors']!;
+    final plausibilityErrors = acknowledged['plausibility_errors']!;
+
+    // Check if all errors (not warnings) have been acknowledged with notes
+    final unacknowledgedErrors = widget.validationResult.allErrors.where((issue) {
+      for (var i = 0; i < widget.validationResult.allIssues.length; i++) {
+        if (widget.validationResult.allIssues[i] == issue) {
+          final issueKey = _getIssueKey(issue, i);
+          final isAcknowledged = _acknowledgedIssues[issueKey] == true;
+          final hasNote = _issueNoteControllers[issueKey]?.text.trim().isNotEmpty ?? false;
+          if (!isAcknowledged || !hasNote) return true;
+        }
+      }
+      return false;
+    }).toList();
+
+    if (unacknowledgedErrors.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Alle Fehler müssen mit einer Notiz bestätigt werden (${unacknowledgedErrors.length} verbleibend)',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return false;
+    }
+
+    try {
+      final validationErrorsJson = validationErrors.isNotEmpty
+          ? AcknowledgedError.encodeList(validationErrors)
+          : null;
+      final plausibilityErrorsJson = plausibilityErrors.isNotEmpty
+          ? AcknowledgedError.encodeList(plausibilityErrors)
+          : null;
+
+      await db.execute(
+        'UPDATE records SET validation_errors = ?, plausibility_errors = ? WHERE id = ?',
+        [validationErrorsJson, plausibilityErrorsJson, widget.record!.id],
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint('Error saving acknowledged errors: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Speichern: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return false;
     }
   }
 
@@ -227,9 +366,12 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                   subtitle: Text(
                     '${errorCountInGroup > 0 ? '$errorCountInGroup Fehler' : ''}${errorCountInGroup > 0 && warningCountInGroup > 0 ? ', ' : ''}${warningCountInGroup > 0 ? '$warningCountInGroup Warnungen' : ''}',
                   ),
-                  children: issues.map((issue) {
+                  children: issues.asMap().entries.map((entry) {
+                    final globalIndex = widget.validationResult.allIssues.indexOf(entry.value);
+                    final issue = entry.value;
                     final isTFMError = issue is TFMValidationError;
                     final isWarning = isTFMError && issue.isWarning;
+                    final isError = !isWarning;
 
                     final params = issue is ValidationError
                         ? issue.rawError['params'] as Map<String, dynamic>?
@@ -241,6 +383,9 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                     final tabId = _getTabIdFromPath(instancePath, schemaPath, params);
 
                     final canNavigate = tabId != null && widget.onNavigateToTab != null;
+
+                    final issueKey = _getIssueKey(issue, globalIndex);
+                    final isAcknowledged = _acknowledgedIssues[issueKey] ?? false;
 
                     // Build subtitle with additional TFM information
                     Widget? subtitle;
@@ -268,28 +413,76 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                       );
                     }
 
-                    return ListTile(
-                      leading: Icon(
-                        isWarning ? Icons.warning : Icons.error,
-                        color: isWarning ? Colors.orange : Colors.red,
-                        size: 20,
-                      ),
-                      title: Text(
-                        issue is ValidationError
-                            ? issue.message
-                            : (issue as TFMValidationError).message,
-                      ),
-                      subtitle: subtitle,
-                      trailing: canNavigate ? const Icon(Icons.arrow_forward, size: 18) : null,
-                      enabled: canNavigate,
-                      dense: true,
-                      onTap: canNavigate
-                          ? () {
-                              debugPrint('Navigating to tab: $tabId for issue: $instancePath');
-                              widget.onNavigateToTab!(tabId);
-                              Navigator.of(context).pop<String?>(null);
-                            }
-                          : null,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          leading: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Checkbox(
+                                value: isAcknowledged,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _acknowledgedIssues[issueKey] = value ?? false;
+                                  });
+                                },
+                              ),
+                              Icon(
+                                isWarning ? Icons.warning : Icons.error,
+                                color: isWarning ? Colors.orange : Colors.red,
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                          title: Text(
+                            issue is ValidationError
+                                ? issue.message
+                                : (issue as TFMValidationError).message,
+                          ),
+                          subtitle: subtitle,
+                          trailing: canNavigate
+                              ? IconButton(
+                                  icon: const Icon(Icons.arrow_forward, size: 18),
+                                  onPressed: () {
+                                    debugPrint('Navigating to tab: $tabId for issue: $instancePath');
+                                    widget.onNavigateToTab!(tabId);
+                                    Navigator.of(context).pop<String?>(null);
+                                  },
+                                )
+                              : null,
+                          selected: isAcknowledged,
+                          dense: true,
+                          onTap: () {
+                            setState(() {
+                              _acknowledgedIssues[issueKey] = !isAcknowledged;
+                            });
+                          },
+                        ),
+                        if (isAcknowledged)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 72.0, right: 16.0, bottom: 8.0),
+                            child: TextField(
+                              controller: _issueNoteControllers[issueKey],
+                              decoration: InputDecoration(
+                                hintText: isError
+                                    ? 'Notiz hinzufügen (erforderlich für Fehler)*'
+                                    : 'Notiz hinzufügen (optional)',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                                errorText:
+                                    isError &&
+                                        (_issueNoteControllers[issueKey]?.text.trim().isEmpty ??
+                                            true)
+                                    ? 'Notiz erforderlich'
+                                    : null,
+                              ),
+                              maxLines: 2,
+                              minLines: 1,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                      ],
                     );
                   }).toList(),
                 );
@@ -319,37 +512,28 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                     if (errorCount == 0) const SizedBox(height: 12),
                     Row(
                       children: [
-                        /*Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              await _saveNote();
-                              if (mounted) {
-                                Navigator.of(context).pop('save');
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                            child: const Text('SPEICHERN'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),*/
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: errorCount == 0
-                                ? () async {
-                                    await _saveNote();
-                                    if (mounted) {
-                                      Navigator.of(context).pop('complete');
-                                    }
-                                  }
-                                : null,
+                            onPressed: () async {
+                              // Save acknowledged errors
+                              final success = await _saveAcknowledgedErrors();
+                              if (!success) return;
+
+                              // Save general note
+                              await _saveNote();
+
+                              if (mounted) {
+                                Navigator.of(context).pop(errorCount == 0 ? 'complete' : 'save');
+                              }
+                            },
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size.fromHeight(48),
-                              backgroundColor: Colors.green,
+                              backgroundColor: errorCount == 0 ? Colors.green : null,
                             ),
                             child: Text(
                               errorCount == 0
                                   ? 'SPEICHERN UND ABSCHLIEßEN'
-                                  : 'mindestens $errorCount zu behebende Fehler',
+                                  : 'mindestens $errorCount Fehler behebenden oder kommentieren',
                             ),
                           ),
                         ),

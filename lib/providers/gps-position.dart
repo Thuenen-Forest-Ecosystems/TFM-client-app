@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 
@@ -55,7 +57,15 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   LocationPermission? _permission;
 
   StreamSubscription? blueConnectionSubscription;
-  BluetoothDevice? connectedDevice;
+  ble.BluetoothDevice? connectedDevice;
+
+  // Classic Bluetooth support
+  classic.BluetoothConnection? classicConnection;
+  classic.BluetoothDevice? connectedClassicDevice;
+  StreamSubscription<Uint8List>? classicDataSubscription;
+  Timer? _classicReconnectTimer;
+  Timer? _classicDataTimeoutTimer;
+  bool _isClassicReconnecting = false;
 
   CurrentNMEA? _currentNMEA = CurrentNMEA();
 
@@ -93,7 +103,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // BLUETOOTH
   Future<void> initialize() async {
-    List<BluetoothDevice> connected = FlutterBluePlus.connectedDevices;
+    List<ble.BluetoothDevice> connected = ble.FlutterBluePlus.connectedDevices;
     if (connected.isEmpty) {
       await getSettings('GNSSDevice').then((value) {
         if (value != null) {
@@ -101,7 +111,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           if (devices is Map && devices.isNotEmpty) {
             // autoConnect First
             for (var deviceId in devices.keys) {
-              var device = BluetoothDevice.fromId(deviceId);
+              var device = ble.BluetoothDevice.fromId(deviceId);
               connectDevice(device);
               break; // Connect to the first found device
             }
@@ -120,11 +130,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   // Add this new method to discover and interact with services
-  Future<void> _discoverServices(BluetoothDevice device) async {
+  Future<void> _discoverServices(ble.BluetoothDevice device) async {
     _isConnecting = true;
     try {
       print('Discovering services...');
-      List<BluetoothService> services = await device.discoverServices();
+      List<ble.BluetoothService> services = await device.discoverServices();
       print('Found ${services.length} services');
 
       for (var service in services) {
@@ -134,11 +144,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         for (var characteristic in service.characteristics) {
           // Check if characteristic is readable
           if (characteristic.properties.read) {
-            // Read value
-            List<int> value = await characteristic.read();
-
-            // You can process the data here
-            String stringValue = String.fromCharCodes(value);
+            // Read value if needed for device identification
+            await characteristic.read();
 
             print('Device Name: $device');
           }
@@ -149,73 +156,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
             await characteristic.setNotifyValue(true);
             characteristic.onValueReceived.listen((value) {
               _currentNMEA = parseData(value, _currentNMEA);
-              // merge with current NMEA only not null and has valid coordinates
+              // Update position if we have valid coordinates
               if (_currentNMEA != null &&
                   _currentNMEA!.latitude != null &&
                   _currentNMEA!.longitude != null) {
-                // Calculate accuracy from HDOP (horizontal dilution of precision)
-                // HDOP * 5 gives approximate accuracy in meters (rough estimation)
-                double calculatedAccuracy = (_currentNMEA!.hdop ?? 1.0) * 5.0;
-
-                // set last position
-                _lastPosition = Position(
-                  latitude: _currentNMEA!.latitude!,
-                  longitude: _currentNMEA!.longitude!,
-                  accuracy: calculatedAccuracy,
-                  altitude: _currentNMEA!.altitude ?? 0,
-                  altitudeAccuracy: 0,
-                  heading: _currentNMEA!.heading ?? 0,
-                  headingAccuracy: 0,
-                  speed: _currentNMEA!.speedKnots ?? 0,
-                  speedAccuracy: 0,
-                  timestamp: DateTime.now(),
-                );
-
-                if (_currentNMEA?.heading != null) {
-                  // Estimate heading accuracy based on HDOP and Speed
-                  double estimatedHeadingAccuracy = 10.0; // Default to higher uncertainty
-
-                  if (_currentNMEA?.hdop != null) {
-                    if (_currentNMEA!.hdop! < 1.5) {
-                      estimatedHeadingAccuracy = 3.0; // Good HDOP
-                    } else if (_currentNMEA!.hdop! < 3.0) {
-                      estimatedHeadingAccuracy = 7.0; // Moderate HDOP
-                    } else {
-                      estimatedHeadingAccuracy = 15.0; // Poor HDOP
-                    }
-                  }
-
-                  // Increase uncertainty significantly if speed is very low
-                  if (_currentNMEA?.speedKnots != null && _currentNMEA!.speedKnots! < 0.5) {
-                    estimatedHeadingAccuracy = 30.0; // Very uncertain when slow/stationary
-                  }
-
-                  _headingStreamController.add(
-                    LocationMarkerHeading(
-                      heading: _currentNMEA!.heading!,
-                      accuracy: estimatedHeadingAccuracy, // Use the estimated value
-                    ),
-                  );
-                } else {
-                  _headingStreamController.add(
-                    LocationMarkerHeading(
-                      heading: 0,
-                      accuracy: 0, // Use the estimated value
-                    ),
-                  );
-                }
-
-                // Add position to stream for map widget
-                _positionStreamController.add(
-                  LocationMarkerPosition(
-                    latitude: _lastPosition!.latitude,
-                    longitude: _lastPosition!.longitude,
-                    accuracy: _lastPosition!.accuracy,
-                  ),
-                );
-
-                _isConnecting = false;
-                notifyListeners();
+                _updatePositionFromNMEA();
               }
             });
           }
@@ -230,7 +175,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   void toggleDeviceFromId(String deviceId) async {
     stopAll();
 
-    BluetoothDevice device = BluetoothDevice.fromId(deviceId);
+    ble.BluetoothDevice device = ble.BluetoothDevice.fromId(deviceId);
     if (connectedDevice != null && connectedDevice!.remoteId == device.remoteId) {
     } else {
       connectDevice(device);
@@ -238,11 +183,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void connectDeviceFromId(String deviceId) async {
-    BluetoothDevice device = BluetoothDevice.fromId(deviceId);
+    ble.BluetoothDevice device = ble.BluetoothDevice.fromId(deviceId);
     connectDevice(device);
   }
 
-  void _saveConnectedDevice(BluetoothDevice device) async {
+  void _saveConnectedDevice(ble.BluetoothDevice device) async {
     String deviceId = device.remoteId.toString();
     Map deviceMap = {'remoteId': deviceId, 'platformName': device.platformName};
 
@@ -261,8 +206,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     });
   }
 
-  void connectDevice(BluetoothDevice device) async {
-    List<BluetoothDevice> connected = FlutterBluePlus.connectedDevices;
+  void connectDevice(ble.BluetoothDevice device) async {
+    List<ble.BluetoothDevice> connected = ble.FlutterBluePlus.connectedDevices;
 
     if (connected.isNotEmpty) {
       for (var connectedDevice in connected) {
@@ -281,13 +226,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _isConnecting = true;
     notifyListeners();
     blueConnectionSubscription = device.connectionState.listen((
-      BluetoothConnectionState state,
+      ble.BluetoothConnectionState state,
     ) async {
-      if (state == BluetoothConnectionState.disconnected) {
+      if (state == ble.BluetoothConnectionState.disconnected) {
         // try to reconnect after 2 seconds
         await Future.delayed(const Duration(seconds: 2));
         connectDevice(device);
-      } else if (state == BluetoothConnectionState.connected) {
+      } else if (state == ble.BluetoothConnectionState.connected) {
         //
         _saveConnectedDevice(device);
         connectedDevice = device;
@@ -302,6 +247,217 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _isConnecting = false;
       notifyListeners();
     });
+  }
+
+  // Connect to Classic Bluetooth GPS device
+  Future<void> connectClassicDevice(classic.BluetoothDevice device) async {
+    // Prevent multiple simultaneous connection attempts
+    if (_isClassicReconnecting) {
+      debugPrint('Classic reconnection already in progress, skipping');
+      return;
+    }
+
+    // Cancel existing connection and timers
+    _classicReconnectTimer?.cancel();
+    _classicDataTimeoutTimer?.cancel();
+    classicDataSubscription?.cancel();
+    if (classicConnection != null && classicConnection!.isConnected) {
+      try {
+        await classicConnection!.finish();
+      } catch (e) {
+        debugPrint('Error closing previous connection: $e');
+      }
+    }
+
+    _isConnecting = true;
+    _isClassicReconnecting = true;
+    notifyListeners();
+
+    try {
+      debugPrint('Connecting to Classic Bluetooth device: ${device.name}');
+
+      // Connect to the device with proper error handling
+      classicConnection = await classic.BluetoothConnection.toAddress(device.address);
+
+      if (classicConnection == null || !classicConnection!.isConnected) {
+        throw Exception('Connection failed - not connected');
+      }
+
+      connectedClassicDevice = device;
+      debugPrint('Connected to ${device.name}');
+
+      // Buffer to accumulate NMEA sentences
+      String buffer = '';
+
+      // Reset data timeout timer
+      _resetDataTimeout(device);
+
+      // Listen to incoming data with robust error handling
+      classicDataSubscription = classicConnection!.input!.listen(
+        (Uint8List data) {
+          // Reset timeout timer on each data received
+          _resetDataTimeout(device);
+
+          // Convert bytes to string and add to buffer
+          String incoming = String.fromCharCodes(data);
+          buffer += incoming;
+
+          // Process complete NMEA sentences (ended with \r\n)
+          while (buffer.contains('\n')) {
+            final int index = buffer.indexOf('\n');
+            final String sentence = buffer.substring(0, index).trim();
+            buffer = buffer.substring(index + 1);
+
+            if (sentence.isNotEmpty) {
+              // Parse NMEA sentence
+              try {
+                List<int> bytes = sentence.codeUnits;
+                _currentNMEA = parseData(bytes, _currentNMEA);
+
+                // Update position if we have valid coordinates
+                if (_currentNMEA != null &&
+                    _currentNMEA!.latitude != null &&
+                    _currentNMEA!.longitude != null) {
+                  _updatePositionFromNMEA();
+                }
+              } catch (e) {
+                debugPrint('Error parsing NMEA from Classic BT: $e');
+              }
+            }
+          }
+
+          // Prevent buffer from growing too large
+          if (buffer.length > 1000) {
+            buffer = buffer.substring(buffer.length - 500);
+          }
+        },
+        onDone: () {
+          debugPrint('Classic Bluetooth connection closed');
+          _handleClassicDisconnection(device);
+        },
+        onError: (error) {
+          debugPrint('Error with Classic Bluetooth data stream: $error');
+          _handleClassicDisconnection(device);
+        },
+        cancelOnError: false, // Keep listening even after errors
+      );
+
+      _isConnecting = false;
+      _isClassicReconnecting = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error connecting to Classic Bluetooth device: $e');
+      _isConnecting = false;
+      _isClassicReconnecting = false;
+
+      // Schedule reconnection attempt
+      _scheduleClassicReconnection(device);
+      notifyListeners();
+    }
+  }
+
+  // Reset the data timeout timer
+  void _resetDataTimeout(classic.BluetoothDevice device) {
+    _classicDataTimeoutTimer?.cancel();
+    _classicDataTimeoutTimer = Timer(const Duration(seconds: 10), () {
+      debugPrint('Classic Bluetooth data timeout - no data received for 10 seconds');
+      _handleClassicDisconnection(device);
+    });
+  }
+
+  // Handle disconnection and attempt reconnection
+  void _handleClassicDisconnection(classic.BluetoothDevice device) {
+    _classicDataTimeoutTimer?.cancel();
+    classicDataSubscription?.cancel();
+    classicDataSubscription = null;
+
+    if (classicConnection != null && classicConnection!.isConnected) {
+      try {
+        classicConnection!.finish();
+      } catch (e) {
+        debugPrint('Error closing connection during cleanup: $e');
+      }
+    }
+    classicConnection = null;
+
+    notifyListeners();
+
+    // Schedule reconnection if we still want to be connected to this device
+    if (connectedClassicDevice?.address == device.address) {
+      _scheduleClassicReconnection(device);
+    }
+  }
+
+  // Schedule automatic reconnection
+  void _scheduleClassicReconnection(classic.BluetoothDevice device) {
+    _classicReconnectTimer?.cancel();
+    _classicReconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (connectedClassicDevice?.address == device.address) {
+        debugPrint('Attempting to reconnect to ${device.name}');
+        connectClassicDevice(device);
+      }
+    });
+  }
+
+  // Helper method to update position from NMEA data (shared by BLE and Classic)
+  void _updatePositionFromNMEA() {
+    if (_currentNMEA == null || _currentNMEA!.latitude == null || _currentNMEA!.longitude == null) {
+      return;
+    }
+
+    // Calculate accuracy from HDOP (horizontal dilution of precision)
+    double calculatedAccuracy = (_currentNMEA!.hdop ?? 1.0) * 5.0;
+
+    // Set last position
+    _lastPosition = Position(
+      latitude: _currentNMEA!.latitude!,
+      longitude: _currentNMEA!.longitude!,
+      accuracy: calculatedAccuracy,
+      altitude: _currentNMEA!.altitude ?? 0,
+      altitudeAccuracy: 0,
+      heading: _currentNMEA!.heading ?? 0,
+      headingAccuracy: 0,
+      speed: _currentNMEA!.speedKnots ?? 0,
+      speedAccuracy: 0,
+      timestamp: DateTime.now(),
+    );
+
+    // Update heading if available
+    if (_currentNMEA?.heading != null) {
+      double estimatedHeadingAccuracy = 10.0;
+
+      if (_currentNMEA?.hdop != null) {
+        if (_currentNMEA!.hdop! < 1.5) {
+          estimatedHeadingAccuracy = 3.0;
+        } else if (_currentNMEA!.hdop! < 3.0) {
+          estimatedHeadingAccuracy = 7.0;
+        } else {
+          estimatedHeadingAccuracy = 15.0;
+        }
+      }
+
+      if (_currentNMEA?.speedKnots != null && _currentNMEA!.speedKnots! < 0.5) {
+        estimatedHeadingAccuracy = 30.0;
+      }
+
+      _headingStreamController.add(
+        LocationMarkerHeading(heading: _currentNMEA!.heading!, accuracy: estimatedHeadingAccuracy),
+      );
+    } else {
+      _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+    }
+
+    // Add position to stream for map widget
+    _positionStreamController.add(
+      LocationMarkerPosition(
+        latitude: _lastPosition!.latitude,
+        longitude: _lastPosition!.longitude,
+        accuracy: _lastPosition!.accuracy,
+      ),
+    );
+
+    _isConnecting = false;
+    notifyListeners();
   }
 
   @override
@@ -319,6 +475,25 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       connectedDevice!.disconnect();
       connectedDevice = null;
     }
+
+    // Stop Classic Bluetooth connection
+    _classicReconnectTimer?.cancel();
+    _classicReconnectTimer = null;
+    _classicDataTimeoutTimer?.cancel();
+    _classicDataTimeoutTimer = null;
+    _isClassicReconnecting = false;
+    classicDataSubscription?.cancel();
+    classicDataSubscription = null;
+    if (classicConnection != null && classicConnection!.isConnected) {
+      try {
+        classicConnection!.finish();
+      } catch (e) {
+        debugPrint('Error closing Classic connection: $e');
+      }
+    }
+    classicConnection = null;
+    connectedClassicDevice = null;
+
     _positionStream?.cancel();
     _listeningPosition = false;
 
@@ -428,11 +603,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   // Method to process serial port NMEA data (for Windows USB GPS devices)
   void processSerialPortData(List<int> data) {
     _currentNMEA = parseData(data, _currentNMEA);
-    
+
     // Update position if we have valid coordinates
-    if (_currentNMEA != null &&
-        _currentNMEA!.latitude != null &&
-        _currentNMEA!.longitude != null) {
+    if (_currentNMEA != null && _currentNMEA!.latitude != null && _currentNMEA!.longitude != null) {
       // Calculate accuracy from HDOP (horizontal dilution of precision)
       // HDOP * 5 gives approximate accuracy in meters (rough estimation)
       double calculatedAccuracy = (_currentNMEA!.hdop ?? 1.0) * 5.0;
@@ -477,12 +650,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           ),
         );
       } else {
-        _headingStreamController.add(
-          LocationMarkerHeading(
-            heading: 0,
-            accuracy: 0,
-          ),
-        );
+        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
       }
 
       // Add position to stream for map widget

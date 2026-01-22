@@ -212,11 +212,6 @@ class MapControllerProvider with ChangeNotifier {
   /// Set the navigation steps line string (points from start through all steps)
   void setNavigationStepsLineString(List<LatLng>? lineString) {
     _navigationStepsLineString = lineString != null ? List<LatLng>.from(lineString) : null;
-    if (lineString != null) {
-      debugPrint('Navigation steps line string set with ${lineString.length} points');
-    } else {
-      debugPrint('Navigation steps line string cleared');
-    }
     notifyListeners();
   }
 

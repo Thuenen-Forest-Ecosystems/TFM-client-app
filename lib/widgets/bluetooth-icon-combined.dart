@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
-import 'package:flutter_blue_classic/flutter_blue_classic.dart' as classic;
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'dart:async';
@@ -41,8 +41,8 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   StreamSubscription<List<ble.ScanResult>>? _bleScanSubscription;
 
   // Classic Bluetooth (only on Android)
-  classic.FlutterBlueClassic? _flutterBlueClassic;
-  StreamSubscription<classic.BluetoothDevice>? _classicScanSubscription;
+  classic.FlutterBluetoothSerial? _flutterBluetoothSerial;
+  StreamSubscription<classic.BluetoothDiscoveryResult>? _classicScanSubscription;
 
   @override
   void initState() {
@@ -51,7 +51,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
     // Initialize Classic Bluetooth only on Android
     if (Platform.isAndroid) {
-      _flutterBlueClassic = classic.FlutterBlueClassic();
+      _flutterBluetoothSerial = classic.FlutterBluetoothSerial.instance;
     }
   }
 
@@ -70,7 +70,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
       await _startBLEScan();
 
       // Start Classic Bluetooth scan (Android only)
-      if (Platform.isAndroid && _flutterBlueClassic != null) {
+      if (Platform.isAndroid && _flutterBluetoothSerial != null) {
         await _startClassicScan();
       }
     } catch (e) {
@@ -124,26 +124,30 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
   Future<void> _startClassicScan() async {
     try {
-      if (_flutterBlueClassic == null) return;
+      if (_flutterBluetoothSerial == null) return;
+
+      debugPrint('Starting Classic Bluetooth scan');
 
       // Listen to classic scan results
       _classicScanSubscription?.cancel();
-      _classicScanSubscription = _flutterBlueClassic!.scanResults.listen(
-        (device) {
-          debugPrint('Classic device found: ${device.name ?? "Unknown"} - ${device.address}');
+      _classicScanSubscription = _flutterBluetoothSerial!.startDiscovery().listen(
+        (result) {
+          debugPrint(
+            'Classic device found: ${result.device.name ?? "Unknown"} - ${result.device.address}',
+          );
 
           if (mounted) {
             setState(() {
               // Add to combined list if not already present
-              final exists = _combinedDevices.any((d) => d.id == device.address);
+              final exists = _combinedDevices.any((d) => d.id == result.device.address);
               if (!exists) {
                 _combinedDevices.add(
                   CombinedBluetoothDevice(
-                    id: device.address,
-                    name: device.name ?? 'Unknown Classic Device',
-                    rssi: device.rssi,
+                    id: result.device.address,
+                    name: result.device.name ?? 'Unknown Classic Device',
+                    rssi: result.rssi,
                     isBLE: false,
-                    classicDevice: device,
+                    classicDevice: result.device,
                   ),
                 );
               }
@@ -155,12 +159,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
         },
       );
 
-      // Start the scan
-      _flutterBlueClassic!.startScan();
-
       // Stop after 10 seconds
       Future.delayed(const Duration(seconds: 10), () {
-        _flutterBlueClassic?.stopScan();
+        _classicScanSubscription?.cancel();
       });
     } catch (e) {
       debugPrint('Error with Classic Bluetooth scan: $e');
@@ -200,12 +201,31 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     }
   }
 
-  Future<void> _connectToClassicDevice(classic.BluetoothDevice device) async {
-    // Note: flutter_blue_classic doesn't support programmatic connection
-    // Users typically need to pair through system settings
-    _showErrorDialog(
-      'Please pair with "${device.name ?? "this device"}" through your device\'s Bluetooth settings',
-    );
+  Future<void> _connectToClassicDevice(classic.BluetoothDevice device, BuildContext context) async {
+    try {
+      final gpsProvider = context.read<GpsPositionProvider>();
+
+      // Stop any existing connections
+      gpsProvider.stopAll();
+
+      // Connect using the GPS provider
+      await gpsProvider.connectClassicDevice(device);
+
+      if (mounted && context.mounted) {
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Connecting to ${device.name ?? "GPS device"}...')),
+          );
+        } catch (e) {
+          debugPrint('Could not show snackbar: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error connecting Classic GPS device: $e');
+      if (mounted && context.mounted) {
+        _showErrorDialog('Failed to connect: $e');
+      }
+    }
   }
 
   void _showDeviceMenu() async {
@@ -317,7 +337,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                 // Show connected GPS device or internal GPS
                 Consumer<GpsPositionProvider>(
                   builder: (context, gpsProvider, child) {
-                    // Show bluetooth GPS if connected
+                    // Show bluetooth GPS if connected (BLE)
                     if (gpsProvider.connectedDevice != null) {
                       final device = gpsProvider.connectedDevice!;
                       final nmea = gpsProvider.currentNMEA;
@@ -339,6 +359,55 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('${device.remoteId}'),
+                                if (hasValidPosition) ...[
+                                  Text(
+                                    'Sats: ${nmea.satellites ?? "N/A"} | HDOP: ${nmea.hdop?.toStringAsFixed(1) ?? "N/A"} | PDOP: ${nmea.pdop?.toStringAsFixed(1) ?? "N/A"}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                  Text(
+                                    'Lat: ${nmea.latitude!.toStringAsFixed(6)}, Lon: ${nmea.longitude!.toStringAsFixed(6)}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ] else ...[
+                                  const Text(
+                                    'Waiting for GPS position...',
+                                    style: TextStyle(fontSize: 11, color: Colors.orange),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                gpsProvider.stopAll();
+                                gpsProvider.startInternalGps();
+                              },
+                            ),
+                          ),
+                          const Divider(),
+                        ],
+                      );
+                    }
+                    // Show Classic Bluetooth GPS if connected
+                    else if (gpsProvider.connectedClassicDevice != null) {
+                      final device = gpsProvider.connectedClassicDevice!;
+                      final nmea = gpsProvider.currentNMEA;
+
+                      final hasValidPosition =
+                          nmea != null && nmea.latitude != null && nmea.longitude != null;
+
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: Icon(
+                              Icons.gps_fixed,
+                              color: hasValidPosition ? Colors.green : Colors.orange,
+                            ),
+                            title: Text(device.name ?? 'Classic GPS Device'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${device.address}'),
                                 if (hasValidPosition) ...[
                                   Text(
                                     'Sats: ${nmea.satellites ?? "N/A"} | HDOP: ${nmea.hdop?.toStringAsFixed(1) ?? "N/A"} | PDOP: ${nmea.pdop?.toStringAsFixed(1) ?? "N/A"}',
@@ -429,7 +498,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                       if (index == 0) {
                         final gpsProvider = context.watch<GpsPositionProvider>();
                         final isInternalGPS =
-                            gpsProvider.listeningPosition && gpsProvider.connectedDevice == null;
+                            gpsProvider.listeningPosition &&
+                            gpsProvider.connectedDevice == null &&
+                            gpsProvider.connectedClassicDevice == null;
 
                         return ListTile(
                           leading: Icon(
@@ -470,7 +541,8 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                             Navigator.pop(context); // Close modal first
                             _connectToBLEDevice(device.bleDevice!, context);
                           } else if (device.classicDevice != null) {
-                            _connectToClassicDevice(device.classicDevice!);
+                            Navigator.pop(context); // Close modal first
+                            _connectToClassicDevice(device.classicDevice!, context);
                           }
                         },
                       );
@@ -508,7 +580,6 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   void dispose() {
     _bleScanSubscription?.cancel();
     _classicScanSubscription?.cancel();
-    _flutterBlueClassic?.stopScan();
     super.dispose();
   }
 
@@ -516,7 +587,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   Widget build(BuildContext context) {
     // Check if GPS device is connected via GpsPositionProvider
     final gpsProvider = context.watch<GpsPositionProvider>();
-    final hasGPSConnection = gpsProvider.connectedDevice != null;
+    final hasBLEConnection = gpsProvider.connectedDevice != null;
+    final hasClassicConnection = gpsProvider.connectedClassicDevice != null;
+    final hasGPSConnection = hasBLEConnection || hasClassicConnection;
     final isGPSConnecting = gpsProvider.isConnecting;
     final nmea = gpsProvider.currentNMEA;
     final isInternalGPS = gpsProvider.listeningPosition && !hasGPSConnection;
@@ -542,7 +615,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
       tooltip: hasValidPosition
           ? (isInternalGPS
                 ? 'Internal GPS: ${lastPos!.accuracy.toStringAsFixed(1)}m'
-                : 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea!.satellites ?? 0} sats)')
+                : hasBLEConnection
+                ? 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea!.satellites ?? 0} sats)'
+                : 'GPS: ${gpsProvider.connectedClassicDevice?.name} (${nmea!.satellites ?? 0} sats)')
           : hasGPSConnection
           ? 'GPS connected - waiting for position...'
           : isGPSConnecting
