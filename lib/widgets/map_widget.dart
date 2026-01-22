@@ -54,6 +54,8 @@ class _MapWidgetState extends State<MapWidget> {
   List<CircleMarker>? _cachedTreeCircles;
   Map<String, Map<String, List<LatLng>>> _historicalPositionPolygons = {};
   double _treeDiameterMultiplier = 1.0;
+  bool _showTreeLabels = true;
+  Set<String> _treeLabelFields = {'tree_number', 'dbh'};
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -387,6 +389,7 @@ class _MapWidgetState extends State<MapWidget> {
             'azimuth': azimuth,
             'distance': distance,
             'dbh': dbh,
+            'tree_species': tree['tree_species'],
             'data': tree,
           });
         }
@@ -453,6 +456,25 @@ class _MapWidgetState extends State<MapWidget> {
           _treeDiameterMultiplier = savedMultiplier;
         });
         debugPrint('Loaded tree diameter multiplier: $savedMultiplier');
+      }
+
+      // Load tree label settings
+      final savedShowLabels = prefs.getBool('show_tree_labels');
+      if (savedShowLabels != null) {
+        setState(() {
+          _showTreeLabels = savedShowLabels;
+        });
+        debugPrint('Loaded show tree labels: $savedShowLabels');
+      }
+
+      await prefs.setBool('show_tree_labels', _showTreeLabels);
+      await prefs.setStringList('tree_label_fields', _treeLabelFields.toList());
+      final savedLabelFields = prefs.getStringList('tree_label_fields');
+      if (savedLabelFields != null && savedLabelFields.isNotEmpty) {
+        setState(() {
+          _treeLabelFields = savedLabelFields.toSet();
+        });
+        debugPrint('Loaded tree label fields: $savedLabelFields');
       }
     } catch (e) {
       debugPrint('Error loading map settings: $e');
@@ -879,9 +901,6 @@ class _MapWidgetState extends State<MapWidget> {
   Widget _buildClusterMarker(BuildContext context, List<Marker> markers) {
     final pointCount = markers.length;
 
-    // Show count instead of empty text
-    String displayText = pointCount.toString();
-
     // Determine color based on point count
     Color markerColor;
     if (pointCount <= 4) {
@@ -958,12 +977,69 @@ class _MapWidgetState extends State<MapWidget> {
     }).toList();
   }
 
+  List<Marker> _buildTreeLabelMarkers(List<Map<String, dynamic>> treePositions) {
+    if (_treeLabelFields.isEmpty) return [];
+
+    return treePositions
+        .map((tree) {
+          final lat = tree['lat'] as double;
+          final lng = tree['lng'] as double;
+
+          // Build label text from selected fields
+          final labelParts = <String>[];
+
+          if (_treeLabelFields.contains('tree_number') && tree['tree_number'] != null) {
+            labelParts.add('#${tree['tree_number']}');
+          }
+          if (_treeLabelFields.contains('dbh') && tree['dbh'] != null) {
+            labelParts.add('${(tree['dbh'] as num).toInt()}mm');
+          }
+          if (_treeLabelFields.contains('tree_species') && tree['tree_species'] != null) {
+            labelParts.add('${tree['tree_species']}');
+          }
+
+          final labelText = labelParts.join(' | ');
+          if (labelText.isEmpty) {
+            return null;
+          }
+
+          return Marker(
+            point: LatLng(lat, lng),
+            width: 150,
+            height: 15,
+            alignment: Alignment.bottomCenter,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: IntrinsicWidth(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    labelText,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+          );
+        })
+        .whereType<Marker>()
+        .toList();
+  }
+
   List<CircleMarker> _getDefaultCircles(Record record) {
     final coords = record.getCoordinates();
     if (coords == null) return [];
-
-    final centerLat = coords['latitude']!;
-    final centerLng = coords['longitude']!;
 
     return [
       // 25m radius circle
@@ -1004,6 +1080,8 @@ class _MapWidgetState extends State<MapWidget> {
       context,
       selectedBasemaps: _selectedBasemaps,
       treeDiameterMultiplier: _treeDiameterMultiplier,
+      showTreeLabels: _showTreeLabels,
+      treeLabelFields: _treeLabelFields,
       onBasemapsChanged: (newBasemaps) {
         setState(() {
           _selectedBasemaps = newBasemaps;
@@ -1017,6 +1095,18 @@ class _MapWidgetState extends State<MapWidget> {
           if (_treePositions.isNotEmpty) {
             _cachedTreeCircles = _treeCircles(_treePositions);
           }
+        });
+        _saveMapSettings();
+      },
+      onShowTreeLabelsChanged: (value) {
+        setState(() {
+          _showTreeLabels = value;
+        });
+        _saveMapSettings();
+      },
+      onTreeLabelFieldsChanged: (fields) {
+        setState(() {
+          _treeLabelFields = fields;
         });
         _saveMapSettings();
       },
@@ -1254,6 +1344,10 @@ class _MapWidgetState extends State<MapWidget> {
         // Tree positions for focused record (cached)
         if (_focusedRecord != null && _cachedTreeCircles != null)
           CircleLayer(circles: _cachedTreeCircles!),
+
+        // Tree labels for focused record
+        if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
+          MarkerLayer(markers: _buildTreeLabelMarkers(_treePositions)),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

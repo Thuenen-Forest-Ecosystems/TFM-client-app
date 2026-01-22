@@ -173,9 +173,6 @@ class MapControllerProvider with ChangeNotifier {
   void setNavigationTarget(LatLng target, {String? label}) {
     _navigationTarget = target;
     _navigationTargetLabel = label;
-    debugPrint(
-      'Navigation target set: ${label ?? "unnamed"} at (${target.latitude}, ${target.longitude})',
-    );
     notifyListeners();
   }
 
