@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -94,11 +95,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     intervalDuration: const Duration(seconds: 1),
     //(Optional) Set foreground notification config to keep the app alive
     //when going to the background
-    /*foregroundNotificationConfig: const ForegroundNotificationConfig(
-      notificationText: "Example app will continue to receive your location even when you aren't using it",
-      notificationTitle: "Running in Background",
+    foregroundNotificationConfig: const ForegroundNotificationConfig(
+      notificationText: "App keeps location active in background",
+      notificationTitle: "TFM Location Service",
       enableWakeLock: true,
-    ),*/
+    ),
   );
 
   // BLUETOOTH
@@ -207,6 +208,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void connectDevice(ble.BluetoothDevice device) async {
+    // Ensure permissions on Android
+    if (Platform.isAndroid) {
+      await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
+    }
+
     List<ble.BluetoothDevice> connected = ble.FlutterBluePlus.connectedDevices;
 
     if (connected.isNotEmpty) {
@@ -251,6 +257,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // Connect to Classic Bluetooth GPS device
   Future<void> connectClassicDevice(classic.BluetoothDevice device) async {
+    // Ensure permissions on Android
+    if (Platform.isAndroid) {
+      await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
+    }
+
     // Prevent multiple simultaneous connection attempts
     if (_isClassicReconnecting) {
       debugPrint('Classic reconnection already in progress, skipping');
