@@ -271,19 +271,31 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     _isConnecting = true;
     _isClassicReconnecting = true;
+    connectedClassicDevice = device;
     notifyListeners();
 
     try {
       debugPrint('Connecting to Classic Bluetooth device: ${device.name}');
 
       // Connect to the device with proper error handling
-      classicConnection = await classic.BluetoothConnection.toAddress(device.address);
+      try {
+        classicConnection = await classic.BluetoothConnection.toAddress(device.address);
+      } catch (e) {
+        // If connection fails (e.g. pairing dialog interaction), we need to catch it
+        // so that the reconnection logic can take over.
+        debugPrint('Initial connection attempt failed (likely pairing): $e');
+        if (connectedClassicDevice?.address == device.address) {
+          _isConnecting = false;
+          // _isClassicReconnecting = false; // Do not reset this, otherwise scheduleClassicReconnection might be skipped or duplicated logic
+          _scheduleClassicReconnection(device);
+        }
+        return;
+      }
 
       if (classicConnection == null || !classicConnection!.isConnected) {
         throw Exception('Connection failed - not connected');
       }
 
-      connectedClassicDevice = device;
       debugPrint('Connected to ${device.name}');
 
       // Buffer to accumulate NMEA sentences
