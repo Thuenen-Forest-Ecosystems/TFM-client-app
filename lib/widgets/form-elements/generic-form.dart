@@ -89,11 +89,12 @@ class _GenericFormState extends State<GenericForm> {
     // Filter properties based on includeProperties and collect primitive types
     final fieldsToShow = <MapEntry<String, Map<String, dynamic>>>[];
 
-    properties.forEach((key, value) {
-      // If includeProperties is specified, only process properties in that list
-      if (widget.includeProperties != null && !widget.includeProperties!.contains(key)) {
-        return; // Skip this property
-      }
+    // If includeProperties is specified, iterate in that order to maintain layout order
+    final propertiesToProcess = widget.includeProperties ?? properties.keys.toList();
+
+    for (final key in propertiesToProcess) {
+      final value = properties[key];
+      if (value == null) continue; // Skip if property not in schema
 
       if (value is Map<String, dynamic>) {
         // Check if field should be hidden via $tfm.form.ui:options.display
@@ -105,7 +106,7 @@ class _GenericFormState extends State<GenericForm> {
 
         // If includeProperties is set, layout takes precedence - show the field
         if (!shouldDisplay && widget.includeProperties == null) {
-          return; // Skip this field only if not explicitly included by layout
+          continue; // Skip this field only if not explicitly included by layout
         }
 
         final typeValue = value['type'];
@@ -125,7 +126,7 @@ class _GenericFormState extends State<GenericForm> {
           fieldsToShow.add(MapEntry(key, value));
         }
       }
-    });
+    }
 
     if (fieldsToShow.isEmpty) {
       return const Center(child: Text('No primitive fields in schema'));

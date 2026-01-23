@@ -34,6 +34,7 @@ class _StartState extends State<Start> {
   late final BeamerDelegate _beamerDelegate;
   double _currentSheetSize = 0.25; // Track current sheet size
   bool _isLoadingData = true;
+  bool _wasKeyboardVisible = false;
   StreamSubscription? _recordsWatchSubscription;
 
   // Initial position of bottom sheet (25% of screen height)
@@ -419,18 +420,21 @@ class _StartState extends State<Start> {
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final hasKeyboard = keyboardHeight > 0;
 
-    // Auto-expand sheet when keyboard appears
-    if (hasKeyboard && _sheetController.isAttached) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_sheetController.isAttached && _currentSheetSize < 0.6) {
-          _sheetController.animateTo(
-            0.8,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+    // Auto-expand sheet when keyboard appears (only trigger once)
+    if (hasKeyboard && !_wasKeyboardVisible) {
+      if (_sheetController.isAttached) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_sheetController.isAttached && _currentSheetSize < 0.6) {
+            _sheetController.animateTo(
+              0.8,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
     }
+    _wasKeyboardVisible = hasKeyboard;
 
     return DraggableScrollableSheet(
       controller: _sheetController,
@@ -482,9 +486,7 @@ class _StartState extends State<Start> {
                 Expanded(
                   child: ListView(
                     controller: scrollController,
-                    padding: EdgeInsets.only(
-                      bottom: keyboardHeight > 0 ? keyboardHeight : 0,
-                    ),
+                    padding: EdgeInsets.only(bottom: keyboardHeight > 0 ? keyboardHeight : 0),
                     children: [
                       SizedBox(
                         height: MediaQuery.of(context).size.height * _maxChildSize - 28,

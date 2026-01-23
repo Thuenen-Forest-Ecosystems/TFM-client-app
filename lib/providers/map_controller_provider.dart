@@ -181,7 +181,6 @@ class MapControllerProvider with ChangeNotifier {
     if (_navigationTarget != null) {
       _navigationTarget = null;
       _navigationTargetLabel = null;
-      debugPrint('Navigation target cleared');
       notifyListeners();
     }
   }
@@ -190,9 +189,6 @@ class MapControllerProvider with ChangeNotifier {
   void setNavigationStart(LatLng start, {String? label}) {
     _navigationStart = start;
     _navigationStartLabel = label;
-    debugPrint(
-      'Navigation start set: ${label ?? "unnamed"} at (${start.latitude}, ${start.longitude})',
-    );
     notifyListeners();
   }
 
@@ -215,11 +211,6 @@ class MapControllerProvider with ChangeNotifier {
   /// Set the navigation target line string (line from last step or start to target)
   void setNavigationTargetLineString(List<LatLng>? lineString) {
     _navigationTargetLineString = lineString != null ? List<LatLng>.from(lineString) : null;
-    if (lineString != null) {
-      debugPrint('Navigation target line string set with ${lineString.length} points');
-    } else {
-      debugPrint('Navigation target line string cleared');
-    }
     notifyListeners();
   }
 
