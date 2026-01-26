@@ -335,7 +335,8 @@ Future<PowerSyncDatabase> openDatabase() async {
         currentConnector = null;
         await db.disconnect();
       } else if (event == AuthChangeEvent.tokenRefreshed) {
-        currentConnector?.prefetchCredentials();
+        print('Token refreshed - updating PowerSync credentials');
+        currentConnector?.invalidateCredentials();
       }
     } catch (e) {
       print('Error handling auth state change: $e');

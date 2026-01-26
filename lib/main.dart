@@ -89,7 +89,7 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
         ),
         '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(
           key: ValueKey(
-            'properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}',
+            'properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}-${DateTime.now().millisecondsSinceEpoch}',
           ),
           title: 'TFM',
           child: Start(),

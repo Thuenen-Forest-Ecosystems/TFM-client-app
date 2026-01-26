@@ -148,7 +148,6 @@ class _VersionControlState extends State<VersionControl> {
         : Theme.of(context).colorScheme.onSurface;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: cardColor,
       child: InkWell(
         onTap: hasUpdate ? _openReleaseUrl : null,

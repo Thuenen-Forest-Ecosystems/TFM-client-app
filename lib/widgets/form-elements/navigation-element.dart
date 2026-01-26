@@ -33,7 +33,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    if (widget.previous_properties?['plot_coordinates'] == null) {
+    /*if (widget.previous_properties?['plot_coordinates'] == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -43,7 +43,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
           ),
         ),
       );
-    }
+    }*/
 
     return Column(
       children: [

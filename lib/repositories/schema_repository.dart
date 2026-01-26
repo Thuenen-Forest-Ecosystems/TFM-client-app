@@ -161,6 +161,14 @@ class SchemaRepository {
         .watch('SELECT DISTINCT interval_name FROM schemas ORDER BY interval_name DESC')
         .map((results) => results.map((row) => row['interval_name'] as String).toList());
   }
+
+  // Get all visible schemas (for selection in dialogs)
+  Future<List<SchemaModel>> getAllVisibleSchemas() async {
+    final results = await db.getAll(
+      'SELECT * FROM schemas WHERE is_visible = 1 ORDER BY interval_name DESC, created_at DESC',
+    );
+    return results.map((row) => SchemaModel.fromJson(row)).toList();
+  }
 }
 
 // Model class
@@ -176,6 +184,7 @@ class SchemaModel {
   final String? bucketPlausabilityFileName;
   final Map<String, dynamic>? schemaData;
   final Map<String, dynamic>? styleDefault;
+  final Map<String, dynamic>? styleControl;
   final String? plausabilityScript;
   final int? version;
   final String? directory;
@@ -192,6 +201,7 @@ class SchemaModel {
     this.bucketPlausabilityFileName,
     this.schemaData,
     this.styleDefault,
+    this.styleControl,
     this.plausabilityScript,
     this.version,
     this.directory,
@@ -218,6 +228,11 @@ class SchemaModel {
                 ? jsonDecode(json['style_default'] as String)
                 : json['style_default'] as Map<String, dynamic>)
           : null,
+      styleControl: json['style_control'] != null
+          ? (json['style_control'] is String
+                ? jsonDecode(json['style_control'] as String)
+                : json['style_control'] as Map<String, dynamic>)
+          : null,
       plausabilityScript: json['plausability_script'] as String?,
       version: json['version'] as int?,
       directory: json['directory'] as String?,
@@ -236,7 +251,7 @@ class SchemaModel {
       'bucket_plausability_file_name': bucketPlausabilityFileName,
       'schema': schemaData,
       'style_default': styleDefault,
-      'plausability_script': plausabilityScript,
+      'style_control': styleControl,
       'version': version,
       'directory': directory,
     };
@@ -254,6 +269,7 @@ class SchemaModel {
     String? bucketPlausabilityFileName,
     Map<String, dynamic>? schemaData,
     Map<String, dynamic>? styleDefault,
+    Map<String, dynamic>? styleControl,
     String? plausabilityScript,
     int? version,
     String? directory,
@@ -270,6 +286,7 @@ class SchemaModel {
       bucketPlausabilityFileName: bucketPlausabilityFileName ?? this.bucketPlausabilityFileName,
       schemaData: schemaData ?? this.schemaData,
       styleDefault: styleDefault ?? this.styleDefault,
+      styleControl: styleControl ?? this.styleControl,
       plausabilityScript: plausabilityScript ?? this.plausabilityScript,
       version: version ?? this.version,
       directory: directory ?? this.directory,

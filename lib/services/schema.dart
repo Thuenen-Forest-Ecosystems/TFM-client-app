@@ -124,6 +124,7 @@ Schema schema = Schema(([
     Column.text('bucket_plausability_file_name'),
     Column.text('schema'),
     Column.text('style_default'),
+    Column.text('style_control'),
     Column.text('plausability_script'),
     Column.integer('version'),
     Column.text('directory'),
@@ -154,6 +155,7 @@ Schema schema = Schema(([
     Column.text('validation_errors'),
     Column.text('plausibility_errors'),
     Column.text('cluster'),
+    Column.integer('is_training'),
   ]),
   const Table('organizations', [
     Column.text('apex_domain'),

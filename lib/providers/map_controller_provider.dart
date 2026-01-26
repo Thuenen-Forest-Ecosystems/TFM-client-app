@@ -25,6 +25,10 @@ class MapControllerProvider with ChangeNotifier {
   DateTime? _focusTimestamp;
   DateTime? _lastManualMoveTimestamp;
 
+  // Current map bounds (visible area)
+  LatLngBounds? _currentMapBounds;
+  DateTime? _mapBoundsTimestamp;
+
   // Navigation request
   String? _navigationPath;
   DateTime? _navigationTimestamp;
@@ -55,6 +59,8 @@ class MapControllerProvider with ChangeNotifier {
   DateTime? get lastManualMoveTimestamp => _lastManualMoveTimestamp;
   String? get navigationPath => _navigationPath;
   DateTime? get navigationTimestamp => _navigationTimestamp;
+  LatLngBounds? get currentMapBounds => _currentMapBounds;
+  DateTime? get mapBoundsTimestamp => _mapBoundsTimestamp;
   LatLng? get navigationTarget => _navigationTarget;
   String? get navigationTargetLabel => _navigationTargetLabel;
   LatLng? get navigationStart => _navigationStart;
@@ -80,6 +86,12 @@ class MapControllerProvider with ChangeNotifier {
   void clearFocusBounds() {
     _focusBounds = null;
     _focusTimestamp = null;
+    notifyListeners();
+  }
+
+  void setCurrentMapBounds(LatLngBounds bounds) {
+    _currentMapBounds = bounds;
+    _mapBoundsTimestamp = DateTime.now();
     notifyListeners();
   }
 

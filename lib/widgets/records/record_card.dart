@@ -8,8 +8,19 @@ class RecordCard extends StatefulWidget {
   final Record record;
   final String? distanceText;
   final VoidCallback? onFocusOnMap;
+  final bool isPinned;
+  final VoidCallback? onPinToggle;
+  final bool isDense;
 
-  const RecordCard({super.key, required this.record, this.distanceText, this.onFocusOnMap});
+  const RecordCard({
+    super.key,
+    required this.record,
+    this.distanceText,
+    this.onFocusOnMap,
+    this.isPinned = false,
+    this.onPinToggle,
+    this.isDense = false,
+  });
 
   @override
   State<RecordCard> createState() => _RecordCardState();
@@ -139,94 +150,142 @@ class _RecordCardState extends State<RecordCard> {
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 2,
-        child: InkWell(
-          onTap: () {
-            Beamer.of(context).beamToNamed(
-              '/properties-edit/${Uri.encodeComponent(widget.record.clusterName)}/${Uri.encodeComponent(widget.record.plotName)}',
-            );
-          },
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                // Status indicator
-                Container(
-                  width: 10,
-                  decoration: BoxDecoration(
-                    color: isCompleted ? Colors.green : Colors.red,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(4),
-                      bottomLeft: Radius.circular(4),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            'Trakt: ${widget.record.clusterName} | Ecke: ${widget.record.plotName}',
-                          ),
-                          subtitle: widget.distanceText != null
-                              ? Text(
-                                  widget.distanceText!,
-                                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                                )
-                              : null,
-                          trailing: widget.onFocusOnMap != null
-                              ? IconButton(
-                                  icon: const Icon(Icons.map),
-                                  tooltip: 'Focus on map',
-                                  onPressed: widget.onFocusOnMap,
-                                )
-                              : null,
+        child: Stack(
+          children: [
+            InkWell(
+              onTap: () {
+                Beamer.of(context).beamToNamed(
+                  '/properties-edit/${Uri.encodeComponent(widget.record.clusterName)}/${Uri.encodeComponent(widget.record.plotName)}',
+                );
+              },
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    // Status indicator
+                    Container(
+                      width: 10,
+                      decoration: BoxDecoration(
+                        color: isCompleted ? Colors.green : Colors.red,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
                         ),
-                        if (note != null && note.isNotEmpty)
-                          Row(
-                            children: [
-                              const Icon(Icons.chat, size: 16, color: Colors.blue),
-                              const SizedBox(width: 4),
-                              Expanded(child: Text(note, style: TextStyle(fontSize: 12))),
-                            ],
-                          ),
-                        if (!isForest && _forestStatusLabel != null)
-                          Row(
-                            children: [
-                              const Icon(Icons.warning, size: 16, color: Colors.orange),
-                              const SizedBox(width: 4),
-                              Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
-                            ],
-                          ),
-                        if (widget.record.previousProperties?['plot_support_points'].length > 0)
-                          Row(children: [const Text('Mit Hilfspunkten')]),
-                        const SizedBox(height: 8),
-                        // Last update and sync status
-                        Row(
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.update, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              lastLocalUpdateText,
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: !widget.isDense
+                                  ? Text(
+                                      'Trakt: ${widget.record.clusterName} | Ecke: ${widget.record.plotName}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : Text(
+                                      '${widget.record.clusterName} | ${widget.record.plotName}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                              subtitle: widget.distanceText != null
+                                  ? Text(
+                                      widget.distanceText!,
+                                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                    )
+                                  : null,
+                              trailing: widget.onFocusOnMap != null
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.my_location),
+                                          tooltip: 'Focus on map',
+                                          onPressed: widget.onFocusOnMap,
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.directions_car),
+                                          tooltip: 'Navigate to record',
+                                          onPressed: () => _openNativeNavigationForRecord(context),
+                                        ),
+                                      ],
+                                    )
+                                  : null,
                             ),
-                            const Spacer(),
-                            Icon(
-                              isSynchronized ? Icons.done_all : Icons.done_all,
-                              size: 16,
-                              color: isSynchronized ? Colors.green : Colors.grey,
+                            if (note != null && note.isNotEmpty)
+                              Row(
+                                children: [
+                                  const Icon(Icons.chat, size: 16, color: Colors.blue),
+                                  const SizedBox(width: 4),
+                                  Expanded(child: Text(note, style: TextStyle(fontSize: 12))),
+                                ],
+                              ),
+                            if (!isForest && _forestStatusLabel != null)
+                              Row(
+                                children: [
+                                  const Icon(Icons.warning, size: 16, color: Colors.orange),
+                                  const SizedBox(width: 4),
+                                  Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                            if (widget.record.previousProperties?['plot_support_points'].length > 0)
+                              Row(children: [const Text('Mit Hilfspunkten')]),
+                            const SizedBox(height: 8),
+                            // Last update and sync status
+                            Row(
+                              children: [
+                                Icon(Icons.update, size: 16, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  lastLocalUpdateText,
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                                const Spacer(),
+                                Icon(
+                                  isSynchronized ? Icons.done_all : Icons.done_all,
+                                  size: 16,
+                                  color: isSynchronized ? Colors.green : Colors.grey,
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Pin icon positioned at top left
+            if (widget.onPinToggle != null)
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Material(
+                  color: widget.isPinned
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: widget.onPinToggle,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                        color: widget.isPinned
+                            ? Theme.of(context).colorScheme.onPrimaryContainer
+                            : Colors.grey[700],
+                        size: 16,
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ),
     );

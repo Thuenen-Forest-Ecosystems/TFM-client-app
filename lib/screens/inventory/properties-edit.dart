@@ -20,6 +20,7 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/new_record_dialog.dart';
 
 import 'package:beamer/beamer.dart';
 
@@ -331,6 +332,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       _error = null;
     });
 
+    // Check if this is a NEW record creation
+    if (widget.clusterName == 'NEW' && widget.plotName == 'NEW') {
+      await _createNewRecord();
+      return;
+    }
+
     try {
       final records = await repo.RecordsRepository().getRecordsByClusterAndPlot(
         widget.clusterName,
@@ -377,6 +384,113 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
+  Future<void> _createNewRecord() async {
+    if (!mounted) return;
+
+    // Defer dialog until after the widget tree is built
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      // Show dialog to get cluster and plot names
+      final result = await showDialog<Map<String, String>>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const NewRecordDialog(),
+      );
+
+      if (result == null) {
+        // User cancelled, set loading to false and go back
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          // Use a small delay to ensure state is updated before navigation
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) {
+            Beamer.of(context).beamBack();
+          }
+        }
+        return;
+      }
+
+      final clusterName = result['clusterName']!;
+      final plotName = result['plotName']!;
+      final schemaName = result['schemaName']!;
+
+      try {
+        // Get the selected schema
+        final schema = await schemaRepository.getLatestForInterval(schemaName);
+        if (schema == null) {
+          throw Exception('Schema nicht gefunden: $schemaName');
+        }
+
+        // Generate UUIDs for cluster_id and plot_id
+        final clusterId = DateTime.now().millisecondsSinceEpoch.toString();
+        final plotId = '${clusterId}_${plotName.replaceAll(' ', '_')}';
+
+        // Create new record with minimal required fields
+        final newRecord = repo.Record(
+          id: null, // Will be auto-generated on insert
+          properties: {}, // Empty properties to be filled in form
+          schemaName: schemaName,
+          schemaId: schema.id!,
+          schemaIdValidatedBy: schema.id,
+          schemaVersion: schema.version,
+          plotId: plotId,
+          clusterId: clusterId,
+          plotName: plotName,
+          clusterName: clusterName,
+          previousProperties: null, // No previous data for new record
+          previousPositionData: null,
+          isValid: 0,
+          responsibleAdministration: null,
+          responsibleProvider: null,
+          responsibleState: null,
+          responsibleTroop: null,
+          updatedAt: null,
+          localUpdatedAt: DateTime.now().toUtc().toIso8601String(),
+          completedAtState: null,
+          completedAtTroop: null,
+          completedAtAdministration: null,
+          isToBeRecorded: 1,
+          note: null,
+          validationErrors: null,
+          cluster: null,
+        );
+
+        if (mounted) {
+          setState(() {
+            _record = newRecord;
+            _formData = {};
+            _previousFormData = null;
+            _isLoading = false;
+          });
+
+          // Load schema after record is created
+          await _loadSchema(
+            newRecord.schemaName,
+            schemaIdValidatedBy: newRecord.schemaIdValidatedBy,
+          );
+        }
+      } catch (e) {
+        debugPrint('Error creating new record: $e');
+        if (mounted) {
+          setState(() {
+            _error = 'Fehler beim Erstellen: $e';
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Fehler beim Erstellen der neuen Ecke: $e')));
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) {
+            Beamer.of(context).beamBack();
+          }
+        }
+      }
+    });
+  }
+
   Future<void> save(String type) async {
     if (_record == null || _formData == null) {
       debugPrint('Cannot save: record or form data is null');
@@ -389,54 +503,80 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Get current timestamp for local_updated_at in UTC (to match server's updated_at timezone)
       final now = DateTime.now().toUtc().toIso8601String();
 
-      // Update properties, schema_id_validated_by, and local_updated_at
-      // PowerSync will track this change and sync to server
       setState(() {
         _isSaving = true;
       });
-      if (type == 'save') {
-        await db.execute(
-          'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
-          [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
+
+      // Check if this is a new record (no id yet)
+      if (_record!.id == null) {
+        // INSERT new record using repository
+        final completedAt = type == 'complete' ? now : null;
+        final recordToInsert = _record!.copyWith(
+          properties: _formData,
+          isValid: 0,
+          localUpdatedAt: now,
+          completedAtTroop: completedAt,
+          isToBeRecorded: 1,
+          isTraining: 1,
         );
-      } else if (type == 'complete') {
-        await db.execute(
-          'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?',
-          [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id],
+
+        final newId = await repo.RecordsRepository().insertRecord(recordToInsert);
+
+        // Get the inserted record to update state
+        final insertedRecord = await repo.RecordsRepository().getRecordById(newId);
+
+        if (insertedRecord != null) {
+          setState(() {
+            _record = insertedRecord;
+            _isSaving = false;
+          });
+        }
+      } else {
+        // UPDATE existing record
+        if (type == 'save') {
+          await db.execute(
+            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
+            [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
+          );
+        } else if (type == 'complete') {
+          await db.execute(
+            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?',
+            [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id],
+          );
+        }
+
+        // Create updated record for local state
+        final updatedRecord = repo.Record(
+          id: _record!.id,
+          properties: _formData!,
+          schemaName: _record!.schemaName,
+          schemaId: _record!.schemaId,
+          schemaIdValidatedBy: _record!.schemaIdValidatedBy,
+          schemaVersion: _record!.schemaVersion,
+          plotId: _record!.plotId,
+          clusterId: _record!.clusterId,
+          plotName: _record!.plotName,
+          clusterName: _record!.clusterName,
+          previousProperties: _record!.previousProperties,
+          isValid: _record!.isValid,
+          responsibleAdministration: _record!.responsibleAdministration,
+          responsibleProvider: _record!.responsibleProvider,
+          responsibleState: _record!.responsibleState,
+          responsibleTroop: _record!.responsibleTroop,
+          updatedAt: _record!.updatedAt,
+          localUpdatedAt: now,
+          completedAtState: _record!.completedAtState,
+          completedAtTroop: _record!.completedAtTroop,
+          completedAtAdministration: _record!.completedAtAdministration,
+          note: _record!.note,
         );
+
+        // Update local state
+        setState(() {
+          _record = updatedRecord;
+          _isSaving = false;
+        });
       }
-
-      // Create updated record for local state
-      final updatedRecord = repo.Record(
-        id: _record!.id,
-        properties: _formData!,
-        schemaName: _record!.schemaName,
-        schemaId: _record!.schemaId,
-        schemaIdValidatedBy: _record!.schemaIdValidatedBy,
-        schemaVersion: _record!.schemaVersion,
-        plotId: _record!.plotId,
-        clusterId: _record!.clusterId,
-        plotName: _record!.plotName,
-        clusterName: _record!.clusterName,
-        previousProperties: _record!.previousProperties,
-        isValid: _record!.isValid,
-        responsibleAdministration: _record!.responsibleAdministration,
-        responsibleProvider: _record!.responsibleProvider,
-        responsibleState: _record!.responsibleState,
-        responsibleTroop: _record!.responsibleTroop,
-        updatedAt: _record!.updatedAt,
-        localUpdatedAt: now,
-        completedAtState: _record!.completedAtState,
-        completedAtTroop: _record!.completedAtTroop,
-        completedAtAdministration: _record!.completedAtAdministration,
-        note: _record!.note,
-      );
-
-      // Update local state
-      setState(() {
-        _record = updatedRecord;
-        _isSaving = false;
-      });
 
       // Show success message and navigate based on save action
       if (mounted) {

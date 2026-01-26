@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/records/record_card.dart';
+import 'package:terrestrial_forest_monitor/widgets/records/filter_dialog.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 
 class RecordsSelection extends StatefulWidget {
@@ -37,14 +40,53 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Filter settings
+  bool _showCompleted = true;
+  bool _filterByMapExtent = false;
+
+  // Pinned records
+  final Set<String> _pinnedRecordIds = {};
+  List<Record> _pinnedRecords = [];
+
   @override
   void initState() {
     super.initState();
+    _loadPinnedRecords();
     _getCurrentLocation();
     // Load data and start watching for changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
+      // Listen to map controller provider for bounds changes
+      _listenToMapBoundsChanges();
     });
+  }
+
+  void _listenToMapBoundsChanges() {
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.addListener(_onMapBoundsChanged);
+    } catch (e) {
+      debugPrint('Error adding map bounds listener: $e');
+    }
+  }
+
+  DateTime? _lastMapBoundsTimestamp;
+
+  void _onMapBoundsChanged() {
+    if (!mounted || !_filterByMapExtent) return;
+
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final timestamp = mapControllerProvider.mapBoundsTimestamp;
+
+      // Only reload if timestamp changed (new bounds update)
+      if (timestamp != null && timestamp != _lastMapBoundsTimestamp) {
+        _lastMapBoundsTimestamp = timestamp;
+        _loadInitialData();
+      }
+    } catch (e) {
+      debugPrint('Error handling map bounds change: $e');
+    }
   }
 
   @override
@@ -105,6 +147,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
             _isLoading = false;
           });
 
+          // Update pinned records list
+          _updatePinnedRecordsList();
+
           // Display first batch
           _displayMoreRecords();
         }
@@ -126,6 +171,45 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     }
   }
 
+  Future<void> _loadPinnedRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pinnedIds = prefs.getStringList('pinned_records') ?? [];
+    setState(() {
+      _pinnedRecordIds.clear();
+      _pinnedRecordIds.addAll(pinnedIds);
+    });
+  }
+
+  Future<void> _togglePinRecord(Record record) async {
+    final recordKey = '${record.clusterId}_${record.plotId}';
+
+    setState(() {
+      if (_pinnedRecordIds.contains(recordKey)) {
+        _pinnedRecordIds.remove(recordKey);
+        _pinnedRecords.removeWhere((r) => '${r.clusterId}_${r.plotId}' == recordKey);
+      } else {
+        _pinnedRecordIds.add(recordKey);
+        _pinnedRecords.add(record);
+      }
+    });
+
+    // Persist to shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('pinned_records', _pinnedRecordIds.toList());
+  }
+
+  void _updatePinnedRecordsList() {
+    // Update pinned records list from all records
+    _pinnedRecords.clear();
+    for (final item in _allRecords) {
+      final record = item['record'] as Record;
+      final recordKey = '${record.clusterId}_${record.plotId}';
+      if (_pinnedRecordIds.contains(recordKey)) {
+        _pinnedRecords.add(record);
+      }
+    }
+  }
+
   void _onProviderChanged() {
     if (!mounted) return;
     // Reload data when provider updates (real-time changes from start.dart)
@@ -138,6 +222,40 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     if (_searchQuery.isNotEmpty) {
       records = records.where((record) {
         return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    // Filter by map extent if enabled
+    if (_filterByMapExtent) {
+      try {
+        final mapControllerProvider = context.read<MapControllerProvider>();
+        final bounds = mapControllerProvider.currentMapBounds;
+
+        if (bounds != null) {
+          records = records.where((record) {
+            final coords = record.getCoordinates();
+            if (coords == null) return false;
+
+            final lat = coords['latitude'];
+            final lng = coords['longitude'];
+            if (lat == null || lng == null) return false;
+
+            return lat >= bounds.south &&
+                lat <= bounds.north &&
+                lng >= bounds.west &&
+                lng <= bounds.east;
+          }).toList();
+        }
+      } catch (e) {
+        debugPrint('Error filtering by map extent: $e');
+      }
+    }
+
+    // Filter by completion status
+    if (!_showCompleted) {
+      records = records.where((record) {
+        final completedAtTroop = record.completedAtTroop;
+        return completedAtTroop == null || completedAtTroop.toString().isEmpty;
       }).toList();
     }
 
@@ -331,20 +449,80 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                     },
                   )
                 : const Text('Ecken', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            trailing: IconButton(
-              icon: Icon(_isSearching ? Icons.close : Icons.search),
-              onPressed: () {
-                setState(() {
-                  _isSearching = !_isSearching;
-                  if (!_isSearching) {
-                    _searchController.clear();
-                    _searchQuery = '';
-                    _loadInitialData();
-                  }
-                });
-              },
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(_isSearching ? Icons.close : Icons.search),
+                  onPressed: () {
+                    setState(() {
+                      _isSearching = !_isSearching;
+                      if (!_isSearching) {
+                        _searchController.clear();
+                        _searchQuery = '';
+                        _loadInitialData();
+                      }
+                    });
+                  },
+                ),
+                //IconButton(onPressed: _openFilterDialog, icon: Icon(Icons.filter_list)),
+                //IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
+              ],
             ),
           ),
+          // Pinned records horizontal scroll
+          if (_pinnedRecords.isNotEmpty)
+            Container(
+              height: 155,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _pinnedRecords.length,
+                      itemBuilder: (context, index) {
+                        final record = _pinnedRecords[index];
+                        final recordKey = '${record.clusterId}_${record.plotId}';
+
+                        // Calculate distance if we have position
+                        String? distanceText;
+                        if (_currentPosition != null) {
+                          final coords = record.getCoordinates();
+                          if (coords != null) {
+                            final distance = _calculateDistance(
+                              _currentPosition!.latitude,
+                              _currentPosition!.longitude,
+                              coords['latitude']!,
+                              coords['longitude']!,
+                            );
+                            distanceText = distance < 1.0
+                                ? '${(distance * 1000).toStringAsFixed(0)} m'
+                                : '${distance.toStringAsFixed(1)} km';
+                          }
+                        }
+
+                        return Container(
+                          width: 280,
+                          margin: const EdgeInsets.only(right: 8),
+                          child: RecordCard(
+                            record: record,
+                            distanceText: distanceText,
+                            onFocusOnMap: () => _focusRecordOnMap(record),
+                            isPinned: true,
+                            onPinToggle: () => _togglePinRecord(record),
+                            isDense: true,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const Divider(height: 1),
           // Body
           Expanded(
             child: _isLoading
@@ -385,6 +563,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       final item = _displayedRecords[index];
                       final record = item['record'] as Record;
                       final metadata = item['metadata'] as String?;
+                      final recordKey = '${record.clusterId}_${record.plotId}';
 
                       // Calculate distance if not already in metadata
                       String? distanceText = metadata;
@@ -407,6 +586,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                         record: record,
                         distanceText: distanceText,
                         onFocusOnMap: () => _focusRecordOnMap(record),
+                        isPinned: _pinnedRecordIds.contains(recordKey),
+                        onPinToggle: () => _togglePinRecord(record),
+                        isDense: false,
                       );
                     },
                   ),
@@ -414,6 +596,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         ],
       ),
     );
+  }
+
+  void _addRecord() {
+    // Navigate to properties-edit with NEW placeholders
+    // The PropertiesEdit screen will detect this and show a cluster/plot input dialog
+    Beamer.of(context).beamToNamed('/properties-edit/NEW/NEW');
   }
 
   void _focusRecordOnMap(Record record) {
@@ -445,6 +633,35 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     debugPrint('Focus bounds set for record at $lat, $lng');
   }
 
+  void _openFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => RecordsFilterDialog(
+        currentOrderBy: _orderBy,
+        showCompleted: _showCompleted,
+        filterByMapExtent: _filterByMapExtent,
+        onOrderByChanged: (newOrderBy) {
+          setState(() {
+            _orderBy = newOrderBy;
+          });
+          _loadInitialData();
+        },
+        onShowCompletedChanged: (value) {
+          setState(() {
+            _showCompleted = value;
+          });
+          _loadInitialData();
+        },
+        onFilterByMapExtentChanged: (value) {
+          setState(() {
+            _filterByMapExtent = value;
+          });
+          _loadInitialData();
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -456,6 +673,14 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       provider.removeListener(_onProviderChanged);
     } catch (e) {
       print('Error removing provider listener: $e');
+    }
+
+    // Remove map controller provider listener
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.removeListener(_onMapBoundsChanged);
+    } catch (e) {
+      print('Error removing map bounds listener: $e');
     }
 
     // Only dispose if we created the controller ourselves

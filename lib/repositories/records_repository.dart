@@ -32,6 +32,7 @@ class Record {
   final String? note;
   final String? validationErrors;
   final String? cluster;
+  final int? isTraining;
 
   Record({
     this.id,
@@ -60,6 +61,7 @@ class Record {
     this.note,
     this.validationErrors,
     this.cluster,
+    this.isTraining,
   });
 
   factory Record.fromRow(Map<String, dynamic> row) {
@@ -94,6 +96,7 @@ class Record {
       note: row['note'] as String?,
       validationErrors: row['validation_errors'] as String?,
       cluster: row['cluster'] as String?,
+      isTraining: row['is_training'] as int?,
     );
   }
 
@@ -125,6 +128,7 @@ class Record {
       'note': note,
       'validation_errors': validationErrors,
       'cluster': cluster,
+      'is_training': isTraining,
     };
   }
 
@@ -277,6 +281,7 @@ class Record {
     String? note,
     String? validationErrors,
     String? cluster,
+    int? isTraining,
   }) {
     return Record(
       id: id ?? this.id,
@@ -305,6 +310,7 @@ class Record {
       note: note ?? this.note,
       validationErrors: validationErrors ?? this.validationErrors,
       cluster: cluster ?? this.cluster,
+      isTraining: isTraining ?? this.isTraining,
     );
   }
 }
@@ -566,17 +572,22 @@ class RecordsRepository {
   }
 
   Future<String> insertRecord(Record record) async {
+    // Generate id if not provided (PowerSync requires explicit TEXT id)
+    final recordId = record.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+
     await db.execute(
-      'INSERT INTO records (properties, schema_name, schema_id, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration, is_to_be_recorded, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO records (id, properties, schema_name, schema_id, schema_id_validated_by, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration, is_to_be_recorded, note, is_training) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        record.properties,
+        recordId,
+        jsonEncode(record.properties),
         record.schemaName,
         record.schemaId,
+        record.schemaIdValidatedBy,
         record.plotId,
         record.clusterId,
         record.plotName,
         record.clusterName,
-        record.previousProperties,
+        record.previousProperties != null ? jsonEncode(record.previousProperties) : null,
         record.isValid,
         record.responsibleAdministration,
         record.responsibleProvider,
@@ -589,10 +600,11 @@ class RecordsRepository {
         record.completedAtAdministration,
         record.isToBeRecorded,
         record.note,
+        record.isTraining,
       ],
     );
-    final idResult = await db.execute('SELECT last_insert_rowid() as id');
-    return idResult.first['id'] as String;
+
+    return recordId;
   }
 
   Future<void> updateRecord(String id, Record record) async {

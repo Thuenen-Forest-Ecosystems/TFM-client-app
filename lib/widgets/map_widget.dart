@@ -670,6 +670,14 @@ class _MapWidgetState extends State<MapWidget> {
 
     final bounds = _mapController.camera.visibleBounds;
 
+    // Update current bounds in provider
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.setCurrentMapBounds(bounds);
+    } catch (e) {
+      debugPrint('Error updating map bounds in provider: $e');
+    }
+
     // Only update if bounds changed significantly (avoid micro-updates during pan)
     if (_lastBounds != null) {
       final latDiff = (_lastBounds!.north - bounds.north).abs();
