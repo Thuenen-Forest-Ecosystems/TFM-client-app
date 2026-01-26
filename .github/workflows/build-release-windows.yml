@@ -84,7 +84,7 @@ jobs:
 
       - name: Build Windows Release
         timeout-minutes: 20
-        run: flutter build windows --release
+        run: flutter build windows --release --verbose
 
       - name: Copy certificate helper script
         shell: powershell
