@@ -164,10 +164,11 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       }
     } catch (e) {
       if (mounted) {
-        print(e);
+        print('[Download] Error: $e');
+        print('[Download] Error type: ${e.runtimeType}');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Fehler beim Download: $e')));
+        ).showSnackBar(SnackBar(content: Text('Fehler beim Download: $e\nTyp: ${e.runtimeType}')));
       }
     } finally {
       if (mounted) {
@@ -301,54 +302,60 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
       // Start download
       print('[$selectedBasemap] Starting foreground download for zoom $zoom...');
-      final download = store.download.startForeground(
-        region: downloadableRegion,
-        parallelThreads: 3,
-        maxBufferLength: 100,
-        skipExistingTiles: true,
-      );
-      print('[$selectedBasemap] Download stream created for zoom $zoom');
+      try {
+        final download = store.download.startForeground(
+          region: downloadableRegion,
+          parallelThreads: 3,
+          maxBufferLength: 100,
+          skipExistingTiles: true,
+        );
+        print('[$selectedBasemap] Download stream created for zoom $zoom');
 
-      // Listen to progress
-      int progressUpdateCount = 0;
-      await for (final progress in download) {
-        if (_cancelRequested) {
-          print('[$selectedBasemap] Breaking progress loop due to cancel');
-          break;
-        }
-        progressUpdateCount++;
-        if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
-          print(
-            '[$selectedBasemap] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
-            '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
-          );
-        }
-        if (mounted) {
-          setState(() {
-            // Always update total to include current batch
-            _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
+        // Listen to progress
+        int progressUpdateCount = 0;
+        await for (final progress in download) {
+          if (_cancelRequested) {
+            print('[$selectedBasemap] Breaking progress loop due to cancel');
+            break;
+          }
+          progressUpdateCount++;
+          if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
+            print(
+              '[$selectedBasemap] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
+              '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
+            );
+          }
+          if (mounted) {
+            setState(() {
+              // Always update total to include current batch
+              _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
 
-            // Show progress based on all tiles processed (including skipped)
-            _downloadedTiles = progress.successfulTiles;
+              // Show progress based on all tiles processed (including skipped)
+              _downloadedTiles = progress.successfulTiles;
 
-            // Update cumulative progress
-            final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
-            _downloadProgress = _cumulativeTotalTiles > 0
-                ? totalProcessed / _cumulativeTotalTiles
-                : 0.0;
-          });
-        }
+              // Update cumulative progress
+              final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
+              _downloadProgress = _cumulativeTotalTiles > 0
+                  ? totalProcessed / _cumulativeTotalTiles
+                  : 0.0;
+            });
+          }
 
-        // Check for errors
-        if (progress.failedTiles > 0) {
-          print(
-            '[$selectedBasemap] Warning: ${progress.failedTiles}/${progress.maxTiles} tiles failed',
-          );
+          // Check for errors
+          if (progress.failedTiles > 0) {
+            print(
+              '[$selectedBasemap] Warning: ${progress.failedTiles}/${progress.maxTiles} tiles failed',
+            );
+          }
         }
+        print(
+          '[$selectedBasemap] Zoom $zoom download stream completed ($progressUpdateCount updates)',
+        );
+      } catch (e, stackTrace) {
+        print('[$selectedBasemap] Error during download at zoom $zoom: $e');
+        print('[$selectedBasemap] Stack trace: $stackTrace');
+        rethrow; // Re-throw to be caught by outer try-catch
       }
-      print(
-        '[$selectedBasemap] Zoom $zoom download stream completed ($progressUpdateCount updates)',
-      );
 
       // Update cumulative counter after this zoom level completes
       if (mounted) {
