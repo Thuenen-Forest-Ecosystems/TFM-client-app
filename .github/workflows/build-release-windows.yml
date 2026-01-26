@@ -185,25 +185,12 @@ jobs:
           '@ | Out-File -FilePath $readmePath -Encoding UTF8
           Write-Host "README created"
 
-      - name: Package Windows build
-        shell: powershell
-        run: |
-          $version = "1.0.61"
-          $zipName = "TFM-Windows-v$version.zip"
-          $sourcePath = "build\windows\x64\runner\Release"
-
-          Write-Host "Creating package: $zipName"
-          Compress-Archive -Path "$sourcePath\*" -DestinationPath $zipName -Force
-
-          $size = (Get-Item $zipName).Length / 1MB
-          Write-Host "Package created: $zipName ($([math]::Round($size, 2)) MB)"
-
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
-          files: TFM-Windows-v*.zip
+          files: build/windows/x64/runner/Release/terrestrial_forest_monitor.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
