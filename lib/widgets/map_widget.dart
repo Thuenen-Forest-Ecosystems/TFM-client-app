@@ -404,7 +404,7 @@ class _MapWidgetState extends State<MapWidget> {
   Future<void> _initializeTileStores() async {
     try {
       // Initialize OpenCycleMap store
-      final openCycleStore = FMTCStore('opencyclemap');
+      final openCycleStore = FMTCStore('OpenCycleMap');
       if (!(await openCycleStore.manage.ready)) {
         await openCycleStore.manage.create();
         debugPrint('Created opencyclemap tile store');

@@ -47,7 +47,7 @@ class Profile extends StatelessWidget {
             ),
             Card(child: ThemeSettings()),
 
-            const SizedBox(height: 16),
+            /*const SizedBox(height: 16),
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
               child: Text(
@@ -55,8 +55,7 @@ class Profile extends StatelessWidget {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            Card(child: DownloadSchemasBtn()),
-
+            Card(child: DownloadSchemasBtn()),*/
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15),

@@ -14,8 +14,6 @@ class _MapAdminState extends State<MapAdmin> {
   List<String> _storeList = [
     //'wms_dtk25__',
     'wms_dop__',
-    //'openstreetmap',
-    //'opentopomap',
     'OpenCycleMap',
   ];
 

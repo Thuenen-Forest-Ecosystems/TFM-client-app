@@ -34,7 +34,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     'OpenCycleMap': {
       'urlTemplate': 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
       'zoomLayers': [4, 10, 14],
-      'storeName': 'opencyclemap',
+      'storeName': 'OpenCycleMap',
     },
     /*'OpenTopoMap': {
       'urlTemplate': 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
@@ -293,40 +293,64 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
         maxZoom: zoom,
-        options: TileLayer(
-          urlTemplate: basemapsToSelectFrom[selectedBasemap]?['urlTemplate'],
-        ),
+        options: TileLayer(urlTemplate: basemapsToSelectFrom[selectedBasemap]?['urlTemplate']),
       );
 
       // Start download
       print('[$selectedBasemap] Starting download for zoom $zoom...');
       try {
-        // Use startForeground to avoid isolate serialization issues on Windows
-        await store.download.startForeground(
+        final download = store.download.startForeground(
           region: downloadableRegion,
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
         );
-        print('[$selectedBasemap] Download initiated for zoom $zoom');
-        
-        // Monitor progress by watching the store
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        // Simple completion check
+        print('[$selectedBasemap] Download stream created for zoom $zoom');
+
+        // Consume the progress stream
+        int progressUpdateCount = 0;
+        await for (final progress in download) {
+          if (_cancelRequested) {
+            print('[$selectedBasemap] Breaking progress loop due to cancel');
+            break;
+          }
+
+          progressUpdateCount++;
+          if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
+            print(
+              '[$selectedBasemap] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
+              '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
+            );
+          }
+
+          if (mounted) {
+            setState(() {
+              _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
+              _downloadedTiles = progress.successfulTiles;
+              final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
+              _downloadProgress = _cumulativeTotalTiles > 0
+                  ? totalProcessed / _cumulativeTotalTiles
+                  : 0.0;
+            });
+          }
+        }
+
+        print('[$selectedBasemap] Zoom $zoom download completed ($progressUpdateCount updates)');
+
+        // Update cumulative counter
         if (mounted) {
           setState(() {
-            _downloadedTiles = 0; // Reset for this zoom
+            _cumulativeDownloadedTiles += _downloadedTiles;
           });
         }
-        
-        print('[$selectedBasemap] Zoom $zoom download completed');
+
+        print('[$selectedBasemap] Zoom $zoom cumulative tiles: $_cumulativeDownloadedTiles');
       } catch (e, stackTrace) {
         print('[$selectedBasemap] Error during download at zoom $zoom: $e');
         print('[$selectedBasemap] Stack trace: $stackTrace');
         // Continue with next zoom level instead of failing completely
       }
-      
+
       print('[$selectedBasemap] Zoom $zoom processing complete');
     }
     print('[$selectedBasemap] All zoom levels completed');
@@ -369,34 +393,58 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         minZoom: zoom,
         maxZoom: zoom,
         options: TileLayer(
-          wmsOptions: WMSTileLayerOptions(
-            baseUrl: baseUrl,
-            layers: layers,
-          ),
+          wmsOptions: WMSTileLayerOptions(baseUrl: baseUrl, layers: layers),
         ),
       );
 
       print('[WMS] Starting download for zoom $zoom...');
       try {
-        // Use startForeground with minimal config
-        await store.download.startForeground(
+        final download = store.download.startForeground(
           region: downloadableRegion,
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
         );
-        print('[WMS] Download initiated for zoom $zoom');
-        
-        // Allow background task to start
-        await Future.delayed(const Duration(milliseconds: 500));
-        
+        print('[WMS] Download stream created for zoom $zoom');
+
+        // Consume the progress stream
+        int progressUpdateCount = 0;
+        await for (final progress in download) {
+          if (_cancelRequested) {
+            print('[WMS] Breaking progress loop due to cancel');
+            break;
+          }
+
+          progressUpdateCount++;
+          if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
+            print(
+              '[WMS] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
+              '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
+            );
+          }
+
+          if (mounted) {
+            setState(() {
+              _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
+              _downloadedTiles = progress.successfulTiles;
+              final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
+              _downloadProgress = _cumulativeTotalTiles > 0
+                  ? totalProcessed / _cumulativeTotalTiles
+                  : 0.0;
+            });
+          }
+        }
+
+        print('[WMS] Zoom $zoom download completed ($progressUpdateCount updates)');
+
+        // Update cumulative counter
         if (mounted) {
           setState(() {
-            _downloadedTiles = 0; // Reset for this zoom
+            _cumulativeDownloadedTiles += _downloadedTiles;
           });
         }
-        
-        print('[WMS] Zoom $zoom download completed');
+
+        print('[WMS] Zoom $zoom cumulative tiles: $_cumulativeDownloadedTiles');
       } catch (e) {
         print('[WMS] Error during download at zoom $zoom: $e');
         // Continue with next zoom level
