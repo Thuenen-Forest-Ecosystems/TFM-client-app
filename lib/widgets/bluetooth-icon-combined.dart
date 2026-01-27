@@ -59,7 +59,36 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     // GPS devices are managed by GpsPositionProvider, no need to check here
   }
 
+  Future<void> _stopAllScans() async {
+    try {
+      // Stop BLE scan
+      if (await ble.FlutterBluePlus.isScanning.first) {
+        await ble.FlutterBluePlus.stopScan();
+        debugPrint('Stopped BLE scan before connection');
+      }
+
+      // Stop Classic scan
+      _classicScanSubscription?.cancel();
+      _classicScanSubscription = null;
+
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error stopping scans: $e');
+    }
+  }
+
   Future<void> _startScan() async {
+    // Don't scan if already connecting to prevent interference
+    final gpsProvider = context.read<GpsPositionProvider>();
+    if (gpsProvider.isConnecting) {
+      debugPrint('Not starting scan - connection in progress');
+      return;
+    }
+
     setState(() {
       _combinedDevices = [];
       _isScanning = true;
@@ -171,6 +200,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   Future<void> _connectToBLEDevice(ble.BluetoothDevice device, BuildContext context) async {
     // Always connect as GPS sensor - no dialog needed
     try {
+      // Stop all scans immediately to prevent interference
+      await _stopAllScans();
+
       final gpsProvider = context.read<GpsPositionProvider>();
 
       // Stop any existing connections
@@ -203,6 +235,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
   Future<void> _connectToClassicDevice(classic.BluetoothDevice device, BuildContext context) async {
     try {
+      // Stop all scans immediately to prevent interference
+      await _stopAllScans();
+
       final gpsProvider = context.read<GpsPositionProvider>();
 
       // Stop any existing connections
@@ -234,14 +269,8 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
     if (!mounted) return;
 
-    // Auto-start scan when opening modal if bluetooth is available and not already scanning
-    final gpsProvider = context.read<GpsPositionProvider>();
-    if (isBluetoothAvailable &&
-        !_isScanning &&
-        gpsProvider.connectedDevice == null &&
-        _connectedClassicDevice == null) {
-      _startScan();
-    }
+    // Don't auto-start scan - let user manually trigger it to avoid interfering with connections
+    // final gpsProvider = context.read<GpsPositionProvider>();
 
     showModalBottomSheet(
       context: context,
