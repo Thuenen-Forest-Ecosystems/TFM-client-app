@@ -13,7 +13,6 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 60
 
     permissions:
       contents: write
@@ -33,15 +32,10 @@ jobs:
 
       - name: Disable Windows Defender (performance)
         shell: powershell
-        continue-on-error: true
         run: |
-          try {
-            Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-            Set-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
-            Write-Host "Excluded workspace from Windows Defender"
-          } catch {
-            Write-Host "Warning: Could not modify Windows Defender settings (this is expected on some runners)"
-          }
+          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+          Set-MpPreference -ExclusionPath "${{ github.workspace }}" -ErrorAction SilentlyContinue
+          Write-Host "Excluded workspace from Windows Defender"
 
       - name: Enable flutter_libserialport for Windows
         shell: powershell
@@ -63,7 +57,6 @@ jobs:
           Write-Host "Enabled flutter_libserialport for Windows build"
 
       - name: Install dependencies
-        timeout-minutes: 10
         run: |
           flutter config --no-analytics
           flutter pub get
@@ -83,14 +76,74 @@ jobs:
           Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
 
       - name: Build Windows Release
-        timeout-minutes: 20
-        run: flutter build windows --release --verbose
+        run: flutter build windows --release
 
-      - name: Copy certificate helper script
+      - name: Create Inno Setup Installer
         shell: powershell
         run: |
+          # Download and install Inno Setup (cached by runner)
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $innoPath)) {
+            Write-Host "Installing Inno Setup..."
+            Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "$env:TEMP\innosetup.exe"
+            Start-Process -FilePath "$env:TEMP\innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+          }
+
+          # Download Visual C++ Redistributable
+          Write-Host "Downloading Visual C++ Redistributable..."
+          $vcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          $vcRedistPath = "vc_redist.x64.exe"
+          Invoke-WebRequest -Uri $vcRedistUrl -OutFile $vcRedistPath
+
+          # Create installer script
+          @'
+          #define MyAppName "Terrestrial Forest Monitor"
+          #define MyAppVersion "1.0.55"
+          #define MyAppPublisher "Thuenen Institute"
+          #define MyAppExeName "terrestrial_forest_monitor.exe"
+
+          [Setup]
+          AppId={{8F3A7D2E-9B4C-4E1A-A5F6-2D8E9C7B1A3F}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          DefaultDirName={autopf}\{#MyAppName}
+          DefaultGroupName={#MyAppName}
+          AllowNoIcons=yes
+          OutputDir=build\windows\x64\runner\Release
+          OutputBaseFilename=TFM-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          PrivilegesRequired=lowest
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          UninstallDisplayIcon={app}\{#MyAppExeName}
+
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+          Name: "german"; MessagesFile: "compiler:Languages\German.isl"
+
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "assets\certs\ca-bundle.pem"; DestDir: "{app}\certs"; Flags: ignoreversion
+          Source: "install-certificates.ps1"; DestDir: "{app}\certs"; Flags: ignoreversion
+          Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+
+          [Icons]
+          Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+          Name: "{group}\Install SSL Certificates"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\certs\install-certificates.ps1"""; Comment: "Install SSL certificates for PowerSync connectivity"
+
+          [Run]
+          Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; StatusMsg: "Installing Visual C++ Redistributable..."; Flags: waituntilterminated
+          Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+          '@ | Out-File -FilePath "installer.iss" -Encoding UTF8
+
           # Create PowerShell script to install certificates
-          $scriptPath = "build\windows\x64\runner\Release\install-certificates.ps1"
           @'
           # Install SSL Certificates for Terrestrial Forest Monitor
           # This script installs the required CA certificates to Windows Certificate Store
@@ -100,7 +153,7 @@ jobs:
           Write-Host "========================================" -ForegroundColor Cyan
           Write-Host ""
 
-          $certPath = Join-Path $PSScriptRoot "data\flutter_assets\assets\certs\ca-bundle.pem"
+          $certPath = Join-Path $PSScriptRoot "ca-bundle.pem"
 
           if (-not (Test-Path $certPath)) {
               Write-Host "ERROR: Certificate file not found: $certPath" -ForegroundColor Red
@@ -121,15 +174,19 @@ jobs:
           foreach ($cert in $certs) {
               if ($cert -match "BEGIN CERTIFICATE") {
                   try {
+                      # Save to temp file
                       $tempCert = [System.IO.Path]::GetTempFileName() + ".crt"
                       $cert | Set-Content $tempCert -Encoding ASCII
 
+                      # Import certificate
                       $certObj = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
                       $certObj.Import($tempCert)
 
+                      # Get certificate store
                       $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "CurrentUser")
                       $store.Open("ReadWrite")
 
+                      # Check if already installed
                       $existing = $store.Certificates | Where-Object { $_.Thumbprint -eq $certObj.Thumbprint }
                       
                       if ($existing) {
@@ -152,56 +209,39 @@ jobs:
 
           Write-Host ""
           Write-Host "========================================" -ForegroundColor Cyan
-          Write-Host "Installed: $installed | Failed: $failed" -ForegroundColor Cyan
+          Write-Host "Summary:" -ForegroundColor Cyan
+          Write-Host "  Installed: $installed" -ForegroundColor Green
+          Write-Host "  Failed: $failed" -ForegroundColor $(if ($failed -gt 0) { "Red" } else { "Green" })
           Write-Host "========================================" -ForegroundColor Cyan
           Write-Host ""
+
+          if ($installed -gt 0) {
+              Write-Host "Certificates installed successfully!" -ForegroundColor Green
+              Write-Host "Please restart the Terrestrial Forest Monitor app." -ForegroundColor Yellow
+          } elseif ($failed -eq 0) {
+              Write-Host "All certificates were already installed." -ForegroundColor Yellow
+          } else {
+              Write-Host "Some certificates failed to install." -ForegroundColor Red
+          }
+
+          Write-Host ""
           Read-Host "Press Enter to exit"
-          '@ | Out-File -FilePath $scriptPath -Encoding UTF8
-          Write-Host "Certificate helper script created"
+          '@ | Out-File -FilePath "install-certificates.ps1" -Encoding UTF8
 
-      - name: Create README for users
-        shell: powershell
-        run: |
-          $readmePath = "build\windows\x64\runner\Release\README.txt"
-          @'
-          Terrestrial Forest Monitor - Windows Application
-          =================================================
-
-          RUNNING THE APPLICATION:
-          - Double-click terrestrial_forest_monitor.exe to run the app
-          - No installation required - this is a portable version
-
-          SSL CERTIFICATE SETUP (if needed):
-          - Run install-certificates.ps1 to install SSL certificates
-          - Right-click -> "Run with PowerShell"
-          - This is only needed if you have connection issues
-
-          SYSTEM REQUIREMENTS:
-          - Windows 10 or later (x64)
-          - Visual C++ Redistributable (usually pre-installed)
-          - If the app doesn't start, download and install:
-            https://aka.ms/vs/17/release/vc_redist.x64.exe
-
-          '@ | Out-File -FilePath $readmePath -Encoding UTF8
-          Write-Host "README created"
+          # Compile installer
+          & $innoPath installer.iss
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
-          files: build/windows/x64/runner/Release/terrestrial_forest_monitor.exe
+          files: build/windows/x64/runner/Release/TFM-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Re-enable Windows Defender
         if: always()
-        continue-on-error: true
         shell: powershell
         run: |
-          try {
-            Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
-            Write-Host "Re-enabled Windows Defender"
-          } catch {
-            Write-Host "Warning: Could not re-enable Windows Defender"
-          }
+          Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue

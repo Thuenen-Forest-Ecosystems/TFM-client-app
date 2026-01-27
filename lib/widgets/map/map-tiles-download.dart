@@ -44,7 +44,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   };
   String selectedBasemap = '';
   bool _isDownloading = false;
-  double _downloadProgress = 0.0;
   //int _totalTiles = 0;
   int _downloadedTiles = 0;
   int _cumulativeDownloadedTiles = 0;
@@ -52,6 +51,11 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   bool _isCheckingTiles = true;
   int _missingTilesCount = 0;
   bool _cancelRequested = false;
+
+  // Per-basemap progress tracking
+  final Map<String, Map<String, int>> _basemapProgress = {};
+  final List<String> _basemapOrder = [];
+  int? _lastDOPSuccessfulTiles = 0; // Track previous count to calculate delta
 
   @override
   void initState() {
@@ -89,13 +93,96 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     setState(() {
       _cancelRequested = true;
       _isDownloading = false;
-      _downloadProgress = 0.0;
     });
     if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Download wird abgebrochen...')));
     }
+  }
+
+  Future<Map<String, int>> _estimateTileCounts(List<Record> records) async {
+    print('[Estimate] Starting tile count estimation...');
+    final Map<String, int> estimates = {};
+
+    for (final basemapEntry in basemapsToSelectFrom.entries) {
+      final basemapName = basemapEntry.key;
+      final config = basemapEntry.value;
+      final storeName = config['storeName'] ?? basemapName.toLowerCase().replaceAll(' ', '_');
+      final store = FMTCStore(storeName);
+
+      int totalTiles = 0;
+
+      if (basemapName == 'DOP') {
+        // For DOP: estimate per record
+        for (final record in records) {
+          final coords = record.getCoordinates();
+          if (coords == null) continue;
+
+          final lat = coords['latitude'];
+          final lng = coords['longitude'];
+          if (lat == null || lng == null) continue;
+
+          const radiusPadding = 0.001;
+          final recordBbox = LatLngBounds(
+            LatLng(lat - radiusPadding, lng - radiusPadding),
+            LatLng(lat + radiusPadding, lng + radiusPadding),
+          );
+
+          totalTiles += await _estimateTilesForBbox(basemapName, recordBbox, store);
+        }
+      } else {
+        // For other basemaps: single bbox for all records
+        final bbox = _calculateBoundingBox(records);
+        if (bbox != null) {
+          totalTiles = await _estimateTilesForBbox(basemapName, bbox, store);
+        }
+      }
+
+      estimates[basemapName] = totalTiles;
+      print('[Estimate] $basemapName: $totalTiles tiles');
+    }
+
+    return estimates;
+  }
+
+  Future<int> _estimateTilesForBbox(String basemapName, LatLngBounds bbox, FMTCStore store) async {
+    final config = basemapsToSelectFrom[basemapName];
+    if (config == null) return 0;
+
+    final zoomLayers = config['zoomLayers'] as List<dynamic>?;
+    final zoomLevels = zoomLayers?.cast<int>() ?? [config['minZoom'] ?? 1, config['maxZoom'] ?? 19];
+
+    int totalTiles = 0;
+    final region = RectangleRegion(bbox);
+
+    for (final zoom in zoomLevels) {
+      try {
+        final downloadableRegion = basemapName == 'DOP' || basemapName == 'DTK25'
+            ? region.toDownloadable(
+                minZoom: zoom,
+                maxZoom: zoom,
+                options: TileLayer(
+                  wmsOptions: WMSTileLayerOptions(
+                    baseUrl: config['urlTemplate'],
+                    layers: basemapName == 'DTK25' ? ['dtk25'] : ['rgb'],
+                  ),
+                ),
+              )
+            : region.toDownloadable(
+                minZoom: zoom,
+                maxZoom: zoom,
+                options: TileLayer(urlTemplate: config['urlTemplate']),
+              );
+
+        final count = await store.download.check(downloadableRegion);
+        totalTiles += count;
+      } catch (e) {
+        print('[Estimate] Error estimating tiles for $basemapName zoom $zoom: $e');
+      }
+    }
+
+    return totalTiles;
   }
 
   Future<void> _downloadMapTilesFromRecordsBBox() async {
@@ -114,13 +201,70 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       return;
     }
 
+    // Estimate tile counts before downloading
+    print('[Download] Estimating tile counts...');
+    final estimates = await _estimateTileCounts(records);
+    final totalEstimatedTiles = estimates.values.fold<int>(0, (sum, count) => sum + count);
+
+    print('[Download] Total estimated tiles: $totalEstimatedTiles');
+
+    // Show confirmation dialog
+    if (mounted) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Download-Bestätigung'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Geschätzte Kacheln zum Download:'),
+              const SizedBox(height: 12),
+              ...estimates.entries.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('${entry.key}: ${entry.value} Kacheln'),
+                ),
+              ),
+              const Divider(),
+              Text(
+                'Gesamt: $totalEstimatedTiles Kacheln',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Download starten'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) {
+        print('[Download] User cancelled download');
+        return;
+      }
+    }
+
     setState(() {
       _isDownloading = true;
-      _downloadProgress = 0.0;
       _downloadedTiles = 0;
       _cumulativeDownloadedTiles = 0;
-      _cumulativeTotalTiles = 0; // Will be calculated dynamically during download
       _cancelRequested = false;
+      _basemapProgress.clear();
+      _basemapOrder.clear();
+      // Initialize progress tracking with estimated totals
+      for (final basemapName in basemapsToSelectFrom.keys) {
+        _basemapProgress[basemapName] = {'downloaded': 0, 'total': estimates[basemapName] ?? 0};
+        _basemapOrder.add(basemapName);
+      }
+      _cumulativeTotalTiles = totalEstimatedTiles;
     });
     print('[Download] Download state initialized');
 
@@ -174,7 +318,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       if (mounted) {
         setState(() {
           _isDownloading = false;
-          _downloadProgress = 0.0;
         });
       }
     }
@@ -301,6 +444,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
+          instanceId: zoom, // Use zoom level as unique instance ID
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
@@ -325,12 +469,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
           if (mounted) {
             setState(() {
-              _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
               _downloadedTiles = progress.successfulTiles;
-              final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
-              _downloadProgress = _cumulativeTotalTiles > 0
-                  ? totalProcessed / _cumulativeTotalTiles
-                  : 0.0;
+              // Update per-basemap downloaded count (current zoom progress only)
+              _basemapProgress[selectedBasemap]?['downloaded'] =
+                  _cumulativeDownloadedTiles + progress.successfulTiles;
             });
           }
         }
@@ -401,11 +543,16 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
+          instanceId: zoom, // Use zoom level as unique instance ID
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
         );
         print('[WMS] Download stream created for zoom $zoom');
+
+        // Track total tiles for this zoom level to avoid counting multiple times
+        int zoomTotalTiles = 0;
+        _lastDOPSuccessfulTiles = 0; // Reset for this zoom level
 
         // Consume the progress stream
         int progressUpdateCount = 0;
@@ -416,6 +563,11 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           }
 
           progressUpdateCount++;
+          // Only set total once (first update of this zoom)
+          if (progressUpdateCount == 1) {
+            zoomTotalTiles = progress.maxTiles;
+          }
+
           if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
             print(
               '[WMS] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
@@ -425,14 +577,23 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
           if (mounted) {
             setState(() {
-              _cumulativeTotalTiles = _cumulativeDownloadedTiles + progress.maxTiles;
               _downloadedTiles = progress.successfulTiles;
-              final totalProcessed = _cumulativeDownloadedTiles + _downloadedTiles;
-              _downloadProgress = _cumulativeTotalTiles > 0
-                  ? totalProcessed / _cumulativeTotalTiles
-                  : 0.0;
+              // For DOP: accumulate progress across all records
+              // Calculate delta and update immediately
+              final delta = progress.successfulTiles - (_lastDOPSuccessfulTiles ?? 0);
+              _basemapProgress[selectedBasemap]?['downloaded'] =
+                  (_basemapProgress[selectedBasemap]?['downloaded'] ?? 0) + delta;
+              _lastDOPSuccessfulTiles = progress.successfulTiles; // Update for next iteration
             });
           }
+        }
+
+        // Update total only once per zoom level (after loop completes)
+        if (mounted) {
+          setState(() {
+            _basemapProgress[selectedBasemap]?['total'] =
+                (_basemapProgress[selectedBasemap]?['total'] ?? 0) + zoomTotalTiles;
+          });
         }
 
         print('[WMS] Zoom $zoom download completed ($progressUpdateCount updates)');
@@ -470,7 +631,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
             title: const Text('Karten herunterladen'),
             subtitle: _isDownloading
                 ? Text(
-                    '${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
+                    'Gesamt: ${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
                     '(${(_downloadProgress * 100).toStringAsFixed(1)}%)',
                   )
                 : _isCheckingTiles
@@ -491,7 +652,44 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           if (_isDownloading)
             Padding(
               padding: const EdgeInsets.all(10),
-              child: LinearProgressIndicator(value: _downloadProgress),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Per-basemap progress bars
+                  ..._basemapOrder.map((basemapName) {
+                    final progress = _basemapProgress[basemapName] ?? {'downloaded': 0, 'total': 0};
+                    final downloaded = progress['downloaded'] as int;
+                    final total = progress['total'] as int;
+                    final basemapProgress = total > 0 ? downloaded / total : 0.0;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                basemapName,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '$downloaded/$total Kacheln',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(value: basemapProgress),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
             ),
         ],
       ),
