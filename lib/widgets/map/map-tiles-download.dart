@@ -158,31 +158,48 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     for (final zoom in zoomLevels) {
       try {
-        final downloadableRegion = basemapName == 'DOP' || basemapName == 'DTK25'
-            ? region.toDownloadable(
-                minZoom: zoom,
-                maxZoom: zoom,
-                options: TileLayer(
-                  wmsOptions: WMSTileLayerOptions(
-                    baseUrl: config['urlTemplate'],
-                    layers: basemapName == 'DTK25' ? ['dtk25'] : ['rgb'],
-                  ),
-                ),
-              )
-            : region.toDownloadable(
-                minZoom: zoom,
-                maxZoom: zoom,
-                options: TileLayer(urlTemplate: config['urlTemplate']),
-              );
+        // Use minimal TileLayer without urlTemplate to avoid Windows isolate serialization issues
+        final downloadableRegion = region.toDownloadable(
+          minZoom: zoom,
+          maxZoom: zoom,
+          options: TileLayer(), // Minimal TileLayer without URL template
+        );
 
         final count = await store.download.check(downloadableRegion);
         totalTiles += count;
       } catch (e) {
         print('[Estimate] Error estimating tiles for $basemapName zoom $zoom: $e');
+        // If check fails (e.g., on Windows), use approximate calculation
+        // Rough estimate: number of tiles = 4^zoom for a small bbox
+        final approxTiles = _calculateApproximateTiles(bbox, zoom);
+        print('[Estimate] Using approximate count for $basemapName zoom $zoom: $approxTiles');
+        totalTiles += approxTiles;
       }
     }
 
     return totalTiles;
+  }
+
+  int _calculateApproximateTiles(LatLngBounds bbox, int zoom) {
+    // Calculate approximate tile count based on bbox size and zoom level
+    // Tile grid at zoom level z has 2^z × 2^z tiles covering the world
+    final tileSize = 256.0;
+    final earthCircumference = 40075017.0; // meters at equator
+    final metersPerTile = earthCircumference / (1 << zoom);
+
+    // Calculate bbox dimensions in degrees
+    final latDiff = (bbox.north - bbox.south).abs();
+    final lngDiff = (bbox.east - bbox.west).abs();
+
+    // Rough conversion: 1 degree ≈ 111km at equator
+    final latMeters = latDiff * 111000;
+    final lngMeters = lngDiff * 111000;
+
+    // Calculate tiles needed
+    final tilesX = (lngMeters / metersPerTile).ceil();
+    final tilesY = (latMeters / metersPerTile).ceil();
+
+    return tilesX * tilesY;
   }
 
   Future<void> _downloadMapTilesFromRecordsBBox() async {
@@ -444,7 +461,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
-          instanceId: zoom, // Use zoom level as unique instance ID
+          instanceId: '${selectedBasemap}_$zoom'.hashCode, // Unique ID per basemap and zoom
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
@@ -543,7 +560,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
-          instanceId: zoom, // Use zoom level as unique instance ID
+          instanceId: '${selectedBasemap}_$zoom'.hashCode, // Unique ID per basemap and zoom
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
