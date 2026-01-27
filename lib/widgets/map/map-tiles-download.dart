@@ -631,8 +631,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
             title: const Text('Karten herunterladen'),
             subtitle: _isDownloading
                 ? Text(
-                    'Gesamt: ${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln '
-                    '(${(_downloadProgress * 100).toStringAsFixed(1)}%)',
+                    'Gesamt: ${_cumulativeDownloadedTiles + _downloadedTiles}/$_cumulativeTotalTiles Kacheln',
                   )
                 : _isCheckingTiles
                 ? const Text('Prüfe Aufnahmepunkte...')
