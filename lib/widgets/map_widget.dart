@@ -1215,11 +1215,11 @@ class _MapWidgetState extends State<MapWidget> {
         if (_selectedBasemaps.contains('opencycle') && _storesInitialized)
           TileLayer(
             // https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png
-            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png ',
+            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             subdomains: const ['a', 'b', 'c'],
             maxNativeZoom: 24, // Tiles only available up to zoom 18, upscale for higher zooms
-            tileProvider: FMTCStore('opencyclemap').getTileProvider(
+            tileProvider: FMTCStore('OpenCycleMap').getTileProvider(
               settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
           ),
