@@ -44,6 +44,9 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   classic.FlutterBluetoothSerial? _flutterBluetoothSerial;
   StreamSubscription<classic.BluetoothDiscoveryResult>? _classicScanSubscription;
 
+  // Modal state callback to update modal UI
+  void Function(void Function())? _modalSetState;
+
   @override
   void initState() {
     super.initState();
@@ -82,12 +85,19 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   }
 
   Future<void> _startScan() async {
-    // Don't scan if already connecting to prevent interference
+    // Don't scan if already connecting or connected to prevent interference
     final gpsProvider = context.read<GpsPositionProvider>();
-    if (gpsProvider.isConnecting) {
-      debugPrint('Not starting scan - connection in progress');
+    final hasActiveGPS = gpsProvider.connectedDevice != null ||
+        gpsProvider.connectedClassicDevice != null ||
+        gpsProvider.listeningPosition;
+    
+    if (gpsProvider.isConnecting || hasActiveGPS) {
+      debugPrint('Not starting scan - GPS device active or connection in progress');
       return;
     }
+
+    // Stop any existing scans first
+    await _stopAllScans();
 
     setState(() {
       _combinedDevices = [];
@@ -165,22 +175,24 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
             'Classic device found: ${result.device.name ?? "Unknown"} - ${result.device.address}',
           );
 
+          // Add to combined list if not already present
+          final exists = _combinedDevices.any((d) => d.id == result.device.address);
+          if (!exists) {
+            _combinedDevices.add(
+              CombinedBluetoothDevice(
+                id: result.device.address,
+                name: result.device.name ?? 'Unknown Classic Device',
+                rssi: result.rssi,
+                isBLE: false,
+                classicDevice: result.device,
+              ),
+            );
+          }
+
+          // Update both parent and modal state
           if (mounted) {
-            setState(() {
-              // Add to combined list if not already present
-              final exists = _combinedDevices.any((d) => d.id == result.device.address);
-              if (!exists) {
-                _combinedDevices.add(
-                  CombinedBluetoothDevice(
-                    id: result.device.address,
-                    name: result.device.name ?? 'Unknown Classic Device',
-                    rssi: result.rssi,
-                    isBLE: false,
-                    classicDevice: result.device,
-                  ),
-                );
-              }
-            });
+            setState(() {}); // Update parent widget
+            _modalSetState?.call(() {}); // Update modal UI if open
           }
         },
         onError: (error) {
@@ -235,6 +247,17 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
   Future<void> _connectToClassicDevice(classic.BluetoothDevice device, BuildContext context) async {
     try {
+      // Check if device is bonded (paired)
+      if (!device.isBonded) {
+        if (mounted && context.mounted) {
+          _showErrorDialog(
+            'Device "${device.name ?? device.address}" is not paired.\n\n'
+            'Please pair the device in your system Bluetooth settings first, then try again.',
+          );
+        }
+        return;
+      }
+
       // Stop all scans immediately to prevent interference
       await _stopAllScans();
 
@@ -265,57 +288,55 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
 
   void _showDeviceMenu() async {
     // Check if Bluetooth is available before showing modal
-    final isBluetoothAvailable = await _checkBluetoothAvailable();
+    // We store this future to use it in the builder without re-triggering checks
+    final bluetoothCheckFuture = _checkBluetoothAvailable();
+    await bluetoothCheckFuture;
 
     if (!mounted) return;
-
-    // Don't auto-start scan - let user manually trigger it to avoid interfering with connections
-    // final gpsProvider = context.read<GpsPositionProvider>();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
+          // Store modal setState callback for use in scan listeners
+          _modalSetState = setModalState;
+
           // Update the modal when BLE scan results change
-          _bleScanSubscription?.cancel();
-          _bleScanSubscription = ble.FlutterBluePlus.scanResults.listen((results) {
-            // Update combined list with BLE results
-            final newDevices = <CombinedBluetoothDevice>[];
+          // Only create subscription once, not on every rebuild
+          if (_bleScanSubscription == null) {
+            _bleScanSubscription = ble.FlutterBluePlus.scanResults.listen((results) {
+              // Update combined list with BLE results
+              final newDevices = <CombinedBluetoothDevice>[];
 
-            // Add BLE devices
-            for (final result in results) {
-              newDevices.add(
-                CombinedBluetoothDevice(
-                  id: result.device.remoteId.toString(),
-                  name: result.device.platformName.isEmpty
-                      ? 'Unknown BLE Device'
-                      : result.device.platformName,
-                  rssi: result.rssi,
-                  isBLE: true,
-                  bleDevice: result.device,
-                ),
-              );
-            }
-
-            // Add existing Classic devices (maintain them during BLE updates)
-            final classicDevices = _combinedDevices.where((d) => !d.isBLE);
-            newDevices.addAll(classicDevices);
-
-            // Only update state if still mounted
-            if (mounted) {
-              setState(() {
-                _combinedDevices = newDevices;
-              });
-              // Only update modal state if it's still mounted
-              try {
-                setModalState(() {}); // Update modal UI
-              } catch (e) {
-                // Modal might be disposed, ignore
-                debugPrint('Modal state update failed: $e');
+              // Add BLE devices
+              for (final result in results) {
+                newDevices.add(
+                  CombinedBluetoothDevice(
+                    id: result.device.remoteId.toString(),
+                    name: result.device.platformName.isEmpty
+                        ? 'Unknown BLE Device'
+                        : result.device.platformName,
+                    rssi: result.rssi,
+                    isBLE: true,
+                    bleDevice: result.device,
+                  ),
+                );
               }
-            }
-          });
+
+              // Add existing Classic devices (maintain them during BLE updates)
+              final classicDevices = _combinedDevices.where((d) => !d.isBLE);
+              newDevices.addAll(classicDevices);
+
+              // Update both parent state and modal state
+              _combinedDevices = newDevices;
+
+              if (mounted) {
+                setState(() {}); // Update parent widget
+                setModalState(() {}); // Update modal UI
+              }
+            });
+          }
 
           return Container(
             constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
@@ -332,29 +353,41 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     if (_isScanning)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      IconButton(
+                        icon: const Icon(Icons.stop),
+                        onPressed: () {
+                          _stopAllScans();
+                        },
                       ),
                     if (!_isScanning)
-                      FutureBuilder<bool>(
-                        future: _checkBluetoothAvailable(),
-                        builder: (context, snapshot) {
-                          final isAvailable = snapshot.data ?? false;
-                          if (!isAvailable) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Text(
-                                'Bluetooth Off',
-                                style: TextStyle(color: Colors.orange, fontSize: 12),
-                              ),
-                            );
-                          }
-                          return IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: () {
-                              _startScan();
+                      Consumer<GpsPositionProvider>(
+                        builder: (context, gpsProvider, child) {
+                          final hasActiveGPS =
+                              gpsProvider.connectedDevice != null ||
+                              gpsProvider.connectedClassicDevice != null ||
+                              gpsProvider.listeningPosition;
+
+                          return FutureBuilder<bool>(
+                            future: bluetoothCheckFuture,
+                            builder: (context, snapshot) {
+                              final isAvailable = snapshot.data ?? false;
+                              if (!isAvailable) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: Text(
+                                    'Bluetooth Off',
+                                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                                  ),
+                                );
+                              }
+                              return IconButton(
+                                icon: Icon(Icons.refresh, color: hasActiveGPS ? Colors.grey : null),
+                                onPressed: hasActiveGPS
+                                    ? null
+                                    : () {
+                                        _startScan();
+                                      },
+                              );
                             },
                           );
                         },
@@ -409,7 +442,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                               icon: const Icon(Icons.close),
                               onPressed: () {
                                 gpsProvider.stopAll();
-                                gpsProvider.startInternalGps();
+                                _startScan();
                               },
                             ),
                           ),
@@ -458,7 +491,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                               icon: const Icon(Icons.close),
                               onPressed: () {
                                 gpsProvider.stopAll();
-                                gpsProvider.startInternalGps();
+                                _startScan();
                               },
                             ),
                           ),
@@ -500,12 +533,13 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                                 ],
                               ],
                             ),
-                            /*trailing: IconButton(
-                                  icon: const Icon(Icons.refresh),
-                                  onPressed: () {
-                                    _startScan();
-                                  },
-                                ),*/
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                gpsProvider.stopAll();
+                                _startScan();
+                              },
+                            ),
                           ),
                           const Divider(),
                         ],
@@ -562,7 +596,18 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                           device.isBLE ? Icons.bluetooth : Icons.bluetooth_audio,
                           color: device.isBLE ? Colors.blue[700] : Colors.orange[700],
                         ),
-                        title: Text(device.name),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(device.name)),
+                            if (!device.isBLE &&
+                                device.classicDevice != null &&
+                                !device.classicDevice!.isBonded)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 4.0),
+                                child: Icon(Icons.lock_open, size: 16, color: Colors.orange),
+                              ),
+                          ],
+                        ),
                         subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
                         trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
                         onTap: () {
@@ -584,6 +629,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
         },
       ),
     ).whenComplete(() {
+      _modalSetState = null; // Clear modal setState callback
       // Cancel BLE scan subscription when modal is closed to prevent setState after dispose
       _bleScanSubscription?.cancel();
       _bleScanSubscription = null;

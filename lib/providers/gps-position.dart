@@ -132,7 +132,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // Add this new method to discover and interact with services
   Future<void> _discoverServices(ble.BluetoothDevice device) async {
-    _isConnecting = true;
+    // _isConnecting = true; // Managed by caller
     try {
       print('Discovering services...');
       List<ble.BluetoothService> services = await device.discoverServices();
@@ -169,7 +169,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       }
     } catch (e) {
       print('Error discovering services: $e');
-      _isConnecting = false;
+      // _isConnecting = false; // Managed by caller
     }
   }
 
@@ -231,28 +231,62 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     }
     _isConnecting = true;
     notifyListeners();
+
+    // Add connection timeout
+    Timer connectionTimeout = Timer(const Duration(seconds: 15), () {
+      if (_isConnecting && connectedDevice == null) {
+        debugPrint('Connection timeout - stopping connection attempt');
+        _isConnecting = false;
+        blueConnectionSubscription?.cancel();
+        device.disconnect();
+        notifyListeners();
+      }
+    });
+
     blueConnectionSubscription = device.connectionState.listen((
       ble.BluetoothConnectionState state,
     ) async {
       if (state == ble.BluetoothConnectionState.disconnected) {
-        // try to reconnect after 2 seconds
-        await Future.delayed(const Duration(seconds: 2));
-        connectDevice(device);
+        debugPrint('Device disconnected');
+        connectedDevice = null;
+        _isConnecting = false;
+        notifyListeners();
+        // Don't auto-reconnect to prevent connection loops
+        // User must manually reconnect from UI
       } else if (state == ble.BluetoothConnectionState.connected) {
-        //
+        connectionTimeout.cancel();
         _saveConnectedDevice(device);
         connectedDevice = device;
-        _discoverServices(device);
+        await _discoverServices(device);
         _isConnecting = false;
         notifyListeners();
       }
     });
     //device.cancelWhenDisconnected(blueConnectionSubscription!, delayed: true, next: true);
-    await device.connect(autoConnect: true, mtu: null).catchError((error) {
+    try {
+      // Use autoConnect: false for more stable connections
+      // Request high connection priority for better performance
+      await device.connect(
+        autoConnect: false,
+        mtu: null, // Let system negotiate MTU automatically
+      );
+
+      // Request high connection priority after successful connection
+      // This helps maintain stable GPS data streaming
+      try {
+        await device.requestConnectionPriority(
+          connectionPriorityRequest: ble.ConnectionPriority.high,
+        );
+        debugPrint('Requested high connection priority');
+      } catch (e) {
+        debugPrint('Could not request connection priority: $e');
+      }
+    } catch (error) {
       print('Error connecting to device: $error');
+      connectionTimeout.cancel();
       _isConnecting = false;
       notifyListeners();
-    });
+    }
   }
 
   // Connect to Classic Bluetooth GPS device
@@ -260,6 +294,16 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     // Ensure permissions on Android
     if (Platform.isAndroid) {
       await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
+    }
+
+    // Check if device is bonded (paired)
+    if (!device.isBonded) {
+      debugPrint(
+        'Device ${device.name} is not paired. Please pair the device first in system Bluetooth settings.',
+      );
+      _isConnecting = false;
+      notifyListeners();
+      return;
     }
 
     // Prevent multiple simultaneous connection attempts
@@ -292,14 +336,15 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       try {
         classicConnection = await classic.BluetoothConnection.toAddress(device.address);
       } catch (e) {
-        // If connection fails (e.g. pairing dialog interaction), we need to catch it
-        // so that the reconnection logic can take over.
-        debugPrint('Initial connection attempt failed (likely pairing): $e');
+        // If connection fails, reset the reconnecting flag and schedule retry
+        debugPrint('Initial connection attempt failed: $e');
+        _isConnecting = false;
+        _isClassicReconnecting = false;
+
         if (connectedClassicDevice?.address == device.address) {
-          _isConnecting = false;
-          // _isClassicReconnecting = false; // Do not reset this, otherwise scheduleClassicReconnection might be skipped or duplicated logic
           _scheduleClassicReconnection(device);
         }
+        notifyListeners();
         return;
       }
 
@@ -491,8 +536,12 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   }
 
   void stopAll() {
+    // Reset connecting flag
+    _isConnecting = false;
+
     if (blueConnectionSubscription != null) {
       blueConnectionSubscription?.cancel();
+      blueConnectionSubscription = null;
     }
     if (connectedDevice != null) {
       connectedDevice!.disconnect();
