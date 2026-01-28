@@ -85,10 +85,22 @@ class RecordsListProvider extends ChangeNotifier {
     debugPrint(
       'RecordsListProvider: cacheRecords with key: $key (storing ${records.length} items)',
     );
+
+    // Only notify listeners if the data actually changed
+    final existing = _recordsCache[key];
+    final hasChanged =
+        existing == null ||
+        existing.length != records.length ||
+        _currentPageCache[key] != page ||
+        _hasMoreDataCache[key] != hasMore;
+
     _recordsCache[key] = records;
     _currentPageCache[key] = page;
     _hasMoreDataCache[key] = hasMore;
-    notifyListeners();
+
+    if (hasChanged) {
+      notifyListeners();
+    }
   }
 
   // Append more records to cache

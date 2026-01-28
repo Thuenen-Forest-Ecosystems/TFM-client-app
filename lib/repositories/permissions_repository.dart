@@ -85,9 +85,9 @@ class PermissionsRepository {
           .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
     }
 
-    print(
-      'PermissionsRepository: Watching record count for troop $troopId with organization $organizationId',
-    );
+    // print(
+    //   'PermissionsRepository: Watching record count for troop $troopId with organization $organizationId',
+    // );
 
     // Check if the organization matches any of the responsibility fields
     return db

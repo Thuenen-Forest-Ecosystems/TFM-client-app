@@ -150,7 +150,9 @@ class _RecordCardState extends State<RecordCard> {
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 2,
+        clipBehavior: Clip.none,
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
             InkWell(
               onTap: () {
@@ -174,12 +176,14 @@ class _RecordCardState extends State<RecordCard> {
                     ),
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.only(left: 12, top: 0, right: 12, bottom: 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Header
                             ListTile(
-                              contentPadding: EdgeInsets.zero,
+                              contentPadding: EdgeInsets.only(left: 20),
                               title: !widget.isDense
                                   ? Text(
                                       'Trakt: ${widget.record.clusterName} | Ecke: ${widget.record.plotName}',
@@ -215,26 +219,42 @@ class _RecordCardState extends State<RecordCard> {
                                     )
                                   : null,
                             ),
-                            if (note != null && note.isNotEmpty)
-                              Row(
-                                children: [
-                                  const Icon(Icons.chat, size: 16, color: Colors.blue),
-                                  const SizedBox(width: 4),
-                                  Expanded(child: Text(note, style: TextStyle(fontSize: 12))),
-                                ],
+                            // Content (variable height)
+                            if (note != null && note.isNotEmpty && !widget.isDense)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.chat, size: 16, color: Colors.blue),
+                                    const SizedBox(width: 4),
+                                    Expanded(child: Text(note, style: TextStyle(fontSize: 12))),
+                                  ],
+                                ),
                               ),
-                            if (!isForest && _forestStatusLabel != null)
-                              Row(
-                                children: [
-                                  const Icon(Icons.warning, size: 16, color: Colors.orange),
-                                  const SizedBox(width: 4),
-                                  Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
-                                ],
+                            if (!isForest && _forestStatusLabel != null && !widget.isDense)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning, size: 16, color: Colors.orange),
+                                    const SizedBox(width: 4),
+                                    Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
+                                  ],
+                                ),
                               ),
-                            if (widget.record.previousProperties?['plot_support_points'].length > 0)
-                              Row(children: [const Text('Mit Hilfspunkten')]),
+                            if (widget.record.previousProperties?['plot_support_points'].length >
+                                    0 &&
+                                !widget.isDense)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    const Text('Mit Hilfspunkten', style: TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                              ),
                             const SizedBox(height: 8),
-                            // Last update and sync status
+                            // Footer (always at bottom)
                             Row(
                               children: [
                                 Icon(Icons.update, size: 16, color: Colors.grey[600]),
@@ -262,8 +282,8 @@ class _RecordCardState extends State<RecordCard> {
             // Pin icon positioned at top left
             if (widget.onPinToggle != null)
               Positioned(
-                left: 0,
-                top: 0,
+                left: -5,
+                top: -5,
                 child: Material(
                   color: widget.isPinned
                       ? Theme.of(context).colorScheme.primaryContainer
@@ -273,13 +293,16 @@ class _RecordCardState extends State<RecordCard> {
                     onTap: widget.onPinToggle,
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                        color: widget.isPinned
-                            ? Theme.of(context).colorScheme.onPrimaryContainer
-                            : Colors.grey[700],
-                        size: 16,
+                      padding: const EdgeInsets.all(8),
+                      child: Transform.rotate(
+                        angle: -25 * 3.14159 / 180,
+                        child: Icon(
+                          widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                          color: widget.isPinned
+                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                              : Colors.grey[700],
+                          size: 16,
+                        ),
                       ),
                     ),
                   ),

@@ -437,8 +437,12 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                     controller: _searchController,
                     autofocus: true,
                     decoration: const InputDecoration(
-                      hintText: 'Suche Traktnummer...',
-                      border: InputBorder.none,
+                      labelText: 'Suche Traktnummer...',
+                      filled: true,
+                      isDense: true,
+                      border: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(50)),
+                      ),
                     ),
                     keyboardType: TextInputType.numberWithOptions(signed: false, decimal: false),
                     onChanged: (value) {
@@ -448,7 +452,13 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       _loadInitialData();
                     },
                   )
-                : const Text('Ecken', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                : Container(
+                    padding: const EdgeInsets.only(top: 10, bottom: 9),
+                    child: const Text(
+                      'Ecken',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -473,8 +483,8 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           // Pinned records horizontal scroll
           if (_pinnedRecords.isNotEmpty)
             Container(
-              height: 155,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              height: 126,
+              //padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -506,7 +516,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
                         return Container(
                           width: 280,
-                          margin: const EdgeInsets.only(right: 8),
+                          margin: const EdgeInsets.only(right: 8, top: 5),
                           child: RecordCard(
                             record: record,
                             distanceText: distanceText,

@@ -20,10 +20,27 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
   final OrganizationSelectionService _selectionService = OrganizationSelectionService();
   //String? _selectedOrganizationId;
 
+  late Stream<List<TroopModel>> _troopsStream;
+  late Stream<List<PermissionModel>> _permissionsStream;
+
   @override
   void initState() {
     super.initState();
     _loadSelectedOrganization();
+    _initStreams();
+  }
+
+  @override
+  void didUpdateWidget(PermissionsSelection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      _initStreams();
+    }
+  }
+
+  void _initStreams() {
+    _troopsStream = _repository.watchTroopsByUserId(widget.userId);
+    _permissionsStream = _repository.watchPermissionsByUserId(widget.userId);
   }
 
   Future<void> _loadSelectedOrganization() async {
@@ -76,12 +93,12 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<TroopModel>>(
-      stream: _repository.watchTroopsByUserId(widget.userId),
+      stream: _troopsStream,
       builder: (context, troopSnapshot) {
         final userTroops = troopSnapshot.data ?? [];
 
         return StreamBuilder<List<PermissionModel>>(
-          stream: _repository.watchPermissionsByUserId(widget.userId),
+          stream: _permissionsStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(

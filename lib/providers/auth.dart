@@ -76,10 +76,9 @@ class AuthProvider extends ChangeNotifier {
           await _offlineAuthService.updateTokens(
             accessToken: response.session!.accessToken,
             refreshToken: response.session!.refreshToken!,
-            tokenExpiry:
-                response.session!.expiresAt != null
-                    ? DateTime.fromMillisecondsSinceEpoch(response.session!.expiresAt! * 1000)
-                    : null,
+            tokenExpiry: response.session!.expiresAt != null
+                ? DateTime.fromMillisecondsSinceEpoch(response.session!.expiresAt! * 1000)
+                : null,
           );
         }
 
@@ -97,20 +96,29 @@ class AuthProvider extends ChangeNotifier {
 
   void _getUser() {
     final user = Supabase.instance.client.auth.currentUser;
+    bool shouldNotify = false;
 
     if (user != null) {
-      print('AuthProvider: User authenticated - email: ${user.email}, id: ${user.id}');
-      _isAuthenticated = true;
-      _userEmail = user.email;
-      _userId = user.id;
+      if (!_isAuthenticated || _userId != user.id || _userEmail != user.email) {
+        print('AuthProvider: User authenticated - email: ${user.email}, id: ${user.id}');
+        _isAuthenticated = true;
+        _userEmail = user.email;
+        _userId = user.id;
+        shouldNotify = true;
+      }
     } else {
-      print('AuthProvider: No authenticated user');
-      _isAuthenticated = false;
-      _userEmail = null;
-      _userId = null;
+      if (_isAuthenticated) {
+        print('AuthProvider: No authenticated user');
+        _isAuthenticated = false;
+        _userEmail = null;
+        _userId = null;
+        shouldNotify = true;
+      }
     }
 
-    notifyListeners();
+    if (shouldNotify) {
+      notifyListeners();
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -137,10 +145,9 @@ class AuthProvider extends ChangeNotifier {
           userId: response.user!.id,
           accessToken: response.session!.accessToken,
           refreshToken: response.session!.refreshToken,
-          tokenExpiry:
-              response.session!.expiresAt != null
-                  ? DateTime.fromMillisecondsSinceEpoch(response.session!.expiresAt! * 1000)
-                  : null,
+          tokenExpiry: response.session!.expiresAt != null
+              ? DateTime.fromMillisecondsSinceEpoch(response.session!.expiresAt! * 1000)
+              : null,
         );
         print('AuthProvider: Credentials saved for offline use');
 
