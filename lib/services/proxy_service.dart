@@ -38,7 +38,7 @@ class ProxyService {
     final prefs = await SharedPreferences.getInstance();
 
     return ProxyConfig(
-      enabled: prefs.getBool(_keyProxyEnabled) ?? true,
+      enabled: prefs.getBool(_keyProxyEnabled) ?? false,
       useSystemProxy: prefs.getBool(_keyUseSystemProxy) ?? true,
       host: prefs.getString(_keyProxyHost) ?? '',
       port: prefs.getInt(_keyProxyPort) ?? 8080,

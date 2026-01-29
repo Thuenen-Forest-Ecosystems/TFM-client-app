@@ -17,7 +17,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
 
   bool _isLoading = true;
   bool _isTesting = false;
-  bool _proxyEnabled = true;
+  bool _proxyEnabled = false;
   bool _useSystemProxy = true;
 
   final _hostController = TextEditingController();
