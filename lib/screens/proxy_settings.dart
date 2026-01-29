@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 
 class ProxySettingsScreen extends StatefulWidget {
@@ -149,8 +150,11 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Später')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
+              // Give time for dialog to close
+              await Future.delayed(const Duration(milliseconds: 100));
+              // Exit application - proper for desktop platforms
               exit(0);
             },
             child: const Text('Anwendung schließen'),
@@ -414,17 +418,15 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _proxyEnabled
-          ? Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton.icon(
-                onPressed: _saveConfig,
-                icon: const Icon(Icons.save),
-                label: const Text('Einstellungen speichern'),
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-              ),
-            )
-          : null,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ElevatedButton.icon(
+          onPressed: _saveConfig,
+          icon: const Icon(Icons.save),
+          label: const Text('Einstellungen speichern'),
+          style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+        ),
+      ),
     );
   }
 }

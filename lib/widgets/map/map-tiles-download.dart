@@ -20,11 +20,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       'maxZoom': 20,
       'storeName': 'wms_dtk25__'
     },*/
-    'DOP': {
-      'urlTemplate': 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
-      'zoomLayers': [15, 19],
-      'storeName': 'wms_dop__',
-    },
+    
     /*'OpenStreetMap': {
       'urlTemplate': 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       'minZoom': 1,
@@ -35,6 +31,11 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       'urlTemplate': 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
       'zoomLayers': [4, 10, 14],
       'storeName': 'OpenCycleMap',
+    },
+    'DOP': {
+      'urlTemplate': 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
+      'zoomLayers': [15, 19],
+      'storeName': 'wms_dop__',
     },
     /*'OpenTopoMap': {
       'urlTemplate': 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
@@ -61,6 +62,56 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   void initState() {
     super.initState();
     _checkMissingTiles();
+  }
+
+  /// Detects if an error is proxy-related and returns user-friendly message
+  String? _detectProxyError(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    
+    // Connection/timeout errors
+    if (errorString.contains('timeout') || 
+        errorString.contains('connection timed out')) {
+      return '⚠️ Verbindungs-Timeout: Möglicherweise blockiert ein Proxy die Verbindung.\n'
+             'Lösung: Proxy-Einstellungen prüfen oder VPN verwenden.';
+    }
+    
+    // Certificate errors
+    if (errorString.contains('certificate') || 
+        errorString.contains('handshake') ||
+        errorString.contains('ssl') ||
+        errorString.contains('tls')) {
+      return '⚠️ SSL/Zertifikat-Fehler: Der Proxy unterbricht verschlüsselte Verbindungen.\n'
+             'Lösung: Proxy-Zertifikat installieren oder Proxy umgehen.';
+    }
+    
+    // Proxy authentication errors
+    if (errorString.contains('407') || 
+        errorString.contains('proxy authentication')) {
+      return '⚠️ Proxy-Authentifizierung erforderlich.\n'
+             'Lösung: Proxy-Anmeldedaten konfigurieren.';
+    }
+    
+    // Connection refused/failed
+    if (errorString.contains('connection refused') ||
+        errorString.contains('connection failed') ||
+        errorString.contains('failed host lookup') ||
+        errorString.contains('network unreachable')) {
+      return '⚠️ Netzwerkfehler: Server nicht erreichbar.\n'
+             'Lösung: Internetverbindung oder Proxy-Einstellungen prüfen.';
+    }
+    
+    // HTTP errors that might be proxy-related
+    if (errorString.contains('502') || errorString.contains('bad gateway')) {
+      return '⚠️ Bad Gateway (502): Proxy-Konfigurationsproblem.\n'
+             'Lösung: Proxy-Einstellungen prüfen oder Administrator kontaktieren.';
+    }
+    
+    if (errorString.contains('503') || errorString.contains('service unavailable')) {
+      return '⚠️ Service nicht verfügbar (503): Server oder Proxy überlastet.\n'
+             'Lösung: Später erneut versuchen.';
+    }
+    
+    return null; // Not a detected proxy error
   }
 
   Future<void> _checkMissingTiles() async {
@@ -470,6 +521,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
         // Consume the progress stream
         int progressUpdateCount = 0;
+        int lastFailedCount = 0;
         await for (final progress in download) {
           if (_cancelRequested) {
             print('[$selectedBasemap] Breaking progress loop due to cancel');
@@ -482,6 +534,30 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
               '[$selectedBasemap] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
               '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
             );
+          }
+          
+          // Detect if many tiles are failing - likely a proxy/network issue
+          if (progress.failedTiles > lastFailedCount) {
+            lastFailedCount = progress.failedTiles;
+            // If more than 20% of tiles failed, show warning
+            if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
+              print('[$selectedBasemap] ⚠️ High failure rate detected: ${progress.failedTiles}/${progress.maxTiles}');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '⚠️ Viele Kacheln fehlgeschlagen (${progress.failedTiles}/${progress.maxTiles}).\n'
+                      'Mögliche Ursache: Proxy blockiert Verbindung.',
+                    ),
+                    duration: const Duration(seconds: 5),
+                    action: SnackBarAction(
+                      label: 'Abbrechen',
+                      onPressed: _cancelDownload,
+                    ),
+                  ),
+                );
+              }
+            }
           }
 
           if (mounted) {
@@ -507,6 +583,21 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       } catch (e, stackTrace) {
         print('[$selectedBasemap] Error during download at zoom $zoom: $e');
         print('[$selectedBasemap] Stack trace: $stackTrace');
+        
+        // Check for proxy-related errors
+        final proxyError = _detectProxyError(e);
+        if (proxyError != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(proxyError),
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'OK',
+                onPressed: () {},
+              ),
+            ),
+          );
+        }
         // Continue with next zoom level instead of failing completely
       }
 
@@ -552,7 +643,12 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         minZoom: zoom,
         maxZoom: zoom,
         options: TileLayer(
-          wmsOptions: WMSTileLayerOptions(baseUrl: baseUrl, layers: layers),
+          wmsOptions: WMSTileLayerOptions(
+            baseUrl: baseUrl,
+            layers: layers,
+            format: 'image/jpeg',
+            crs: const Epsg3857(),
+          ),
         ),
       );
 
@@ -573,6 +669,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
         // Consume the progress stream
         int progressUpdateCount = 0;
+        int lastFailedCount = 0;
         await for (final progress in download) {
           if (_cancelRequested) {
             print('[WMS] Breaking progress loop due to cancel');
@@ -590,6 +687,30 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
               '[WMS] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
               '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
             );
+          }
+          
+          // Detect if many tiles are failing - likely a proxy/network issue
+          if (progress.failedTiles > lastFailedCount) {
+            lastFailedCount = progress.failedTiles;
+            // If more than 20% of tiles failed, show warning
+            if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
+              print('[WMS] ⚠️ High failure rate detected: ${progress.failedTiles}/${progress.maxTiles}');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '⚠️ Viele WMS-Kacheln fehlgeschlagen (${progress.failedTiles}/${progress.maxTiles}).\n'
+                      'Mögliche Ursache: Proxy blockiert geodatenzentrum.de',
+                    ),
+                    duration: const Duration(seconds: 5),
+                    action: SnackBarAction(
+                      label: 'Abbrechen',
+                      onPressed: _cancelDownload,
+                    ),
+                  ),
+                );
+              }
+            }
           }
 
           if (mounted) {
@@ -623,8 +744,24 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         }
 
         print('[WMS] Zoom $zoom cumulative tiles: $_cumulativeDownloadedTiles');
-      } catch (e) {
+      } catch (e, stackTrace) {
         print('[WMS] Error during download at zoom $zoom: $e');
+        print('[WMS] Stack trace: $stackTrace');
+        
+        // Check for proxy-related errors
+        final proxyError = _detectProxyError(e);
+        if (proxyError != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(proxyError),
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'OK',
+                onPressed: () {},
+              ),
+            ),
+          );
+        }
         // Continue with next zoom level
       }
     }

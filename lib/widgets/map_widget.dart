@@ -1233,8 +1233,8 @@ class _MapWidgetState extends State<MapWidget> {
             wmsOptions: WMSTileLayerOptions(
               baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
               layers: const ['rgb'],
-              format: 'image/png',
-              transparent: true, // Request transparent tiles from WMS
+              format: 'image/jpeg',
+              crs: const Epsg3857(),
             ),
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
@@ -1247,7 +1247,21 @@ class _MapWidgetState extends State<MapWidget> {
               ),
             ),
             errorTileCallback: (tile, error, stackTrace) {
-              debugPrint('Error loading DOP tile ${tile.coordinates}: $error');
+              // Enhanced error logging to detect proxy issues
+              final errorMsg = error.toString().toLowerCase();
+              if (errorMsg.contains('timeout') || 
+                  errorMsg.contains('certificate') || 
+                  errorMsg.contains('proxy') ||
+                  errorMsg.contains('connection')) {
+                debugPrint('🔴 PROXY/NETWORK ERROR loading DOP tile ${tile.coordinates}:');
+                debugPrint('   Error: $error');
+                debugPrint('   Possible cause: Proxy blocking geodatenzentrum.de');
+              } else {
+                debugPrint('🔴 Error loading DOP tile ${tile.coordinates}: $error');
+              }
+              if (stackTrace != null) {
+                debugPrint('   Stack: $stackTrace');
+              }
             },
           ),
 

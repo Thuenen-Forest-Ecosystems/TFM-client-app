@@ -372,14 +372,21 @@ class _WindowsCertificateOverride extends HttpOverrides {
     final osVersion = Platform.operatingSystemVersion;
     final arch = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'unknown';
 
+    // Check if proxy is enabled
+    final proxyConfig = ProxyService.getCachedConfig();
+    final useCustomContext = proxyConfig?.enabled ?? true;
+
     logger.log(
-      '🌐 Creating HttpClient - OS: $osVersion, Arch: $arch, CustomContext: ${_customContext != null}',
+      '🌐 Creating HttpClient - OS: $osVersion, Arch: $arch, CustomContext: $useCustomContext',
       level: LogLevel.info,
     );
 
+    // CRITICAL: If proxy is disabled, don't use custom SecurityContext
+    // This allows Windows isolates to serialize the HttpClient
+    final SecurityContext? contextToUse = useCustomContext ? (_customContext ?? context) : null;
+
     // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
-    // Pass our custom context with the bundled certificate
-    final client = super.createHttpClient(_customContext ?? context);
+    final client = super.createHttpClient(contextToUse);
 
     // Configure proxy settings (system proxy or manual configuration)
     // This runs synchronously during client creation, so we can't await
@@ -397,8 +404,7 @@ class _WindowsCertificateOverride extends HttpOverrides {
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
       final isTrusted =
           host.contains('ci.thuenen.de') ||
-          host.contains('supabase.co') ||
-          host.contains('supabase.io');
+          host.contains('geodatenzentrum.de'); // For WMS tile downloads
 
       if (isTrusted) {
         logger.log(
