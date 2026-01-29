@@ -1,4 +1,4 @@
-# Terresrial Forst Monitor CLIENT
+# Terresrial Forest Monitor CLIENT
 
 ## Pre-requisites
 
