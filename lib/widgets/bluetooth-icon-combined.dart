@@ -87,10 +87,11 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
   Future<void> _startScan() async {
     // Don't scan if already connecting or connected to prevent interference
     final gpsProvider = context.read<GpsPositionProvider>();
-    final hasActiveGPS = gpsProvider.connectedDevice != null ||
+    final hasActiveGPS =
+        gpsProvider.connectedDevice != null ||
         gpsProvider.connectedClassicDevice != null ||
         gpsProvider.listeningPosition;
-    
+
     if (gpsProvider.isConnecting || hasActiveGPS) {
       debugPrint('Not starting scan - GPS device active or connection in progress');
       return;
