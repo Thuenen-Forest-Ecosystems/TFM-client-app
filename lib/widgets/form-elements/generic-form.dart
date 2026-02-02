@@ -159,6 +159,7 @@ class _GenericFormState extends State<GenericForm> {
             onChanged: (value) => _updateField(fieldName, value),
             dense: widget.isDense,
             previousData: widget.previous_properties,
+            currentData: _localData,
           );
 
           // If fixed width is specified, use SizedBox
@@ -234,6 +235,7 @@ class _GenericFormState extends State<GenericForm> {
                   onChanged: (value) => _updateField(fieldName, value),
                   dense: widget.isDense,
                   previousData: widget.previous_properties,
+                  currentData: _localData,
                 ),
               ),
             );

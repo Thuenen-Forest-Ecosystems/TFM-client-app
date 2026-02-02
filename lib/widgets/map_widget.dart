@@ -13,6 +13,9 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-settings.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/edge_layers.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/tree_layers.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/subplot_layers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -50,8 +53,14 @@ class _MapWidgetState extends State<MapWidget> {
   bool _storesInitialized = false;
   Record? _focusedRecord;
   List<Map<String, dynamic>> _treePositions = [];
+  List<Map<String, dynamic>> _previousTreePositions = [];
   Map<String, List<LatLng>> _clusterPolygons = {};
   List<CircleMarker>? _cachedTreeCircles;
+  List<CircleMarker>? _cachedPreviousTreeCircles;
+  List<Map<String, dynamic>> _edges = [];
+  List<Map<String, dynamic>> _previousEdges = [];
+  List<Map<String, dynamic>> _subplotPositions = [];
+  List<Map<String, dynamic>> _previousSubplotPositions = [];
   Map<String, Map<String, List<LatLng>>> _historicalPositionPolygons = {};
   double _treeDiameterMultiplier = 1.0;
   bool _showTreeLabels = true;
@@ -124,16 +133,42 @@ class _MapWidgetState extends State<MapWidget> {
 
       if (focusedRecord != _focusedRecord) {
         final treePositions = focusedRecord != null
-            ? await _calculateTreePositions(focusedRecord)
+            ? await _calculateTreePositions(focusedRecord, usePrevious: false)
+            : <Map<String, dynamic>>[];
+
+        final previousTreePositions = focusedRecord != null
+            ? await _calculateTreePositions(focusedRecord, usePrevious: true)
+            : <Map<String, dynamic>>[];
+
+        final edges = focusedRecord != null
+            ? await _calculateEdges(focusedRecord, usePrevious: false)
+            : <Map<String, dynamic>>[];
+
+        final previousEdges = focusedRecord != null
+            ? await _calculateEdges(focusedRecord, usePrevious: true)
+            : <Map<String, dynamic>>[];
+
+        final subplotPositions = focusedRecord != null
+            ? await _calculateSubplotPositions(focusedRecord, usePrevious: false)
+            : <Map<String, dynamic>>[];
+
+        final previousSubplotPositions = focusedRecord != null
+            ? await _calculateSubplotPositions(focusedRecord, usePrevious: true)
             : <Map<String, dynamic>>[];
 
         if (!_isDisposed && mounted) {
           setState(() {
             _focusedRecord = focusedRecord;
             _treePositions = treePositions;
-            // Update cached tree circles when positions change
-            _cachedTreeCircles = treePositions.isNotEmpty ? _treeCircles(treePositions) : null;
+            _previousTreePositions = previousTreePositions;
+            _edges = edges;
+            _previousEdges = previousEdges;
+            _subplotPositions = subplotPositions;
+            _previousSubplotPositions = previousSubplotPositions;
           });
+          debugPrint(
+            '✅ State updated - focusedRecord: ${focusedRecord?.plotName}, _treePositions: ${_treePositions.length}, _previousTreePositions: ${_previousTreePositions.length}',
+          );
         }
       }
     } catch (e) {
@@ -141,11 +176,65 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _calculateTreePositions(Record record) async {
+  Future<List<Map<String, dynamic>>> _calculateTreePositions(
+    Record record, {
+    bool usePrevious = false,
+  }) async {
     // Offload tree position calculations to isolate
+    final properties = usePrevious ? record.previousProperties : record.properties;
+
+    // If properties is null, return empty list
+    if (properties == null) {
+      debugPrint(
+        'No ${usePrevious ? 'previous' : 'current'} properties available for tree positions',
+      );
+      return [];
+    }
+
     return compute(_computeTreePositions, {
       'recordCoords': record.getCoordinates(),
-      'properties': record.previousProperties,
+      'properties': properties,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _calculateEdges(
+    Record record, {
+    bool usePrevious = false,
+  }) async {
+    // Offload edge position calculations to isolate
+    final rawEdges = await compute(_computeEdges, {
+      'recordCoords': record.getCoordinates(),
+      'properties': usePrevious ? record.previousProperties : record.properties,
+    });
+
+    return rawEdges.map((edge) {
+      final points = (edge['points'] as List)
+          .cast<Map<String, dynamic>>()
+          .map((point) => LatLng(point['lat'] as double, point['lng'] as double))
+          .toList();
+
+      return {'points': points, 'edge_number': edge['edge_number']};
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _calculateSubplotPositions(
+    Record record, {
+    bool usePrevious = false,
+  }) async {
+    // Offload subplot position calculations to isolate
+    final properties = usePrevious ? record.previousProperties : record.properties;
+
+    // If properties is null, return empty list
+    if (properties == null) {
+      debugPrint(
+        'No ${usePrevious ? 'previous' : 'current'} properties available for subplot positions',
+      );
+      return [];
+    }
+
+    return compute(_computeSubplotPositions, {
+      'recordCoords': record.getCoordinates(),
+      'properties': properties,
     });
   }
 
@@ -382,6 +471,7 @@ class _MapWidgetState extends State<MapWidget> {
           );
 
           final coords = destinationPoint.coordinates;
+
           positions.add({
             'lat': coords.lat,
             'lng': coords.lng,
@@ -396,6 +486,145 @@ class _MapWidgetState extends State<MapWidget> {
       }
     } catch (e) {
       debugPrint('Error calculating tree positions: $e');
+    }
+
+    return positions;
+  }
+
+  static List<Map<String, dynamic>> _computeEdges(Map<String, dynamic> params) {
+    final List<Map<String, dynamic>> results = [];
+    final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
+    final properties = params['properties'] as Map<String, dynamic>?;
+
+    if (recordCoords == null || properties == null) return results;
+
+    final centerLat = recordCoords['latitude'] as double;
+    final centerLng = recordCoords['longitude'] as double;
+
+    try {
+      final edges = properties['edges'];
+      if (edges == null || edges is! List) return results;
+
+      final centerPoint = turf.Point(coordinates: turf.Position(centerLng, centerLat));
+
+      for (var edgeGroup in edges) {
+        if (edgeGroup is! Map) continue;
+
+        // "edges" inside the edge record contains the points
+        final edgepoints = edgeGroup['edges'];
+        if (edgepoints is! List) continue;
+
+        // Sort points? The example does not imply sorting, usually they are in order.
+        // Assuming they are vertices of a polygon/polyline in order.
+
+        final List<Map<String, double>> currentPolyline = [];
+
+        for (var point in edgepoints) {
+          if (point is! Map) continue;
+
+          final azimuth = point['azimuth'];
+          final distance = point['distance'];
+
+          if (azimuth != null && distance != null) {
+            // Convert azimuth from gon to degrees (400 gon = 360 degrees)
+            final azimuthDegrees = (azimuth as num).toDouble() * 0.9;
+
+            // Convert distance from cm to meters then to kilometers
+            // Assuming cm based on tree example
+            final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
+
+            // Use Turf's destination to calculate the new position
+            final destinationPoint = turf.destination(
+              centerPoint,
+              distanceKm,
+              azimuthDegrees,
+              turf.Unit.kilometers,
+            );
+
+            final coords = destinationPoint.coordinates;
+            currentPolyline.add({'lat': coords.lat.toDouble(), 'lng': coords.lng.toDouble()});
+          }
+        }
+
+        if (currentPolyline.isNotEmpty) {
+          results.add({'points': currentPolyline, 'edge_number': edgeGroup['edge_number']});
+        }
+      }
+    } catch (e) {
+      debugPrint('Error calculating edges: $e');
+    }
+
+    return results;
+  }
+
+  static List<Map<String, dynamic>> _computeSubplotPositions(Map<String, dynamic> params) {
+    final List<Map<String, dynamic>> positions = [];
+    final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
+    final properties = params['properties'] as Map<String, dynamic>;
+
+    debugPrint('Calculating subplot positions for record at: $recordCoords');
+
+    if (recordCoords == null) return positions;
+
+    final centerLat = recordCoords['latitude'] as double;
+    final centerLng = recordCoords['longitude'] as double;
+
+    try {
+      // Check if subplot data exists in properties
+      final subplots = properties['subplots_relative_position'];
+      if (subplots == null || subplots is! List) {
+        debugPrint(
+          'No subplot data found in properties. Available keys: ${properties.keys.toList()}',
+        );
+        return positions;
+      }
+      debugPrint('Found ${subplots.length} subplots in subplots_relative_position array');
+
+      // Calculate position for each subplot based on azimuth and distance
+      final centerPoint = turf.Point(coordinates: turf.Position(centerLng, centerLat));
+
+      for (var subplot in subplots) {
+        if (subplot is! Map) continue;
+
+        final azimuth = subplot['azimuth'];
+        final distance = subplot['distance'];
+        final radius = subplot['radius'];
+        final parentTable = subplot['parent_table'];
+
+        if (azimuth != null && distance != null && radius != null) {
+          // Convert azimuth from gon to degrees (400 gon = 360 degrees)
+          final azimuthDegrees = (azimuth as num).toDouble() * 0.9;
+
+          // Convert distance from cm to meters then to kilometers
+          final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
+
+          debugPrint(
+            'Subplot: azimuth=${azimuthDegrees}°, distance=${distanceKm}km, radius=${radius}m, parent_table=${parentTable}',
+          );
+
+          // Use Turf's destination to calculate the center position of the subplot
+          final destinationPoint = turf.destination(
+            centerPoint,
+            distanceKm,
+            azimuthDegrees,
+            turf.Unit.kilometers,
+          );
+
+          final coords = destinationPoint.coordinates;
+
+          positions.add({
+            'lat': coords.lat,
+            'lng': coords.lng,
+            'radius': radius,
+            'azimuth': azimuth,
+            'distance': distance,
+            'parent_table': parentTable,
+            'data': subplot,
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error calculating subplot positions: $e');
     }
 
     return positions;
@@ -467,8 +696,6 @@ class _MapWidgetState extends State<MapWidget> {
         debugPrint('Loaded show tree labels: $savedShowLabels');
       }
 
-      await prefs.setBool('show_tree_labels', _showTreeLabels);
-      await prefs.setStringList('tree_label_fields', _treeLabelFields.toList());
       final savedLabelFields = prefs.getStringList('tree_label_fields');
       if (savedLabelFields != null && savedLabelFields.isNotEmpty) {
         setState(() {
@@ -486,6 +713,8 @@ class _MapWidgetState extends State<MapWidget> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
       await prefs.setDouble('tree_diameter_multiplier', _treeDiameterMultiplier);
+      await prefs.setBool('show_tree_labels', _showTreeLabels);
+      await prefs.setStringList('tree_label_fields', _treeLabelFields.toList());
     } catch (e) {
       debugPrint('Error saving map settings: $e');
     }
@@ -958,93 +1187,6 @@ class _MapWidgetState extends State<MapWidget> {
     );
   }
 
-  List<CircleMarker> _treeCircles(List<Map<String, dynamic>> treePositions) {
-    debugPrint(
-      'Building ${treePositions.length} tree circle markers with multiplier $_treeDiameterMultiplier',
-    );
-    return treePositions.map((tree) {
-      final lat = tree['lat'] as double;
-      final lng = tree['lng'] as double;
-      final dbh = tree['dbh']; // DBH in millimeters
-
-      // Calculate radius: DBH is in mm, convert to meters and divide by 2
-      // Apply the diameter multiplier
-      // If dbh is null, use a default small radius of 0.05m (5cm)
-      final radiusMeters = dbh != null
-          ? ((dbh as num).toDouble() / 1000.0 / 2.0) * _treeDiameterMultiplier
-          : 0.1;
-
-      final isNull = dbh == null;
-
-      return CircleMarker(
-        point: LatLng(lat, lng),
-        radius: radiusMeters,
-        useRadiusInMeter: true,
-        color: isNull ? Color.fromARGB(255, 0, 0, 0) : Color.fromARGB(255, 255, 255, 0), // yellow
-      );
-    }).toList();
-  }
-
-  List<Marker> _buildTreeLabelMarkers(List<Map<String, dynamic>> treePositions) {
-    if (_treeLabelFields.isEmpty) return [];
-
-    return treePositions
-        .map((tree) {
-          final lat = tree['lat'] as double;
-          final lng = tree['lng'] as double;
-
-          // Build label text from selected fields
-          final labelParts = <String>[];
-
-          if (_treeLabelFields.contains('tree_number') && tree['tree_number'] != null) {
-            labelParts.add('#${tree['tree_number']}');
-          }
-          if (_treeLabelFields.contains('dbh') && tree['dbh'] != null) {
-            labelParts.add('${(tree['dbh'] as num).toInt()}mm');
-          }
-          if (_treeLabelFields.contains('tree_species') && tree['tree_species'] != null) {
-            labelParts.add('${tree['tree_species']}');
-          }
-
-          final labelText = labelParts.join(' | ');
-          if (labelText.isEmpty) {
-            return null;
-          }
-
-          return Marker(
-            point: LatLng(lat, lng),
-            width: 150,
-            height: 15,
-            alignment: Alignment.bottomCenter,
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: IntrinsicWidth(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    labelText,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ),
-          );
-        })
-        .whereType<Marker>()
-        .toList();
-  }
-
   List<CircleMarker> _getDefaultCircles(Record record) {
     final coords = record.getCoordinates();
     if (coords == null) return [];
@@ -1099,10 +1241,6 @@ class _MapWidgetState extends State<MapWidget> {
       onTreeDiameterMultiplierChanged: (newMultiplier) {
         setState(() {
           _treeDiameterMultiplier = newMultiplier;
-          // Rebuild tree circles with new multiplier
-          if (_treePositions.isNotEmpty) {
-            _cachedTreeCircles = _treeCircles(_treePositions);
-          }
         });
         _saveMapSettings();
       },
@@ -1147,6 +1285,13 @@ class _MapWidgetState extends State<MapWidget> {
     final initialCenter = widget.initialCenter ?? const LatLng(51.1657, 10.4515);
     final initialZoom = widget.initialZoom ?? 5.5;
     final markers = _buildMarkers(_records);
+
+    // Debug tree rendering state
+    if (_focusedRecord != null) {
+      debugPrint(
+        '🔍 BUILD: focusedRecord=${_focusedRecord?.plotName}, _previousTreePositions.length=${_previousTreePositions.length}, _showTreeLabels=$_showTreeLabels',
+      );
+    }
 
     // Watch for distance line and navigation updates from provider
     final mapControllerProvider = context.watch<MapControllerProvider>();
@@ -1249,8 +1394,8 @@ class _MapWidgetState extends State<MapWidget> {
             errorTileCallback: (tile, error, stackTrace) {
               // Enhanced error logging to detect proxy issues
               final errorMsg = error.toString().toLowerCase();
-              if (errorMsg.contains('timeout') || 
-                  errorMsg.contains('certificate') || 
+              if (errorMsg.contains('timeout') ||
+                  errorMsg.contains('certificate') ||
                   errorMsg.contains('proxy') ||
                   errorMsg.contains('connection')) {
                 debugPrint('🔴 PROXY/NETWORK ERROR loading DOP tile ${tile.coordinates}:');
@@ -1339,6 +1484,31 @@ class _MapWidgetState extends State<MapWidget> {
                 .toList(),
           ),
 
+        // Display PREVIOUS edges (with opacity)
+        if (_previousEdges.isNotEmpty)
+          EdgeLayers.buildPolylineLayer(_previousEdges, withOpacity: true),
+        if (_previousEdges.isNotEmpty)
+          EdgeLayers.buildCircleLayer(_previousEdges, withOpacity: true),
+        if (_previousEdges.isNotEmpty)
+          EdgeLayers.buildMarkerLayer(_previousEdges, withOpacity: true),
+
+        // Display CURRENT edges (without opacity)
+        if (_edges.isNotEmpty) EdgeLayers.buildPolylineLayer(_edges, withOpacity: false),
+        if (_edges.isNotEmpty) EdgeLayers.buildCircleLayer(_edges, withOpacity: false),
+        if (_edges.isNotEmpty) EdgeLayers.buildMarkerLayer(_edges, withOpacity: false),
+
+        // Display PREVIOUS subplots (with opacity)
+        if (_previousSubplotPositions.isNotEmpty)
+          SubplotLayers.buildCircleLayer(_previousSubplotPositions, withOpacity: true),
+        //if (_previousSubplotPositions.isNotEmpty)
+        //  SubplotLayers.buildMarkerLayer(_previousSubplotPositions, withOpacity: true),
+
+        // Display CURRENT subplots (without opacity)
+        if (_subplotPositions.isNotEmpty)
+          SubplotLayers.buildCircleLayer(_subplotPositions, withOpacity: false),
+        //if (_subplotPositions.isNotEmpty)
+        //  SubplotLayers.buildMarkerLayer(_subplotPositions, withOpacity: false),
+
         // Distance line - DO NOT SHOW when navigation is active
         if (distanceLineFrom != null &&
             distanceLineTo != null &&
@@ -1358,18 +1528,29 @@ class _MapWidgetState extends State<MapWidget> {
         if (_currentZoom > 14 && _records.isNotEmpty)
           MarkerLayer(markers: _buildLabelMarkers(_records)),
 
-        // Line from center to trees
-        //if (_focusedRecord != null && _treePositions.isNotEmpty)
-        //  PolylineLayer(polylines: _buildTreeLines(_focusedRecord!, _treePositions)),
+        // Default circles (5m, 10m, 25m radius)
         if (_focusedRecord != null) CircleLayer(circles: _getDefaultCircles(_focusedRecord!)),
 
-        // Tree positions for focused record (cached)
-        if (_focusedRecord != null && _cachedTreeCircles != null)
-          CircleLayer(circles: _cachedTreeCircles!),
+        // Display PREVIOUS trees (with opacity for differentiation)
+        if (_focusedRecord != null && _previousTreePositions.isNotEmpty)
+          TreeLayers.buildCircleLayer(
+            _previousTreePositions,
+            _treeDiameterMultiplier,
+            withOpacity: true,
+          ),
+        if (_focusedRecord != null && _previousTreePositions.isNotEmpty && _showTreeLabels)
+          TreeLayers.buildMarkerLayer(_previousTreePositions, _treeLabelFields, withOpacity: false),
 
-        // Tree labels for focused record
-        if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
-          MarkerLayer(markers: _buildTreeLabelMarkers(_treePositions)),
+        // Display CURRENT trees (without opacity, on top)
+        if (_focusedRecord != null && _treePositions.isNotEmpty)
+          TreeLayers.buildCircleLayer(
+            _treePositions,
+            _treeDiameterMultiplier,
+            withOpacity: false,
+            showNull: false,
+          ),
+        /*if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
+          TreeLayers.buildMarkerLayer(_treePositions, _treeLabelFields, withOpacity: false),*/
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

@@ -272,7 +272,7 @@ class ValidationService {
             // Initialize TFM validator with lookup tables
             // TFM constructor: (host, apikey, lookupTables)
             const lookupTables = $lookupTablesJson;
-            console.log('Lookup tables:', lookupTables);
+
             const tfm = new window.TFM(null, null, lookupTables);
 
             // Run TFM plot validation
@@ -280,12 +280,36 @@ class ValidationService {
             const currentData = $dataJson;
             const previousData = $previousDataJson;
             
-            console.log('Current plot data:', currentData);
-            console.log('Previous plot data:', previousData);
-            console.log('Current data keys:', currentData[0] ? Object.keys(currentData[0]).slice(0, 10) : 'none');
-            console.log('Previous data keys:', previousData && previousData[0] ? Object.keys(previousData[0]).slice(0, 10) : 'none');
-            
-            const tfmErrors = await tfm.runPlots(currentData, null, previousData);
+            let tfmErrors;
+            try {
+              tfmErrors = await tfm.runPlots(currentData, null, previousData);
+            } catch (tfmError) {
+              console.error('TFM runPlots error:', tfmError);
+              console.error('TFM error stack:', tfmError.stack);
+              console.error('TFM error message:', tfmError.message);
+              
+              // Extract more details from the error
+              const errorDetails = {
+                message: tfmError.message,
+                stack: tfmError.stack,
+                name: tfmError.name
+              };
+              
+              return {
+                ajvValid: ${ajvResult.isValid},
+                ajvErrors: ${jsonEncode(ajvResult.errors.map((e) => e.rawError).toList())},
+                tfmAvailable: true,
+                tfmErrors: [{ 
+                  instancePath: '',
+                  error: { 
+                    type: 'error', 
+                    text: 'TFM runPlots failed: ' + tfmError.message,
+                    note: 'Stack: ' + (tfmError.stack || 'no stack trace')
+                  },
+                  debugInfo: JSON.stringify(errorDetails)
+                }]
+              };
+            }
 
             console.log('tfmErrors:');
             console.log(JSON.stringify(tfmErrors));
@@ -302,13 +326,18 @@ class ValidationService {
             return result;
           } catch (error) {
             console.error('TFM validation exception:', error);
+            console.error('Error stack:', error.stack);
             return {
               ajvValid: ${ajvResult.isValid},
               ajvErrors: ${jsonEncode(ajvResult.errors.map((e) => e.rawError).toList())},
               tfmAvailable: true,
               tfmErrors: [{ 
                 instancePath: '',
-                error: { type: 'error', text: 'TFM validation failed: ' + error.toString() }
+                error: { 
+                  type: 'error', 
+                  text: 'TFM validation failed: ' + error.message,
+                  note: 'Stack: ' + (error.stack || 'no stack trace')
+                }
               }]
             };
           }

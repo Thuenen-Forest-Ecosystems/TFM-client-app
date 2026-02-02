@@ -143,6 +143,7 @@ class CardDialog extends StatelessWidget {
                           value: data[fieldName],
                           errors: fieldErrors,
                           compact: false,
+                          currentData: data,
                         ),
                       ),
                     );

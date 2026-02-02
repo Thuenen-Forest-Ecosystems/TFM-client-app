@@ -16,6 +16,7 @@ class GenericTextField extends StatefulWidget {
   final bool autofocus;
   final double? width; // Optional width constraint from layout
   final Map<String, dynamic>? previousData; // For calculated fields
+  final Map<String, dynamic>? currentData; // For calculated fields
 
   const GenericTextField({
     super.key,
@@ -29,6 +30,7 @@ class GenericTextField extends StatefulWidget {
     this.autofocus = false,
     this.width,
     this.previousData,
+    this.currentData,
   });
 
   @override
@@ -156,33 +158,73 @@ class _GenericTextFieldState extends State<GenericTextField> {
         return 'No expression';
       }
 
-      // If no previous data, return empty string (tree not in previous inventory)
-      if (widget.previousData == null) {
-        return '';
-      }
-
-      // Find all variable names in the expression
-      final variablePattern = RegExp(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b');
-      final matches = variablePattern.allMatches(expression);
+      // Get variables configuration from schema
+      final variables = widget.fieldSchema['variables'] as List?;
 
       // Create a map of variable names to values
       final Map<String, double> variableValues = {};
 
-      for (var match in matches) {
-        final varName = match.group(0)!;
+      if (variables != null && variables.isNotEmpty) {
+        // New approach: Use variables array with source specification
+        for (var variable in variables) {
+          if (variable is! Map<String, dynamic>) continue;
 
-        // Remove "previous_" prefix if present
-        final fieldKey = varName.startsWith('previous_')
-            ? varName.substring(9) // Remove "previous_"
-            : varName;
+          final varName = variable['name'] as String?;
+          final source = variable['source'] as String?;
 
-        final value = widget.previousData![fieldKey];
+          if (varName == null || source == null) continue;
 
-        if (value != null && value is num) {
-          variableValues[varName] = value.toDouble();
-        } else {
-          // If value is null or not a number, bind 0
-          variableValues[varName] = 0.0;
+          // Determine which data source to use
+          Map<String, dynamic>? dataSource;
+          if (source == 'previousData') {
+            dataSource = widget.previousData;
+          } else if (source == 'currentData') {
+            dataSource = widget.currentData;
+          }
+
+          if (dataSource == null) {
+            // If data source not available, bind 0
+            variableValues[varName] = 0.0;
+            continue;
+          }
+
+          // Get the field key (remove "previous_" prefix if present for backward compatibility)
+          final fieldKey = varName.startsWith('previous_') ? varName.substring(9) : varName;
+
+          final value = dataSource[fieldKey];
+
+          if (value != null && value is num) {
+            variableValues[varName] = value.toDouble();
+          } else {
+            // If value is null or not a number, bind 0
+            variableValues[varName] = 0.0;
+          }
+        }
+      } else {
+        // Fallback: Old approach for backward compatibility
+        // If no previous data, return empty string
+        if (widget.previousData == null) {
+          return '';
+        }
+
+        // Find all variable names in the expression
+        final variablePattern = RegExp(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b');
+        final matches = variablePattern.allMatches(expression);
+
+        for (var match in matches) {
+          final varName = match.group(0)!;
+
+          // Remove "previous_" prefix if present
+          final fieldKey = varName.startsWith('previous_') ? varName.substring(9) : varName;
+
+          final value = widget.previousData![fieldKey];
+
+          if (value != null && value is num) {
+            variableValues[varName] = value.toDouble();
+          } else {
+            // If value is null or not a number, bind 0
+            variableValues[varName] = 0.0;
+          }
         }
       }
 

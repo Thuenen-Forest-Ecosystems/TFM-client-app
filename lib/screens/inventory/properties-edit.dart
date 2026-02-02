@@ -1161,6 +1161,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                           onPressed: (_isSaving || !_hasCompletedInitialValidation)
                               ? null
                               : () => save('save'),
+                          color: Theme.of(context).colorScheme.primary,
                           icon: _isSaving
                               ? const SizedBox(
                                   width: 16,

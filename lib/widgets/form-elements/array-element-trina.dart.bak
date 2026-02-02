@@ -361,7 +361,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               'type': 'calculated',
               'title': itemConfig['title'] ?? fieldName,
               'expression': itemConfig['expression'],
-              if (itemConfig['variables'] != null) 'variables': itemConfig['variables'],
               'readonly': true,
               if (itemConfig['unit_short'] != null)
                 '\$tfm': {'unit_short': itemConfig['unit_short']},
@@ -512,7 +511,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             'type': 'calculated',
             'title': layoutConfig['title'] ?? key,
             'expression': layoutConfig['expression'],
-            if (layoutConfig['variables'] != null) 'variables': layoutConfig['variables'],
             if (layoutConfig['unit_short'] != null)
               '\$tfm': {'unit_short': layoutConfig['unit_short']},
           };
@@ -849,7 +847,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             value: value,
             errors: const [],
             compact: true,
-            currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
+            currentData: row.cells.map((k, v) => MapEntry(k, v.value)),
             onChanged: (newValue) {
               rendererContext.cell.value = newValue;
               _stateManager?.notifyListeners();
@@ -1025,6 +1023,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           value: value,
           errors: const [],
           compact: true,
+          currentData: row.cells.map((k, v) => MapEntry(k, v.value)),
           onChanged: (newValue) {
             rendererContext.cell.value = newValue;
             _stateManager?.notifyListeners();
@@ -1203,7 +1202,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         errors: const [],
         compact: true,
         previousData: previousRowData,
-        currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
+        currentData: row.cells.map((k, v) => MapEntry(k, v.value)),
       ),
     );
   }

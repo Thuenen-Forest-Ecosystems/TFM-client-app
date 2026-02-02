@@ -98,25 +98,26 @@ class _SchemaSelectionState extends State<SchemaSelection> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const MapTilesDownload(),
-                    FutureBuilder<ProxyConfig>(
-                      future: ProxyService().getProxyConfig(),
-                      builder: (context, snapshot) {
-                        final proxyEnabled = snapshot.data?.enabled ?? false;
-                        if (!proxyEnabled) return const SizedBox.shrink();
+                    if (Platform.isWindows)
+                      FutureBuilder<ProxyConfig>(
+                        future: ProxyService().getProxyConfig(),
+                        builder: (context, snapshot) {
+                          final proxyEnabled = snapshot.data?.enabled ?? false;
+                          if (!proxyEnabled) return const SizedBox.shrink();
 
-                        return Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.warning_amber, color: Colors.orange.shade700),
-                              const SizedBox(width: 12),
-                              if (Platform.isWindows)
+                          return Container(
+                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber, color: Colors.orange.shade700),
+                                const SizedBox(width: 12),
+
                                 const Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,11 +134,11 @@ class _SchemaSelectionState extends State<SchemaSelection> {
                                     ],
                                   ),
                                 ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),

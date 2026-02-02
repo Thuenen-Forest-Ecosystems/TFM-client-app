@@ -58,6 +58,11 @@ class _RecordPositionState extends State<RecordPosition> {
     print('RecordPosition initialized with:');
     print(widget.jsonSchema);
     print(widget.data);
+    if (widget.data != null &&
+        widget.propertyName != null &&
+        widget.data![widget.propertyName!] != null) {
+      _aggregatedData = Map<String, dynamic>.from(widget.data![widget.propertyName!]);
+    }
     super.initState();
   }
 
@@ -144,13 +149,45 @@ class _RecordPositionState extends State<RecordPosition> {
   Map<String, dynamic> _calculateAggregatedData() {
     if (_recordedPositions.isEmpty) return {};
 
+    // Filter to use only best quality positions for aggregation
+    var positionsToUse = _recordedPositions;
+
+    // NMEA Quality codes priorities:
+    // 4: RTK Fixed (Best)
+    // 5: RTK Float
+    // 2: DGPS
+    // 1: GPS
+    final existingQualities = _recordedPositions
+        .map((p) => p['quality'] as int?)
+        .where((q) => q != null && q > 0)
+        .cast<int>()
+        .toSet();
+
+    if (existingQualities.isNotEmpty) {
+      int bestQuality;
+      if (existingQualities.contains(4)) {
+        bestQuality = 4;
+      } else if (existingQualities.contains(5)) {
+        bestQuality = 5;
+      } else if (existingQualities.contains(2)) {
+        bestQuality = 2;
+      } else if (existingQualities.contains(1)) {
+        bestQuality = 1;
+      } else {
+        // Fallback for other codes - just take max assuming higher is better/more precise
+        bestQuality = existingQualities.reduce((curr, next) => curr > next ? curr : next);
+      }
+
+      positionsToUse = _recordedPositions.where((p) => p['quality'] == bestQuality).toList();
+    }
+
     // Calculate mean position and quality metrics
     double sumLat = 0, sumLng = 0, sumAccuracy = 0;
     double sumSatellites = 0, sumPdop = 0, sumHdop = 0;
     int satellitesCount = 0, pdopCount = 0, hdopCount = 0;
     List<double> latitudes = [], longitudes = [];
 
-    for (var pos in _recordedPositions) {
+    for (var pos in positionsToUse) {
       sumLat += pos['latitude'];
       sumLng += pos['longitude'];
       sumAccuracy += pos['accuracy'];
@@ -172,9 +209,9 @@ class _RecordPositionState extends State<RecordPosition> {
       }
     }
 
-    final meanLat = sumLat / _recordedPositions.length;
-    final meanLng = sumLng / _recordedPositions.length;
-    final meanAccuracy = sumAccuracy / _recordedPositions.length;
+    final meanLat = sumLat / positionsToUse.length;
+    final meanLng = sumLng / positionsToUse.length;
+    final meanAccuracy = sumAccuracy / positionsToUse.length;
 
     // Calculate median position
     latitudes.sort();
@@ -184,6 +221,7 @@ class _RecordPositionState extends State<RecordPosition> {
 
     // Quality indicator (simplified): 1=excellent, 2=good, 3=fair, 4=poor
     int quality = 4;
+    // We can be stricter with quality assessment since we filtered for best fix
     if (meanAccuracy < 2.0 && hdopCount > 0 && (sumHdop / hdopCount) < 1.5) {
       quality = 1;
     } else if (meanAccuracy < 5.0 && hdopCount > 0 && (sumHdop / hdopCount) < 3.0) {
@@ -200,10 +238,16 @@ class _RecordPositionState extends State<RecordPosition> {
       'hdop_mean': hdopCount > 0 ? sumHdop / hdopCount : null,
       'position_mean': {'latitude': meanLat, 'longitude': meanLng},
       'position_median': {'latitude': medianLat, 'longitude': medianLng},
-      'measurement_count': _recordedPositions.length,
+      'measurement_count': positionsToUse.length,
+      // Keep track of total recorded for reference if needed, but measurement_count usually implies used for calc
+      'total_recorded_count': _recordedPositions.length,
       'start_measurement': _startMeasurement?.toIso8601String(),
       'stop_measurement': _stopMeasurement?.toIso8601String(),
       'mean_accuracy': meanAccuracy,
+      // Store the quality code used for aggregation
+      'aggregation_quality_code': existingQualities.isNotEmpty
+          ? positionsToUse.first['quality']
+          : null,
       //'recorded_positions': _recordedPositions,
     };
   }
@@ -252,7 +296,7 @@ class _RecordPositionState extends State<RecordPosition> {
           Row(
             children: [
               TextButton.icon(
-                onPressed: _aggregatedData != null && _recordedPositions.isNotEmpty
+                onPressed: _aggregatedData != null
                     ? () => setState(() => showDetails = !showDetails)
                     : null,
                 icon: Icon(showDetails ? Icons.expand_less : Icons.expand_more),
@@ -263,7 +307,7 @@ class _RecordPositionState extends State<RecordPosition> {
               ElevatedButton.icon(
                 onPressed: (isRecording || hasGpsDevice) ? _toggleRecording : null,
                 icon: Icon(isRecording ? Icons.stop : Icons.gps_fixed),
-                label: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
+                label: Text(isRecording ? 'Einmessung beenden' : 'Einmessung starten'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isRecording ? Colors.red : Colors.green,
                   foregroundColor: Colors.white,
@@ -272,17 +316,18 @@ class _RecordPositionState extends State<RecordPosition> {
             ],
           ),
           // Display aggregated data (always visible when data exists)
-          if (_aggregatedData != null && _recordedPositions.isNotEmpty && showDetails) ...[
+          if (_aggregatedData != null && showDetails) ...[
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            Text('Aggregated Data', style: Theme.of(context).textTheme.titleSmall),
+            Text('Aggregierte Daten', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
-            _buildDataRow('Quality', _getQualityText(_aggregatedData!['quality'] as int)),
-            _buildDataRow(
-              'mittlere Position',
-              '${_aggregatedData!['position_mean']['latitude'].toStringAsFixed(8)}, ${_aggregatedData!['position_mean']['longitude'].toStringAsFixed(8)}',
-            ),
+            _buildDataRow('Quality', _getQualityText((_aggregatedData!['quality'] as int?) ?? 0)),
+            if (_aggregatedData!['position_mean'] != null)
+              _buildDataRow(
+                'mittlere Position',
+                '${(_aggregatedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_aggregatedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
+              ),
             //_buildDataRow(
             //  'Median Position',
             //  '${_aggregatedData!['position_median']['latitude'].toStringAsFixed(6)}, ${_aggregatedData!['position_median']['longitude'].toStringAsFixed(6)}',
@@ -346,7 +391,7 @@ class _RecordPositionState extends State<RecordPosition> {
   String _formatTimestamp(String isoString) {
     try {
       final dt = DateTime.parse(isoString);
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+      return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return isoString;
     }

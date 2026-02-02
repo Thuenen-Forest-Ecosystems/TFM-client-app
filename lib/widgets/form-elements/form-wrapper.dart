@@ -605,7 +605,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           previous_properties: _previousProperties,
           validationResult: widget.validationResult,
           onDataChanged: (updatedData) {
-            LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+            // Extract the updated property value from the returned data object
+            // NavigationElement/RecordPosition returns the parent container with the updated field
+            final newValue = updatedData[propertyName];
+            LayoutService.setValueByPath(_localFormData, propertyPath, newValue);
             widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
           },
         );
