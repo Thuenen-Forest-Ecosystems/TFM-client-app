@@ -76,6 +76,11 @@ class _MapWidgetState extends State<MapWidget> {
     Color.fromARGB(255, 235, 192, 139), // #ebc08b
   ];
 
+  Map<String, Color> intervalColorCache = {
+    'previousColor': Color.fromARGB(255, 0, 159, 224),
+    'currentColor': Color.fromARGB(255, 213, 123, 22),
+  };
+
   @override
   void initState() {
     super.initState();
@@ -1537,6 +1542,8 @@ class _MapWidgetState extends State<MapWidget> {
             _previousTreePositions,
             _treeDiameterMultiplier,
             withOpacity: true,
+            treeColor: intervalColorCache['previousColor'],
+            nullTreeColor: Colors.black,
           ),
         if (_focusedRecord != null && _previousTreePositions.isNotEmpty && _showTreeLabels)
           TreeLayers.buildMarkerLayer(_previousTreePositions, _treeLabelFields, withOpacity: false),
@@ -1547,10 +1554,12 @@ class _MapWidgetState extends State<MapWidget> {
             _treePositions,
             _treeDiameterMultiplier,
             withOpacity: false,
-            showNull: false,
+            showNull: true,
+            treeColor: intervalColorCache['currentColor'],
+            nullTreeColor: Colors.red,
           ),
-        /*if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
-          TreeLayers.buildMarkerLayer(_treePositions, _treeLabelFields, withOpacity: false),*/
+        if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
+          TreeLayers.buildMarkerLayer(_treePositions, _treeLabelFields, withOpacity: false),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

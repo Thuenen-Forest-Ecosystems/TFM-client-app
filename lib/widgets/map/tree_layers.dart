@@ -9,6 +9,8 @@ class TreeLayers {
     double treeDiameterMultiplier, {
     bool withOpacity = false,
     bool showNull = true,
+    Color? treeColor,
+    Color? nullTreeColor,
   }) {
     return CircleLayer(
       circles: treePositions.map((tree) {
@@ -33,10 +35,10 @@ class TreeLayers {
             ? ((dbh as num).toDouble() / 1000.0 / 2.0) * treeDiameterMultiplier
             : 0.2;
 
-        // Trees with DBH are yellow, trees without DBH are black
+        // Use provided colors or fall back to default colors
         final baseColor = dbh != null
-            ? Color.fromARGB(255, 255, 255, 0) // yellow
-            : Colors.black; // black for missing DBH
+            ? (treeColor ?? Color.fromARGB(255, 255, 255, 0)) // custom or yellow
+            : (nullTreeColor ?? Colors.black); // custom or black for missing DBH
 
         return CircleMarker(
           point: LatLng(lat, lng),
