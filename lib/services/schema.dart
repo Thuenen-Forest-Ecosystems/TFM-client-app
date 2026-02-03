@@ -176,6 +176,6 @@ Schema schema = Schema(([
     Column.text('organization_id'),
   ]),
 
-  ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
+  //...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),
 ]));

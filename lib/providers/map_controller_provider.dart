@@ -50,6 +50,11 @@ class MapControllerProvider with ChangeNotifier {
   // Navigation line string for target (line from last step or start to target)
   List<LatLng>? _navigationTargetLineString;
 
+  // Grid row selection request (arrayName -> identifier value)
+  String? _selectedArrayName;
+  dynamic _selectedRowIdentifier;
+  DateTime? _selectionTimestamp;
+
   MapController? get flutterMapController => _flutterMapController;
   LatLng? get distanceLineFrom => _distanceLineFrom;
   LatLng? get distanceLineTo => _distanceLineTo;
@@ -67,6 +72,9 @@ class MapControllerProvider with ChangeNotifier {
   String? get navigationStartLabel => _navigationStartLabel;
   List<LatLng>? get navigationStepsLineString => _navigationStepsLineString;
   List<LatLng>? get navigationTargetLineString => _navigationTargetLineString;
+  String? get selectedArrayName => _selectedArrayName;
+  dynamic get selectedRowIdentifier => _selectedRowIdentifier;
+  DateTime? get selectionTimestamp => _selectionTimestamp;
 
   void setFlutterMapController(MapController? controller) {
     _flutterMapController = controller;
@@ -276,6 +284,25 @@ class MapControllerProvider with ChangeNotifier {
       _mapTapController.add(position);
       // Automatically disable after one tap
       disableMapTapMode();
+    }
+  }
+
+  /// Request to scroll and select a row in a grid
+  void selectGridRow(String arrayName, dynamic identifier) {
+    _selectedArrayName = arrayName;
+    _selectedRowIdentifier = identifier;
+    _selectionTimestamp = DateTime.now();
+    debugPrint('Grid row selection requested: $arrayName[$identifier]');
+    notifyListeners();
+  }
+
+  /// Clear grid row selection request
+  void clearGridRowSelection() {
+    if (_selectedArrayName != null || _selectedRowIdentifier != null) {
+      _selectedArrayName = null;
+      _selectedRowIdentifier = null;
+      _selectionTimestamp = null;
+      debugPrint('Grid row selection cleared');
     }
   }
 }

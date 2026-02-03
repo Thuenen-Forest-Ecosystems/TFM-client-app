@@ -1140,6 +1140,26 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
+  void _onTreeCircleTapped(int treeNumber) {
+    debugPrint('Tree circle tapped: tree_number=$treeNumber');
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.selectGridRow('tree', treeNumber);
+    } catch (e) {
+      debugPrint('Error handling tree circle tap: $e');
+    }
+  }
+
+  void _onEdgeCircleTapped(int edgeNumber) {
+    debugPrint('Edge circle tapped: edge_number=$edgeNumber');
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      mapControllerProvider.selectGridRow('edges', edgeNumber);
+    } catch (e) {
+      debugPrint('Error handling edge circle tap: $e');
+    }
+  }
+
   Widget _buildClusterMarker(BuildContext context, List<Marker> markers) {
     final pointCount = markers.length;
 
@@ -1502,6 +1522,9 @@ class _MapWidgetState extends State<MapWidget> {
         if (_edges.isNotEmpty) EdgeLayers.buildCircleLayer(_edges, withOpacity: false),
         if (_edges.isNotEmpty) EdgeLayers.buildMarkerLayer(_edges, withOpacity: false),
 
+        // Clickable layer for CURRENT edges (on top for click handling)
+        if (_edges.isNotEmpty) EdgeLayers.buildClickableLayer(_edges, _onEdgeCircleTapped),
+
         // Display PREVIOUS subplots (with opacity)
         if (_previousSubplotPositions.isNotEmpty)
           SubplotLayers.buildCircleLayer(_previousSubplotPositions, withOpacity: true),
@@ -1560,6 +1583,10 @@ class _MapWidgetState extends State<MapWidget> {
           ),
         if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
           TreeLayers.buildMarkerLayer(_treePositions, _treeLabelFields, withOpacity: false),
+
+        // Clickable layer for CURRENT trees (on top for click handling)
+        if (_focusedRecord != null && _treePositions.isNotEmpty)
+          TreeLayers.buildClickableLayer(_treePositions, _onTreeCircleTapped),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

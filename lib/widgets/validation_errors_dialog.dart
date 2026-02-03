@@ -247,11 +247,11 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     if (fieldName != null && fieldName.isNotEmpty) {
       final tabMapping = {
         'tree': 'tree',
-        'position': 'position',
+        'position': 'position_column',
         'edges': 'edges',
-        'structure_lt4m': 'structure_lt4m',
-        'structure_gt4m': 'structure_gt4m',
-        'regeneration': 'regeneration',
+        'structure_lt4m': 'stocking',
+        'structure_gt4m': 'stocking',
+        'regeneration': 'regeneration_grid',
         'deadwood': 'deadwood',
       };
 
@@ -275,42 +275,47 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     }
 
     final parts = cleanPath.split('/').where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return null;
+    if (parts.isEmpty) return 'habitat_and_stocking';
 
     // First part is the tab id (tree, position, edges, etc.)
     final firstPart = parts[0];
 
-    // Map known field names to tab IDs
+    // Map known field names to tab IDs from style-map.json
     final tabMapping = {
       'tree': 'tree',
-      'position': 'position',
+      'position': 'position_column',
       'edges': 'edges',
-      'structure_lt4m': 'structure_lt4m',
-      'structure_gt4m': 'structure_gt4m',
-      'regeneration': 'regeneration',
+      'structure_lt4m': 'stocking',
+      'structure_gt4m': 'stocking',
+      'regeneration': 'regeneration_grid',
       'deadwood': 'deadwood',
     };
 
-    return tabMapping[firstPart];
+    // Default to first tab "Ecke" if no match found
+    return tabMapping[firstPart] ?? 'habitat_and_stocking';
   }
 
   String _getGroupName(String? instancePath) {
-    if (instancePath == null || instancePath.isEmpty) return 'Allgemein';
+    if (instancePath == null || instancePath.isEmpty) return 'Ecke';
 
     final parts = instancePath.split('/').where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return 'Allgemein';
+    if (parts.isEmpty) return 'Ecke';
 
+    final firstPart = parts[0];
+
+    // Map field names to their tab labels from style-map.json
     final groupNames = {
-      'tree': 'Bäume',
+      'tree': 'WZP',
       'position': 'Position',
-      'edges': 'Ecken',
-      'structure_lt4m': 'Struktur <4m',
-      'structure_gt4m': 'Struktur >4m',
+      'edges': 'Ränder',
+      'structure_lt4m': 'Struktur < 4m',
+      'structure_gt4m': 'Struktur > 4m',
+      'structure': 'Bestockung', // Normalized key for grouping
       'regeneration': 'Verjüngung',
       'deadwood': 'Totholz',
     };
 
-    return groupNames[parts[0]] ?? parts[0];
+    return groupNames[firstPart] ?? 'Ecke';
   }
 
   @override
@@ -325,9 +330,14 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           : (issue as TFMValidationError).instancePath;
 
       // Extract the top-level path segment for grouping
-      final groupKey = instancePath != null && instancePath.isNotEmpty
+      String groupKey = instancePath != null && instancePath.isNotEmpty
           ? instancePath.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => 'root')
           : 'root';
+
+      // Normalize groupKey so structure_lt4m and structure_gt4m are grouped together
+      if (groupKey == 'structure_lt4m' || groupKey == 'structure_gt4m') {
+        groupKey = 'structure';
+      }
 
       groupedIssues.putIfAbsent(groupKey, () => []).add(issue);
     }
@@ -397,7 +407,13 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         subtitleParts.add('Hinweis: ${tfmError.note}');
                       }
                       if (tfmError.error?['code'] != null) {
-                        subtitleParts.add('Code: ${tfmError.error!['code']}');
+                        final code = tfmError.error!['code'];
+                        // Show debugInfo for technical errors (code 1 or 2)
+                        if ((code == 1 || code == 2) && tfmError.debugInfo != null) {
+                          subtitleParts.add('Debug: ${tfmError.debugInfo}');
+                        } else {
+                          subtitleParts.add('Code: $code');
+                        }
                       }
                       if (instancePath != null && instancePath.isNotEmpty) {
                         subtitleParts.add('Pfad: $instancePath');
@@ -417,35 +433,43 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ListTile(
-                          leading: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Checkbox(
-                                value: isAcknowledged,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _acknowledgedIssues[issueKey] = value ?? false;
-                                  });
-                                },
-                              ),
-                              Icon(
-                                isWarning ? Icons.warning : Icons.error,
-                                color: isWarning ? Colors.orange : Colors.red,
-                                size: 20,
-                              ),
-                            ],
-                          ),
+                          leading: widget.showActions
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Checkbox(
+                                      value: isAcknowledged,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _acknowledgedIssues[issueKey] = value ?? false;
+                                        });
+                                      },
+                                    ),
+                                    Icon(
+                                      isWarning ? Icons.warning : Icons.error,
+                                      color: isWarning ? Colors.orange : Colors.red,
+                                      size: 20,
+                                    ),
+                                  ],
+                                )
+                              : Icon(
+                                  isWarning ? Icons.warning : Icons.error,
+                                  color: isWarning ? Colors.orange : Colors.red,
+                                  size: 20,
+                                ),
                           title: Text(
                             issue is ValidationError
                                 ? issue.message
                                 : (issue as TFMValidationError).message,
                           ),
                           subtitle: subtitle,
-                          trailing: canNavigate
+                          trailing: widget.showActions && canNavigate
                               ? IconButton(
                                   icon: const Icon(Icons.arrow_forward, size: 18),
                                   onPressed: () {
-                                    debugPrint('Navigating to tab: $tabId for issue: $instancePath');
+                                    debugPrint(
+                                      'Navigating to tab: $tabId for issue: $instancePath',
+                                    );
                                     widget.onNavigateToTab!(tabId);
                                     Navigator.of(context).pop<String?>(null);
                                   },
@@ -453,11 +477,13 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                               : null,
                           selected: isAcknowledged,
                           dense: true,
-                          onTap: () {
-                            setState(() {
-                              _acknowledgedIssues[issueKey] = !isAcknowledged;
-                            });
-                          },
+                          onTap: widget.showActions
+                              ? () {
+                                  setState(() {
+                                    _acknowledgedIssues[issueKey] = !isAcknowledged;
+                                  });
+                                }
+                              : null,
                         ),
                         if (isAcknowledged)
                           Padding(
@@ -527,7 +553,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
                               backgroundColor: errorCount == 0 ? Colors.green : null,
                             ),
                             child: Text(

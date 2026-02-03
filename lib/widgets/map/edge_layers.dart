@@ -93,4 +93,33 @@ class EdgeLayers {
           .toList(),
     );
   }
+
+  /// Build invisible clickable marker layer for edge selection
+  static MarkerLayer buildClickableLayer(
+    List<Map<String, dynamic>> edges,
+    Function(int edgeNumber) onEdgeTapped,
+  ) {
+    return MarkerLayer(
+      markers: edges
+          .map<Marker?>((edge) {
+            final points = edge['points'] as List<LatLng>;
+            final edgeNumber = edge['edge_number'] as int?;
+            if (points.isEmpty || edgeNumber == null) return null;
+
+            // Use first point of edge as tap target
+            return Marker(
+              point: points.first,
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              child: GestureDetector(
+                onTap: () => onEdgeTapped(edgeNumber),
+                child: Container(width: 40, height: 40, color: Colors.transparent),
+              ),
+            );
+          })
+          .whereType<Marker>()
+          .toList(),
+    );
+  }
 }

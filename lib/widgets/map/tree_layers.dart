@@ -130,4 +130,34 @@ class TreeLayers {
           .toList(),
     );
   }
+
+  /// Build invisible clickable marker layer for tree selection
+  static MarkerLayer buildClickableLayer(
+    List<Map<String, dynamic>> treePositions,
+    Function(int treeNumber) onTreeTapped,
+  ) {
+    return MarkerLayer(
+      markers: treePositions
+          .map((tree) {
+            final lat = tree['lat'] as double;
+            final lng = tree['lng'] as double;
+            final treeNumber = tree['tree_number'] as int?;
+
+            if (treeNumber == null) return null;
+
+            return Marker(
+              point: LatLng(lat, lng),
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              child: GestureDetector(
+                onTap: () => onTreeTapped(treeNumber),
+                child: Container(width: 40, height: 40, color: Colors.transparent),
+              ),
+            );
+          })
+          .whereType<Marker>()
+          .toList(),
+    );
+  }
 }

@@ -726,6 +726,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             if (results.isNotEmpty) {
               treeSpeciesLookup = results.map((row) => Map<String, dynamic>.from(row)).toList();
               debugPrint('Loaded ${treeSpeciesLookup.length} tree species for validation');
+            } else {
+              debugPrint('No tree species found in lookup table');
             }
           } catch (e) {
             debugPrint('Warning: Could not load tree species lookup: $e');
@@ -738,9 +740,49 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             treeSpeciesLookup: treeSpeciesLookup,
           );
 
+          // Strip /plot/0 from paths if TFM validation was run
+          TFMValidationResult processedResult = result;
+          if (result.tfmAvailable) {
+            // Strip /plot/0 from AJV error paths
+            final processedAjvErrors = result.ajvErrors.map((error) {
+              final path = error.instancePath;
+              final strippedPath = path?.startsWith('/plot/0') == true
+                  ? path!.substring(7) // Remove '/plot/0'
+                  : path;
+              return ValidationError(
+                instancePath: strippedPath,
+                schemaPath: error.schemaPath,
+                keyword: error.keyword,
+                message: error.message,
+                params: error.params,
+                rawError: {...error.rawError, 'instancePath': strippedPath},
+              );
+            }).toList();
+
+            // Strip /plot/0 from TFM error paths
+            final processedTfmErrors = result.tfmErrors.map((error) {
+              final path = error.instancePath;
+              final strippedPath = path?.startsWith('/plot/0') == true
+                  ? path!.substring(7) // Remove '/plot/0'
+                  : path;
+              return TFMValidationError(
+                instancePath: strippedPath,
+                error: error.error,
+                debugInfo: error.debugInfo,
+              );
+            }).toList();
+
+            processedResult = TFMValidationResult(
+              ajvValid: result.ajvValid,
+              ajvErrors: processedAjvErrors,
+              tfmAvailable: result.tfmAvailable,
+              tfmErrors: processedTfmErrors,
+            );
+          }
+
           if (mounted) {
             setState(() {
-              _validationResult = result;
+              _validationResult = processedResult;
               _isValidating = false;
               _hasCompletedInitialValidation = true;
               // Update schema with conditional rules applied

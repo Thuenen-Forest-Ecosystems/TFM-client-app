@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
@@ -159,9 +160,9 @@ class ValidationService {
                window.ajvI18n.de(validate.errors);
             }
             
-            console.log('Validation result:', valid);
-            console.log('Validation errors:', JSON.stringify(validate.errors));
-            console.log('Number of errors:', validate.errors ? validate.errors.length : 0);
+            // console.log('Validation result:', valid);
+            // console.log('Validation errors:', JSON.stringify(validate.errors));
+            // console.log('Number of errors:', validate.errors ? validate.errors.length : 0);
             
             return {
               valid: valid,
@@ -252,6 +253,9 @@ class ValidationService {
           ? jsonEncode({'tree_species': treeSpeciesLookup})
           : '{}';
 
+      // Debug lookupTablesJson
+      print('TFM lookupTablesJson: $lookupTablesJson');
+
       final jsCode =
           '''
           try {
@@ -282,7 +286,7 @@ class ValidationService {
             
             let tfmErrors;
             try {
-              tfmErrors = await tfm.runPlots(currentData, null, previousData);
+              tfmErrors = await tfm.runPlots(currentData, '/plot', previousData);
             } catch (tfmError) {
               console.error('TFM runPlots error:', tfmError);
               console.error('TFM error stack:', tfmError.stack);
@@ -322,7 +326,7 @@ class ValidationService {
               tfmErrors: tfmErrors || []
             };
             
-            console.log('Returning result:', JSON.stringify(result));
+            // console.log('Returning result:', JSON.stringify(result));
             return result;
           } catch (error) {
             console.error('TFM validation exception:', error);

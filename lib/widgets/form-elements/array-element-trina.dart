@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/validation_status_indicator.dart';
 
 /// ArrayElementTrina - TrinaGrid-based array data editor widget
 ///
@@ -66,6 +69,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   List<TrinaColumnGroup> _columnGroups = [];
   TrinaGridStateManager? _stateManager;
   bool _isArrayReadOnly = false;
+  DateTime? _lastSelectionTimestamp;
+  MapControllerProvider? _mapControllerProvider;
 
   @override
   void initState() {
@@ -73,6 +78,91 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     print('Initializing ArrayElementTrina for property: ${widget.propertyName}');
     print('Initial data: ${widget.data}');
     _initializeGrid();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Set up listener for MapControllerProvider if not already done
+    if (_mapControllerProvider == null) {
+      try {
+        _mapControllerProvider = context.read<MapControllerProvider>();
+        _mapControllerProvider!.addListener(_onMapControllerChanged);
+        debugPrint('${widget.propertyName}: Listener added to MapControllerProvider');
+      } catch (e) {
+        debugPrint('Error setting up MapControllerProvider listener: $e');
+      }
+    }
+  }
+
+  void _onMapControllerChanged() {
+    if (!mounted) return;
+
+    try {
+      final selectedArrayName = _mapControllerProvider?.selectedArrayName;
+      final selectedIdentifier = _mapControllerProvider?.selectedRowIdentifier;
+      final selectionTimestamp = _mapControllerProvider?.selectionTimestamp;
+
+      // Check if selection is for this grid and hasn't been processed yet
+      if (selectedArrayName == widget.propertyName &&
+          selectedIdentifier != null &&
+          selectionTimestamp != null &&
+          selectionTimestamp != _lastSelectionTimestamp) {
+        _lastSelectionTimestamp = selectionTimestamp;
+        debugPrint(
+          'Grid selection event for ${widget.propertyName}: identifier=$selectedIdentifier',
+        );
+
+        // Scroll and select the matching row
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToAndSelectRow(selectedIdentifier);
+            // Clear the selection request after processing
+            _mapControllerProvider?.clearGridRowSelection();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error handling map controller change: $e');
+    }
+  }
+
+  void _scrollToAndSelectRow(dynamic identifier) {
+    if (_stateManager == null || widget.data == null) return;
+
+    final identifierField = widget.identifierField ?? 'tree_number';
+    debugPrint('Searching for row with $identifierField=$identifier');
+
+    // Find the row index with matching identifier
+    int? matchingRowIndex;
+    for (int i = 0; i < widget.data!.length; i++) {
+      final rowData = widget.data![i];
+      if (rowData is Map<String, dynamic> && rowData[identifierField] == identifier) {
+        matchingRowIndex = i;
+        break;
+      }
+    }
+
+    if (matchingRowIndex == null) {
+      debugPrint('No row found with $identifierField=$identifier');
+      return;
+    }
+
+    debugPrint('Found matching row at index $matchingRowIndex');
+
+    // Select the row in the grid
+    try {
+      _stateManager!.setCurrentCell(
+        _stateManager!.rows[matchingRowIndex].cells.entries.first.value,
+        matchingRowIndex,
+      );
+      _stateManager!.setKeepFocus(true);
+
+      debugPrint('Successfully selected row $matchingRowIndex');
+    } catch (e) {
+      debugPrint('Error selecting row: $e');
+    }
   }
 
   @override
@@ -232,7 +322,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return columns;
     }
 
-    // Add menu column (always first, pinned left)
+    // Add validation status column (first, before menu, pinned left)
+    columns.add(
+      TrinaColumn(
+        title: '',
+        field: '__validation_status__',
+        type: TrinaColumnTypeText(),
+        width: 50,
+        frozen: TrinaColumnFrozen.start,
+        enableSorting: false,
+        enableColumnDrag: false,
+        enableContextMenu: false,
+        readOnly: true,
+        enableEditingMode: false,
+        renderer: (rendererContext) {
+          return ValidationStatusIndicator.build(
+            rowIndex: rendererContext.rowIdx,
+            propertyName: widget.propertyName ?? 'unknown',
+            validationResult: widget.validationResult,
+          );
+        },
+      ),
+    );
+
+    // Add menu column (always second, pinned left)
     columns.add(
       TrinaColumn(
         title: '',
@@ -1549,6 +1662,16 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     } else {
       widget.onDataChanged?.call(data);
     }
+  }
+
+  @override
+  void dispose() {
+    // Remove listener from MapControllerProvider
+    if (_mapControllerProvider != null) {
+      _mapControllerProvider!.removeListener(_onMapControllerChanged);
+      debugPrint('${widget.propertyName}: Listener removed from MapControllerProvider');
+    }
+    super.dispose();
   }
 
   @override

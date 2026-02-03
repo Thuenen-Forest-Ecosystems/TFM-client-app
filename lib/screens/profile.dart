@@ -180,6 +180,17 @@ class Profile extends StatelessWidget {
               },
               child: const Text('Records anzeigen'),
             ),
+            /*ElevatedButton(
+              onPressed: () {
+                db.getAll('SELECT * FROM lookup_tree_species').then((value) {
+                  print('Tree species lookup table:');
+                  for (var row in value) {
+                    print(row);
+                  }
+                });
+              },
+              child: const Text('Tree Species'),
+            ),*/
             ElevatedButton(
               onPressed: () {
                 context.beamToNamed('/logs');
