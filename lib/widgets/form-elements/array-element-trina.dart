@@ -322,29 +322,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return columns;
     }
 
-    // Add validation status column (first, before menu, pinned left)
-    columns.add(
-      TrinaColumn(
-        title: '',
-        field: '__validation_status__',
-        type: TrinaColumnTypeText(),
-        width: 50,
-        frozen: TrinaColumnFrozen.start,
-        enableSorting: false,
-        enableColumnDrag: false,
-        enableContextMenu: false,
-        readOnly: true,
-        enableEditingMode: false,
-        renderer: (rendererContext) {
-          return ValidationStatusIndicator.build(
-            rowIndex: rendererContext.rowIdx,
-            propertyName: widget.propertyName ?? 'unknown',
-            validationResult: widget.validationResult,
-          );
-        },
-      ),
-    );
-
     // Add menu column (always second, pinned left)
     columns.add(
       TrinaColumn(
@@ -420,6 +397,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                 ),
               ],
             ),
+          );
+        },
+      ),
+    );
+
+    // Add validation status column (first, before menu, pinned left)
+    columns.add(
+      TrinaColumn(
+        title: '',
+        field: '__validation_status__',
+        type: TrinaColumnTypeText(),
+        width: 50,
+        frozen: TrinaColumnFrozen.start,
+        enableSorting: false,
+        enableColumnDrag: false,
+        enableContextMenu: false,
+        readOnly: true,
+        enableEditingMode: false,
+        renderer: (rendererContext) {
+          return ValidationStatusIndicator.build(
+            context: context,
+            rowIndex: rendererContext.rowIdx,
+            propertyName: widget.propertyName ?? 'unknown',
+            validationResult: widget.validationResult,
           );
         },
       ),
@@ -1742,13 +1743,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                       onPressed: _isArrayReadOnly ? null : addRow,
                       child: Text('Zeile hinzufügen'),
                     ),
-                    Container(width: 1, height: 24, color: Colors.white54),
+                    /*Container(width: 1, height: 24, color: Colors.white54),
                     IconButton(
                       onPressed: _addRowAsFormDialog,
                       icon: const Icon(Icons.playlist_add),
                       tooltip: 'Zeile über Formular hinzufügen',
                       color: Theme.of(context).colorScheme.primary,
-                    ),
+                    ),*/
                   ],
                 ),
               ),
