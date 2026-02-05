@@ -11,6 +11,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/nested-tabs.dar
 import 'package:terrestrial_forest_monitor/widgets/form-elements/plot-support-points.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-navigation.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/previous-positions-selection.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/subplots-relative-position.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 
@@ -434,6 +435,87 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       );
     } else if (layoutItem is FormLayout) {
       // Form layout for primitive fields
+      // Check if a property path is specified for getting schema/data
+      Map<String, dynamic> formSchema = schemaProperties;
+      Map<String, dynamic> formData = _localFormData;
+      Map<String, dynamic> previousData = _previousProperties;
+
+      if (layoutItem.property != null) {
+        // If property path ends with '.items', get the schema for array items
+        final propertyPath = layoutItem.property!;
+        if (propertyPath.endsWith('.items')) {
+          final arrayPath = propertyPath.substring(0, propertyPath.length - 6);
+          final arraySchema = LayoutService.getSchemaByPath(schemaProperties, arrayPath);
+          if (arraySchema != null && arraySchema['items'] is Map<String, dynamic>) {
+            final itemSchema = arraySchema['items'] as Map<String, dynamic>;
+            formSchema = itemSchema['properties'] as Map<String, dynamic>? ?? {};
+          }
+          // For data, get filtered item from array or empty map
+          final arrayData = LayoutService.getValueByPath(_localFormData, arrayPath);
+          if (arrayData is List && arrayData.isNotEmpty) {
+            // Apply filter if specified
+            if (layoutItem.propertiesFilter != null && layoutItem.propertiesFilter!.isNotEmpty) {
+              final filter = layoutItem.propertiesFilter![0] as Map<String, dynamic>;
+              final tableName = filter['tableName'] as String?;
+              if (tableName != null) {
+                // Find item where parent_table matches tableName
+                try {
+                  final filteredItem = arrayData.firstWhere(
+                    (item) => item is Map<String, dynamic> && item['parent_table'] == tableName,
+                  );
+                  formData = filteredItem as Map<String, dynamic>? ?? {};
+                } catch (e) {
+                  formData = {};
+                }
+              } else {
+                formData = arrayData[0] as Map<String, dynamic>? ?? {};
+              }
+            } else {
+              formData = arrayData[0] as Map<String, dynamic>? ?? {};
+            }
+          } else {
+            formData = {};
+          }
+          final prevArrayData = LayoutService.getValueByPath(_previousProperties, arrayPath);
+          if (prevArrayData is List && prevArrayData.isNotEmpty) {
+            // Apply same filter to previous data
+            if (layoutItem.propertiesFilter != null && layoutItem.propertiesFilter!.isNotEmpty) {
+              final filter = layoutItem.propertiesFilter![0] as Map<String, dynamic>;
+              final tableName = filter['tableName'] as String?;
+              if (tableName != null) {
+                try {
+                  final filteredItem = prevArrayData.firstWhere(
+                    (item) => item is Map<String, dynamic> && item['parent_table'] == tableName,
+                  );
+                  previousData = filteredItem as Map<String, dynamic>? ?? {};
+                } catch (e) {
+                  previousData = {};
+                }
+              } else {
+                previousData = prevArrayData[0] as Map<String, dynamic>? ?? {};
+              }
+            } else {
+              previousData = prevArrayData[0] as Map<String, dynamic>? ?? {};
+            }
+          } else {
+            previousData = {};
+          }
+        } else {
+          // Regular property path
+          final propertySchema = LayoutService.getSchemaByPath(schemaProperties, propertyPath);
+          if (propertySchema != null) {
+            formSchema = propertySchema['properties'] as Map<String, dynamic>? ?? {};
+          }
+          formData =
+              LayoutService.getValueByPath(_localFormData, propertyPath) as Map<String, dynamic>? ??
+              {};
+          previousData =
+              LayoutService.getValueByPath(_previousProperties, propertyPath)
+                  as Map<String, dynamic>? ??
+              {};
+        }
+      }
+
       // Check if horizontal scrolling is enabled
       final typeProperties = layoutItem.typeProperties ?? {};
       final scrollHorizontal = typeProperties['scrollHorizontal'] as bool? ?? false;
@@ -447,26 +529,92 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         if (prop.width != null ||
             prop.minWidth != null ||
             prop.maxWidth != null ||
-            prop.useSpeechToText != null) {
+            prop.useSpeechToText != null ||
+            prop.upDownBtn != null) {
           fieldOptions[prop.name] = {
             if (prop.width != null) 'width': prop.width,
             if (prop.minWidth != null) 'minWidth': prop.minWidth,
             if (prop.maxWidth != null) 'maxWidth': prop.maxWidth,
             if (prop.useSpeechToText != null) 'useSpeechToText': prop.useSpeechToText,
+            if (prop.upDownBtn != null) 'upDownBtn': prop.upDownBtn,
           };
         }
       }
 
       Widget formWidget = GenericForm(
-        jsonSchema: schemaProperties,
-        data: _localFormData,
+        jsonSchema: {'properties': formSchema},
+        data: formData,
         propertyName: null,
-        previous_properties: _previousProperties,
+        previous_properties: previousData,
         validationResult: widget.validationResult,
         includeProperties: layoutItem.properties.map((p) => p.name).toList(),
         fieldOptions: fieldOptions.isNotEmpty ? fieldOptions : null,
         onDataChanged: (updatedData) {
-          _updateField('', updatedData);
+          if (layoutItem.property != null) {
+            // If we have a property path, update the nested data
+            final propertyPath = layoutItem.property!;
+            if (propertyPath.endsWith('.items')) {
+              // Update filtered item in array - merge updated fields into existing item
+              final arrayPath = propertyPath.substring(0, propertyPath.length - 6);
+              final arrayData = LayoutService.getValueByPath(_localFormData, arrayPath);
+              if (arrayData is List) {
+                // Apply filter to find the item to update
+                String? tableName;
+                if (layoutItem.propertiesFilter != null &&
+                    layoutItem.propertiesFilter!.isNotEmpty) {
+                  final filter = layoutItem.propertiesFilter![0] as Map<String, dynamic>;
+                  tableName = filter['tableName'] as String?;
+                }
+
+                if (arrayData.isEmpty) {
+                  // Create first item if array is empty
+                  if (tableName != null) {
+                    updatedData['parent_table'] = tableName;
+                  }
+                  arrayData.add(updatedData);
+                } else {
+                  // Find and update the matching item
+                  int itemIndex = -1;
+                  if (tableName != null) {
+                    itemIndex = arrayData.indexWhere(
+                      (item) => item is Map<String, dynamic> && item['parent_table'] == tableName,
+                    );
+                  } else {
+                    itemIndex = 0; // Default to first item if no filter
+                  }
+
+                  if (itemIndex >= 0) {
+                    // Merge updated fields into existing item
+                    final existingItem = arrayData[itemIndex] as Map<String, dynamic>;
+                    existingItem.addAll(updatedData);
+                  } else {
+                    // Item doesn't exist, create new one with filter
+                    if (tableName != null) {
+                      updatedData['parent_table'] = tableName;
+                    }
+                    arrayData.add(updatedData);
+                  }
+                }
+                LayoutService.setValueByPath(_localFormData, arrayPath, arrayData);
+              } else {
+                // Array doesn't exist - create it with first item
+                if (layoutItem.propertiesFilter != null &&
+                    layoutItem.propertiesFilter!.isNotEmpty) {
+                  final filter = layoutItem.propertiesFilter![0] as Map<String, dynamic>;
+                  final tableName = filter['tableName'] as String?;
+                  if (tableName != null) {
+                    updatedData['parent_table'] = tableName;
+                  }
+                }
+                LayoutService.setValueByPath(_localFormData, arrayPath, [updatedData]);
+              }
+            } else {
+              LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+            }
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          } else {
+            _updateField('', updatedData);
+          }
         },
         isDense: dense,
         layout: scrollHorizontal
@@ -575,6 +723,23 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         // ManuellRelativePosition component - for manual navigation when GPS is unavailable
         debugPrint('object layout manuell_relative_position - rendering ManuellRelativePosition');
         return ManuellRelativePosition(formData: _localFormData, onFieldChanged: _updateField);
+      }
+      if (layoutItem.component == 'subplots_relative_position') {
+        debugPrint('object layout subplots_relative_position - rendering SubplotsRelativePosition');
+
+        final children = <Widget>[];
+        if (layoutItem.children != null) {
+          for (final childItem in layoutItem.children!) {
+            children.add(_buildWidgetFromLayout(childItem, schemaProperties));
+          }
+        }
+
+        return SubplotsRelativePosition(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          previous_properties: _previousProperties,
+          children: children,
+        );
       }
 
       // For other components, property path is required

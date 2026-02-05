@@ -305,6 +305,7 @@ class _StartState extends State<Start> {
         ),
         SafeArea(
           child: Container(
+            padding: const EdgeInsets.only(top: 10),
             alignment: Alignment.topLeft,
             child: Row(
               children: [
@@ -413,7 +414,7 @@ class _StartState extends State<Start> {
   Widget _buildBottomSheet() {
     // Calculate maxChildSize based on screen height minus 100px
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxHeight = screenHeight - 20;
+    final maxHeight = screenHeight - (65 + MediaQuery.of(context).padding.top);
     _maxChildSize = maxHeight / screenHeight;
 
     // Get keyboard height
@@ -486,10 +487,17 @@ class _StartState extends State<Start> {
                 Expanded(
                   child: ListView(
                     controller: scrollController,
-                    padding: EdgeInsets.only(bottom: keyboardHeight > 0 ? keyboardHeight : 0),
+                    padding: EdgeInsets.only(
+                      bottom: keyboardHeight > 0
+                          ? keyboardHeight
+                          : MediaQuery.of(context).padding.bottom,
+                    ),
                     children: [
                       SizedBox(
-                        height: MediaQuery.of(context).size.height * _maxChildSize - 28,
+                        height:
+                            MediaQuery.of(context).size.height * _maxChildSize -
+                            28 -
+                            MediaQuery.of(context).padding.bottom,
                         child: Beamer(routerDelegate: _beamerDelegate),
                       ),
                     ],

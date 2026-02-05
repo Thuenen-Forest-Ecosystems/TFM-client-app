@@ -275,7 +275,15 @@ class Layout extends StatelessWidget {
             brightness: Brightness.light,
           ).copyWith(error: Colors.red.shade700),
           primaryColor: const Color(0xFFC3E399),
-          appBarTheme: AppBarTheme(color: const Color(0xFFC3E399)),
+          appBarTheme: AppBarTheme(backgroundColor: const Color(0xFFC3E399)),
+          switchTheme: SwitchThemeData(
+            trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+              if (!states.contains(WidgetState.selected)) {
+                return Colors.grey[400];
+              }
+              return null;
+            }),
+          ),
           useMaterial3: true,
         ),
 

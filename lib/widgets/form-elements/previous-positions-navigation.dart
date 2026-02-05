@@ -812,7 +812,11 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         }
       } else {
         // Tab became hidden - clear navigation
-        _clearNavigationFromMap();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _clearNavigationFromMap();
+          }
+        });
       }
       return; // Skip other update logic when visibility changes
     }
@@ -831,10 +835,14 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       _loadPositionData();
       // Clear selection if data changed
       if (_selectedPositionKey != null || _startPositionKey != null) {
-        final mapProvider = context.read<MapControllerProvider>();
-        mapProvider.clearDistanceLine();
-        mapProvider.clearNavigationTarget();
-        mapProvider.clearNavigationStart();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final mapProvider = context.read<MapControllerProvider>();
+            mapProvider.clearDistanceLine();
+            mapProvider.clearNavigationTarget();
+            mapProvider.clearNavigationStart();
+          }
+        });
         _selectedPositionKey = null;
         _startPositionKey = null;
       }

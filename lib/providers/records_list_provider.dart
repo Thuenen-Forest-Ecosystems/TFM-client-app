@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
+import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 
@@ -147,5 +148,27 @@ class RecordsListProvider extends ChangeNotifier {
     // Can add logic here to check if data has changed
     // For now, cache is valid unless manually cleared
     return false;
+  }
+
+  // Update a single record in the cache without reloading everything
+  void updateRecordInCache(Record updatedRecord) {
+    bool hasChanged = false;
+
+    _recordsCache.forEach((key, recordsList) {
+      final index = recordsList.indexWhere((item) {
+        final record = item['record'] as Record;
+        return record.id == updatedRecord.id;
+      });
+
+      if (index != -1) {
+        // Update the record in the list
+        recordsList[index]['record'] = updatedRecord;
+        hasChanged = true;
+      }
+    });
+
+    if (hasChanged) {
+      notifyListeners();
+    }
   }
 }

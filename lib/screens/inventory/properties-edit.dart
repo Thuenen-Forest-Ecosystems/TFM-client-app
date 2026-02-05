@@ -19,6 +19,7 @@ import 'package:terrestrial_forest_monitor/services/conditional_rules_service.da
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/new_record_dialog.dart';
 
@@ -666,8 +667,28 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Cancel any pending validation
     _validationDebounceTimer?.cancel();
 
-    // Debounce validation to avoid running on every keystroke
+    // Debounce validation and updates
     _validationDebounceTimer = Timer(const Duration(milliseconds: 800), () async {
+      // Update provider cache and focused record (map preview)
+      if (mounted && _record != null) {
+        try {
+          // Create updated record (don't save to DB yet)
+          final updatedRecord = _record!.copyWith(properties: updatedData);
+
+          // 1. Update list/markers
+          context.read<RecordsListProvider>().updateRecordInCache(updatedRecord);
+
+          // 2. Update focused features (trees, etc.) if map provider is available
+          // MapWidget listens to this to rebuild tree layers
+          final mapProvider = context.read<MapControllerProvider>();
+          if (mapProvider.focusedRecord?.id == _record!.id) {
+            mapProvider.setFocusedRecord(updatedRecord);
+          }
+        } catch (e) {
+          debugPrint('Error updating map preview: $e');
+        }
+      }
+
       if (_originalJsonSchema != null) {
         setState(() {
           _isValidating = true;

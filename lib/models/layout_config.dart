@@ -87,6 +87,7 @@ class PropertyConfig {
   final double? minWidth;
   final double? maxWidth;
   final bool? useSpeechToText;
+  final int? upDownBtn;
 
   PropertyConfig({
     required this.name,
@@ -94,6 +95,7 @@ class PropertyConfig {
     this.minWidth,
     this.maxWidth,
     this.useSpeechToText,
+    this.upDownBtn,
   });
 
   factory PropertyConfig.fromJson(dynamic json) {
@@ -106,6 +108,7 @@ class PropertyConfig {
         minWidth: (json['minWidth'] as num?)?.toDouble(),
         maxWidth: (json['maxWidth'] as num?)?.toDouble(),
         useSpeechToText: json['useSpeechToText'] as bool?,
+        upDownBtn: json['upDownBtn'] as int?,
       );
     }
     throw Exception('Invalid property config format');
@@ -117,6 +120,10 @@ class FormLayout extends LayoutItem {
   final List<PropertyConfig> properties;
   final Map<String, dynamic>? options; // UI options for form fields
   final Map<String, dynamic>? typeProperties; // Type-specific properties (scrollHorizontal)
+  final String?
+  property; // Optional property path (e.g., 'subplots_relative_position[0]' or 'subplots_relative_position.items')
+  final List<dynamic>?
+  propertiesFilter; // Filter for array items (e.g., [{"tableName": "regeneration"}])
 
   FormLayout({
     required super.id,
@@ -124,6 +131,8 @@ class FormLayout extends LayoutItem {
     required this.properties,
     this.options,
     this.typeProperties,
+    this.property,
+    this.propertiesFilter,
   }) : super(type: 'form');
 
   factory FormLayout.fromJson(Map<String, dynamic> json) {
@@ -135,6 +144,8 @@ class FormLayout extends LayoutItem {
       properties: propertiesJson.map((p) => PropertyConfig.fromJson(p)).toList(),
       options: json['options'] as Map<String, dynamic>?,
       typeProperties: json['typeProperties'] as Map<String, dynamic>?,
+      property: json['property'] as String?,
+      propertiesFilter: json['propertiesFilter'] as List<dynamic>?,
     );
   }
 }
@@ -195,15 +206,29 @@ class ObjectLayout extends LayoutItem {
 
   factory ObjectLayout.fromJson(Map<String, dynamic> json) {
     final childrenJson = json['children'] as List<dynamic>?;
+    final itemsJson = json['items'] as List<dynamic>?; // Support 'items' as alias for 'children'
+    // Support 'child' as single item for children
+    final childJson = json['child'] as Map<String, dynamic>?;
+
+    List<LayoutItem>? children;
+    if (childrenJson != null) {
+      children = childrenJson
+          .map((item) => LayoutItem.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } else if (itemsJson != null) {
+      children = itemsJson
+          .map((item) => LayoutItem.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } else if (childJson != null) {
+      children = [LayoutItem.fromJson(childJson)];
+    }
 
     return ObjectLayout(
       id: json['id'] as String,
       label: json['label'] as String?,
       property: json['property'] as String?,
       component: json['component'] as String? ?? 'form',
-      children: childrenJson
-          ?.map((item) => LayoutItem.fromJson(item as Map<String, dynamic>))
-          .toList(),
+      children: children,
       options: json['options'] as Map<String, dynamic>?,
     );
   }

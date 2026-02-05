@@ -28,7 +28,7 @@ class _SchemaState extends State<Schema> {
           ),
         ],
       ),
-      body: const Center(child: SchemaSelection()),
+      body: const SafeArea(child: Center(child: SchemaSelection())),
     );
   }
 }

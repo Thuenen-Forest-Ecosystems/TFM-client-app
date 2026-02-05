@@ -160,6 +160,7 @@ class _GenericFormState extends State<GenericForm> {
             dense: widget.isDense,
             previousData: widget.previous_properties,
             currentData: _localData,
+            fieldOptions: fieldConfig,
           );
 
           // If fixed width is specified, use SizedBox
@@ -222,6 +223,7 @@ class _GenericFormState extends State<GenericForm> {
             final fieldName = entry.key;
             final fieldSchema = entry.value;
             final fieldErrors = _getErrorsForField(fieldName);
+            final fieldConfig = widget.fieldOptions?[fieldName] as Map<String, dynamic>?;
 
             return Padding(
               padding: const EdgeInsets.all(5),
@@ -236,6 +238,7 @@ class _GenericFormState extends State<GenericForm> {
                   dense: widget.isDense,
                   previousData: widget.previous_properties,
                   currentData: _localData,
+                  fieldOptions: fieldConfig,
                 ),
               ),
             );

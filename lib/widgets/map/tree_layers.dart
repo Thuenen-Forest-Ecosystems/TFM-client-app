@@ -11,12 +11,15 @@ class TreeLayers {
     bool showNull = true,
     Color? treeColor,
     Color? nullTreeColor,
+    double borderStrokeWidth = 0.0,
+    Color borderColor = Colors.black,
   }) {
     return CircleLayer(
       circles: treePositions.map((tree) {
         final lat = tree['lat'] as double;
         final lng = tree['lng'] as double;
         final dbh = tree['dbh']; // DBH in millimeters
+        final status = tree['tree_status'];
 
         if (!showNull && dbh == null) {
           return CircleMarker(
@@ -24,28 +27,36 @@ class TreeLayers {
             radius: 0,
             useRadiusInMeter: true,
             color: Colors.transparent,
-            borderStrokeWidth: 0,
+            borderStrokeWidth: borderStrokeWidth,
+            borderColor: borderColor,
           );
         }
 
         // Calculate radius: DBH is in mm, convert to meters and divide by 2
         // Apply the diameter multiplier
         // If dbh is null, use a default visible radius of 0.5m (for visibility)
-        final radiusMeters = dbh != null
+        final radius = dbh != null
             ? ((dbh as num).toDouble() / 1000.0 / 2.0) * treeDiameterMultiplier
-            : 0.2;
+            : 3.0; // 3 pixels if no DBH
 
         // Use provided colors or fall back to default colors
-        final baseColor = dbh != null
-            ? (treeColor ?? Color.fromARGB(255, 255, 255, 0)) // custom or yellow
-            : (nullTreeColor ?? Colors.black); // custom or black for missing DBH
+        Color baseColor = (treeColor ?? Color.fromARGB(255, 255, 255, 0));
+        if (dbh == null) {
+          if (![0, 1, 8, 1111].contains(status)) {
+            baseColor = Colors.black;
+          } else {
+            baseColor = nullTreeColor ?? Colors.red;
+          }
+        }
 
         return CircleMarker(
           point: LatLng(lat, lng),
-          radius: radiusMeters,
-          useRadiusInMeter: true,
-          color: withOpacity ? baseColor.withOpacity(0.5) : baseColor,
-          borderStrokeWidth: 0, // no border
+          radius: radius,
+          useRadiusInMeter: dbh != null,
+          color: baseColor,
+          // borderStrokeWidth is always in pixels, independent of useRadiusInMeter which only applies to the radius
+          borderStrokeWidth: dbh != null ? borderStrokeWidth : 0.0,
+          borderColor: borderColor,
         );
       }).toList(),
     );
@@ -105,9 +116,7 @@ class TreeLayers {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
-                      color: withOpacity
-                          ? Colors.white.withOpacity(0.5)
-                          : Colors.white.withOpacity(0.9),
+                      color: Colors.white.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -116,7 +125,7 @@ class TreeLayers {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: withOpacity ? Colors.black.withOpacity(0.5) : Colors.black,
+                        color: Colors.black,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

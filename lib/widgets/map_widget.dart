@@ -485,6 +485,7 @@ class _MapWidgetState extends State<MapWidget> {
             'distance': distance,
             'dbh': dbh,
             'tree_species': tree['tree_species'],
+            'tree_status': tree['tree_status'],
             'data': tree,
           });
         }
@@ -1225,7 +1226,9 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         radius: 25.0,
         useRadiusInMeter: true,
-        color: const Color.fromARGB(25, 0, 159, 224),
+        color: const Color.fromARGB(15, 0, 159, 224),
+        borderColor: const Color.fromARGB(155, 0, 159, 224),
+        borderStrokeWidth: 1.0,
       ),
       // 10m radius circle
       CircleMarker(
@@ -1235,7 +1238,9 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         radius: 10.0,
         useRadiusInMeter: true,
-        color: const Color.fromARGB(25, 0, 170, 130),
+        color: const Color.fromARGB(15, 0, 170, 130),
+        borderColor: const Color.fromARGB(155, 0, 170, 130),
+        borderStrokeWidth: 1.0,
       ),
       // 5m radius circle
       CircleMarker(
@@ -1245,7 +1250,9 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         radius: 5.0,
         useRadiusInMeter: true,
-        color: const Color.fromARGB(25, 0, 170, 170),
+        color: const Color.fromARGB(15, 0, 170, 170),
+        borderColor: const Color.fromARGB(155, 0, 170, 170),
+        borderStrokeWidth: 1.0,
       ),
     ];
   }
@@ -1564,29 +1571,45 @@ class _MapWidgetState extends State<MapWidget> {
           TreeLayers.buildCircleLayer(
             _previousTreePositions,
             _treeDiameterMultiplier,
-            withOpacity: true,
-            treeColor: intervalColorCache['previousColor'],
-            nullTreeColor: Colors.black,
+            //withOpacity: true,
+            showNull: true,
+            treeColor: intervalColorCache['previousColor']!,
+            nullTreeColor: Colors.black.withAlpha(50),
+            borderStrokeWidth: 0.0,
+            borderColor: Colors.transparent,
           ),
-        if (_focusedRecord != null && _previousTreePositions.isNotEmpty && _showTreeLabels)
-          TreeLayers.buildMarkerLayer(_previousTreePositions, _treeLabelFields, withOpacity: false),
-
         // Display CURRENT trees (without opacity, on top)
         if (_focusedRecord != null && _treePositions.isNotEmpty)
           TreeLayers.buildCircleLayer(
             _treePositions,
             _treeDiameterMultiplier,
-            withOpacity: false,
+            //withOpacity: false,
             showNull: true,
-            treeColor: intervalColorCache['currentColor'],
+            treeColor: intervalColorCache['currentColor']!,
             nullTreeColor: Colors.red,
+            borderStrokeWidth: 0.0,
+            borderColor: Colors.transparent,
           ),
+        // Display PREVIOUS trees (with opacity for differentiation)
+        if (_focusedRecord != null && _previousTreePositions.isNotEmpty)
+          TreeLayers.buildCircleLayer(
+            _previousTreePositions,
+            _treeDiameterMultiplier,
+            //withOpacity: true,
+            showNull: false,
+            treeColor: Colors.transparent,
+            nullTreeColor: Colors.black.withAlpha(50),
+            borderStrokeWidth: 1.0,
+            borderColor: intervalColorCache['previousColor']!,
+          ),
+        //if (_focusedRecord != null && _previousTreePositions.isNotEmpty && _showTreeLabels)
+        //  TreeLayers.buildMarkerLayer(_previousTreePositions, _treeLabelFields, withOpacity: false),
         if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
           TreeLayers.buildMarkerLayer(_treePositions, _treeLabelFields, withOpacity: false),
 
         // Clickable layer for CURRENT trees (on top for click handling)
-        if (_focusedRecord != null && _treePositions.isNotEmpty)
-          TreeLayers.buildClickableLayer(_treePositions, _onTreeCircleTapped),
+        //if (_focusedRecord != null && _treePositions.isNotEmpty)
+        //  TreeLayers.buildClickableLayer(_treePositions, _onTreeCircleTapped),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)
@@ -1706,27 +1729,91 @@ class _MapWidgetState extends State<MapWidget> {
         // Scale bar - positioned based on sheet position
         // Account for both sheet height and map vertical offset
         Positioned(
-          left: 8,
+          left: 60,
           bottom: widget.sheetPosition != null
               ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8
               : MediaQuery.of(context).size.height * 0.075 + 8,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Color.fromARGB(100, 200, 200, 200),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.black26, width: 1),
-            ),
-            child: Scalebar(
-              textStyle: const TextStyle(
-                color: Colors.black,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Color.fromARGB(100, 200, 200, 200),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.black26, width: 1),
+                ),
+                child: Scalebar(
+                  textStyle: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  lineColor: Colors.black,
+                  strokeWidth: 2,
+                  padding: EdgeInsets.zero,
+                ),
               ),
-              lineColor: Colors.black,
-              strokeWidth: 2,
-              padding: EdgeInsets.zero,
-            ),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 70,
+          bottom: widget.sheetPosition != null
+              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8
+              : MediaQuery.of(context).size.height * 0.075 + 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Zoom buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Zoom in button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.add,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () {
+                        final currentZoom = _mapController.camera.zoom;
+                        final currentCenter = _mapController.camera.center;
+                        _mapController.move(currentCenter, currentZoom + 1);
+                      },
+                    ),
+                  ),
+                  // Divider
+                  const SizedBox(width: 8),
+                  // Zoom out button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.remove,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () {
+                        final currentZoom = _mapController.camera.zoom;
+                        final currentCenter = _mapController.camera.center;
+                        _mapController.move(currentCenter, currentZoom - 1);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],

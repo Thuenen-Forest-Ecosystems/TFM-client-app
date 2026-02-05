@@ -944,6 +944,33 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
+    // Get field options from column config or columnItems
+    Map<String, dynamic>? fieldOptions;
+    if (widget.columnConfig != null && widget.columnConfig!.containsKey(fieldKey)) {
+      fieldOptions = widget.columnConfig![fieldKey] as Map<String, dynamic>?;
+    } else if (widget.columnItems != null) {
+      // Extract field options from columnItems structure
+      for (final item in widget.columnItems!) {
+        final itemMap = item as Map<String, dynamic>;
+        if (itemMap['type'] == 'group') {
+          final groupItems = itemMap['items'] as List?;
+          if (groupItems != null) {
+            for (final groupItem in groupItems) {
+              final groupItemMap = groupItem as Map<String, dynamic>;
+              if (groupItemMap['name'] == fieldKey) {
+                fieldOptions = groupItemMap;
+                break;
+              }
+            }
+          }
+        } else if (itemMap['name'] == fieldKey) {
+          fieldOptions = itemMap;
+          break;
+        }
+        if (fieldOptions != null) break;
+      }
+    }
+
     // Check if cell is in edit mode (current cell) and row is selected
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
     final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
@@ -964,6 +991,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             errors: const [],
             compact: true,
             currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
+            fieldOptions: fieldOptions,
             onChanged: (newValue) {
               rendererContext.cell.value = newValue;
               _stateManager?.notifyListeners();
@@ -1065,6 +1093,33 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
+    // Get field options from column config or columnItems
+    Map<String, dynamic>? fieldOptions;
+    if (widget.columnConfig != null && widget.columnConfig!.containsKey(fieldKey)) {
+      fieldOptions = widget.columnConfig![fieldKey] as Map<String, dynamic>?;
+    } else if (widget.columnItems != null) {
+      // Extract field options from columnItems structure
+      for (final item in widget.columnItems!) {
+        final itemMap = item as Map<String, dynamic>;
+        if (itemMap['type'] == 'group') {
+          final groupItems = itemMap['items'] as List?;
+          if (groupItems != null) {
+            for (final groupItem in groupItems) {
+              final groupItemMap = groupItem as Map<String, dynamic>;
+              if (groupItemMap['name'] == fieldKey) {
+                fieldOptions = groupItemMap;
+                break;
+              }
+            }
+          }
+        } else if (itemMap['name'] == fieldKey) {
+          fieldOptions = itemMap;
+          break;
+        }
+        if (fieldOptions != null) break;
+      }
+    }
+
     // Check if cell is in edit mode and row is selected
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
     final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
@@ -1081,6 +1136,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           value: value,
           errors: const [],
           compact: true,
+          fieldOptions: fieldOptions,
           onChanged: (newValue) {
             rendererContext.cell.value = newValue;
             _stateManager?.notifyListeners();
@@ -1122,6 +1178,33 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Check if field is readonly
     final isReadOnly = propertySchema['readonly'] as bool? ?? false;
 
+    // Get field options from column config or columnItems
+    Map<String, dynamic>? fieldOptions;
+    if (widget.columnConfig != null && widget.columnConfig!.containsKey(fieldKey)) {
+      fieldOptions = widget.columnConfig![fieldKey] as Map<String, dynamic>?;
+    } else if (widget.columnItems != null) {
+      // Extract field options from columnItems structure
+      for (final item in widget.columnItems!) {
+        final itemMap = item as Map<String, dynamic>;
+        if (itemMap['type'] == 'group') {
+          final groupItems = itemMap['items'] as List?;
+          if (groupItems != null) {
+            for (final groupItem in groupItems) {
+              final groupItemMap = groupItem as Map<String, dynamic>;
+              if (groupItemMap['name'] == fieldKey) {
+                fieldOptions = groupItemMap;
+                break;
+              }
+            }
+          }
+        } else if (itemMap['name'] == fieldKey) {
+          fieldOptions = itemMap;
+          break;
+        }
+        if (fieldOptions != null) break;
+      }
+    }
+
     // Check if cell is in edit mode and row is selected
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
     final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
@@ -1139,6 +1222,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           value: value,
           errors: const [],
           compact: true,
+          fieldOptions: fieldOptions,
           onChanged: (newValue) {
             rendererContext.cell.value = newValue;
             _stateManager?.notifyListeners();
@@ -1307,6 +1391,33 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
+    // Get field options from column config or columnItems
+    Map<String, dynamic>? fieldOptions;
+    if (widget.columnConfig != null && widget.columnConfig!.containsKey(fieldKey)) {
+      fieldOptions = widget.columnConfig![fieldKey] as Map<String, dynamic>?;
+    } else if (widget.columnItems != null) {
+      // Extract field options from columnItems structure
+      for (final item in widget.columnItems!) {
+        final itemMap = item as Map<String, dynamic>;
+        if (itemMap['type'] == 'group') {
+          final groupItems = itemMap['items'] as List?;
+          if (groupItems != null) {
+            for (final groupItem in groupItems) {
+              final groupItemMap = groupItem as Map<String, dynamic>;
+              if (groupItemMap['name'] == fieldKey) {
+                fieldOptions = groupItemMap;
+                break;
+              }
+            }
+          }
+        } else if (itemMap['name'] == fieldKey) {
+          fieldOptions = itemMap;
+          break;
+        }
+        if (fieldOptions != null) break;
+      }
+    }
+
     return Container(
       color: bgColor,
       child: GenericTextField(
@@ -1318,6 +1429,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         compact: true,
         previousData: previousRowData,
         currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
+        fieldOptions: fieldOptions,
       ),
     );
   }

@@ -17,6 +17,7 @@ class GenericTextField extends StatefulWidget {
   final double? width; // Optional width constraint from layout
   final Map<String, dynamic>? previousData; // For calculated fields
   final Map<String, dynamic>? currentData; // For calculated fields
+  final Map<String, dynamic>? fieldOptions; // Layout configuration (upDownBtn, etc.)
 
   const GenericTextField({
     super.key,
@@ -31,6 +32,7 @@ class GenericTextField extends StatefulWidget {
     this.width,
     this.previousData,
     this.currentData,
+    this.fieldOptions,
   });
 
   @override
@@ -464,21 +466,24 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final unit = tfmData?['unit_short'] as String?;
 
       // Check for upDownBtn (spinner buttons)
-      int? upDownBtn = widget.fieldSchema['upDownBtn'] as int?;
+      // Priority: 1) fieldOptions from layout, 2) schema, 3) auto-detect from range
+      int? upDownBtn =
+          widget.fieldOptions?['upDownBtn'] as int? ?? widget.fieldSchema['upDownBtn'] as int?;
       bool hasSpinner = upDownBtn != null && type == 'integer';
 
       // Get min/max values from schema
       final minimum = widget.fieldSchema['minimum'] as num?;
       final maximum = widget.fieldSchema['maximum'] as num?;
 
-      // IF max - min is small, add upDownBtn +1
-      debugPrint('Minumum: ${widget.fieldName}: ${minimum}');
-      if (minimum != null && maximum != null && (maximum - minimum) <= 1000) {
-        // Override upDownBtn to 1
-        debugPrint('Setting upDownBtn to 1 for field ${widget.fieldName} due to small range');
-        hasSpinner = true;
-        upDownBtn = 1;
-      }
+      // Auto-detection: IF max - min is small and not explicitly set, add upDownBtn +1
+      /*if (widget.fieldOptions?['upDownBtn'] == null && widget.fieldSchema['upDownBtn'] == null) {
+        if (minimum != null && maximum != null && (maximum - minimum) <= 1000) {
+          // Auto-enable spinner for small range
+          debugPrint('Auto-enabling upDownBtn for field ${widget.fieldName} due to small range');
+          hasSpinner = true;
+          upDownBtn = 1;
+        }
+      }*/
 
       // Helper function to increment/decrement value
       void adjustValue(int delta) {
@@ -506,7 +511,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
               ? InputDecoration(
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                  suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
+                  suffixText: !hasSpinner && unit != null && unit.isNotEmpty ? ' $unit' : null,
                   isDense: true,
                   filled: hasErrors,
                   fillColor: errorBgColor,
@@ -524,13 +529,23 @@ class _GenericTextFieldState extends State<GenericTextField> {
                       : null,
                   suffixIcon: hasSpinner
                       ? SizedBox(
-                          width: 20,
-                          child: IconButton(
-                            icon: const Icon(Icons.add, size: 14),
-                            onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                            iconSize: 14,
+                          width: unit != null && unit.isNotEmpty ? 70 : 40,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (unit != null && unit.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Text(unit, style: const TextStyle(fontSize: 12)),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.add, size: 14),
+                                onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                                iconSize: 14,
+                              ),
+                            ],
                           ),
                         )
                       : null,
@@ -545,7 +560,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   filled: true,
                   isDense: widget.dense,
                   fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
-                  suffixText: unit != null && unit.isNotEmpty ? ' $unit' : null,
+                  suffixText: !hasSpinner && unit != null && unit.isNotEmpty ? ' $unit' : null,
                   prefixIcon: hasSpinner
                       ? IconButton(
                           icon: const Icon(Icons.remove),
@@ -553,9 +568,23 @@ class _GenericTextFieldState extends State<GenericTextField> {
                         )
                       : null,
                   suffixIcon: hasSpinner
-                      ? IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                      ? SizedBox(
+                          width: unit != null && unit.isNotEmpty ? 100 : 48,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (unit != null && unit.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Text(unit, style: const TextStyle(fontSize: 14)),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                              ),
+                            ],
+                          ),
                         )
                       : null,
                   /*suffixIcon: SpeechToTextButton(
