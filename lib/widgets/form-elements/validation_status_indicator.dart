@@ -33,13 +33,18 @@ class ValidationStatusIndicator {
       return Center(
         child: InkWell(
           onTap: () => _showRowValidationDialog(context, rowIndex, propertyName, validationResult),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.circle, size: 12, color: Colors.red),
-              SizedBox(width: 4),
-              Icon(Icons.circle, size: 12, color: Colors.orange),
-            ],
+          child: Container(
+            width: 50,
+            height: 50,
+            color: Colors.yellow.withOpacity(0.5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.circle, size: 12, color: Colors.red),
+                SizedBox(width: 4),
+                Icon(Icons.circle, size: 12, color: Colors.orange),
+              ],
+            ),
           ),
         ),
       );
@@ -59,7 +64,11 @@ class ValidationStatusIndicator {
       return Center(
         child: InkWell(
           onTap: () => _showRowValidationDialog(context, rowIndex, propertyName, validationResult),
-          child: Icon(Icons.circle, size: 12, color: statusColor),
+          child: Container(
+            width: 50,
+            height: 50,
+            child: Center(child: Icon(Icons.circle, size: 12, color: statusColor)),
+          ),
         ),
       );
     }

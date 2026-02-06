@@ -39,7 +39,10 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
 
   List<String> availablePorts = [];
 
-  final LocationSettings locationSettings = LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 100);
+  final LocationSettings locationSettings = LocationSettings(
+    accuracy: LocationAccuracy.high,
+    distanceFilter: 100,
+  );
   StreamSubscription<Position>? positionStream;
 
   @override
@@ -49,8 +52,24 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
 
   void _start_flutter_bluetooth_serial() async {
     print('Start flutter_bluetooth_serial');
-    setState(() => availablePorts = SerialPort.availablePorts);
-    print('Available ports: $availablePorts');
+    try {
+      final ports =
+          await Future.delayed(
+            const Duration(milliseconds: 100),
+            () => SerialPort.availablePorts,
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              print('Serial port scan timeout');
+              return <String>[];
+            },
+          );
+      setState(() => availablePorts = ports);
+      print('Available ports: $availablePorts');
+    } catch (e) {
+      print('Error scanning ports: $e');
+      setState(() => availablePorts = []);
+    }
   }
 
   void read(ports) {
@@ -101,6 +120,9 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(onPressed: _start_flutter_bluetooth_serial, icon: Icon(streaming ? Icons.gps_fixed : Icons.gps_not_fixed));
+    return IconButton(
+      onPressed: _start_flutter_bluetooth_serial,
+      icon: Icon(streaming ? Icons.gps_fixed : Icons.gps_not_fixed),
+    );
   }
 }

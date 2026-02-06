@@ -1870,80 +1870,110 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         ),
         // Grid
         Expanded(
-          child: Stack(
-            children: [
-              TrinaGrid(
-                columns: _columns,
-                rows: _rows,
-                columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
-                onLoaded: (TrinaGridOnLoadedEvent event) {
-                  _stateManager = event.stateManager;
-                  _rows = event.stateManager.rows;
-                  // Auto-size columns to fit headers
-                  /*for (final column in event.stateManager.columns) {
+          child: Selector<MapControllerProvider, bool>(
+            selector: (_, provider) => provider.isSheetFullyExpanded,
+            builder: (context, isExpanded, child) {
+              return Stack(
+                children: [
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      // Handover scroll to sheet if at top and scrolling up (dragging down)
+                      if (isExpanded && notification.metrics.pixels <= 0) {
+                        if (notification is ScrollUpdateNotification &&
+                            notification.scrollDelta != null) {
+                          final delta = notification.scrollDelta!;
+                          if (delta < 0) {
+                            // Dragging down at top -> Collapse sheet
+                            // Pass the delta to the sheet controller via provider
+                            context.read<MapControllerProvider>().dragSheet(delta);
+                          }
+                        } else if (notification is OverscrollNotification &&
+                            notification.overscroll < 0) {
+                          // Handle overscroll (iOS bounce or Android stretch)
+                          context.read<MapControllerProvider>().dragSheet(notification.overscroll);
+                        }
+                      }
+                      return false;
+                    },
+                    child: TrinaGrid(
+                      columns: _columns,
+                      rows: _rows,
+                      columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
+                      onLoaded: (TrinaGridOnLoadedEvent event) {
+                        _stateManager = event.stateManager;
+                        _rows = event.stateManager.rows;
+                        // Auto-size columns to fit headers
+                        /*for (final column in event.stateManager.columns) {
                     event.stateManager.autoFitColumn(context, column);
                   }*/
-                },
-                onChanged: (TrinaGridOnChangedEvent event) {
-                  // Sync _rows from state manager
-                  _rows = _stateManager?.rows ?? _rows;
-                  _notifyDataChanged();
-                },
-                onSorted: (TrinaGridOnSortedEvent event) {
-                  final column = event.column;
+                      },
+                      onChanged: (TrinaGridOnChangedEvent event) {
+                        // Sync _rows from state manager
+                        _rows = _stateManager?.rows ?? _rows;
+                        _notifyDataChanged();
+                      },
+                      onSorted: (TrinaGridOnSortedEvent event) {
+                        final column = event.column;
 
-                  // Simple toggle: if currently ascending, go descending, otherwise go ascending
-                  if (column.sort == TrinaColumnSort.ascending) {
-                    _stateManager?.sortDescending(column);
-                  } else {
-                    _stateManager?.sortAscending(column);
-                  }
+                        // Simple toggle: if currently ascending, go descending, otherwise go ascending
+                        if (column.sort == TrinaColumnSort.ascending) {
+                          _stateManager?.sortDescending(column);
+                        } else {
+                          _stateManager?.sortAscending(column);
+                        }
 
-                  _rows = _stateManager?.rows ?? _rows;
-                },
-                configuration: TrinaGridConfiguration(
-                  scrollbar: const TrinaGridScrollbarConfig(isAlwaysShown: true),
-                  columnSize: const TrinaGridColumnSizeConfig(resizeMode: TrinaResizeMode.normal),
-                  enterKeyAction: TrinaGridEnterKeyAction.editingAndMoveDown,
-                  enableMoveDownAfterSelecting: true,
-                  enableMoveHorizontalInEditing: true,
-                  tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
-                  style: TrinaGridStyleConfig(
-                    rowHeight: 60,
-                    iconSize: 0,
-                    gridBorderRadius: BorderRadius.zero,
-                    enableGridBorderShadow: false,
-                    gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                    rowColor: isDark ? const Color(0xFF252526) : Colors.white,
-                    activatedColor: isDark
-                        ? const Color.fromARGB(10, 0, 255, 0)
-                        : const Color(0xFFDCF2FF),
-                    cellTextStyle: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 14,
+                        _rows = _stateManager?.rows ?? _rows;
+                      },
+                      configuration: TrinaGridConfiguration(
+                        scrollbar: const TrinaGridScrollbarConfig(isAlwaysShown: true),
+                        columnSize: const TrinaGridColumnSizeConfig(
+                          resizeMode: TrinaResizeMode.normal,
+                        ),
+                        enterKeyAction: TrinaGridEnterKeyAction.editingAndMoveDown,
+                        enableMoveDownAfterSelecting: true,
+                        enableMoveHorizontalInEditing: true,
+                        tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
+                        style: TrinaGridStyleConfig(
+                          rowHeight: 60,
+                          iconSize: 0,
+                          gridBorderRadius: BorderRadius.zero,
+                          enableGridBorderShadow: false,
+                          gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                          rowColor: isDark ? const Color(0xFF252526) : Colors.white,
+                          activatedColor: isDark
+                              ? const Color.fromARGB(10, 0, 255, 0)
+                              : const Color(0xFFDCF2FF),
+                          cellTextStyle: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 14,
+                          ),
+                          columnTextStyle: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          gridBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                          borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                          activatedBorderColor: isDark
+                              ? const Color.fromARGB(100, 0, 255, 0)
+                              : Colors.blue,
+                          inactivatedBorderColor: isDark
+                              ? const Color(0xFF3E3E42)
+                              : Colors.grey.shade300,
+                          iconColor: isDark ? Colors.white70 : Colors.black54,
+                          disabledIconColor: isDark ? Colors.white24 : Colors.black26,
+                          menuBackgroundColor: isDark ? const Color(0xFF252526) : Colors.white,
+                          cellColorInEditState: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                          cellColorInReadOnlyState: isDark
+                              ? const Color(0xFF2D2D30)
+                              : Colors.grey.shade100,
+                        ),
+                      ),
                     ),
-                    columnTextStyle: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    gridBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-                    borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-                    activatedBorderColor: isDark
-                        ? const Color.fromARGB(100, 0, 255, 0)
-                        : Colors.blue,
-                    inactivatedBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-                    iconColor: isDark ? Colors.white70 : Colors.black54,
-                    disabledIconColor: isDark ? Colors.white24 : Colors.black26,
-                    menuBackgroundColor: isDark ? const Color(0xFF252526) : Colors.white,
-                    cellColorInEditState: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                    cellColorInReadOnlyState: isDark
-                        ? const Color(0xFF2D2D30)
-                        : Colors.grey.shade100,
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ],

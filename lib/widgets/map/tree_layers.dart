@@ -63,42 +63,92 @@ class TreeLayers {
   }
 
   /// Build marker layer for tree labels
+  /// Shows old DBH in previousColor by default
+  /// Shows new DBH in currentColor when it has been updated
   static MarkerLayer buildMarkerLayer(
     List<Map<String, dynamic>> treePositions,
     Set<String> treeLabelFields, {
     bool withOpacity = false,
+    List<Map<String, dynamic>>? previousTreePositions,
+    Map<String, Color>? intervalColorCache,
+    Map<int, String>? treeSpeciesLookup,
   }) {
-    /*if (treeLabelFields.isEmpty) {
-      return MarkerLayer(markers: []);
-    }*/
+    // Create a lookup map for previous tree data by tree_number
+    final Map<int, Map<String, dynamic>> previousTreeMap = {};
+    if (previousTreePositions != null) {
+      for (var prevTree in previousTreePositions) {
+        final treeNumber = prevTree['tree_number'];
+        if (treeNumber != null) {
+          previousTreeMap[treeNumber as int] = prevTree;
+        }
+      }
+    }
+
+    final previousColor = intervalColorCache?['previousColor'] ?? Color.fromARGB(255, 0, 159, 224);
+    final currentColor = intervalColorCache?['currentColor'] ?? Color.fromARGB(255, 213, 123, 22);
 
     return MarkerLayer(
       markers: treePositions
           .map((tree) {
             final lat = tree['lat'] as double;
             final lng = tree['lng'] as double;
+            final treeNumber = tree['tree_number'];
 
             // Build label text from selected fields
             final labelParts = <String>[];
+            Color dbhColor = Colors.white; // Default color
 
-            //if (treeLabelFields.contains('tree_number')) {
-            // Show placeholder '-' for missing tree number
-            if (tree['tree_number'] != null) {
-              labelParts.add('#${tree['tree_number']}');
+            // Add tree number (if selected)
+            if (treeLabelFields.contains('tree_number') && treeNumber != null) {
+              labelParts.add('#${treeNumber}');
             }
-            //}
-            //if (treeLabelFields.contains('dbh')) {
-            // Show placeholder '-' for missing DBH values
-            if (tree['dbh'] != null) {
-              labelParts.add('${(tree['dbh'] as num).toInt()}mm');
+
+            // Add DBH with color logic (if selected)
+            if (treeLabelFields.contains('dbh')) {
+              final currentDbh = tree['dbh'];
+              final previousTree = treeNumber != null ? previousTreeMap[treeNumber as int] : null;
+              final previousDbh = previousTree?['dbh'];
+
+              if (currentDbh != null) {
+                // Current tree has DBH - check if it's different from previous
+                if (previousDbh != null && currentDbh != previousDbh) {
+                  // DBH has changed - show new DBH in current color
+                  labelParts.add('${(currentDbh as num).toInt()}mm');
+                  dbhColor = currentColor;
+                } else if (previousDbh != null) {
+                  // DBH unchanged - show in previous color
+                  labelParts.add('${(currentDbh as num).toInt()}mm');
+                  dbhColor = previousColor;
+                } else {
+                  // No previous DBH - this is new, show in current color
+                  labelParts.add('${(currentDbh as num).toInt()}mm');
+                  dbhColor = currentColor;
+                }
+              } else if (previousDbh != null) {
+                // No current DBH but has previous - show previous DBH in previous color
+                labelParts.add('${(previousDbh as num).toInt()}mm');
+                dbhColor = previousColor;
+              }
             }
-            //}
-            //if (treeLabelFields.contains('tree_species')) {
-            // Show placeholder '-' for missing species
-            if (tree['tree_species'] != null) {
-              labelParts.add('${tree['tree_species']}');
+
+            // Add tree species code (if selected)
+            if (treeLabelFields.contains('tree_species_code') && tree['tree_species'] != null) {
+              final speciesCode = tree['tree_species'];
+              labelParts.add('$speciesCode');
             }
-            //}
+
+            // Add tree species name (if selected)
+            if (treeLabelFields.contains('tree_species_name') && tree['tree_species'] != null) {
+              final speciesCode = tree['tree_species'];
+              if (treeSpeciesLookup != null && speciesCode is int) {
+                // Use species name from lookup if available
+                final speciesName = treeSpeciesLookup[speciesCode];
+                if (speciesName != null) {
+                  labelParts.add(speciesName);
+                }
+                // If name not found, don't add anything (user selected name, not code)
+              }
+            }
 
             final labelText = labelParts.join(' | ');
             if (labelText.isEmpty) {
@@ -108,24 +158,26 @@ class TreeLayers {
             return Marker(
               point: LatLng(lat, lng),
               width: 150,
-              height: 15,
+              height: 16,
               alignment: Alignment.bottomCenter,
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: IntrinsicWidth(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 2),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.black45.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: dbhColor, width: 1),
                     ),
                     child: Text(
                       labelText,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: dbhColor,
+                        decoration: TextDecoration.none,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

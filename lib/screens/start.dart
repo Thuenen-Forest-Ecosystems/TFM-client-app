@@ -55,6 +55,9 @@ class _StartState extends State<Start> {
         final gpsProvider = context.read<GpsPositionProvider>();
         gpsProvider.initialize();
 
+        // Register sheet drag handler
+        context.read<MapControllerProvider>().setSheetDragHandler(_handleSheetDrag);
+
         // Listen for navigation requests from map
         final mapProvider = context.read<MapControllerProvider>();
         mapProvider.addListener(_onMapNavigationRequest);
@@ -137,7 +140,38 @@ class _StartState extends State<Start> {
         setState(() {
           _currentSheetSize = newSize;
         });
+
+        // Check if fully expanded (close to max size)
+        // We use a small epsilon tolerance
+        final isExpanded = newSize >= (_maxChildSize - 0.02);
+
+        // Sync sheet height to provider for inner scrollables (TrinaGrid)
+        // Wrapped in microtask to avoid build collisions during drag
+        Future.microtask(() {
+          if (mounted) {
+            final provider = context.read<MapControllerProvider>();
+            provider.setSheetHeight(newSize);
+            provider.setSheetFullyExpanded(isExpanded);
+          }
+        });
       }
+    }
+  }
+
+  void _handleSheetDrag(double deltaPixels) {
+    if (_sheetController.isAttached && mounted) {
+      final screenHeight = MediaQuery.of(context).size.height;
+      // Convert pixel delta to size delta (0.0 - 1.0 range)
+      // deltaPixels is normally negative when dragging down (scrolling up)
+      // but ScrollUpdateNotification.scrollDelta is negative when scrolling "up" (content moves down).
+      // We want to reduce size when dragging down.
+      // If deltaPixels < 0 (drag down), we want to reduce size.
+      // So newSize = currentSize + (deltaPixels / screenHeight)
+
+      final deltaSize = deltaPixels / screenHeight;
+      final newSize = (_sheetController.size + deltaSize).clamp(_minChildSize, _maxChildSize);
+
+      _sheetController.jumpTo(newSize);
     }
   }
 
@@ -495,7 +529,7 @@ class _StartState extends State<Start> {
                     children: [
                       SizedBox(
                         height:
-                            MediaQuery.of(context).size.height * _maxChildSize -
+                            MediaQuery.of(context).size.height * _currentSheetSize -
                             28 -
                             MediaQuery.of(context).padding.bottom,
                         child: Beamer(routerDelegate: _beamerDelegate),

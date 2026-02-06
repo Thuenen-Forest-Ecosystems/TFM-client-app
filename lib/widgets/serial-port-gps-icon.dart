@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
-import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'dart:async';
 
 // Conditional import: use real serial port on native platforms (Windows/Linux/macOS), stub on web
@@ -29,25 +28,36 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
   SerialPort? _activePort;
   SerialPortReader? _reader;
   StreamSubscription? _readerSubscription;
+  String? _serialPortError; // Track serial port error messages
 
   @override
   void initState() {
     super.initState();
-    _checkConnectedDevices();
-  }
-
-  Future<void> _checkConnectedDevices() async {
-    // GPS devices are managed by GpsPositionProvider
+    // DO NOT scan ports on init - this causes Semaphore timeout on Windows
+    // Ports will be scanned only when user opens the device menu
   }
 
   Future<void> _scanPorts() async {
     setState(() {
       _availablePorts = [];
       _isScanning = true;
+      _serialPortError = null;
     });
 
     try {
-      final ports = SerialPort.availablePorts;
+      // Add timeout to prevent hanging
+      final ports =
+          await Future.delayed(
+            const Duration(milliseconds: 100),
+            () => SerialPort.availablePorts,
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('Serial port scan timeout - this is common on Windows with VPN/Bluetooth');
+              throw TimeoutException('Serial port scan timed out');
+            },
+          );
+
       final devices = <SerialPortDevice>[];
 
       for (final portName in ports) {
@@ -74,9 +84,15 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
       }
     } catch (e) {
       debugPrint('Error scanning ports: $e');
-      _showErrorDialog('Failed to scan serial ports: $e');
+      final errorMessage = e.toString().contains('TimeoutException')
+          ? 'Serial port scan timed out. Try disabling VPN or closing other apps that use COM ports.'
+          : 'Failed to scan serial ports: $e';
+
       if (mounted) {
-        setState(() => _isScanning = false);
+        setState(() {
+          _isScanning = false;
+          _serialPortError = errorMessage;
+        });
       }
     }
   }
@@ -106,7 +122,6 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
 
       // Start reading NMEA data
       _reader = SerialPortReader(_activePort!);
-      final buffer = StringBuffer();
 
       _readerSubscription = _reader!.stream.listen(
         (data) {
@@ -165,9 +180,15 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
 
   void _showDeviceMenu() async {
     // Auto-start scan when opening modal if not already scanning
+    // Use try-catch to prevent modal from crashing if scan fails
     final gpsProvider = context.read<GpsPositionProvider>();
     if (!_isScanning && _connectedPort == null && gpsProvider.connectedDevice == null) {
-      _scanPorts();
+      // Delay scan slightly to allow modal to open first
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _scanPorts();
+        }
+      });
     }
 
     showModalBottomSheet(
@@ -270,6 +291,30 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                 ),
                 const SizedBox(height: 8),
 
+                // Show error message if serial port scan failed
+                if (_serialPortError != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning, color: Colors.orange.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _serialPortError!,
+                            style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Device list
                 Expanded(
                   child: _availablePorts.isEmpty
@@ -283,7 +328,33 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                                     Text('Scanning serial ports...'),
                                   ],
                                 )
-                              : const Text('No serial ports found. Click refresh to scan.'),
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _serialPortError != null
+                                          ? Icons.error_outline
+                                          : Icons.info_outline,
+                                      size: 48,
+                                      color: _serialPortError != null ? Colors.orange : Colors.grey,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _serialPortError != null
+                                          ? 'Unable to scan serial ports'
+                                          : 'No serial ports found',
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                    if (_serialPortError == null)
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          'Click refresh to scan',
+                                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                         )
                       : ListView.builder(
                           itemCount: _availablePorts.length,

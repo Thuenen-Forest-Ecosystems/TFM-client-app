@@ -123,7 +123,10 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Bäume', style: Theme.of(context).textTheme.titleMedium),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('Baumdarstellung', style: Theme.of(context).textTheme.titleMedium),
+            ),
             Card.outlined(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -155,7 +158,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     ),
                     const Divider(),
                     SwitchListTile(
-                      title: const Text('Baumbeschriftungen anzeigen'),
+                      title: const Text('Beschriftungen anzeigen'),
                       value: _showTreeLabels,
                       onChanged: (value) {
                         setState(() {
@@ -165,31 +168,40 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                       },
                     ),
                     if (_showTreeLabels) ...[
-                      const Padding(
-                        padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
-                        child: Text(
-                          'Anzuzeigende Felder:',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FilterChip(
+                              label: const Text('Baumnummer'),
+                              selected: _treeLabelFields.contains('tree_number'),
+                              onSelected: (value) => _toggleLabelField('tree_number', value),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            FilterChip(
+                              label: const Text('BHD'),
+                              selected: _treeLabelFields.contains('dbh'),
+                              onSelected: (value) => _toggleLabelField('dbh', value),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            FilterChip(
+                              label: const Text('Baumart (Code)'),
+                              selected: _treeLabelFields.contains('tree_species_code'),
+                              onSelected: (value) => _toggleLabelField('tree_species_code', value),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            FilterChip(
+                              label: const Text('Baumart (Name)'),
+                              selected: _treeLabelFields.contains('tree_species_name'),
+                              onSelected: (value) => _toggleLabelField('tree_species_name', value),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                            ),
+                          ],
                         ),
                       ),
-                      CheckboxListTile(
-                        title: const Text('Baumnummer'),
-                        dense: true,
-                        value: _treeLabelFields.contains('tree_number'),
-                        onChanged: (value) => _toggleLabelField('tree_number', value),
-                      ),
-                      CheckboxListTile(
-                        title: const Text('BHD (Durchmesser)'),
-                        dense: true,
-                        value: _treeLabelFields.contains('dbh'),
-                        onChanged: (value) => _toggleLabelField('dbh', value),
-                      ),
-                      CheckboxListTile(
-                        title: const Text('Baumart'),
-                        dense: true,
-                        value: _treeLabelFields.contains('tree_species'),
-                        onChanged: (value) => _toggleLabelField('tree_species', value),
-                      ),
+                      const SizedBox(height: 8),
                     ],
                   ],
                 ),

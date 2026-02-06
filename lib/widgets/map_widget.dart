@@ -11,10 +11,12 @@ import 'package:terrestrial_forest_monitor/repositories/records_repository.dart'
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/edge_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/tree_layers.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/tree_crown_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/subplot_layers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
@@ -65,6 +67,7 @@ class _MapWidgetState extends State<MapWidget> {
   double _treeDiameterMultiplier = 1.0;
   bool _showTreeLabels = true;
   Set<String> _treeLabelFields = {'tree_number', 'dbh'};
+  Map<int, String> _treeSpeciesLookup = {}; // Maps species code to species name
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -90,6 +93,9 @@ class _MapWidgetState extends State<MapWidget> {
 
     // Load saved basemap preference
     _loadMapSettings();
+
+    // Load tree species lookup
+    _loadTreeSpeciesLookup();
 
     // Register map controller with provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -171,9 +177,6 @@ class _MapWidgetState extends State<MapWidget> {
             _subplotPositions = subplotPositions;
             _previousSubplotPositions = previousSubplotPositions;
           });
-          debugPrint(
-            '✅ State updated - focusedRecord: ${focusedRecord?.plotName}, _treePositions: ${_treePositions.length}, _previousTreePositions: ${_previousTreePositions.length}',
-          );
         }
       }
     } catch (e) {
@@ -454,7 +457,16 @@ class _MapWidgetState extends State<MapWidget> {
         final azimuth = tree['azimuth'];
         final distance = tree['distance'];
         final treeNumber = tree['tree_number'];
+        // BHD aktuell [mm]" * (1,0 + (0,0011 * ("Messhöhe des BHD [cm]" - 130[cm])))
         final dbh = tree['dbh'];
+        /*
+        tree['dbh'] *
+            (1.0 +
+                (0.0011 *
+                    ((tree['dbh_height'] is num
+                            ? (tree['dbh_measurement_height_cm'] as num).toDouble()
+                            : 130.0) -
+                        130.0)));*/
 
         if (azimuth != null && distance != null) {
           // Convert azimuth from gon to degrees (400 gon = 360 degrees)
@@ -723,6 +735,38 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setStringList('tree_label_fields', _treeLabelFields.toList());
     } catch (e) {
       debugPrint('Error saving map settings: $e');
+    }
+  }
+
+  Future<void> _loadTreeSpeciesLookup() async {
+    debugPrint('_loadTreeSpeciesLookup');
+    try {
+      final results = await db.getAll('SELECT code, name_de FROM lookup_tree_species');
+      final lookup = <int, String>{};
+      for (var row in results) {
+        // Handle code as either int or String
+        final codeValue = row['code'];
+        final name = row['name_de'] as String?;
+
+        int? code;
+        if (codeValue is int) {
+          code = codeValue;
+        } else if (codeValue is String) {
+          code = int.tryParse(codeValue);
+        }
+
+        if (code != null && name != null) {
+          lookup[code] = name;
+        }
+      }
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _treeSpeciesLookup = lookup;
+        });
+        debugPrint('Loaded ${lookup.length} tree species names');
+      }
+    } catch (e) {
+      debugPrint('Error loading tree species lookup: $e');
     }
   }
 
@@ -1318,13 +1362,6 @@ class _MapWidgetState extends State<MapWidget> {
     final initialZoom = widget.initialZoom ?? 5.5;
     final markers = _buildMarkers(_records);
 
-    // Debug tree rendering state
-    if (_focusedRecord != null) {
-      debugPrint(
-        '🔍 BUILD: focusedRecord=${_focusedRecord?.plotName}, _previousTreePositions.length=${_previousTreePositions.length}, _showTreeLabels=$_showTreeLabels',
-      );
-    }
-
     // Watch for distance line and navigation updates from provider
     final mapControllerProvider = context.watch<MapControllerProvider>();
     final distanceLineFrom = mapControllerProvider.distanceLineFrom;
@@ -1566,6 +1603,16 @@ class _MapWidgetState extends State<MapWidget> {
         // Default circles (5m, 10m, 25m radius)
         if (_focusedRecord != null) CircleLayer(circles: _getDefaultCircles(_focusedRecord!)),
 
+        // Tree crown circles for CURRENT trees (based on DBH)
+        if (_focusedRecord != null && _treePositions.isNotEmpty)
+          TreeCrownLayers.buildCrownCircleLayer(
+            _treePositions,
+            withOpacity: false,
+            crownColor: intervalColorCache['currentColor']!.withOpacity(0.1),
+            borderColor: intervalColorCache['currentColor'],
+            borderStrokeWidth: 1.0,
+          ),
+
         // Display PREVIOUS trees (with opacity for differentiation)
         if (_focusedRecord != null && _previousTreePositions.isNotEmpty)
           TreeLayers.buildCircleLayer(
@@ -1605,7 +1652,14 @@ class _MapWidgetState extends State<MapWidget> {
         //if (_focusedRecord != null && _previousTreePositions.isNotEmpty && _showTreeLabels)
         //  TreeLayers.buildMarkerLayer(_previousTreePositions, _treeLabelFields, withOpacity: false),
         if (_focusedRecord != null && _treePositions.isNotEmpty && _showTreeLabels)
-          TreeLayers.buildMarkerLayer(_treePositions, _treeLabelFields, withOpacity: false),
+          TreeLayers.buildMarkerLayer(
+            _treePositions,
+            _treeLabelFields,
+            withOpacity: false,
+            previousTreePositions: _previousTreePositions,
+            intervalColorCache: intervalColorCache,
+            treeSpeciesLookup: _treeSpeciesLookup,
+          ),
 
         // Clickable layer for CURRENT trees (on top for click handling)
         //if (_focusedRecord != null && _treePositions.isNotEmpty)

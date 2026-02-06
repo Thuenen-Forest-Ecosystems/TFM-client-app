@@ -42,7 +42,12 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
   void initState() {
     super.initState();
     baudeRate = baudeRates[0];
-    _getAvailablePorts();
+    // Delay port scanning to prevent Windows semaphore timeout
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _getAvailablePorts();
+      }
+    });
   }
 
   @override
@@ -59,12 +64,24 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     }
   }
 
-  _getAvailablePorts() {
+  _getAvailablePorts() async {
     try {
-      availablePorts = SerialPort.availablePorts;
+      // Add timeout to prevent hanging on Windows
+      final ports =
+          await Future.delayed(
+            const Duration(milliseconds: 100),
+            () => SerialPort.availablePorts,
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              print('Serial port scan timeout - common on Windows with VPN/Bluetooth');
+              return <String>[];
+            },
+          );
+
       setState(() {
         // make unique
-        availablePorts = availablePorts.toSet().toList();
+        availablePorts = ports.toSet().toList();
         // Make sure to set the selected port to the first available port
         if (availablePorts.isNotEmpty) {
           selectedPort = availablePorts[0].toString();
@@ -72,19 +89,14 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
       });
     } catch (e) {
       if (e is SerialPortError) {
-        // TODO: Show error
         print('availablePorts: $e');
-        // Handle the error, e.g., show a dialog or a snackbar
       } else {
         print('Error Get Ports: $e');
       }
+      setState(() {
+        availablePorts = [];
+      });
     }
-    setState(() {
-      print(availablePorts);
-      if (availablePorts.isNotEmpty) {
-        selectedPort = availablePorts[0].toString();
-      }
-    });
   }
 
   Future _getSerialPorts() async {}
@@ -220,10 +232,12 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
                     selectedPort = value;
                   });
                 },
-                items:
-                    availablePorts.map<DropdownMenuItem<String>>((dynamic value) {
-                      return DropdownMenuItem<String>(value: value.toString(), child: Text(value.toString()));
-                    }).toList(), // Explicitly specify the type
+                items: availablePorts.map<DropdownMenuItem<String>>((dynamic value) {
+                  return DropdownMenuItem<String>(
+                    value: value.toString(),
+                    child: Text(value.toString()),
+                  );
+                }).toList(), // Explicitly specify the type
               ),
               IconButton(icon: Icon(Icons.refresh), onPressed: _getAvailablePorts),
             ],
@@ -239,16 +253,21 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
                 baudeRate = value;
               });
             },
-            items:
-                baudeRates.map<DropdownMenuItem<int>>((dynamic value) {
-                  return DropdownMenuItem<int>(value: value, child: Text(value.toString()));
-                }).toList(), // Explicitly specify the type
+            items: baudeRates.map<DropdownMenuItem<int>>((dynamic value) {
+              return DropdownMenuItem<int>(value: value, child: Text(value.toString()));
+            }).toList(), // Explicitly specify the type
           ),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            if (testing) ElevatedButton(onPressed: _cancelTesting, child: Text('Cancel testing')) else ElevatedButton(onPressed: baudeRate != null ? _testConnection : null, child: Text('TEST connection')),
+            if (testing)
+              ElevatedButton(onPressed: _cancelTesting, child: Text('Cancel testing'))
+            else
+              ElevatedButton(
+                onPressed: baudeRate != null ? _testConnection : null,
+                child: Text('TEST connection'),
+              ),
             ElevatedButton(onPressed: tested ? _saveDevice : null, child: Text('SAVE')),
           ],
         ),

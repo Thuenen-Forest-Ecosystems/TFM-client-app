@@ -29,6 +29,37 @@ class MapControllerProvider with ChangeNotifier {
   LatLngBounds? _currentMapBounds;
   DateTime? _mapBoundsTimestamp;
 
+  // Sheet height for scroll coordination
+  double _sheetHeight = 0.25;
+  double get sheetHeight => _sheetHeight;
+  bool _isSheetFullyExpanded = false;
+  bool get isSheetFullyExpanded => _isSheetFullyExpanded;
+
+  // Callback to manually drag the sheet from deep within the widget tree
+  Function(double deltaPixels)? _onSheetDrag;
+
+  void setSheetDragHandler(Function(double deltaPixels) handler) {
+    _onSheetDrag = handler;
+  }
+
+  void dragSheet(double deltaPixels) {
+    _onSheetDrag?.call(deltaPixels);
+  }
+
+  void setSheetHeight(double height) {
+    if ((_sheetHeight - height).abs() > 0.01) {
+      _sheetHeight = height;
+      notifyListeners();
+    }
+  }
+
+  void setSheetFullyExpanded(bool expanded) {
+    if (_isSheetFullyExpanded != expanded) {
+      _isSheetFullyExpanded = expanded;
+      notifyListeners();
+    }
+  }
+
   // Navigation request
   String? _navigationPath;
   DateTime? _navigationTimestamp;
