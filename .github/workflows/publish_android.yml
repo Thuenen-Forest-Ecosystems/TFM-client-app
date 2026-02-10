@@ -27,6 +27,12 @@ jobs:
           java-version: "21"
           distribution: "temurin"
 
+      # Android minimum version requirements:
+      # - Minimum SDK: 24 (Android 7.0 Nougat, released August 2016)
+      # - Target SDK: Latest (configured via Flutter)
+      # - Compile SDK: 36 (Android 14+)
+      # These are enforced in android/app/build.gradle and prevent installation on older devices
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:

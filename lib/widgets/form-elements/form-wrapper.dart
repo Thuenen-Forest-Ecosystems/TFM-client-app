@@ -6,6 +6,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-t
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/manuell-relative-position.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/messages-chat.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/navigation-element.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/nested-tabs.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/plot-support-points.dart';
@@ -389,9 +390,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       final layoutItem = LayoutService.findItemById(_layoutConfig, tab.id);
       if (layoutItem != null) {
         final content = _buildWidgetFromLayout(layoutItem, schemaProperties);
-        // Don't wrap tabs or arrays in ScrollView - they manage their own scrolling/sizing
-        // But DO wrap ColumnLayout in ScrollView to prevent overflow
-        if (layoutItem is TabsLayout || layoutItem is ArrayLayout) {
+        // Don't wrap tabs, arrays, or messages_chat in ScrollView - they manage their own scrolling/sizing
+        // messages_chat needs full height for its Column with Expanded layout
+        if (layoutItem is TabsLayout ||
+            layoutItem is ArrayLayout ||
+            (layoutItem is ObjectLayout && layoutItem.component == 'messages_chat')) {
           return content;
         }
         // Wrap ColumnLayout and other content in SingleChildScrollView
@@ -740,6 +743,23 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           previous_properties: _previousProperties,
           children: children,
         );
+      }
+      if (layoutItem.component == 'messages_chat') {
+        // MessagesChat component - displays messages for the current record
+        final recordId = widget.rawRecord?.id;
+        debugPrint(
+          'FormWrapper: messages_chat - rawRecord.id=$recordId, rawRecord exists=${widget.rawRecord != null}',
+        );
+        if (recordId == null) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('Nachrichtenfunktion nicht verfügbar: Kein Datensatz geladen'),
+            ),
+          );
+        }
+        debugPrint('FormWrapper: Creating MessagesChat with recordId=$recordId');
+        return MessagesChat(recordId: recordId);
       }
 
       // For other components, property path is required

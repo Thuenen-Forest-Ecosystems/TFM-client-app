@@ -34,10 +34,32 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   String? _startPositionKey;
   List<String> _positionKeys = [];
   Map<String, LatLng> _positionCoordinates = {};
+  Map<String, Map<String, dynamic>> _positionMetadata = {}; // Quality/accuracy metadata
   List<String> _supportPointKeys = [];
   Map<String, LatLng> _supportPointCoordinates = {};
   Map<String, String> _supportPointNotes = {};
   Map<int, String> _supportPointTypeLabels = {}; // Cache for point type labels
+
+  /// Handle setting/clearing a position as the center for relative calculations
+  void _setCenterPosition(String? key) {
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+
+      if (key == null) {
+        // Clear center position - will use default SOLL position
+        mapControllerProvider.clearCenterPosition();
+      } else {
+        // Get coordinates for the selected key
+        final coords = _getCoordinatesForKey(key);
+        if (coords != null) {
+          mapControllerProvider.setCenterPosition(key, coords);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error setting center position: $e');
+    }
+  }
+
   StreamSubscription? _gpsSubscription;
   Map<String, double>? _calculatedNavigation;
   List<LatLng>? _stepPositions;
@@ -142,12 +164,32 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               _positionKeys.add(key);
             }
             _positionCoordinates[key] = LatLng(latMean, lngMean);
+
+            // Store quality/accuracy metadata
+            _positionMetadata[key] = {
+              'quality': value['quality'],
+              'hdop_mean': value['hdop_mean'],
+              'pdop_mean': value['pdop_mean'],
+              'rtcm_age': value['rtcm_age'],
+              'satellites_count_mean': value['satellites_count_mean'],
+              'measurement_count': value['measurement_count'],
+            };
           } else {
             // Fallback to center_location or direct lat/lng
             final coords = _extractCoordinates(value);
             if (coords != null && !_positionKeys.contains(key)) {
               _positionKeys.add(key);
               _positionCoordinates[key] = coords;
+
+              // Store metadata even for fallback coordinates
+              _positionMetadata[key] = {
+                'quality': value['quality'],
+                'hdop_mean': value['hdop_mean'],
+                'pdop_mean': value['pdop_mean'],
+                'rtcm_age': value['rtcm_age'],
+                'satellites_count_mean': value['satellites_count_mean'],
+                'measurement_count': value['measurement_count'],
+              };
             }
           }
         }
@@ -156,6 +198,15 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
 
     // Load support points
     _loadSupportPoints();
+
+    // Set SOLL Position as default center for relative calculations
+    if (_positionKeys.contains('SOLL Position')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _setCenterPosition('SOLL Position');
+        }
+      });
+    }
 
     // Set current position as default selection if available
     if (_positionKeys.contains('SOLL Position') && _selectedPositionKey == null) {
@@ -396,6 +447,10 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   void _selectTargetPosition(String? positionKey) {
     setState(() {
       _selectedPositionKey = positionKey;
+
+      // Automatically set this position as the center for relative calculations
+      _setCenterPosition(positionKey);
+
       if (positionKey == null) {
         // Clear navigation target and line string
         final mapProvider = context.read<MapControllerProvider>();
@@ -613,6 +668,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
 
     // Calculate distance and bearing if position is selected
     final gpsProvider = context.watch<GpsPositionProvider>();
+    final mapControllerProvider = context.watch<MapControllerProvider>();
     double? distance;
     double? bearing;
 
@@ -683,6 +739,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             child: PositionSelector(
               measuredPositionKeys: availablePositions,
               measuredPositionCoordinates: _positionCoordinates,
+              measuredPositionMetadata: _positionMetadata,
               supportPointKeys: _supportPointKeys,
               supportPointCoordinates: _supportPointCoordinates,
               supportPointNotes: _supportPointNotes,
@@ -697,6 +754,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
                   : null,
               onSelectFromMap: _enableMapTapModeForStart,
               mapTappedPosition: _startMapTappedPosition,
+              centerPositionKey: mapControllerProvider.centerPositionKey,
               subtitle: _startPositionKey != null
                   ? () {
                       final coords = _getCoordinatesForKey(_startPositionKey);
@@ -730,6 +788,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             child: PositionSelector(
               measuredPositionKeys: availablePositions,
               measuredPositionCoordinates: _positionCoordinates,
+              measuredPositionMetadata: _positionMetadata,
               supportPointKeys: _supportPointKeys,
               supportPointCoordinates: _supportPointCoordinates,
               supportPointNotes: _supportPointNotes,
@@ -744,6 +803,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
                   : null,
               onSelectFromMap: _enableMapTapModeForTarget,
               mapTappedPosition: _targetMapTappedPosition,
+              centerPositionKey: mapControllerProvider.centerPositionKey,
               subtitle: _selectedPositionKey != null
                   ? () {
                       // Use calculated navigation from steps if available
@@ -829,6 +889,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     if (propertiesChanged || positionDataChanged) {
       _positionKeys.clear();
       _positionCoordinates.clear();
+      _positionMetadata.clear();
       _supportPointKeys.clear();
       _supportPointCoordinates.clear();
       _supportPointNotes.clear();

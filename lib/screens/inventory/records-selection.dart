@@ -428,156 +428,85 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // Custom AppBar
-          ListTile(
-            title: _isSearching
-                ? TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Suche Traktnummer...',
-                      filled: true,
-                      isDense: true,
-                      border: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(50)),
-                      ),
-                    ),
-                    keyboardType: TextInputType.numberWithOptions(signed: false, decimal: false),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                      _loadInitialData();
-                    },
-                  )
-                : Container(
-                    padding: const EdgeInsets.only(top: 10, bottom: 9),
-                    child: const Text(
-                      'Ecken',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(_isSearching ? Icons.close : Icons.search),
-                  onPressed: () {
-                    setState(() {
-                      _isSearching = !_isSearching;
-                      if (!_isSearching) {
-                        _searchController.clear();
-                        _searchQuery = '';
-                        _loadInitialData();
-                      }
-                    });
-                  },
-                ),
-                //IconButton(onPressed: _openFilterDialog, icon: Icon(Icons.filter_list)),
-                //IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
-              ],
-            ),
-          ),
-          // Pinned records horizontal scroll
-          if (_pinnedRecords.isNotEmpty)
-            Container(
-              height: 126,
-              //padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: _pinnedRecords.length,
-                      itemBuilder: (context, index) {
-                        final record = _pinnedRecords[index];
-                        final recordKey = '${record.clusterId}_${record.plotId}';
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Calculate available height for content
+          final availableHeight = constraints.maxHeight;
+          // Fixed height for pinned records section
+          const pinnedRecordsHeight = 125.0;
+          // Only show pinned records if there's enough space
+          final showPinnedRecords =
+              _pinnedRecords.isNotEmpty && (availableHeight - 71 - 50) >= pinnedRecordsHeight;
 
-                        // Calculate distance if we have position
-                        String? distanceText;
-                        if (_currentPosition != null) {
-                          final coords = record.getCoordinates();
-                          if (coords != null) {
-                            final distance = _calculateDistance(
-                              _currentPosition!.latitude,
-                              _currentPosition!.longitude,
-                              coords['latitude']!,
-                              coords['longitude']!,
-                            );
-                            distanceText = distance < 1.0
-                                ? '${(distance * 1000).toStringAsFixed(0)} m'
-                                : '${distance.toStringAsFixed(1)} km';
-                          }
-                        }
-
-                        return Container(
-                          width: 280,
-                          margin: const EdgeInsets.only(right: 8, top: 5),
-                          child: RecordCard(
-                            record: record,
-                            distanceText: distanceText,
-                            onFocusOnMap: () => _focusRecordOnMap(record),
-                            isPinned: true,
-                            onPinToggle: () => _togglePinRecord(record),
-                            isDense: true,
+          return Column(
+            children: [
+              // Custom AppBar
+              ListTile(
+                title: _isSearching
+                    ? TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Suche Traktnummer...',
+                          filled: true,
+                          isDense: true,
+                          border: const OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(50)),
                           ),
-                        );
+                        ),
+                        keyboardType: TextInputType.numberWithOptions(
+                          signed: false,
+                          decimal: false,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                          _loadInitialData();
+                        },
+                      )
+                    : Container(
+                        padding: const EdgeInsets.only(top: 10, bottom: 9),
+                        child: const Text(
+                          'Ecken',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(_isSearching ? Icons.close : Icons.search),
+                      onPressed: () {
+                        setState(() {
+                          _isSearching = !_isSearching;
+                          if (!_isSearching) {
+                            _searchController.clear();
+                            _searchQuery = '';
+                            _loadInitialData();
+                          }
+                        });
                       },
                     ),
-                  ),
-                ],
+                    //IconButton(onPressed: _openFilterDialog, icon: Icon(Icons.filter_list)),
+                    //IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
+                  ],
+                ),
               ),
-            ),
-          const Divider(height: 1),
-          // Body
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _displayedRecords.isEmpty
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-                      Icon(Icons.inbox, color: Colors.grey[400]),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Dir wurde bisher noch keine Ecke zugewiesen.',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount:
-                        _displayedRecords.length +
-                        (_displayedRecords.length < _allRecords.length ? 1 : 0),
+              // Pinned records horizontal scroll
+              if (showPinnedRecords)
+                SizedBox(
+                  height: pinnedRecordsHeight,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    itemCount: _pinnedRecords.length,
                     itemBuilder: (context, index) {
-                      // Show loading indicator at the end if more records available
-                      if (index == _displayedRecords.length) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              'Showing ${_displayedRecords.length} of ${_allRecords.length} records',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ),
-                        );
-                      }
+                      final record = _pinnedRecords[index];
 
-                      final item = _displayedRecords[index];
-                      final record = item['record'] as Record;
-                      final metadata = item['metadata'] as String?;
-                      final recordKey = '${record.clusterId}_${record.plotId}';
-
-                      // Calculate distance if not already in metadata
-                      String? distanceText = metadata;
-                      if (distanceText == null && _currentPosition != null) {
+                      // Calculate distance if we have position
+                      String? distanceText;
+                      if (_currentPosition != null) {
                         final coords = record.getCoordinates();
                         if (coords != null) {
                           final distance = _calculateDistance(
@@ -592,18 +521,95 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                         }
                       }
 
-                      return RecordCard(
-                        record: record,
-                        distanceText: distanceText,
-                        onFocusOnMap: () => _focusRecordOnMap(record),
-                        isPinned: _pinnedRecordIds.contains(recordKey),
-                        onPinToggle: () => _togglePinRecord(record),
-                        isDense: false,
+                      return Container(
+                        width: 280,
+                        margin: const EdgeInsets.only(right: 8),
+                        child: RecordCard(
+                          record: record,
+                          distanceText: distanceText,
+                          onFocusOnMap: () => _focusRecordOnMap(record),
+                          isPinned: true,
+                          onPinToggle: () => _togglePinRecord(record),
+                          isDense: true,
+                        ),
                       );
                     },
                   ),
-          ),
-        ],
+                ),
+              if (showPinnedRecords) const Divider(height: 1),
+              // Body
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _displayedRecords.isEmpty
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          Icon(Icons.inbox, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Dir wurde bisher noch keine Ecke zugewiesen.',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount:
+                            _displayedRecords.length +
+                            (_displayedRecords.length < _allRecords.length ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          // Show loading indicator at the end if more records available
+                          if (index == _displayedRecords.length) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  'Showing ${_displayedRecords.length} of ${_allRecords.length} records',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final item = _displayedRecords[index];
+                          final record = item['record'] as Record;
+                          final metadata = item['metadata'] as String?;
+                          final recordKey = '${record.clusterId}_${record.plotId}';
+
+                          // Calculate distance if not already in metadata
+                          String? distanceText = metadata;
+                          if (distanceText == null && _currentPosition != null) {
+                            final coords = record.getCoordinates();
+                            if (coords != null) {
+                              final distance = _calculateDistance(
+                                _currentPosition!.latitude,
+                                _currentPosition!.longitude,
+                                coords['latitude']!,
+                                coords['longitude']!,
+                              );
+                              distanceText = distance < 1.0
+                                  ? '${(distance * 1000).toStringAsFixed(0)} m'
+                                  : '${distance.toStringAsFixed(1)} km';
+                            }
+                          }
+
+                          return RecordCard(
+                            record: record,
+                            distanceText: distanceText,
+                            onFocusOnMap: () => _focusRecordOnMap(record),
+                            isPinned: _pinnedRecordIds.contains(recordKey),
+                            onPinToggle: () => _togglePinRecord(record),
+                            isDense: false,
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

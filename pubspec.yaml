@@ -223,7 +223,12 @@ flutter_launcher_icons:
 #  publisher: CN=36C12301-AD65-4721-A104-94EB08618727
 #  publisher_display_name: Grünecho e.U.
 #  identity_name: Grnechoe.U.TerrestrialForestMonitor
-#  msix_version: 1.0.50.0
+#  msix_version: 1.0.68.0
 #  logo_path: assets/logo/tfm.png
 #  capabilities: internetClient, location
-#  store: true
+#  store: false
+#  # Minimum Windows 10 version 1809 (October 2018 Update, build 17763)
+#  # This ensures compatibility with modern Windows features and your dependencies
+#  min_windows_version: 10.0.17763.0
+#  # Target Windows 10/11 for best compatibility
+#  target_os_version: 10.0.19041.0

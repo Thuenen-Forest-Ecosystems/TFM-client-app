@@ -36,7 +36,6 @@ class ValidationStatusIndicator {
           child: Container(
             width: 50,
             height: 50,
-            color: Colors.yellow.withOpacity(0.5),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

@@ -98,7 +98,7 @@ jobs:
           # Create installer script
           @'
           #define MyAppName "Terrestrial Forest Monitor"
-          #define MyAppVersion "1.0.55"
+          #define MyAppVersion "1.0.68"
           #define MyAppPublisher "Thuenen Institute"
           #define MyAppExeName "terrestrial_forest_monitor.exe"
 
@@ -119,6 +119,9 @@ jobs:
           ArchitecturesAllowed=x64compatible
           ArchitecturesInstallIn64BitMode=x64compatible
           UninstallDisplayIcon={app}\{#MyAppExeName}
+          ; Minimum Windows 10 version 1809 (October 2018 Update, build 17763)
+          ; This ensures compatibility with modern Windows features and dependencies
+          MinVersion=10.0.17763
 
           [Languages]
           Name: "english"; MessagesFile: "compiler:Default.isl"

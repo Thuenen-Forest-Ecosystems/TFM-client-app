@@ -175,7 +175,16 @@ Schema schema = Schema(([
     Column.text('user_ids'),
     Column.text('organization_id'),
   ]),
-
+  const Table('records_messages', [
+    Column.text('created_at'),
+    Column.text('note'),
+    Column.text('user_id'),
+    Column.text('records_id'),
+    Column.text('responsible_administration'),
+    Column.text('responsible_state'),
+    Column.text('responsible_provider'),
+    Column.text('responsible_troop'),
+  ]),
   //...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),
 ]));

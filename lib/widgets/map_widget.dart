@@ -54,6 +54,7 @@ class _MapWidgetState extends State<MapWidget> {
   LatLngBounds? _lastBounds;
   bool _storesInitialized = false;
   Record? _focusedRecord;
+  String? _lastCenterPositionKey; // Track center position changes
   List<Map<String, dynamic>> _treePositions = [];
   List<Map<String, dynamic>> _previousTreePositions = [];
   Map<String, List<LatLng>> _clusterPolygons = {};
@@ -120,6 +121,7 @@ class _MapWidgetState extends State<MapWidget> {
       _checkForFocusBounds();
       _checkForManualMove();
       _checkForFocusedRecord();
+      _checkForCenterPositionChange();
     }
   }
 
@@ -137,12 +139,65 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
+  /// Check if center position changed and recalculate positions
+  Future<void> _checkForCenterPositionChange() async {
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final currentCenterKey = mapControllerProvider.centerPositionKey;
+
+      // Check if center position changed
+      if (currentCenterKey != _lastCenterPositionKey) {
+        _lastCenterPositionKey = currentCenterKey;
+        debugPrint('Center position changed to: $currentCenterKey');
+
+        // Recalculate positions for current focused record if any
+        if (_focusedRecord != null) {
+          final treePositions = await _calculateTreePositions(_focusedRecord!);
+          final previousTreePositions = await _calculateTreePositions(
+            _focusedRecord!,
+            usePrevious: true,
+          );
+          final edges = await _calculateEdges(_focusedRecord!);
+          final previousEdges = await _calculateEdges(_focusedRecord!, usePrevious: true);
+          final subplotPositions = await _calculateSubplotPositions(_focusedRecord!);
+          final previousSubplotPositions = await _calculateSubplotPositions(
+            _focusedRecord!,
+            usePrevious: true,
+          );
+
+          if (!_isDisposed && mounted) {
+            setState(() {
+              _treePositions = treePositions;
+              _previousTreePositions = previousTreePositions;
+              _edges = edges;
+              _previousEdges = previousEdges;
+              _subplotPositions = subplotPositions;
+              _previousSubplotPositions = previousSubplotPositions;
+            });
+            debugPrint('Recalculated positions with new center: $currentCenterKey');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking center position change: $e');
+    }
+  }
+
   Future<void> _checkForFocusedRecord() async {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       final focusedRecord = mapControllerProvider.focusedRecord;
 
       if (focusedRecord != _focusedRecord) {
+        // Update focused record IMMEDIATELY to prevent re-entry during async operations
+        final previousFocusedRecord = _focusedRecord;
+        _focusedRecord = focusedRecord;
+
+        // Clear center position when switching plots so calculations use the new plot's default SOLL position
+        mapControllerProvider.clearCenterPosition();
+        // Update tracking to prevent infinite loop from change listener
+        _lastCenterPositionKey = null;
+
         final treePositions = focusedRecord != null
             ? await _calculateTreePositions(focusedRecord, usePrevious: false)
             : <Map<String, dynamic>>[];
@@ -169,7 +224,7 @@ class _MapWidgetState extends State<MapWidget> {
 
         if (!_isDisposed && mounted) {
           setState(() {
-            _focusedRecord = focusedRecord;
+            // _focusedRecord already updated above
             _treePositions = treePositions;
             _previousTreePositions = previousTreePositions;
             _edges = edges;
@@ -199,19 +254,49 @@ class _MapWidgetState extends State<MapWidget> {
       return [];
     }
 
-    return compute(_computeTreePositions, {
-      'recordCoords': record.getCoordinates(),
-      'properties': properties,
-    });
+    // Get center position: use selected center if available, otherwise use record coordinates
+    Map<String, dynamic>? centerCoords;
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final centerPosition = mapControllerProvider.centerPosition;
+
+      if (centerPosition != null) {
+        centerCoords = {'latitude': centerPosition.latitude, 'longitude': centerPosition.longitude};
+        debugPrint('Using selected center position: ${mapControllerProvider.centerPositionKey}');
+      } else {
+        centerCoords = record.getCoordinates();
+        debugPrint('Using default center position (SOLL)');
+      }
+    } catch (e) {
+      centerCoords = record.getCoordinates();
+      debugPrint('Error getting center position, using default: $e');
+    }
+
+    return compute(_computeTreePositions, {'recordCoords': centerCoords, 'properties': properties});
   }
 
   Future<List<Map<String, dynamic>>> _calculateEdges(
     Record record, {
     bool usePrevious = false,
   }) async {
+    // Get center position: use selected center if available, otherwise use record coordinates
+    Map<String, dynamic>? centerCoords;
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final centerPosition = mapControllerProvider.centerPosition;
+
+      if (centerPosition != null) {
+        centerCoords = {'latitude': centerPosition.latitude, 'longitude': centerPosition.longitude};
+      } else {
+        centerCoords = record.getCoordinates();
+      }
+    } catch (e) {
+      centerCoords = record.getCoordinates();
+    }
+
     // Offload edge position calculations to isolate
     final rawEdges = await compute(_computeEdges, {
-      'recordCoords': record.getCoordinates(),
+      'recordCoords': centerCoords,
       'properties': usePrevious ? record.previousProperties : record.properties,
     });
 
@@ -240,8 +325,23 @@ class _MapWidgetState extends State<MapWidget> {
       return [];
     }
 
+    // Get center position: use selected center if available, otherwise use record coordinates
+    Map<String, dynamic>? centerCoords;
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final centerPosition = mapControllerProvider.centerPosition;
+
+      if (centerPosition != null) {
+        centerCoords = {'latitude': centerPosition.latitude, 'longitude': centerPosition.longitude};
+      } else {
+        centerCoords = record.getCoordinates();
+      }
+    } catch (e) {
+      centerCoords = record.getCoordinates();
+    }
+
     return compute(_computeSubplotPositions, {
-      'recordCoords': record.getCoordinates(),
+      'recordCoords': centerCoords,
       'properties': properties,
     });
   }
@@ -1119,9 +1219,8 @@ class _MapWidgetState extends State<MapWidget> {
           return Marker(
             point: LatLng(lat, lng),
             width: 85,
-            height: 20,
+            height: 16,
             alignment: Alignment.bottomCenter,
-
             child: GestureDetector(
               onTap: () {
                 _onMarkerTapped(record);
@@ -1129,16 +1228,17 @@ class _MapWidgetState extends State<MapWidget> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.black87.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: Colors.black54, width: 1),
                 ),
                 child: Text(
                   label,
                   style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 10,
+                    color: Colors.white,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
                   ),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
@@ -1811,65 +1911,68 @@ class _MapWidgetState extends State<MapWidget> {
             ],
           ),
         ),
-        Positioned(
-          right: 70,
-          bottom: widget.sheetPosition != null
-              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8
-              : MediaQuery.of(context).size.height * 0.075 + 8,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Zoom buttons
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Zoom in button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.add,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onSurface,
+        // Zoom buttons - only show on tablets and larger screens
+        if (MediaQuery.of(context).size.width >= 600)
+          Positioned(
+            right: 70,
+            bottom: widget.sheetPosition != null
+                ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) +
+                      8
+                : MediaQuery.of(context).size.height * 0.075 + 8,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Zoom buttons
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Zoom in button
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(40),
                       ),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: () {
-                        final currentZoom = _mapController.camera.zoom;
-                        final currentCenter = _mapController.camera.center;
-                        _mapController.move(currentCenter, currentZoom + 1);
-                      },
-                    ),
-                  ),
-                  // Divider
-                  const SizedBox(width: 8),
-                  // Zoom out button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.remove,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onSurface,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.add,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () {
+                          final currentZoom = _mapController.camera.zoom;
+                          final currentCenter = _mapController.camera.center;
+                          _mapController.move(currentCenter, currentZoom + 1);
+                        },
                       ),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: () {
-                        final currentZoom = _mapController.camera.zoom;
-                        final currentCenter = _mapController.camera.center;
-                        _mapController.move(currentCenter, currentZoom - 1);
-                      },
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    // Divider
+                    const SizedBox(width: 8),
+                    // Zoom out button
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.remove,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () {
+                          final currentZoom = _mapController.camera.zoom;
+                          final currentCenter = _mapController.camera.center;
+                          _mapController.move(currentCenter, currentZoom - 1);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

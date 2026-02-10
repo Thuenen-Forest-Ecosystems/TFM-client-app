@@ -86,6 +86,10 @@ class MapControllerProvider with ChangeNotifier {
   dynamic _selectedRowIdentifier;
   DateTime? _selectionTimestamp;
 
+  // Center position for relative calculations (trees, edges, subplots)
+  String? _centerPositionKey;
+  LatLng? _centerPosition;
+
   MapController? get flutterMapController => _flutterMapController;
   LatLng? get distanceLineFrom => _distanceLineFrom;
   LatLng? get distanceLineTo => _distanceLineTo;
@@ -106,6 +110,8 @@ class MapControllerProvider with ChangeNotifier {
   String? get selectedArrayName => _selectedArrayName;
   dynamic get selectedRowIdentifier => _selectedRowIdentifier;
   DateTime? get selectionTimestamp => _selectionTimestamp;
+  String? get centerPositionKey => _centerPositionKey;
+  LatLng? get centerPosition => _centerPosition;
 
   void setFlutterMapController(MapController? controller) {
     _flutterMapController = controller;
@@ -335,5 +341,21 @@ class MapControllerProvider with ChangeNotifier {
       _selectionTimestamp = null;
       debugPrint('Grid row selection cleared');
     }
+  }
+
+  /// Set the center position for relative calculations
+  void setCenterPosition(String? key, LatLng? position) {
+    _centerPositionKey = key;
+    _centerPosition = position;
+    debugPrint('Center position set: $key at $position');
+    notifyListeners();
+  }
+
+  /// Clear center position (fall back to default SOLL position)
+  void clearCenterPosition() {
+    _centerPositionKey = null;
+    _centerPosition = null;
+    debugPrint('Center position cleared');
+    notifyListeners();
   }
 }

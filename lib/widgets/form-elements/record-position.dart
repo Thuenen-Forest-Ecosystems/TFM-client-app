@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -51,13 +50,10 @@ class _RecordPositionState extends State<RecordPosition> {
   Map<String, dynamic>? _aggregatedData;
   DateTime? _startMeasurement;
   DateTime? _stopMeasurement;
-  bool showDetails = false;
+  bool showDetails = true;
 
   @override
   void initState() {
-    print('RecordPosition initialized with:');
-    print(widget.jsonSchema);
-    print(widget.data);
     if (widget.data != null &&
         widget.propertyName != null &&
         widget.data![widget.propertyName!] != null) {
@@ -92,38 +88,37 @@ class _RecordPositionState extends State<RecordPosition> {
     try {
       final gpsProvider = context.read<GpsPositionProvider>();
       _gpsSubscription = gpsProvider.positionStreamController.listen((position) {
-        if (isRecording && _recordedPositions.length < _targetCount) {
-          final nmea = gpsProvider.currentNMEA;
+        // Check count before setState to prevent race conditions
+        if (!isRecording || _recordedPositions.length >= _targetCount) {
+          return;
+        }
 
-          setState(() {
-            _recordedPositions.add({
-              'latitude': position.latitude,
-              'longitude': position.longitude,
-              'accuracy': position.accuracy,
-              'timestamp': DateTime.now().toIso8601String(),
-              'rtcm_age': null, // RTCM age not available in current NMEA
-              'quality': nmea?.fixQuality,
-              'satellites_count': nmea?.satellites,
-              'pdop': nmea?.pdop,
-              'hdop': nmea?.hdop,
-              'vdop': nmea?.vdop,
-              'altitude': nmea?.altitude,
-              'heading': nmea?.heading,
-              'speed_knots': nmea?.speedKnots,
-            });
+        final nmea = gpsProvider.currentNMEA;
 
-            // Update aggregated data on every new position
-            _aggregatedData = _calculateAggregatedData();
+        setState(() {
+          _recordedPositions.add({
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'timestamp': DateTime.now().toIso8601String(),
+            'rtcm_age': null, // RTCM age not available in current NMEA
+            'quality': nmea?.fixQuality,
+            'satellites_count': nmea?.satellites,
+            'pdop': nmea?.pdop,
+            'hdop': nmea?.hdop,
+            'vdop': nmea?.vdop,
+            'altitude': nmea?.altitude,
+            'heading': nmea?.heading,
+            'speed_knots': nmea?.speedKnots,
           });
 
-          // Auto-stop when target reached
-          if (_recordedPositions.length >= _targetCount) {
-            SchedulerBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _stopRecording();
-              }
-            });
-          }
+          // Update aggregated data on every new position
+          _aggregatedData = _calculateAggregatedData();
+        });
+
+        // Auto-stop when target reached - stop immediately, not after frame
+        if (_recordedPositions.length >= _targetCount) {
+          _stopRecording();
         }
       });
     } catch (e) {
@@ -152,14 +147,26 @@ class _RecordPositionState extends State<RecordPosition> {
     // Filter to use only best quality positions for aggregation
     var positionsToUse = _recordedPositions;
 
+    // Helper function to safely convert quality to int
+    int? _parseQuality(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value);
+      if (value is num) return value.toInt();
+      return null;
+    }
+
     // NMEA Quality codes priorities:
     // 4: RTK Fixed (Best)
     // 5: RTK Float
     // 2: DGPS
     // 1: GPS
+    // Only accept valid quality codes, ignore: 0 (no fix), 6 (estimated), 7 (manual), 8 (simulation), etc.
+    const validQualities = {1, 2, 4, 5};
+
     final existingQualities = _recordedPositions
-        .map((p) => p['quality'] as int?)
-        .where((q) => q != null && q > 0)
+        .map((p) => _parseQuality(p['quality']))
+        .where((q) => q != null && validQualities.contains(q))
         .cast<int>()
         .toSet();
 
@@ -171,14 +178,13 @@ class _RecordPositionState extends State<RecordPosition> {
         bestQuality = 5;
       } else if (existingQualities.contains(2)) {
         bestQuality = 2;
-      } else if (existingQualities.contains(1)) {
-        bestQuality = 1;
       } else {
-        // Fallback for other codes - just take max assuming higher is better/more precise
-        bestQuality = existingQualities.reduce((curr, next) => curr > next ? curr : next);
+        bestQuality = 1;
       }
 
-      positionsToUse = _recordedPositions.where((p) => p['quality'] == bestQuality).toList();
+      positionsToUse = _recordedPositions
+          .where((p) => _parseQuality(p['quality']) == bestQuality)
+          .toList();
     }
 
     // Calculate mean position and quality metrics
@@ -186,6 +192,16 @@ class _RecordPositionState extends State<RecordPosition> {
     double sumSatellites = 0, sumPdop = 0, sumHdop = 0;
     int satellitesCount = 0, pdopCount = 0, hdopCount = 0;
     List<double> latitudes = [], longitudes = [];
+
+    // Helper to safely convert to double
+    double? _toDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value);
+      if (value is num) return value.toDouble();
+      return null;
+    }
 
     for (var pos in positionsToUse) {
       sumLat += pos['latitude'];
@@ -195,16 +211,19 @@ class _RecordPositionState extends State<RecordPosition> {
       latitudes.add(pos['latitude']);
       longitudes.add(pos['longitude']);
 
-      if (pos['satellites_count'] != null) {
-        sumSatellites += pos['satellites_count'];
+      final satCount = _toDouble(pos['satellites_count']);
+      if (satCount != null) {
+        sumSatellites += satCount;
         satellitesCount++;
       }
-      if (pos['pdop'] != null) {
-        sumPdop += pos['pdop'];
+      final pdop = _toDouble(pos['pdop']);
+      if (pdop != null) {
+        sumPdop += pdop;
         pdopCount++;
       }
-      if (pos['hdop'] != null) {
-        sumHdop += pos['hdop'];
+      final hdop = _toDouble(pos['hdop']);
+      if (hdop != null) {
+        sumHdop += hdop;
         hdopCount++;
       }
     }
@@ -246,7 +265,7 @@ class _RecordPositionState extends State<RecordPosition> {
       'mean_accuracy': meanAccuracy,
       // Store the quality code used for aggregation
       'aggregation_quality_code': existingQualities.isNotEmpty
-          ? positionsToUse.first['quality']
+          ? _parseQuality(positionsToUse.first['quality'])
           : null,
       //'recorded_positions': _recordedPositions,
     };
@@ -352,6 +371,63 @@ class _RecordPositionState extends State<RecordPosition> {
                 _formatTimestamp(_aggregatedData!['stop_measurement'] as String),
               ),
           ],
+
+          // Current GPS Information - Always visible
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+          Text('Aktuelle GPS Information', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+
+          // Connection status
+          _buildDataRow(
+            'Verbindung',
+            gpsProvider.connectedDevice != null
+                ? 'Bluetooth: ${gpsProvider.connectedDevice!.platformName}'
+                : gpsProvider.connectedClassicDevice != null
+                ? 'Bluetooth Classic: ${gpsProvider.connectedClassicDevice!.name ?? "Unbekannt"}'
+                : gpsProvider.listeningPosition
+                ? 'Internes GPS'
+                : 'Keine Verbindung',
+          ),
+
+          // Current position
+          if (gpsProvider.lastPosition != null) ...[
+            _buildDataRow(
+              'Position',
+              '${gpsProvider.lastPosition!.latitude.toStringAsFixed(8)}, ${gpsProvider.lastPosition!.longitude.toStringAsFixed(8)}',
+            ),
+            _buildDataRow(
+              'Genauigkeit',
+              '${gpsProvider.lastPosition!.accuracy.toStringAsFixed(2)} m',
+            ),
+          ],
+
+          // NMEA data if available
+          if (gpsProvider.currentNMEA != null) ...[
+            if (gpsProvider.currentNMEA!.fixQuality != null)
+              _buildDataRow('Quality', gpsProvider.currentNMEA!.fixQuality.toString()),
+            if (gpsProvider.currentNMEA!.satellites != null)
+              _buildDataRow('Satelliten', gpsProvider.currentNMEA!.satellites.toString()),
+            if (gpsProvider.currentNMEA!.hdop != null)
+              _buildDataRow('HDOP', gpsProvider.currentNMEA!.hdop!.toStringAsFixed(2)),
+            if (gpsProvider.currentNMEA!.pdop != null)
+              _buildDataRow('PDOP', gpsProvider.currentNMEA!.pdop!.toStringAsFixed(2)),
+            if (gpsProvider.currentNMEA!.altitude != null)
+              _buildDataRow('Höhe', '${gpsProvider.currentNMEA!.altitude!.toStringAsFixed(1)} m'),
+          ],
+
+          // Show message if no GPS data
+          if (gpsProvider.lastPosition == null && !gpsProvider.isConnecting)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                'Keine GPS-Daten verfügbar',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.orange, fontStyle: FontStyle.italic),
+              ),
+            ),
         ],
       ),
     );

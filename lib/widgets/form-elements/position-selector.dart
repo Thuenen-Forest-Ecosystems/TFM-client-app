@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 class PositionSelector extends StatelessWidget {
   final List<String> measuredPositionKeys;
   final Map<String, LatLng> measuredPositionCoordinates;
+  final Map<String, Map<String, dynamic>>? measuredPositionMetadata;
   final List<String> supportPointKeys;
   final Map<String, LatLng> supportPointCoordinates;
   final Map<String, String> supportPointNotes;
@@ -18,15 +19,19 @@ class PositionSelector extends StatelessWidget {
   final IconData? icon;
   final VoidCallback? onSelectFromMap; // Callback to enable map tap mode
   final LatLng? mapTappedPosition; // Position selected from map tap
+  final String? centerPositionKey; // Key of position currently set as center
+  final ValueChanged<String?>? onSetAsCenter; // Callback to set position as center
 
   static const String gpsLiveKey = '__GPS_LIVE__';
   static const String gpsLockedKey = '__GPS_LOCKED__';
   static const String mapTappedKey = '__MAP_TAPPED__';
+  static const String sollKey = '__SOLL__'; // Default SOLL position
 
   const PositionSelector({
     super.key,
     required this.measuredPositionKeys,
     required this.measuredPositionCoordinates,
+    this.measuredPositionMetadata,
     required this.supportPointKeys,
     required this.supportPointCoordinates,
     required this.supportPointNotes,
@@ -40,6 +45,8 @@ class PositionSelector extends StatelessWidget {
     this.onFocusPosition,
     this.onSelectFromMap,
     this.mapTappedPosition,
+    this.centerPositionKey,
+    this.onSetAsCenter,
   });
 
   @override
@@ -263,10 +270,36 @@ class PositionSelector extends StatelessWidget {
             ),
           ),
           ...measuredPositionKeys.asMap().entries.map((entry) {
-            final index = entry.key;
             final key = entry.value;
             final isSelected = selectedPositionKey == key;
             final coordinate = measuredPositionCoordinates[key];
+            final metadata = measuredPositionMetadata?[key];
+
+            final isCenterPosition = centerPositionKey == key;
+
+            // Build quality subtitle from metadata
+            String? qualitySubtitle;
+            if (metadata != null) {
+              final parts = <String>[];
+
+              if (metadata['quality'] != null) {
+                parts.add('Q: ${metadata['quality']}');
+              }
+
+              if (metadata['hdop_mean'] != null) {
+                final hdop = metadata['hdop_mean'] as num;
+                parts.add('HDOP: ${hdop.toStringAsFixed(2)}');
+              }
+
+              if (metadata['satellites_count_mean'] != null) {
+                final sats = metadata['satellites_count_mean'] as num;
+                parts.add('Sat: ${sats.toStringAsFixed(0)}');
+              }
+
+              if (parts.isNotEmpty) {
+                qualitySubtitle = parts.join(' | ');
+              }
+            }
 
             return Column(
               children: [
@@ -275,16 +308,58 @@ class PositionSelector extends StatelessWidget {
                   dense: true,
                   leading: Icon(
                     isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    color: isSelected ? Colors.blue : null,
                   ),
-                  title: Text(key),
-                  trailing: onFocusPosition != null && coordinate != null
-                      ? IconButton(
+                  title: Row(
+                    children: [
+                      Text(key),
+                      if (isCenterPosition) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.orange, width: 1),
+                          ),
+                          child: const Text(
+                            'Zentrum',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  subtitle: qualitySubtitle != null
+                      ? Text(
+                          qualitySubtitle,
+                          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onSetAsCenter != null && coordinate != null)
+                        IconButton(
+                          icon: Icon(
+                            isCenterPosition ? Icons.center_focus_strong : Icons.center_focus_weak,
+                            size: 20,
+                            color: isCenterPosition ? Colors.orange : null,
+                          ),
+                          tooltip: isCenterPosition ? 'Als Zentrum gesetzt' : 'Als Zentrum setzen',
+                          onPressed: () => onSetAsCenter!(isCenterPosition ? null : key),
+                        ),
+                      if (onFocusPosition != null && coordinate != null)
+                        IconButton(
                           icon: const Icon(Icons.my_location, size: 20),
                           tooltip: 'Auf Karte anzeigen',
                           onPressed: () => onFocusPosition!(coordinate),
-                        )
-                      : null,
+                        ),
+                    ],
+                  ),
                   onTap: () => onPositionSelected(isSelected ? null : key),
                 ),
                 //if (index < measuredPositionKeys.length - 1) const Divider(height: 1),
@@ -310,11 +385,12 @@ class PositionSelector extends StatelessWidget {
             ),
           ),
           ...supportPointKeys.asMap().entries.map((entry) {
-            final index = entry.key;
             final key = entry.value;
             final isSelected = selectedPositionKey == key;
             final note = supportPointNotes[key] ?? '';
             final coordinate = supportPointCoordinates[key];
+
+            final isCenterPosition = centerPositionKey == key;
 
             return Column(
               children: [
@@ -323,10 +399,34 @@ class PositionSelector extends StatelessWidget {
                   selected: isSelected,
                   leading: Icon(
                     isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    color: isSelected ? Colors.blue : null,
                   ),
-                  title: Text(key),
-                  subtitle: note.isNotEmpty ? Text(note) : null,
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(key)),
+                      if (isCenterPosition) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.orange, width: 1),
+                          ),
+                          child: const Text(
+                            'Zentrum',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  subtitle: note.isNotEmpty
+                      ? Text(note)
+                      : (isCenterPosition ? const Text('Als Zentrum gesetzt') : null),
                   trailing: onFocusPosition != null && coordinate != null
                       ? IconButton(
                           icon: const Icon(Icons.my_location, size: 20),
