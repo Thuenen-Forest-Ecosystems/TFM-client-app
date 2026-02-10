@@ -339,27 +339,13 @@ class PositionSelector extends StatelessWidget {
                           style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                         )
                       : null,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (onSetAsCenter != null && coordinate != null)
-                        IconButton(
-                          icon: Icon(
-                            isCenterPosition ? Icons.center_focus_strong : Icons.center_focus_weak,
-                            size: 20,
-                            color: isCenterPosition ? Colors.orange : null,
-                          ),
-                          tooltip: isCenterPosition ? 'Als Zentrum gesetzt' : 'Als Zentrum setzen',
-                          onPressed: () => onSetAsCenter!(isCenterPosition ? null : key),
-                        ),
-                      if (onFocusPosition != null && coordinate != null)
-                        IconButton(
+                  trailing: onFocusPosition != null && coordinate != null
+                      ? IconButton(
                           icon: const Icon(Icons.my_location, size: 20),
                           tooltip: 'Auf Karte anzeigen',
                           onPressed: () => onFocusPosition!(coordinate),
-                        ),
-                    ],
-                  ),
+                        )
+                      : null,
                   onTap: () => onPositionSelected(isSelected ? null : key),
                 ),
                 //if (index < measuredPositionKeys.length - 1) const Divider(height: 1),

@@ -448,8 +448,15 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     setState(() {
       _selectedPositionKey = positionKey;
 
-      // Automatically set this position as the center for relative calculations
-      _setCenterPosition(positionKey);
+      // Automatically set center only for measured positions
+      if (positionKey == null) {
+        // No target selected - default to SOLL Position as center
+        _setCenterPosition('SOLL Position');
+      } else if (_positionCoordinates.containsKey(positionKey)) {
+        // Selected position is a measured position ("Messungen Ecken") - use as center
+        _setCenterPosition(positionKey);
+      }
+      // If Hilfspunkt or GPS Position is selected, center stays unchanged
 
       if (positionKey == null) {
         // Clear navigation target and line string
