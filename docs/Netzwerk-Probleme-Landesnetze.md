@@ -126,6 +126,8 @@ Die TFM-App kommuniziert ausschließlich mit einem einzigen Server:
 
 ### 3.2 Verwendete URLs im Detail
 
+#### Hauptserver (ci.thuenen.de)
+
 | Zweck                         | URL                                   | Protokoll | Port |
 | ----------------------------- | ------------------------------------- | --------- | ---- |
 | **Supabase REST API**         | `https://ci.thuenen.de/rest/v1/`      | HTTPS     | 443  |
@@ -134,6 +136,21 @@ Die TFM-App kommuniziert ausschließlich mit einem einzigen Server:
 | **Supabase Functions**        | `https://ci.thuenen.de/functions/v1/` | HTTPS     | 443  |
 | **PowerSync Synchronisation** | `https://ci.thuenen.de/sync/`         | HTTPS     | 443  |
 | **PowerSync WebSocket**       | `wss://ci.thuenen.de/sync/`           | WSS       | 443  |
+
+#### Kartendienste (optional, können lokal gecacht werden)
+
+| Zweck                            | URL                                                                   | Protokoll   | Port |
+| -------------------------------- | --------------------------------------------------------------------- | ----------- | ---- |
+| **DOP - Luftbilder**             | `https://sg.geodatenzentrum.de/wms_dop__*`                            | HTTPS (WMS) | 443  |
+| **DTK25 - Topographische Karte** | `https://sg.geodatenzentrum.de/wms_dtk25__*`                          | HTTPS (WMS) | 443  |
+| **OpenCycleMap**                 | `https://[a-c].tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png` | HTTPS       | 443  |
+
+**Hinweis zu Kartendiensten:**
+
+- Diese Dienste werden NUR beim initialen Download von Kartenkacheln benötigt
+- Nach dem Download sind die Karten offline verfügbar
+- Die App funktioniert auch ohne Kartendienste (nur mit Markierungen auf leerem Hintergrund)
+- DOP/DTK25 erfordern einen API-Schlüssel vom BKG (Bundesamt für Kartographie und Geodäsie)
 
 ### 3.3 Vollständige technische Konfiguration
 
@@ -149,15 +166,25 @@ Aus der App-Konfiguration ([config.dart](../lib/config.dart)):
 }
 ```
 
-### 3.4 Keine externen Drittanbieter-Dienste
+### 3.4 Externe Dienste im Überblick
 
-**Wichtig**: Die App kommuniziert **AUSSCHLIESSLICH** mit `ci.thuenen.de`
+**Kerndienste** (permanent erforderlich):
 
-- ✅ Keine Google-Dienste
-- ✅ Keine Amazon-Services
-- ✅ Keine Microsoft-Cloud-Dienste
-- ✅ Keine Analytics oder Tracking-Dienste
-- ✅ Keine externen Karten-Tile-Server (Karten werden lokal gespeichert)
+- ✅ **ci.thuenen.de** - Hauptserver für alle Daten und Synchronisation
+
+**Kartendienste** (nur für Kartendownload):
+
+- ✅ **sg.geodatenzentrum.de** - BKG Geodatenzentrum (DOP, DTK25)
+- ✅ **tile-cyclosm.openstreetmap.fr** - OpenCycleMap Tiles
+
+**KEINE Drittanbieter-Tracking:**
+
+- ❌ Keine Google-Dienste (Analytics, Maps, etc.)
+- ❌ Keine Amazon-Services
+- ❌ Keine Microsoft-Cloud-Dienste
+- ❌ Keine Analytics oder Tracking-Dienste
+
+**Wichtig**: Nach dem initialen Download der Kartenkacheln arbeitet die App vollständig offline. Die Kartendienste werden nur beim ersten Download benötigt.
 
 ### 3.5 DNS-Auflösung
 
@@ -180,6 +207,8 @@ Für den reibungslosen Betrieb der TFM-App in Landesdatennetzen:
 
 #### Ausgehende Verbindungen erlauben:
 
+**Kerndienste (permanent erforderlich):**
+
 ```
 Protokoll: HTTPS (TCP)
 Ziel: ci.thuenen.de
@@ -190,6 +219,18 @@ Protokoll: WebSocket Secure (WSS)
 Ziel: ci.thuenen.de
 Port: 443
 Upgrade: HTTP CONNECT-Methode erforderlich
+```
+
+**Kartendienste (optional, nur für Karten-Download):**
+
+```
+Protokoll: HTTPS (TCP)
+Ziele:
+  - sg.geodatenzentrum.de
+  - tile-cyclosm.openstreetmap.fr
+Port: 443
+Verschlüsselung: TLS 1.2 oder höher
+Verwendung: Download von Kartenkacheln (einmalig)
 ```
 
 #### Proxy-Anforderungen:
@@ -318,11 +359,16 @@ Wert: http://proxy.example.com:8080
 1. **Windows-Terminal/PowerShell**:
 
    ```powershell
-   # DNS-Auflösung testen
+   # DNS-Auflösung testen (Hauptserver)
    nslookup ci.thuenen.de
+
+   # DNS-Auflösung testen (Kartendienste)
+   nslookup sg.geodatenzentrum.de
+   nslookup tile-cyclosm.openstreetmap.fr
 
    # HTTPS-Verbindung testen
    Test-NetConnection -ComputerName ci.thuenen.de -Port 443
+   Test-NetConnection -ComputerName sg.geodatenzentrum.de -Port 443
 
    # Proxy-Umgebungsvariablen prüfen
    Get-ChildItem Env: | Where-Object {$_.Name -like "*PROXY*"}
@@ -335,13 +381,44 @@ Wert: http://proxy.example.com:8080
 3. **TFM-App Verbindungstest**:
    - `Einstellungen → Proxy-Einstellungen → Verbindung testen`
 
+### Problem: Karten-Download schlägt fehl
+
+**Symptom**: Karten können nicht heruntergeladen werden, aber Login und Synchronisation funktionieren
+
+**Mögliche Ursachen:**
+
+1. **Kartendienste durch Firewall blockiert**
+   - **Lösung**: IT-Abteilung bitten, folgende Hosts freizugeben:
+     - `sg.geodatenzentrum.de:443`
+     - `tile-cyclosm.openstreetmap.fr:443`
+
+2. **Fehlende DNS-Auflösung**
+   - **Lösung**: DNS-Server überprüfen, ggf. externe DNS-Server (z.B. 8.8.8.8) erlauben
+
+3. **Proxy blockiert WMS-Anfragen**
+   - **Lösung**: Proxy-Administrator kontaktieren, WMS-Protokoll erlauben
+
+**Workaround**: Die App funktioniert auch ohne Karten-Download (nur mit Markierungen/POIs auf leerem/einfarbigem Hintergrund)
+
 ---
 
-## 7. Kontakt und Support
+**Kerndienste (permanent):**
 
-### Für Endbenutzer
+- **Zielhost**: `ci.thuenen.de`
+- **Port**: `443` (HTTPS/WSS)
+- **Protokolle**: HTTPS, WebSocket Secure (WSS)
+- **HTTP-Methode**: CONNECT für WebSocket-Upgrade
+- **TLS-Version**: 1.2 oder höher
+- **WebSocket-URL**: `wss://ci.thuenen.de/sync/`
 
-Bei anhaltenden Problemen wenden Sie sich bitte an:
+**Kartendienste (optional, nur für Kartendownload):**
+
+- **Zielhosts**:
+  - `sg.geodatenzentrum.de` (BKG Geodatenzentrum)
+  - `tile-cyclosm.openstreetmap.fr` (OpenCycleMap)
+- **Port**: `443` (HTTPS)
+- **Protokoll**: HTTPS
+- **TLS-Version**: 1.2 oder höheran:
 
 - **Thünen-Institut Support**: [Kontaktdaten einfügen]
 - **Ihre lokale IT-Abteilung** für Proxy- und Firewall-Fragen
@@ -405,13 +482,30 @@ Bei technischen Fragen zur Infrastruktur:
                   │
          Port 443 │ (HTTPS/WSS)
                   │
-         ┌────────▼──────────┐
-         │  ci.thuenen.de    │
-         │                   │
-         │  - Supabase API   │
-         │  - PowerSync      │
-         └───────────────────┘
+         ┌────────▼──────────────────────────────────────┐
+         │                                                │
+         │  Permanente Verbindungen:                      │
+         │  ┌──────────────────────┐                      │
+         │  │  ci.thuenen.de       │                      │
+         │  │  - Supabase API      │                      │
+         │  │  - PowerSync (WSS)   │                      │
+         │  └──────────────────────┘                      │
+         │                                                │
+         │  Optionale Verbindungen (Karten-Download):    │
+         │  ┌──────────────────────────────────────────┐ │
+         │  │  sg.geodatenzentrum.de                   │ │
+         │  │  - DOP (Luftbilder)                      │ │
+         │  │  - DTK25 (Topographie)                   │ │
+         │  └──────────────────────────────────────────┘ │
+         │  ┌──────────────────────────────────────────┐ │
+         │  │  tile-cyclosm.openstreetmap.fr           │ │
+         │  │  - OpenCycleMap Kacheln                  │ │
+         │  └──────────────────────────────────────────┘ │
+         │                                                │
+         └────────────────────────────────────────────────┘
 ```
+
+**Hinweis**: Kartendienste werden nur einmalig zum Download der Kacheln benötigt. Danach arbeitet die App vollständig offline mit lokalem Kartencache.
 
 ---
 
