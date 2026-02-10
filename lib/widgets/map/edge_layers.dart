@@ -7,15 +7,14 @@ class EdgeLayers {
   static PolylineLayer buildPolylineLayer(
     List<Map<String, dynamic>> edges, {
     bool withOpacity = false,
+    Color color = const Color(0xFFC3E399),
   }) {
     return PolylineLayer(
       polylines: edges
           .map<Polyline>(
             (edge) => Polyline(
               points: edge['points'] as List<LatLng>,
-              color: withOpacity
-                  ? const Color(0xFFC3E399).withOpacity(0.3)
-                  : const Color(0xFFC3E399),
+              color: withOpacity ? color.withOpacity(0.3) : color,
               strokeWidth: 2,
               pattern: StrokePattern.dashed(segments: [5.0, 5.0]),
               borderColor: withOpacity ? Colors.black.withOpacity(0.3) : Colors.black,
@@ -30,6 +29,7 @@ class EdgeLayers {
   static CircleLayer buildCircleLayer(
     List<Map<String, dynamic>> edges, {
     bool withOpacity = false,
+    Color color = const Color(0xFFC3E399),
   }) {
     return CircleLayer(
       circles: edges.expand<CircleMarker>((edge) {
@@ -39,7 +39,7 @@ class EdgeLayers {
             point: p,
             radius: 3,
             color: withOpacity ? Colors.white.withOpacity(0.3) : Colors.white,
-            borderColor: withOpacity ? Colors.black.withOpacity(0.3) : Colors.black,
+            borderColor: withOpacity ? color.withOpacity(0.3) : color,
             borderStrokeWidth: 1,
           ),
         );
@@ -51,6 +51,7 @@ class EdgeLayers {
   static MarkerLayer buildMarkerLayer(
     List<Map<String, dynamic>> edges, {
     bool withOpacity = false,
+    Color color = const Color(0xFFC3E399),
   }) {
     return MarkerLayer(
       markers: edges

@@ -81,8 +81,8 @@ class _MapWidgetState extends State<MapWidget> {
   ];
 
   Map<String, Color> intervalColorCache = {
-    'previousColor': Color.fromARGB(255, 0, 159, 224),
-    'currentColor': Color.fromARGB(255, 213, 123, 22),
+    'previousColor': Color.fromARGB(255, 0, 202, 224),
+    'currentColor': Color.fromARGB(255, 217, 25, 231),
   };
 
   @override
@@ -1370,8 +1370,8 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         radius: 25.0,
         useRadiusInMeter: true,
-        color: const Color.fromARGB(15, 0, 159, 224),
-        borderColor: const Color.fromARGB(155, 0, 159, 224),
+        color: Color.fromARGB(15, 120, 189, 30),
+        borderColor: Color.fromARGB(155, 120, 189, 30),
         borderStrokeWidth: 1.0,
       ),
       // 10m radius circle
@@ -1382,8 +1382,8 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         radius: 10.0,
         useRadiusInMeter: true,
-        color: const Color.fromARGB(15, 0, 170, 130),
-        borderColor: const Color.fromARGB(155, 0, 170, 130),
+        color: Color.fromARGB(15, 120, 189, 30),
+        borderColor: Color.fromARGB(155, 120, 189, 30),
         borderStrokeWidth: 1.0,
       ),
       // 5m radius circle
@@ -1394,8 +1394,8 @@ class _MapWidgetState extends State<MapWidget> {
         ),
         radius: 5.0,
         useRadiusInMeter: true,
-        color: const Color.fromARGB(15, 0, 170, 170),
-        borderColor: const Color.fromARGB(155, 0, 170, 170),
+        color: Color.fromARGB(15, 120, 189, 30),
+        borderColor: Color.fromARGB(155, 120, 189, 30),
         borderStrokeWidth: 1.0,
       ),
     ];
@@ -1655,29 +1655,56 @@ class _MapWidgetState extends State<MapWidget> {
 
         // Display PREVIOUS edges (with opacity)
         if (_previousEdges.isNotEmpty)
-          EdgeLayers.buildPolylineLayer(_previousEdges, withOpacity: true),
+          EdgeLayers.buildPolylineLayer(
+            _previousEdges,
+            withOpacity: true,
+            color: intervalColorCache['previousColor']!,
+          ),
         if (_previousEdges.isNotEmpty)
-          EdgeLayers.buildCircleLayer(_previousEdges, withOpacity: true),
+          EdgeLayers.buildCircleLayer(
+            _previousEdges,
+            withOpacity: true,
+            color: intervalColorCache['previousColor']!,
+          ),
         if (_previousEdges.isNotEmpty)
-          EdgeLayers.buildMarkerLayer(_previousEdges, withOpacity: true),
+          EdgeLayers.buildMarkerLayer(
+            _previousEdges,
+            withOpacity: true,
+            color: intervalColorCache['previousColor']!,
+          ),
 
         // Display CURRENT edges (without opacity)
-        if (_edges.isNotEmpty) EdgeLayers.buildPolylineLayer(_edges, withOpacity: false),
-        if (_edges.isNotEmpty) EdgeLayers.buildCircleLayer(_edges, withOpacity: false),
-        if (_edges.isNotEmpty) EdgeLayers.buildMarkerLayer(_edges, withOpacity: false),
+        if (_edges.isNotEmpty)
+          EdgeLayers.buildPolylineLayer(
+            _edges,
+            withOpacity: false,
+            color: intervalColorCache['currentColor']!,
+          ),
+        if (_edges.isNotEmpty)
+          EdgeLayers.buildCircleLayer(
+            _edges,
+            withOpacity: false,
+            color: intervalColorCache['currentColor']!,
+          ),
+        if (_edges.isNotEmpty)
+          EdgeLayers.buildMarkerLayer(
+            _edges,
+            withOpacity: false,
+            color: intervalColorCache['currentColor']!,
+          ),
 
         // Clickable layer for CURRENT edges (on top for click handling)
         if (_edges.isNotEmpty) EdgeLayers.buildClickableLayer(_edges, _onEdgeCircleTapped),
 
         // Display PREVIOUS subplots (with opacity)
-        if (_previousSubplotPositions.isNotEmpty)
-          SubplotLayers.buildCircleLayer(_previousSubplotPositions, withOpacity: true),
+        /*if (_previousSubplotPositions.isNotEmpty)
+          SubplotLayers.buildCircleLayer(_previousSubplotPositions, withOpacity: true),*/
         //if (_previousSubplotPositions.isNotEmpty)
         //  SubplotLayers.buildMarkerLayer(_previousSubplotPositions, withOpacity: true),
 
         // Display CURRENT subplots (without opacity)
         if (_subplotPositions.isNotEmpty)
-          SubplotLayers.buildCircleLayer(_subplotPositions, withOpacity: false),
+          SubplotLayers.buildCircleLayer(_subplotPositions, withOpacity: true),
         //if (_subplotPositions.isNotEmpty)
         //  SubplotLayers.buildMarkerLayer(_subplotPositions, withOpacity: false),
 

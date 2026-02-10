@@ -46,8 +46,9 @@ class FormWrapper extends StatefulWidget {
 class FormTab {
   final String id;
   final String label;
+  final String? icon;
 
-  FormTab({required this.id, required this.label});
+  FormTab({required this.id, required this.label, this.icon});
 }
 
 class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin {
@@ -162,7 +163,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         }
       }
 
-      tabs.add(FormTab(id: item.id, label: label));
+      tabs.add(FormTab(id: item.id, label: label, icon: item.icon));
     }
 
     return tabs;
@@ -1144,6 +1145,38 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     return false;
   }
 
+  /// Convert icon name to IconData
+  IconData _getIconData(String iconName) {
+    switch (iconName.toLowerCase()) {
+      case 'chat':
+      case 'message':
+        return Icons.chat;
+      case 'location':
+      case 'position':
+        return Icons.location_on;
+      case 'tree':
+        return Icons.park;
+      case 'forest':
+        return Icons.forest;
+      case 'grid':
+        return Icons.grid_on;
+      case 'info':
+        return Icons.info;
+      case 'settings':
+        return Icons.settings;
+      case 'data':
+        return Icons.data_array;
+      case 'table':
+        return Icons.table_chart;
+      case 'edit':
+        return Icons.edit;
+      case 'view':
+        return Icons.visibility;
+      default:
+        return Icons.circle; // Default fallback icon
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.jsonSchema == null) {
@@ -1173,6 +1206,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (tab.icon != null) ...[
+                    Icon(_getIconData(tab.icon!), size: 20),
+                    const SizedBox(width: 8),
+                  ],
                   Text(tab.label),
                   if (hasErrors) ...[
                     const SizedBox(width: 8),

@@ -8,8 +8,9 @@ abstract class LayoutItem {
   final String id;
   final String? label;
   final String type;
+  final String? icon;
 
-  LayoutItem({required this.id, this.label, required this.type});
+  LayoutItem({required this.id, this.label, required this.type, this.icon});
 
   factory LayoutItem.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String;
@@ -39,7 +40,8 @@ abstract class LayoutItem {
 class ColumnLayout extends LayoutItem {
   final List<LayoutItem> items;
 
-  ColumnLayout({required super.id, super.label, required this.items}) : super(type: 'column');
+  ColumnLayout({required super.id, super.label, required this.items, super.icon})
+    : super(type: 'column');
 
   factory ColumnLayout.fromJson(Map<String, dynamic> json) {
     final itemsJson = json['items'] as List<dynamic>? ?? [];
@@ -48,6 +50,7 @@ class ColumnLayout extends LayoutItem {
       id: json['id'] as String? ?? 'column',
       label: json['label'] as String?,
       items: itemsJson.map((item) => LayoutItem.fromJson(item as Map<String, dynamic>)).toList(),
+      icon: json['icon'] as String?,
     );
   }
 }
@@ -65,6 +68,7 @@ class TabsLayout extends LayoutItem {
     required this.items,
     this.typeProperties,
     this.defaultTab,
+    super.icon,
   }) : super(type: 'tabs');
 
   factory TabsLayout.fromJson(Map<String, dynamic> json) {
@@ -76,6 +80,7 @@ class TabsLayout extends LayoutItem {
       items: itemsJson.map((item) => LayoutItem.fromJson(item as Map<String, dynamic>)).toList(),
       typeProperties: json['typeProperties'] as Map<String, dynamic>?,
       defaultTab: json['defaultTab'] as int?,
+      icon: json['icon'] as String?,
     );
   }
 }
@@ -133,6 +138,7 @@ class FormLayout extends LayoutItem {
     this.typeProperties,
     this.property,
     this.propertiesFilter,
+    super.icon,
   }) : super(type: 'form');
 
   factory FormLayout.fromJson(Map<String, dynamic> json) {
@@ -146,6 +152,7 @@ class FormLayout extends LayoutItem {
       typeProperties: json['typeProperties'] as Map<String, dynamic>?,
       property: json['property'] as String?,
       propertiesFilter: json['propertiesFilter'] as List<dynamic>?,
+      icon: json['icon'] as String?,
     );
   }
 }
@@ -170,6 +177,7 @@ class ArrayLayout extends LayoutItem {
     this.columns,
     this.items,
     this.identifierField,
+    super.icon,
   }) : super(type: 'array');
 
   factory ArrayLayout.fromJson(Map<String, dynamic> json) {
@@ -182,6 +190,7 @@ class ArrayLayout extends LayoutItem {
       columns: json['columns'] as Map<String, dynamic>?,
       items: json['items'] as List<dynamic>?,
       identifierField: json['identifierField'] as String?,
+      icon: json['icon'] as String?,
     );
   }
 }
@@ -202,6 +211,7 @@ class ObjectLayout extends LayoutItem {
     required this.component,
     this.children,
     this.options,
+    super.icon,
   }) : super(type: 'object');
 
   factory ObjectLayout.fromJson(Map<String, dynamic> json) {
@@ -230,6 +240,7 @@ class ObjectLayout extends LayoutItem {
       component: json['component'] as String? ?? 'form',
       children: children,
       options: json['options'] as Map<String, dynamic>?,
+      icon: json['icon'] as String?,
     );
   }
 }
@@ -253,6 +264,7 @@ class CardLayout extends LayoutItem {
     this.children,
     this.options,
     this.typeProperties,
+    super.icon,
   });
 
   factory CardLayout.fromJson(Map<String, dynamic> json) {
@@ -272,6 +284,7 @@ class CardLayout extends LayoutItem {
           .toList(),
       options: json['options'] as Map<String, dynamic>?,
       typeProperties: json['typeProperties'] as Map<String, dynamic>?,
+      icon: json['icon'] as String?,
     );
   }
 }

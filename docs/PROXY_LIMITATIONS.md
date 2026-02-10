@@ -22,7 +22,7 @@ Wenn Sie **manuelle Proxy-Konfiguration** verwenden:
 - Daten-Sync schlägt fehl (WebSocket)
 - Fehlermeldung: `Failed host lookup: 'ci.thuenen.de'`
 
-## ✅ Lösung für Landesdatennetze (z.B. Sachsen-Anhalt)
+## ✅ Lösung für Landesdatennetze
 
 ### Empfohlene Konfiguration
 

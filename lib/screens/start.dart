@@ -39,7 +39,7 @@ class _StartState extends State<Start> {
 
   // Initial position of bottom sheet (25% of screen height)
   final double _initialChildSize = 0.25;
-  final double _minChildSize = 0.15;
+  final double _minChildSize = 0.18;
   double _maxChildSize = 1; // Will be calculated in build
 
   @override

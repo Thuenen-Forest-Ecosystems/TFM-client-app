@@ -13,6 +13,7 @@ import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 
 import 'package:terrestrial_forest_monitor/widgets/form-elements/form-wrapper.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
+import 'package:terrestrial_forest_monitor/models/acknowledged_error.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/conditional_rules_service.dart';
@@ -492,7 +493,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     });
   }
 
-  Future<void> save(String type) async {
+  Future<void> save(String type, {Map<String, List<AcknowledgedError>>? acknowledgedErrors}) async {
     if (_record == null || _formData == null) {
       debugPrint('Cannot save: record or form data is null');
       return;
@@ -507,6 +508,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       setState(() {
         _isSaving = true;
       });
+
+      // Prepare acknowledged errors JSON
+      String? validationErrorsJson;
+      String? plausibilityErrorsJson;
+      if (acknowledgedErrors != null) {
+        final validationErrors = acknowledgedErrors['validation_errors'] ?? [];
+        final plausibilityErrors = acknowledgedErrors['plausibility_errors'] ?? [];
+        validationErrorsJson = validationErrors.isNotEmpty
+            ? AcknowledgedError.encodeList(validationErrors)
+            : null;
+        plausibilityErrorsJson = plausibilityErrors.isNotEmpty
+            ? AcknowledgedError.encodeList(plausibilityErrors)
+            : null;
+      }
 
       // Check if this is a new record (no id yet)
       if (_record!.id == null) {
@@ -536,13 +551,28 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // UPDATE existing record
         if (type == 'save') {
           await db.execute(
-            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ? WHERE id = ?',
-            [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, _record!.id],
+            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
+            [
+              jsonEncode(_formData),
+              _record!.schemaIdValidatedBy,
+              now,
+              validationErrorsJson,
+              plausibilityErrorsJson,
+              _record!.id,
+            ],
           );
         } else if (type == 'complete') {
           await db.execute(
-            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ? WHERE id = ?',
-            [jsonEncode(_formData), _record!.schemaIdValidatedBy, now, now, _record!.id],
+            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
+            [
+              jsonEncode(_formData),
+              _record!.schemaIdValidatedBy,
+              now,
+              now,
+              validationErrorsJson,
+              plausibilityErrorsJson,
+              _record!.id,
+            ],
           );
         }
 
@@ -634,11 +664,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _onFormDataChanged(_formData ?? {});
 
     String? saveAction;
+    Map<String, List<AcknowledgedError>>? acknowledgedErrors;
 
     // Check validation before saving (show dialog for errors OR warnings)
     if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
       // Show validation errors/warnings dialog
-      saveAction = await ValidationErrorsDialog.show(
+      final result = await ValidationErrorsDialog.show(
         context,
         _validationResult!,
         onNavigateToTab: _navigateToTabFromError,
@@ -646,16 +677,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       );
 
       // If user didn't confirm save from dialog, return
-      if (saveAction == null) {
+      if (result == null) {
         return;
       }
+
+      saveAction = result.action;
+      acknowledgedErrors = result.acknowledgedErrors;
     } else {
       // No validation issues, default to 'complete'
       saveAction = 'complete';
     }
 
-    // Call save with the determined action
-    await save(saveAction);
+    // Call save with the determined action and acknowledged errors
+    await save(saveAction, acknowledgedErrors: acknowledgedErrors);
   }
 
   Future<void> _onFormDataChanged(Map<String, dynamic> updatedData) async {

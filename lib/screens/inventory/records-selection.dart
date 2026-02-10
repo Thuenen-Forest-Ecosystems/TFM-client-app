@@ -433,7 +433,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           // Calculate available height for content
           final availableHeight = constraints.maxHeight;
           // Fixed height for pinned records section
-          const pinnedRecordsHeight = 125.0;
+          const pinnedRecordsHeight = 130.0;
           // Only show pinned records if there's enough space
           final showPinnedRecords =
               _pinnedRecords.isNotEmpty && (availableHeight - 71 - 50) >= pinnedRecordsHeight;

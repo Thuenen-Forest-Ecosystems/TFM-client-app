@@ -4,6 +4,14 @@ import 'package:terrestrial_forest_monitor/repositories/records_repository.dart'
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/models/acknowledged_error.dart';
 
+/// Result returned from ValidationErrorsDialog
+class ValidationDialogResult {
+  final String action; // 'complete' or 'save'
+  final Map<String, List<AcknowledgedError>> acknowledgedErrors;
+
+  ValidationDialogResult({required this.action, required this.acknowledgedErrors});
+}
+
 class ValidationErrorsDialog extends StatefulWidget {
   final TFMValidationResult validationResult;
   final bool showActions;
@@ -21,14 +29,14 @@ class ValidationErrorsDialog extends StatefulWidget {
   @override
   State<ValidationErrorsDialog> createState() => _ValidationErrorsDialogState();
 
-  static Future<String?> show(
+  static Future<ValidationDialogResult?> show(
     BuildContext context,
     TFMValidationResult validationResult, {
     bool showActions = true,
     Function(String?)? onNavigateToTab,
     Record? record,
   }) {
-    return Navigator.of(context, rootNavigator: true).push<String>(
+    return Navigator.of(context, rootNavigator: true).push<ValidationDialogResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (context) => ValidationErrorsDialog(
@@ -95,7 +103,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Notiz gespeichert'),
+            content: Text('Trakt wurde gespeichert.'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -164,13 +172,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     return {'validation_errors': validationErrors, 'plausibility_errors': plausibilityErrors};
   }
 
-  Future<bool> _saveAcknowledgedErrors() async {
-    if (widget.record == null) return false;
-
-    final acknowledged = await _collectAcknowledgedErrors();
-    final validationErrors = acknowledged['validation_errors']!;
-    final plausibilityErrors = acknowledged['plausibility_errors']!;
-
+  bool _validateAcknowledgedErrors() {
     // Check if all errors (not warnings) have been acknowledged with notes
     final unacknowledgedErrors = widget.validationResult.allErrors.where((issue) {
       for (var i = 0; i < widget.validationResult.allIssues.length; i++) {
@@ -198,33 +200,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       return false;
     }
 
-    try {
-      final validationErrorsJson = validationErrors.isNotEmpty
-          ? AcknowledgedError.encodeList(validationErrors)
-          : null;
-      final plausibilityErrorsJson = plausibilityErrors.isNotEmpty
-          ? AcknowledgedError.encodeList(plausibilityErrors)
-          : null;
-
-      await db.execute(
-        'UPDATE records SET validation_errors = ?, plausibility_errors = ? WHERE id = ?',
-        [validationErrorsJson, plausibilityErrorsJson, widget.record!.id],
-      );
-
-      return true;
-    } catch (e) {
-      debugPrint('Error saving acknowledged errors: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Speichern: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-      return false;
-    }
+    return true;
   }
 
   String? _getTabIdFromPath(
@@ -316,6 +292,21 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     };
 
     return groupNames[firstPart] ?? 'Ecke';
+  }
+
+  int get _unacknowledgedErrorsCount {
+    int count = 0;
+    for (var i = 0; i < widget.validationResult.allErrors.length; i++) {
+      final issue = widget.validationResult.allErrors[i];
+      final issueKey = _getIssueKey(issue, widget.validationResult.allIssues.indexOf(issue));
+      final isAcknowledged = _acknowledgedIssues[issueKey] == true;
+      final hasNote = _issueNoteControllers[issueKey]?.text.trim().isNotEmpty ?? false;
+
+      if (!isAcknowledged || !hasNote) {
+        count++;
+      }
+    }
+    return count;
   }
 
   @override
@@ -524,7 +515,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (errorCount == 0)
+                    /*if (errorCount == 0)
                       TextField(
                         controller: _noteController,
                         decoration: const InputDecoration(
@@ -535,30 +526,35 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         maxLines: 3,
                         minLines: 2,
                       ),
-                    if (errorCount == 0) const SizedBox(height: 12),
+                    if (errorCount == 0) const SizedBox(height: 12),*/
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              // Save acknowledged errors
-                              final success = await _saveAcknowledgedErrors();
-                              if (!success) return;
+                              // Validate acknowledged errors
+                              if (!_validateAcknowledgedErrors()) return;
 
-                              // Save general note
-                              await _saveNote();
+                              // Collect acknowledged errors
+                              final acknowledged = await _collectAcknowledgedErrors();
 
                               if (mounted) {
-                                Navigator.of(context).pop(errorCount == 0 ? 'complete' : 'save');
+                                final action = errorCount == 0 ? 'complete' : 'save';
+                                Navigator.of(context).pop(
+                                  ValidationDialogResult(
+                                    action: action,
+                                    acknowledgedErrors: acknowledged,
+                                  ),
+                                );
                               }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: errorCount == 0 ? Colors.green : null,
                             ),
                             child: Text(
-                              errorCount == 0
-                                  ? 'SPEICHERN UND ABSCHLIEßEN'
-                                  : 'mindestens $errorCount Fehler behebenden oder kommentieren',
+                              _unacknowledgedErrorsCount == 0
+                                  ? 'AN LANDESINVENTURLEITUNG ÜBERMITTELN'
+                                  : '$_unacknowledgedErrorsCount Fehler beheben oder kommentieren',
                             ),
                           ),
                         ),
