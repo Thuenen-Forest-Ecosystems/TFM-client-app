@@ -119,11 +119,29 @@ class ProxyService {
       final proxyUrl = httpsProxy ?? httpProxy;
       _logger.log('🌐 Using environment proxy: $proxyUrl', level: LogLevel.info);
 
+      // Parse proxy URL to extract host:port (strip http:// or https:// prefix)
+      String proxyString = proxyUrl!;
+      try {
+        final uri = Uri.parse(proxyUrl);
+        if (uri.host.isNotEmpty) {
+          final port = uri.hasPort ? uri.port : 8080;
+          proxyString = '${uri.host}:$port';
+        } else {
+          // If parsing fails or no scheme, assume it's already in host:port format
+          proxyString = proxyUrl.replaceAll(RegExp(r'^https?://'), '');
+        }
+        _logger.log('🔧 Parsed proxy string: PROXY $proxyString', level: LogLevel.debug);
+      } catch (e) {
+        _logger.log('⚠️ Failed to parse proxy URL, using as-is: $e', level: LogLevel.warning);
+        // Strip common prefixes if parsing completely fails
+        proxyString = proxyUrl.replaceAll(RegExp(r'^https?://'), '');
+      }
+
       client.findProxy = (uri) {
         if (noProxy != null && _shouldBypassProxy(uri.host, noProxy)) {
           return 'DIRECT';
         }
-        return 'PROXY $proxyUrl';
+        return 'PROXY $proxyString';
       };
     } else {
       // Fall back to system default (Windows Registry on Windows)

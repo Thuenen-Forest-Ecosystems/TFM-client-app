@@ -148,8 +148,21 @@ class _LoginState extends State<Login> {
       } else {
         print('Login: Non-AuthException error - $e');
 
+        // Check for proxy-related errors
+        if (e.toString().contains('proxy') ||
+            e.toString().contains('Proxy') ||
+            (e.toString().contains('Failed host lookup') &&
+                (e.toString().contains('proxy') || e.toString().contains('11001')))) {
+          errorMessage =
+              'Proxy-Verbindungsfehler: Der konfigurierte Proxy-Server ist nicht erreichbar.\n\n'
+              'Bitte überprüfen Sie:\n'
+              '• Ihre Proxy-Einstellungen über "Netzwerk-Einstellungen (Proxy)" unten\n'
+              '• Ob der Proxy-Server erreichbar ist\n'
+              '• Ihre Windows System-Proxy-Einstellungen\n\n'
+              'Tipp: Wenn Sie keinen Proxy benötigen, deaktivieren Sie die Proxy-Funktion in den Netzwerk-Einstellungen.';
+        }
         // Check for timeout errors
-        if (e.toString().contains('ClientException') &&
+        else if (e.toString().contains('ClientException') &&
             (e.toString().contains('Zeitlimit') ||
                 e.toString().contains('Semaphore') ||
                 e.toString().contains('timeout'))) {
