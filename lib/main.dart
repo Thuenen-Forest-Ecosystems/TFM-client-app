@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'; // Add this line
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -131,6 +132,10 @@ void main() async {
     await certOverride.initialize();
     HttpOverrides.global = certOverride;
     print('Windows certificate override enabled with bundled certificate');
+
+    // Initialize window manager for quit confirmation
+    await windowManager.ensureInitialized();
+    await windowManager.setPreventClose(true);
   }
 
   usePathUrlStrategy();
@@ -222,10 +227,62 @@ void main() async {
   //context.read<Language>().setLocale(Locale(defaultLocale));
 }
 
-class Layout extends StatelessWidget {
+class Layout extends StatefulWidget {
   final BeamerDelegate routerDelegate;
 
   const Layout({super.key, required this.routerDelegate});
+
+  @override
+  State<Layout> createState() => _LayoutState();
+}
+
+class _LayoutState extends State<Layout> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && Platform.isWindows) {
+      windowManager.addListener(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!kIsWeb && Platform.isWindows) {
+      windowManager.removeListener(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    bool isPreventClose = await windowManager.isPreventClose();
+    if (isPreventClose && mounted) {
+      showDialog(
+        context: context,
+        builder: (_) {
+          return AlertDialog(
+            title: Text('Bestätigung erforderlich'),
+            content: Text('Möchten Sie die Anwendung wirklich beenden?'),
+            actions: [
+              TextButton(
+                child: Text('Nein'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: Text('Ja'),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await windowManager.destroy();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
 
   // This widget is the root of your application.
   @override
@@ -309,7 +366,7 @@ class Layout extends StatelessWidget {
 
         themeMode: themeProvider.mode,
         routeInformationParser: BeamerParser(),
-        routerDelegate: routerDelegate,
+        routerDelegate: widget.routerDelegate,
       ),
     );
   }
