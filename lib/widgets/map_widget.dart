@@ -757,6 +757,13 @@ class _MapWidgetState extends State<MapWidget> {
         debugPrint('Created opencyclemap tile store');
       }
 
+      // Initialize ESRI Satellite store
+      final esriStore = FMTCStore('esri_satellite');
+      if (!(await esriStore.manage.ready)) {
+        await esriStore.manage.create();
+        debugPrint('Created ESRI satellite tile store');
+      }
+
       // Initialize DOP store
       final dopStore = FMTCStore('wms_dop__');
       if (!(await dopStore.manage.ready)) {
@@ -1523,7 +1530,7 @@ class _MapWidgetState extends State<MapWidget> {
         },
       ),
       children: [
-        // Tile Layers - rendered in order: OpenCycleMap → DOP (top)
+        // Tile Layers - rendered in order: OpenCycleMap → ESRI Satellite → DOP (top)
 
         // Layer 1: OpenCycleMap (offline, covers zoom 4-18)
         if (_selectedBasemaps.contains('opencycle') && _storesInitialized)
@@ -1534,6 +1541,18 @@ class _MapWidgetState extends State<MapWidget> {
             subdomains: const ['a', 'b', 'c'],
             maxNativeZoom: 24, // Tiles only available up to zoom 18, upscale for higher zooms
             tileProvider: FMTCStore('OpenCycleMap').getTileProvider(
+              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+            ),
+          ),
+
+        // Layer 2: ESRI Satellite (free worldwide satellite imagery)
+        if (_selectedBasemaps.contains('esri_satellite') && _storesInitialized)
+          TileLayer(
+            urlTemplate:
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            maxNativeZoom: 19,
+            tileProvider: FMTCStore('esri_satellite').getTileProvider(
               settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
           ),

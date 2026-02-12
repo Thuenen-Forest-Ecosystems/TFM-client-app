@@ -15,6 +15,7 @@ class _MapAdminState extends State<MapAdmin> {
     //'wms_dtk25__',
     'wms_dop__',
     'OpenCycleMap',
+    'esri_satellite',
   ];
 
   Map<String, int> _storeTileCounts = {};
@@ -117,6 +118,8 @@ class _MapAdminState extends State<MapAdmin> {
         return 'OpenStreetMap';
       case 'OpenCycleMap':
         return 'Open Cycle Map';
+      case 'esri_satellite':
+        return 'ESRI Satellite';
       default:
         return storeName;
     }

@@ -114,6 +114,12 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     onChanged: (value) => _toggleBasemap('opencycle', value),
                   ),
                   CheckboxListTile(
+                    title: const Text('ESRI Satellite (offline)'),
+                    subtitle: const Text('Weltweite Satellitenbilder'),
+                    value: _selectedBasemaps.contains('esri_satellite'),
+                    onChanged: (value) => _toggleBasemap('esri_satellite', value),
+                  ),
+                  CheckboxListTile(
                     title: const Text('Luftbilder (offline)'),
                     subtitle: const Text('nur höchste Zoomstufen'),
                     value: _selectedBasemaps.contains('dop'),

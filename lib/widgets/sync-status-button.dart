@@ -37,10 +37,6 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
         // Log any sync errors
         if (event.anyError != null) {
           final logger = LogService();
-          logger.log('❌ PowerSync Error: ${event.anyError}', level: LogLevel.error);
-          logger.log('   Connected: ${event.connected}', level: LogLevel.error);
-          logger.log('   Connecting: ${event.connecting}', level: LogLevel.error);
-          logger.log('   Last Synced: ${event.lastSyncedAt}', level: LogLevel.error);
 
           // Check for certificate error
           if (event.anyError.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
