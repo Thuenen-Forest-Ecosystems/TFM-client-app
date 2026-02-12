@@ -32,12 +32,12 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       'zoomLayers': [4, 10, 14],
       'storeName': 'OpenCycleMap',
     },
-    'ESRI Satellite': {
+    /*'ESRI Satellite': {
       'urlTemplate':
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       'zoomLayers': [15, 19],
       'storeName': 'esri_satellite',
-    },
+    },*/
     'DOP': {
       'urlTemplate': 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
       'zoomLayers': [15, 19],
@@ -342,7 +342,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         break;
       }
       print('[$basemapName] Starting download for zoom level $zoom');
-      // Configure download with absolute minimal TileLayer to avoid HTTP client serialization
+      // Configure TileLayer with urlTemplate (required by FMTC)
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
         maxZoom: zoom,
@@ -354,7 +354,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
-          instanceId: '${basemapName}_$zoom'.hashCode, // Unique ID per basemap and zoom
+          instanceId: '${basemapName}_${zoom}_${DateTime.now().microsecondsSinceEpoch}'.hashCode,
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
@@ -386,18 +386,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
               print(
                 '[$basemapName] ⚠️ High failure rate detected: ${progress.failedTiles}/${progress.maxTiles}',
               );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '⚠️ Viele Kacheln fehlgeschlagen (${progress.failedTiles}/${progress.maxTiles}).\n'
-                      'Mögliche Ursache: Proxy blockiert Verbindung.',
-                    ),
-                    duration: const Duration(seconds: 5),
-                    action: SnackBarAction(label: 'Abbrechen', onPressed: _cancelDownload),
-                  ),
-                );
-              }
             }
           }
 
@@ -420,6 +408,26 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       } catch (e, stackTrace) {
         print('[$basemapName] Error during download at zoom $zoom: $e');
         print('[$basemapName] Stack trace: $stackTrace');
+
+        // Check for Windows isolate serialization error
+        if (e.toString().contains('Illegal argument in isolate message') &&
+            e.toString().contains('_SecurityContext')) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '⚠️ Bulk-Downloads funktionieren nicht unter Windows.\n'
+                  'Lösung: Karten werden automatisch beim Ansehen heruntergeladen, '
+                  'oder Download auf Linux/macOS durchführen.',
+                ),
+                duration: Duration(seconds: 10),
+              ),
+            );
+          }
+          print('[$basemapName] Windows isolate limitation - bulk downloads not supported');
+          // Skip remaining zoom levels for this basemap
+          break;
+        }
 
         // Check for proxy-related errors
         final proxyError = _detectProxyError(e);
@@ -475,6 +483,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         break;
       }
       print('[WMS] Starting download for zoom level $zoom');
+      // Configure TileLayer with WMS options (required by FMTC)
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
         maxZoom: zoom,
@@ -492,7 +501,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
-          instanceId: '${basemapName}_$zoom'.hashCode, // Unique ID per basemap and zoom
+          instanceId: '${basemapName}_${zoom}_${DateTime.now().microsecondsSinceEpoch}'.hashCode,
           parallelThreads: 1,
           maxBufferLength: 100,
           skipExistingTiles: true,
@@ -525,18 +534,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
               print(
                 '[WMS] ⚠️ High failure rate detected: ${progress.failedTiles}/${progress.maxTiles}',
               );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '⚠️ Viele WMS-Kacheln fehlgeschlagen (${progress.failedTiles}/${progress.maxTiles}).\n'
-                      'Mögliche Ursache: Proxy blockiert geodatenzentrum.de',
-                    ),
-                    duration: const Duration(seconds: 5),
-                    action: SnackBarAction(label: 'Abbrechen', onPressed: _cancelDownload),
-                  ),
-                );
-              }
             }
           }
 
@@ -559,6 +556,25 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       } catch (e, stackTrace) {
         print('[WMS] Error during download at zoom $zoom: $e');
         print('[WMS] Stack trace: $stackTrace');
+
+        // Check for Windows isolate serialization error
+        if (e.toString().contains('Illegal argument in isolate message') &&
+            e.toString().contains('_SecurityContext')) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '⚠️ Bulk-Downloads funktionieren nicht unter Windows.\n'
+                  'Lösung: Karten werden automatisch beim Ansehen heruntergeladen, '
+                  'oder Download auf Linux/macOS durchführen.',
+                ),
+                duration: Duration(seconds: 10),
+              ),
+            );
+          }
+          print('[WMS] Windows isolate limitation - bulk downloads not supported');
+          break;
+        }
 
         // Check for proxy-related errors
         final proxyError = _detectProxyError(e);

@@ -256,31 +256,35 @@ class _LayoutState extends State<Layout> with WindowListener {
   @override
   void onWindowClose() async {
     bool isPreventClose = await windowManager.isPreventClose();
-    if (isPreventClose && mounted) {
-      showDialog(
-        context: context,
-        builder: (_) {
-          return AlertDialog(
-            title: Text('Bestätigung erforderlich'),
-            content: Text('Möchten Sie die Anwendung wirklich beenden?'),
-            actions: [
-              TextButton(
-                child: Text('Nein'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: Text('Ja'),
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  await windowManager.destroy();
-                },
-              ),
-            ],
-          );
-        },
-      );
+    if (isPreventClose) {
+      // Access navigator through the router delegate
+      final navigator = widget.routerDelegate.navigatorKey.currentState;
+      if (navigator != null && navigator.context.mounted) {
+        showDialog(
+          context: navigator.context,
+          builder: (_) {
+            return AlertDialog(
+              title: Text('Bestätigung erforderlich'),
+              content: Text('Möchten Sie die Anwendung wirklich beenden?'),
+              actions: [
+                TextButton(
+                  child: Text('Nein'),
+                  onPressed: () {
+                    Navigator.of(navigator.context).pop();
+                  },
+                ),
+                TextButton(
+                  child: Text('Ja'),
+                  onPressed: () async {
+                    Navigator.of(navigator.context).pop();
+                    await windowManager.destroy();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
     }
   }
 
