@@ -1930,9 +1930,15 @@ class _MapWidgetState extends State<MapWidget> {
         // Account for both sheet height and map vertical offset
         Positioned(
           left: 60,
-          bottom: widget.sheetPosition != null
-              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) + 8
-              : MediaQuery.of(context).size.height * 0.075 + 8,
+          bottom:
+              (widget.sheetPosition != null
+                  ? MediaQuery.of(context).size.height *
+                            (widget.sheetPosition! * 0.5 + 0.15 * 0.5) +
+                        18
+                  : MediaQuery.of(context).size.height * 0.075 + 8) +
+              (MediaQuery.of(context).orientation == Orientation.portrait
+                  ? 0
+                  : MediaQuery.of(context).padding.bottom),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1961,10 +1967,15 @@ class _MapWidgetState extends State<MapWidget> {
         if (MediaQuery.of(context).size.width >= 600)
           Positioned(
             right: 70,
-            bottom: widget.sheetPosition != null
-                ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.15 * 0.5) +
-                      8
-                : MediaQuery.of(context).size.height * 0.075 + 8,
+            bottom:
+                (widget.sheetPosition != null
+                    ? MediaQuery.of(context).size.height *
+                              (widget.sheetPosition! * 0.5 + 0.15 * 0.5) +
+                          8
+                    : MediaQuery.of(context).size.height * 0.075 + 8) +
+                (MediaQuery.of(context).orientation == Orientation.portrait
+                    ? 10
+                    : MediaQuery.of(context).padding.bottom + 0),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

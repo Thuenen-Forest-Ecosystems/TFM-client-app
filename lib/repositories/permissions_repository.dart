@@ -154,6 +154,7 @@ class TroopModel {
   final String? supervisorId;
   final String? userIds;
   final String? organizationId;
+  final bool isControlTroop;
 
   TroopModel({
     required this.id,
@@ -162,6 +163,7 @@ class TroopModel {
     this.supervisorId,
     this.userIds,
     this.organizationId,
+    this.isControlTroop = false,
   });
 
   factory TroopModel.fromJson(Map<String, dynamic> json) {
@@ -172,6 +174,7 @@ class TroopModel {
       supervisorId: json['supervisor_id'] as String?,
       userIds: json['user_ids'] as String?,
       organizationId: json['organization_id'] as String?,
+      isControlTroop: (json['is_control_troop'] as int?) == 1,
     );
   }
 
@@ -183,6 +186,7 @@ class TroopModel {
       'supervisor_id': supervisorId,
       'user_ids': userIds,
       'organization_id': organizationId,
+      'is_control_troop': isControlTroop ? 1 : 0,
     };
   }
 }

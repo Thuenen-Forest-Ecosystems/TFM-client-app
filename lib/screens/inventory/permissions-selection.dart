@@ -262,7 +262,9 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
 
             return ListTile(
               dense: true,
-              //leading: const Icon(Icons.group, size: 20),
+              leading: troop.isControlTroop
+                  ? const Icon(Icons.shield, size: 20)
+                  : const Icon(Icons.group, size: 20),
               title: Text(
                 troop.name,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),

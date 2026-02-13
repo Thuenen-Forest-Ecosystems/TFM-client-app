@@ -891,19 +891,33 @@ class _RecordPositionState extends State<RecordPosition> {
                                   'End Time',
                                   _formatTimestamp(_aggregatedData!['stop_measurement'] as String),
                                 ),
-                              // Save button - only visible if quality is ok or good and data not saved yet
+
+                              const SizedBox(height: 12),
+
+                              // Save button - only visible if data not saved yet
                               if (!_isDataSaved && _aggregatedData!['overall_quality'] != null)
                                 Builder(
                                   builder: (context) {
+                                    // Check if required GPS metrics are available
+                                    final hasRequiredMetrics =
+                                        _aggregatedData!['hdop_mean'] != null &&
+                                        _aggregatedData!['pdop_mean'] != null &&
+                                        _aggregatedData!['satellites_count_mean'] != null;
+
                                     final overallQuality = QualityLevel.values.firstWhere(
                                       (e) =>
                                           e.toString().split('.').last ==
                                           _aggregatedData!['overall_quality'],
                                     );
-                                    final canSave =
+
+                                    final hasAcceptableQuality =
                                         overallQuality == QualityLevel.good ||
                                         overallQuality == QualityLevel.ok;
+
+                                    // Enable save only if both conditions are met
+                                    final canSave = hasRequiredMetrics && hasAcceptableQuality;
                                     final isOverwriting = _initialSavedData != null;
+
                                     return Padding(
                                       padding: const EdgeInsets.only(top: 16.0),
                                       child: Column(
@@ -950,6 +964,8 @@ class _RecordPositionState extends State<RecordPosition> {
                                                       ? Colors.orange
                                                       : Colors.green,
                                                   foregroundColor: Colors.white,
+                                                  disabledBackgroundColor: Colors.grey,
+                                                  disabledForegroundColor: Colors.white70,
                                                 ),
                                               ),
                                             ],

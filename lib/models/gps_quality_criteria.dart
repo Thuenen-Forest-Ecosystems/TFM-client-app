@@ -60,14 +60,30 @@ class GpsQualityCriteria {
     return QualityLevel.ok; // Standard GPS (quality = 1), no correction
   }
 
+  /// Check if all required GPS metrics are available
+  /// Required: hdop, pdop, satellites
+  static bool hasRequiredMetrics({double? hdopValue, double? pdopValue, int? satellitesValue}) {
+    return hdopValue != null && pdopValue != null && satellitesValue != null;
+  }
+
   /// Evaluate overall quality based on current GPS metrics
   /// Returns the worst quality level found across all parameters
+  /// Returns notAcceptable if required metrics (hdop, pdop, satellites) are missing
   QualityLevel evaluateQuality({
     double? hdopValue,
     double? pdopValue,
     int? satellitesValue,
     int? measurementCountValue,
   }) {
+    // Required metrics must be present
+    if (!hasRequiredMetrics(
+      hdopValue: hdopValue,
+      pdopValue: pdopValue,
+      satellitesValue: satellitesValue,
+    )) {
+      return QualityLevel.notAcceptable;
+    }
+
     final levels = <QualityLevel>[];
 
     if (hdopValue != null) {

@@ -88,16 +88,16 @@ class _SchemaSelectionState extends State<SchemaSelection> {
 
         return Column(
           children: [
-            const UserInfoTile(),
+            // const UserInfoTile(),
+            const MapTilesDownload(),
 
-            if (schemas.isNotEmpty)
+            /*if (schemas.isNotEmpty)
               Card(
                 margin: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const MapTilesDownload(),
                     if (Platform.isWindows)
                       FutureBuilder<ProxyConfig>(
                         future: ProxyService().getProxyConfig(),
@@ -141,7 +141,7 @@ class _SchemaSelectionState extends State<SchemaSelection> {
                       ),
                   ],
                 ),
-              ),
+              ),*/
             Expanded(
               child: schemas.isEmpty
                   ? const _EmptyStateWithProgress()

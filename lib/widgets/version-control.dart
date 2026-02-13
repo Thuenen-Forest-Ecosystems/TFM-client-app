@@ -151,7 +151,7 @@ class _VersionControlState extends State<VersionControl> {
       color: cardColor,
       child: InkWell(
         onTap: hasUpdate ? _openReleaseUrl : null,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(0),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(

@@ -18,6 +18,7 @@ import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/conditional_rules_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
@@ -179,6 +180,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
 
       debugPrint('Found schema: ${latestSchema.title} (version: ${latestSchema.version})');
+      debugPrint('Schema directory: ${latestSchema.directory}');
+      debugPrint('Schema has schemaData: ${latestSchema.schemaData != null}');
+      debugPrint('Schema has styleDefault: ${latestSchema.styleDefault != null}');
+      debugPrint('Schema has plausabilityScript: ${latestSchema.plausabilityScript != null}');
 
       // Store loaded schema version for display
       setState(() {
@@ -186,18 +191,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         _schemaDirectory = latestSchema.directory;
       });
 
-      // Check if schema has a directory for validation and style files
-      if (latestSchema.directory == null || latestSchema.directory!.isEmpty) {
-        debugPrint('Schema has no directory, using embedded schema');
-        // Use the embedded schema from the database
-        if (latestSchema.schemaData != null) {
-          final schema = latestSchema!.schemaData!['properties']['plot']['items'];
+      // Determine which style to use based on control troop status
+      final isControlTroop = await getCurrentIsControlTroop() ?? false;
+      debugPrint('Using ${isControlTroop ? "CONTROL" : "DEFAULT"} style');
+      
+      final styleToUse = isControlTroop ? latestSchema.styleControl : latestSchema.styleDefault;
+      
+      // Validate that required style exists
+      if (isControlTroop && latestSchema.styleControl == null) {
+        debugPrint('❌ ERROR: Control troop requires style_control but it is NULL');
+        if (mounted) {
           setState(() {
-            _jsonSchema = schema;
-            _originalJsonSchema = _deepCopyMap(schema);
-            _rootSchema = latestSchema!.schemaData;
-            // No conditional rules available for embedded schema (no directory)
-            _conditionalRules = [];
+            _error = 'Kontroll-Trupp benötigt style_control Schema, aber es ist nicht verfügbar';
+            _isLoading = false;
           });
         }
         return;
@@ -207,7 +213,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       List<ConditionalRule> conditionalRules = [];
       try {
         conditionalRules = await ConditionalRulesService().loadRules(
-          styleData: latestSchema.styleDefault,
+          styleData: styleToUse,
           directory: latestSchema.directory,
         );
         debugPrint('📌 Loaded ${conditionalRules.length} conditional rules');
@@ -222,10 +228,33 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         String? tfmValidationCode;
         final directory = latestSchema.directory;
 
-        // First try: Use data from schema table columns
+        // First try: Use data from schema table columns (regardless of directory)
         if (latestSchema.schemaData != null) {
-          debugPrint('✅ Using validation schema from database');
-          validationSchema = latestSchema.schemaData!['properties']['plot']['items'];
+          debugPrint('✅ Schema data found in database, attempting to extract validation schema');
+          debugPrint('Schema data keys: ${latestSchema.schemaData!.keys.toList()}');
+
+          // Safely navigate nested structure with debugging
+          final schemaData = latestSchema.schemaData!;
+          if (schemaData.containsKey('properties')) {
+            final properties = schemaData['properties'] as Map<String, dynamic>?;
+            debugPrint('Properties keys: ${properties?.keys.toList()}');
+
+            if (properties != null && properties.containsKey('plot')) {
+              final plot = properties['plot'] as Map<String, dynamic>?;
+              debugPrint('Plot keys: ${plot?.keys.toList()}');
+
+              if (plot != null && plot.containsKey('items')) {
+                validationSchema = plot['items'] as Map<String, dynamic>?;
+                debugPrint('✅ Successfully extracted validation schema from database');
+              } else {
+                debugPrint('❌ "items" key not found in plot object');
+              }
+            } else {
+              debugPrint('❌ "plot" key not found in properties object');
+            }
+          } else {
+            debugPrint('❌ "properties" key not found in schema data');
+          }
         }
 
         if (latestSchema.plausabilityScript != null) {
@@ -246,8 +275,29 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             if (await validationFile.exists()) {
               final validationContent = await validationFile.readAsString();
               final Map<String, dynamic> validationJson = jsonDecode(validationContent);
-              validationSchema = validationJson['properties']['plot']['items'];
-              debugPrint('✅ Loaded validation schema from file');
+              debugPrint('Validation file keys: ${validationJson.keys.toList()}');
+
+              // Safely navigate nested structure with debugging
+              if (validationJson.containsKey('properties')) {
+                final properties = validationJson['properties'] as Map<String, dynamic>?;
+                debugPrint('Properties keys from file: ${properties?.keys.toList()}');
+
+                if (properties != null && properties.containsKey('plot')) {
+                  final plot = properties['plot'] as Map<String, dynamic>?;
+                  debugPrint('Plot keys from file: ${plot?.keys.toList()}');
+
+                  if (plot != null && plot.containsKey('items')) {
+                    validationSchema = plot['items'] as Map<String, dynamic>?;
+                    debugPrint('✅ Loaded validation schema from file');
+                  } else {
+                    debugPrint('❌ "items" key not found in plot object from file');
+                  }
+                } else {
+                  debugPrint('❌ "plot" key not found in properties object from file');
+                }
+              } else {
+                debugPrint('❌ "properties" key not found in validation file');
+              }
             } else {
               debugPrint('❌ validation.json not found at: $validationFilePath');
             }
@@ -286,7 +336,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           _originalJsonSchema = originalSchema;
           _rootSchema = latestSchema?.schemaData;
           _conditionalRules = conditionalRules;
-          _styleData = latestSchema?.styleDefault;
+          _styleData = styleToUse; // Use the determined style (control or default)
           _isLoading = false;
         });
         debugPrint('✅ Schema and rules set in state (${conditionalRules.length} rules)');
@@ -989,19 +1039,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     try {
       Map<String, dynamic>? styleJson;
 
-      // First try: Get style from current schema's styleDefault
-      final results = await db.getAll('SELECT style_default FROM schemas WHERE id = ?', [
+      // Determine which style to use based on control troop status
+      final isControlTroop = await getCurrentIsControlTroop() ?? false;
+      final styleColumn = isControlTroop ? 'style_control' : 'style_default';
+      debugPrint('Showing ${isControlTroop ? "CONTROL" : "DEFAULT"} style from column: $styleColumn');
+
+      // First try: Get style from current schema's style_control or style_default
+      final results = await db.getAll('SELECT $styleColumn FROM schemas WHERE id = ?', [
         _record?.schemaIdValidatedBy ?? _record?.schemaId,
       ]);
 
-      if (results.isNotEmpty && results.first['style_default'] != null) {
-        final styleData = results.first['style_default'];
+      if (results.isNotEmpty && results.first[styleColumn] != null) {
+        final styleData = results.first[styleColumn];
         if (styleData is String) {
           styleJson = jsonDecode(styleData);
         } else {
           styleJson = styleData as Map<String, dynamic>;
         }
-        debugPrint('✅ Loaded style from database');
+        debugPrint('✅ Loaded $styleColumn from database');
       }
       // Fallback: Load from file
       else if (_schemaDirectory != null) {

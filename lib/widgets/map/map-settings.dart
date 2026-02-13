@@ -113,12 +113,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     value: _selectedBasemaps.contains('opencycle'),
                     onChanged: (value) => _toggleBasemap('opencycle', value),
                   ),
-                  CheckboxListTile(
-                    title: const Text('ESRI Satellite (offline)'),
-                    subtitle: const Text('Weltweite Satellitenbilder'),
-                    value: _selectedBasemaps.contains('esri_satellite'),
-                    onChanged: (value) => _toggleBasemap('esri_satellite', value),
-                  ),
+
                   CheckboxListTile(
                     title: const Text('Luftbilder (offline)'),
                     subtitle: const Text('nur höchste Zoomstufen'),
@@ -202,6 +197,18 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                               label: const Text('Baumart (Name)'),
                               selected: _treeLabelFields.contains('tree_species_name'),
                               onSelected: (value) => _toggleLabelField('tree_species_name', value),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            FilterChip(
+                              label: const Text('Azimut'),
+                              selected: _treeLabelFields.contains('azimuth'),
+                              onSelected: (value) => _toggleLabelField('azimuth', value),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            FilterChip(
+                              label: const Text('Distanz'),
+                              selected: _treeLabelFields.contains('distance'),
+                              onSelected: (value) => _toggleLabelField('distance', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
                             ),
                           ],

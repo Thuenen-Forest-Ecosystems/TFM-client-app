@@ -150,6 +150,18 @@ class TreeLayers {
               }
             }
 
+            // Add azimuth (if selected)
+            if (treeLabelFields.contains('azimuth') && tree['azimuth'] != null) {
+              final azimuth = tree['azimuth'];
+              labelParts.add('${(azimuth as num).toInt()}gon');
+            }
+
+            // Add distance (if selected)
+            if (treeLabelFields.contains('distance') && tree['distance'] != null) {
+              final distance = tree['distance'];
+              labelParts.add('${(distance as num)}cm');
+            }
+
             final labelText = labelParts.join(' | ');
             if (labelText.isEmpty) {
               return null;
@@ -157,8 +169,7 @@ class TreeLayers {
 
             return Marker(
               point: LatLng(lat, lng),
-              width: 150,
-              height: 16,
+              width: 350,
               alignment: Alignment.bottomCenter,
               child: Align(
                 alignment: Alignment.bottomCenter,

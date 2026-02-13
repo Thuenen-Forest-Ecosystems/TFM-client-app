@@ -174,6 +174,7 @@ Schema schema = Schema(([
     Column.text('supervisor_id'),
     Column.text('user_ids'),
     Column.text('organization_id'),
+    Column.integer('is_control_troop'),
   ]),
   const Table('records_messages', [
     Column.text('created_at'),

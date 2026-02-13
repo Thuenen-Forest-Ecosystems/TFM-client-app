@@ -205,7 +205,15 @@ class _MessagesChatState extends State<MessagesChat> {
         final hasHeight = constraints.maxHeight != double.infinity;
         const minHeight = 200.0; // Minimum height for chat to be usable
 
-        final chatContent = Column(
+        // Determine the height to apply
+        double? height;
+        if (!hasHeight) {
+          height = MediaQuery.of(context).size.height * 0.7;
+        } else if (constraints.maxHeight < minHeight) {
+          height = minHeight;
+        }
+
+        Widget content = Column(
           children: [
             Expanded(
               child: _isLoading
@@ -249,17 +257,11 @@ class _MessagesChatState extends State<MessagesChat> {
           ],
         );
 
-        // If no bounded height, wrap in SizedBox to provide constraints
-        if (!hasHeight) {
-          return SizedBox(height: MediaQuery.of(context).size.height * 0.7, child: chatContent);
+        if (height != null) {
+          return SizedBox(height: height, child: content);
         }
 
-        // If available height is too small, enforce minimum height
-        if (constraints.maxHeight < minHeight) {
-          return SizedBox(height: minHeight, child: chatContent);
-        }
-
-        return chatContent;
+        return content;
       },
     );
   }

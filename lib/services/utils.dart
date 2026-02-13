@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/config.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -439,4 +440,28 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
   }
   // print('return nmeaState: ${nmeaState.toString()}'); // More detailed print
   return nmeaState;
+}
+
+/// Get whether the current selected troop is a control troop
+/// Returns null if no troop is selected or troop not found
+/// Returns true if the troop has is_control_troop = 1
+/// Returns false if the troop has is_control_troop = 0
+Future<bool?> getCurrentIsControlTroop() async {
+  try {
+    final selectionService = OrganizationSelectionService();
+    final troopId = await selectionService.getSelectedTroopId();
+    
+    if (troopId == null) {
+      print('No troop selected, returning null for isControlTroop');
+      return null;
+    }
+    
+    final result = await db.get('SELECT is_control_troop FROM troop WHERE id = ?', [troopId]);
+    final isControlTroop = (result['is_control_troop'] as int?) == 1;
+    print('Troop $troopId is_control_troop: $isControlTroop');
+    return isControlTroop;
+  } catch (e) {
+    print('Error getting isControlTroop: $e');
+    return null;
+  }
 }

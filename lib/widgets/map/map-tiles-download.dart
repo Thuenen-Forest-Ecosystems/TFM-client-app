@@ -598,31 +598,15 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
   @override
   Widget build(BuildContext context) {
-    final isAnyDownloading = _downloadingBasemap != null;
-
-    return Material(
-      color: Colors.transparent,
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                const Icon(Icons.map),
-                const SizedBox(width: 8),
-                Text(
-                  'Karten herunterladen',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-
-          // Basemap tiles
-          ...basemapsToSelectFrom.entries.map((entry) {
+    // Only allow download if nothing is currently downloading, not checking, and records exist
+    final canStartDownload =
+        _downloadingBasemap == null && !_isCheckingTiles && _missingTilesCount == -1;
+    return Flexible(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: basemapsToSelectFrom.entries.map((entry) {
             final basemapName = entry.key;
             final config = entry.value;
             final title = config['title'] as String? ?? basemapName;
@@ -630,56 +614,73 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
             final isDownloading = _downloadingBasemap == basemapName;
             final isCompleted = _downloadedBasemaps[basemapName] ?? false;
             final progress = _basemapProgress[basemapName] ?? 0.0;
-            final status = _basemapStatus[basemapName] ?? '';
-            final canDownload = !isAnyDownloading && !_isCheckingTiles && _missingTilesCount == -1;
+            //final status = _basemapStatus[basemapName] ?? '';
 
-            return Column(
-              children: [
-                ListTile(
-                  leading: isDownloading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-                  title: Text(title),
-                  subtitle: isDownloading
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(status),
-                            const SizedBox(height: 4),
-                            LinearProgressIndicator(value: progress),
-                          ],
-                        )
-                      : isCompleted
-                      ? const Text('Download abgeschlossen')
-                      : null,
-                  trailing: isDownloading
-                      ? IconButton(
-                          icon: const Icon(Icons.cancel),
-                          onPressed: _cancelDownload,
-                          tooltip: 'Abbrechen',
-                        )
-                      : isCompleted
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : null,
-                  onTap: canDownload ? () => _downloadMapTilesForBasemap(basemapName) : null,
-                  enabled: canDownload,
+            return Card(
+              margin: const EdgeInsets.only(right: 16, bottom: 16),
+              child: Container(
+                width: 200,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 16),
+                    if (isDownloading) ...[
+                      const LinearProgressIndicator(),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${(progress * 100).toInt()}%',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.cancel),
+                        onPressed: _cancelDownload,
+                        tooltip: 'Abbrechen',
+                      ),
+                    ] else if (isCompleted) ...[
+                      const Text('Fertig', style: TextStyle(color: Colors.green)),
+                    ] else ...[
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: canStartDownload
+                            ? () => _downloadMapTilesForBasemap(basemapName)
+                            : null,
+                        child: const Text('Download'),
+                      ),
+                    ],
+                  ],
                 ),
-                const Divider(height: 1),
-              ],
+              ),
             );
           }).toList(),
+        ),
+      ),
+    );
 
-          // Status message if no records
+    return Material(
+      color: Colors.transparent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Cards side by side
+
+          // Status message if no records or checking
           if (_isCheckingTiles)
             const Padding(padding: EdgeInsets.all(16.0), child: Text('Prüfe Aufnahmepunkte...'))
           else if (_missingTilesCount == 0)
             const Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text('Keine Aufnahmepunkte gefunden. Bitte laden Sie zuerst Daten.'),
+              child: Text(
+                'Keine Aufnahmepunkte gefunden. Bitte laden Sie zuerst Daten.',
+                style: TextStyle(color: Colors.orange),
+              ),
             ),
         ],
       ),
