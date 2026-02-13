@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
@@ -23,8 +24,11 @@ class LayoutService {
   }) async {
     // Return cached layout if already loaded for this directory
     if (_cachedLayout != null && _cachedDirectory == directory) {
+      debugPrint('🔄 Returning CACHED layout for directory: $directory (version: ${_cachedLayout?.version})');
       return _cachedLayout;
     }
+
+    debugPrint('📥 Loading FRESH layout for directory: $directory');
 
     try {
       Map<String, dynamic>? jsonData;
@@ -63,6 +67,8 @@ class LayoutService {
       _cachedLayout = LayoutConfig.fromJson(jsonData);
       _cachedDirectory = directory;
 
+      debugPrint('✅ Loaded layout version: ${_cachedLayout?.version} for directory: $directory');
+
       return _cachedLayout;
     } catch (e) {
       print('Failed to load layout: $e');
@@ -72,6 +78,7 @@ class LayoutService {
 
   /// Clear the cached layout (useful for testing or hot reload)
   static void clearCache() {
+    debugPrint('🗑️ Clearing layout cache (was: ${_cachedLayout?.version})');
     _cachedLayout = null;
     _cachedDirectory = null;
   }

@@ -1,0 +1,23 @@
+{
+  "name": "Default Forestry Criteria",
+  "hdop": {
+    "good": 2.0,
+    "ok": 5.0,
+    "notAcceptable": 10.0
+  },
+  "pdop": {
+    "good": 3.0,
+    "ok": 6.0,
+    "notAcceptable": 10.0
+  },
+  "satellites": {
+    "good": 9,
+    "ok": 6,
+    "notAcceptable": 4
+  },
+  "accuracy": {
+    "good": 3.0,
+    "ok": 10.0,
+    "notAcceptable": 20.0
+  }
+}

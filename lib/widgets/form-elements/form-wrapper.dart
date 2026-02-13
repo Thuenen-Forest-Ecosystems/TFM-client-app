@@ -242,8 +242,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       _previousProperties = Map<String, dynamic>.from(widget.previousFormData ?? {});
     }
 
-    // Reload layout if layoutDirectory changed
-    if (widget.layoutDirectory != oldWidget.layoutDirectory) {
+    // Reload layout if layoutStyleData or layoutDirectory changed
+    if (widget.layoutStyleData != oldWidget.layoutStyleData ||
+        widget.layoutDirectory != oldWidget.layoutDirectory) {
+      debugPrint('📊 Layout data changed, clearing cache and reloading');
+      LayoutService.clearCache();
       _initializeLayout();
       return; // _initializeLayout will rebuild everything including tabs
     }
@@ -673,6 +676,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           columnConfig: arrayLayout.columns,
           columnItems: arrayLayout.items, // NEW STRUCTURE
           layoutOptions: arrayLayout.options,
+          filterConfig: arrayLayout.filter, // Filter configuration
           onDataChanged: (updatedData) {
             LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
             widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));

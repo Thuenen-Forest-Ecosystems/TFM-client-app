@@ -47,29 +47,13 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
 
     return Column(
       children: [
-        Card(
-          margin: const EdgeInsets.all(10),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 10, left: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ecke einmessen:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                RecordPosition(
-                  jsonSchema: widget.jsonSchema,
-                  data: widget.data,
-                  previous_properties: widget.previous_properties,
-                  propertyName: widget.propertyName,
-                  validationResult: widget.validationResult,
-                  onDataChanged: widget.onDataChanged,
-                ),
-              ],
-            ),
-          ),
+        RecordPosition(
+          jsonSchema: widget.jsonSchema,
+          data: widget.data,
+          previous_properties: widget.previous_properties,
+          propertyName: widget.propertyName,
+          validationResult: widget.validationResult,
+          onDataChanged: widget.onDataChanged,
         ),
       ],
     );

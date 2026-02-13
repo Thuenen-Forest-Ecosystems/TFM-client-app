@@ -167,6 +167,7 @@ class ArrayLayout extends LayoutItem {
   columns; // Column-specific styling (pinning, grouping, display, width) - OLD STRUCTURE
   final List<dynamic>? items; // Column items array with groups - NEW STRUCTURE
   final String? identifierField; // Field name for matching rows with previous data
+  final List<dynamic>? filter; // Filter configuration array
 
   ArrayLayout({
     required super.id,
@@ -177,6 +178,7 @@ class ArrayLayout extends LayoutItem {
     this.columns,
     this.items,
     this.identifierField,
+    this.filter,
     super.icon,
   }) : super(type: 'array');
 
@@ -190,6 +192,7 @@ class ArrayLayout extends LayoutItem {
       columns: json['columns'] as Map<String, dynamic>?,
       items: json['items'] as List<dynamic>?,
       identifierField: json['identifierField'] as String?,
+      filter: json['filter'] as List<dynamic>?,
       icon: json['icon'] as String?,
     );
   }

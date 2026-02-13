@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
@@ -8,6 +9,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-di
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-filter-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/validation_status_indicator.dart';
 
 /// ArrayElementTrina - TrinaGrid-based array data editor widget
@@ -45,6 +47,9 @@ class ArrayElementTrina extends StatefulWidget {
   /// Optional identifier field for matching rows between current and previous data
   final String? identifierField;
 
+  /// Optional filter configuration from layout
+  final List<dynamic>? filterConfig;
+
   const ArrayElementTrina({
     super.key,
     required this.jsonSchema,
@@ -57,6 +62,7 @@ class ArrayElementTrina extends StatefulWidget {
     this.layoutOptions,
     this.previousData,
     this.identifierField,
+    this.filterConfig,
   });
 
   @override
@@ -72,12 +78,105 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   DateTime? _lastSelectionTimestamp;
   MapControllerProvider? _mapControllerProvider;
 
+  // Track sort states for each column to cycle through: none -> ascending -> descending -> none
+  final Map<String, int> _columnSortStates = {}; // 0=none, 1=ascending, 2=descending
+
+  // Filter support
+  List<ArrayFilterRule> _filters = [];
+  Set<int> _activeFilterIndices = {};
+  bool _filtersLoaded = false;
+
   @override
   void initState() {
     super.initState();
     print('Initializing ArrayElementTrina for property: ${widget.propertyName}');
     print('Initial data: ${widget.data}');
+    _initializeFilters();
     _initializeGrid();
+  }
+
+  void _initializeFilters() {
+    // Parse filter configuration from layout
+    debugPrint('🔍 Filter config for ${widget.propertyName}: ${widget.filterConfig}');
+
+    if (widget.filterConfig != null && widget.filterConfig!.isNotEmpty) {
+      _filters = widget.filterConfig!
+          .map((config) => ArrayFilterRule.fromJson(config as Map<String, dynamic>))
+          .toList();
+
+      debugPrint('✅ Created ${_filters.length} filters for ${widget.propertyName}');
+
+      // Set default active filters
+      _activeFilterIndices.clear();
+      for (int i = 0; i < _filters.length; i++) {
+        if (_filters[i].defaultActive) {
+          _activeFilterIndices.add(i);
+        }
+      }
+
+      // Load saved filter state asynchronously
+      _loadFilterState();
+    }
+  }
+
+  Future<void> _loadFilterState() async {
+    if (widget.propertyName == null || _filters.isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'array_filter_${widget.propertyName}';
+      final savedIndices = prefs.getStringList(key);
+
+      if (savedIndices != null) {
+        setState(() {
+          _activeFilterIndices = savedIndices.map((s) => int.parse(s)).toSet();
+          _filtersLoaded = true;
+        });
+        debugPrint('Loaded filter state for ${widget.propertyName}: $_activeFilterIndices');
+      } else {
+        setState(() {
+          _filtersLoaded = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading filter state: $e');
+      setState(() {
+        _filtersLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _saveFilterState() async {
+    if (widget.propertyName == null || _filters.isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'array_filter_${widget.propertyName}';
+      await prefs.setStringList(key, _activeFilterIndices.map((i) => i.toString()).toList());
+      debugPrint('Saved filter state for ${widget.propertyName}: $_activeFilterIndices');
+    } catch (e) {
+      debugPrint('Error saving filter state: $e');
+    }
+  }
+
+  Future<void> _showFilterDialog() async {
+    if (_filters.isEmpty) return;
+
+    final result = await ArrayFilterDialog.show(
+      context: context,
+      filters: _filters,
+      activeFilterIndices: _activeFilterIndices,
+    );
+
+    if (result != null) {
+      setState(() {
+        _activeFilterIndices = result;
+        _rows = _buildRows();
+        _stateManager?.removeAllRows();
+        _stateManager?.appendRows(_rows);
+      });
+      await _saveFilterState();
+    }
   }
 
   @override
@@ -539,6 +638,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           isBoolean = true;
         } else if (type == 'integer' || type == 'number') {
           isNumeric = true;
+          columnType = TrinaColumnTypeNumber(
+            negative: true,
+            format: type == 'number' ? '#,###.##' : '#,###',
+            applyFormatOnInit: false,
+            allowFirstDot: true,
+            locale: 'de_DE',
+          );
         }
 
         return TrinaColumn(
@@ -716,15 +822,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         columnType = TrinaColumnTypeText();
         isBoolean = true;
       } else if (type == 'integer' || type == 'number') {
-        /*columnType = TrinaColumnTypeNumber(
+        columnType = TrinaColumnTypeNumber(
           negative: true,
           format: type == 'number' ? '#,###.##' : '#,###',
           applyFormatOnInit: false,
           allowFirstDot: true,
           locale: 'de_DE',
-        );*/
+        );
         isNumeric = true;
-        columnType = TrinaColumnTypeText();
       } else {
         columnType = TrinaColumnTypeText();
       }
@@ -907,7 +1012,32 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
-    return widget.data!.map((item) {
+    // Apply filters if any are active
+    List<dynamic> filteredData = widget.data!;
+    if (_filters.isNotEmpty && _activeFilterIndices.isNotEmpty) {
+      filteredData = widget.data!.where((item) {
+        // Row must pass ALL active filters
+        for (final filterIndex in _activeFilterIndices) {
+          if (filterIndex >= _filters.length) continue;
+
+          final filter = _filters[filterIndex];
+          final itemMap = item is Map ? item : {};
+          final fieldValue = itemMap[filter.field];
+
+          // If filter doesn't match, exclude this row
+          if (!filter.matches(fieldValue)) {
+            return false;
+          }
+        }
+        return true;
+      }).toList();
+
+      debugPrint(
+        'Filtered ${widget.data!.length} rows to ${filteredData.length} rows (${_activeFilterIndices.length} active filters)',
+      );
+    }
+
+    return filteredData.map((item) {
       final rowData = Map<String, dynamic>.from(item is Map ? item : {});
       final cells = <String, TrinaCell>{};
 
@@ -1837,6 +1967,27 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           ),
           child: Row(
             children: [
+              // Filter button (if filters are configured)
+              if (_filters.isNotEmpty) ...[
+                Badge(
+                  label: Text('${_activeFilterIndices.length}'),
+                  isLabelVisible: _activeFilterIndices.isNotEmpty,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.filter_list,
+                      size: 20,
+                      color: _activeFilterIndices.isNotEmpty
+                          ? Theme.of(context).colorScheme.primary
+                          : (isDark ? Colors.white70 : Colors.black54),
+                    ),
+                    tooltip: 'Filter',
+                    onPressed: _showFilterDialog,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               Text(
                 '${_rows.length} Einträge',
                 style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 12),
@@ -1915,11 +2066,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                       onSorted: (TrinaGridOnSortedEvent event) {
                         final column = event.column;
 
-                        // Simple toggle: if currently ascending, go descending, otherwise go ascending
-                        if (column.sort == TrinaColumnSort.ascending) {
+                        // Get current sort state for this column (default to 0 = none)
+                        final currentState = _columnSortStates[column.field] ?? 0;
+                        final nextState = (currentState + 1) % 3; // Cycle: 0 -> 1 -> 2 -> 0
+
+                        // Clear all other column states
+                        _columnSortStates.clear();
+                        _columnSortStates[column.field] = nextState;
+
+                        // Apply the sort based on next state
+                        if (nextState == 1) {
+                          // Ascending
+                          _stateManager?.sortAscending(column);
+                        } else if (nextState == 2) {
+                          // Descending
                           _stateManager?.sortDescending(column);
                         } else {
-                          _stateManager?.sortAscending(column);
+                          // None - restore original order by rebuilding from source data
+                          final originalRows = _buildRows();
+                          _stateManager?.removeAllRows();
+                          _stateManager?.appendRows(originalRows);
+                          _rows = originalRows;
+                          // Clear the sort indicator
+                          column.sort = TrinaColumnSort.none;
+                          return;
                         }
 
                         _rows = _stateManager?.rows ?? _rows;

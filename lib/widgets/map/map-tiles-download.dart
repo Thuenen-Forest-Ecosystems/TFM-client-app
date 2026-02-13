@@ -31,6 +31,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       'urlTemplate': 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
       'zoomLayers': [4, 10, 14],
       'storeName': 'OpenCycleMap',
+      'title': 'Karte (offline)',
     },
     /*'ESRI Satellite': {
       'urlTemplate':
@@ -42,6 +43,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       'urlTemplate': 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
       'zoomLayers': [15, 19],
       'storeName': 'wms_dop__',
+      'title': 'Luftbilder (offline)',
     },
     /*'OpenTopoMap': {
       'urlTemplate': 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
@@ -623,21 +625,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           ...basemapsToSelectFrom.entries.map((entry) {
             final basemapName = entry.key;
             final config = entry.value;
-            final urlTemplate = config['urlTemplate'] as String;
-
-            // Determine provider name from URL
-            String providerName = '';
-            Icon providerIcon = const Icon(Icons.map);
-            if (urlTemplate.contains('tile-cyclosm.openstreetmap.fr')) {
-              providerName = 'OpenStreetMap CycloSM';
-              providerIcon = const Icon(Icons.directions_bike);
-            } else if (urlTemplate.contains('geodatenzentrum.de')) {
-              providerName = 'BKG GeoDatenZentrum';
-              providerIcon = const Icon(Icons.satellite_alt);
-            } else if (urlTemplate.contains('arcgisonline.com')) {
-              providerName = 'ESRI World Imagery';
-              providerIcon = const Icon(Icons.public);
-            }
+            final title = config['title'] as String? ?? basemapName;
 
             final isDownloading = _downloadingBasemap == basemapName;
             final isCompleted = _downloadedBasemaps[basemapName] ?? false;
@@ -654,8 +642,8 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                           height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : providerIcon,
-                  title: Text(basemapName),
+                      : null,
+                  title: Text(title),
                   subtitle: isDownloading
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,7 +655,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                         )
                       : isCompleted
                       ? const Text('Download abgeschlossen')
-                      : Text(providerName),
+                      : null,
                   trailing: isDownloading
                       ? IconButton(
                           icon: const Icon(Icons.cancel),
