@@ -11,6 +11,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
+import 'package:terrestrial_forest_monitor/services/gnss_service.dart';
 
 class CurrentNMEA {
   String? mode;
@@ -67,8 +68,15 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   Timer? _classicReconnectTimer;
   Timer? _classicDataTimeoutTimer;
   bool _isClassicReconnecting = false;
+  int _classicReconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 3;
 
   CurrentNMEA? _currentNMEA = CurrentNMEA();
+
+  // Android GNSS service for satellite data
+  GnssService? _gnssService;
+  StreamSubscription<GnssStatus>? _gnssStatusSubscription;
+  GnssStatus? _lastGnssStatus;
 
   late final StreamController<LocationMarkerPosition> _positionStreamController;
   late final StreamController<LocationMarkerHeading> _headingStreamController;
@@ -236,10 +244,12 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     Timer connectionTimeout = Timer(const Duration(seconds: 15), () {
       if (_isConnecting && connectedDevice == null) {
         debugPrint('Connection timeout - stopping connection attempt');
+        debugPrint('Bluetooth device not reachable, falling back to internal GPS');
         _isConnecting = false;
         blueConnectionSubscription?.cancel();
         device.disconnect();
-        notifyListeners();
+        // Automatically start internal GPS as fallback
+        startInternalGps();
       }
     });
 
@@ -283,9 +293,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       }
     } catch (error) {
       print('Error connecting to device: $error');
+      debugPrint('Failed to connect to Bluetooth device, falling back to internal GPS');
       connectionTimeout.cancel();
       _isConnecting = false;
-      notifyListeners();
+      // Automatically start internal GPS as fallback
+      startInternalGps();
     }
   }
 
@@ -412,6 +424,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
       _isConnecting = false;
       _isClassicReconnecting = false;
+      _classicReconnectAttempts = 0; // Reset on successful connection
       notifyListeners();
     } catch (e) {
       debugPrint('Error connecting to Classic Bluetooth device: $e');
@@ -459,9 +472,23 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   // Schedule automatic reconnection
   void _scheduleClassicReconnection(classic.BluetoothDevice device) {
     _classicReconnectTimer?.cancel();
+
+    // Check if we've exceeded max reconnection attempts
+    if (_classicReconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('Max reconnection attempts ($_maxReconnectAttempts) reached for ${device.name}');
+      debugPrint('Classic Bluetooth device not reachable, falling back to internal GPS');
+      connectedClassicDevice = null;
+      _classicReconnectAttempts = 0;
+      startInternalGps();
+      return;
+    }
+
+    _classicReconnectAttempts++;
     _classicReconnectTimer = Timer(const Duration(seconds: 3), () {
       if (connectedClassicDevice?.address == device.address) {
-        debugPrint('Attempting to reconnect to ${device.name}');
+        debugPrint(
+          'Reconnection attempt $_classicReconnectAttempts/$_maxReconnectAttempts to ${device.name}',
+        );
         connectClassicDevice(device);
       }
     });
@@ -531,6 +558,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   @override
   void dispose() {
     stopAll();
+    _gnssStatusSubscription?.cancel();
+    _gnssService?.stopGnssListener();
+    _gnssService?.dispose();
 
     super.dispose();
   }
@@ -554,6 +584,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _classicDataTimeoutTimer?.cancel();
     _classicDataTimeoutTimer = null;
     _isClassicReconnecting = false;
+    _classicReconnectAttempts = 0; // Reset reconnection attempts
     classicDataSubscription?.cancel();
     classicDataSubscription = null;
     if (classicConnection != null && classicConnection!.isConnected) {
@@ -568,6 +599,14 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     _positionStream?.cancel();
     _listeningPosition = false;
+
+    // Stop Android GNSS listener
+    _gnssStatusSubscription?.cancel();
+    _gnssStatusSubscription = null;
+    _lastGnssStatus = null;
+    if (Platform.isAndroid && _gnssService != null) {
+      _gnssService?.stopGnssListener();
+    }
 
     _currentNMEA = null;
     _navigationTarget = null;
@@ -637,6 +676,45 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     setCurrentLocation(); // Attempt to get last known location
 
+    // Initialize Android GNSS service for satellite data
+    if (Platform.isAndroid) {
+      _gnssService ??= GnssService();
+      try {
+        final isAvailable = await _gnssService!.isGnssAvailable();
+        if (isAvailable) {
+          await _gnssService!.startGnssListener();
+          _gnssStatusSubscription = _gnssService!.getGnssStatusStream().listen((status) {
+            _lastGnssStatus = status;
+            // Update NMEA with satellite data if we have a valid position
+            if (_currentNMEA != null &&
+                _currentNMEA!.latitude != null &&
+                _currentNMEA!.longitude != null) {
+              _currentNMEA = CurrentNMEA(
+                latitude: _currentNMEA!.latitude,
+                longitude: _currentNMEA!.longitude,
+                altitude: _currentNMEA!.altitude,
+                heading: _currentNMEA!.heading,
+                speedKnots: _currentNMEA!.speedKnots,
+                timestamp: _currentNMEA!.timestamp,
+                // Use actual satellite data from GNSS
+                satellites: status.usedInFix,
+                hdop: status.estimateHdop(),
+                pdop: status.estimatePdop(),
+                vdop: null, // Not directly available
+                fixQuality: status.usedInFix >= 4 ? '1' : '0',
+                mode: null,
+                fixType: status.usedInFix >= 4 ? 3 : 0,
+              );
+              notifyListeners();
+            }
+          });
+          debugPrint('Android GNSS listener started successfully');
+        }
+      } catch (e) {
+        debugPrint('Failed to initialize Android GNSS service: $e');
+      }
+    }
+
     _isConnecting = true;
     notifyListeners();
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
@@ -648,6 +726,47 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         })
         .listen((Position position) {
           _lastPosition = position;
+
+          // Create NMEA object from internal GPS Position data
+          // On Android, enhance with real satellite data from GNSS service
+          if (Platform.isAndroid && _lastGnssStatus != null) {
+            // Use actual satellite data from Android GNSS
+            _currentNMEA = CurrentNMEA(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              altitude: position.altitude,
+              heading: position.heading,
+              speedKnots: position.speed * 1.94384, // Convert m/s to knots
+              timestamp: position.timestamp,
+              // Real satellite data from GNSS
+              satellites: _lastGnssStatus!.usedInFix,
+              hdop: _lastGnssStatus!.estimateHdop(),
+              pdop: _lastGnssStatus!.estimatePdop(),
+              vdop: null, // Not available from Android API
+              fixQuality: _lastGnssStatus!.usedInFix >= 4 ? '1' : '0',
+              mode: null,
+              fixType: _lastGnssStatus!.usedInFix >= 4 ? 3 : 0,
+            );
+          } else {
+            // Fallback: estimate from accuracy (Windows, iOS, or Android without GNSS data)
+            _currentNMEA = CurrentNMEA(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              altitude: position.altitude,
+              heading: position.heading,
+              speedKnots: position.speed * 1.94384, // Convert m/s to knots
+              timestamp: position.timestamp,
+              // Estimate HDOP from accuracy (rough approximation: accuracy ≈ HDOP * 5)
+              hdop: position.accuracy / 5.0,
+              // These are not available without external GPS or Android GNSS:
+              satellites: null,
+              pdop: null,
+              vdop: null,
+              fixQuality: null,
+              mode: null,
+              fixType: null,
+            );
+          }
 
           _positionStreamController.add(
             LocationMarkerPosition(

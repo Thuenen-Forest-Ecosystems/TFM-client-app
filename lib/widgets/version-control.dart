@@ -162,24 +162,24 @@ class _VersionControlState extends State<VersionControl> {
                 size: 32,
               ),
               const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasUpdate ? 'Neue Version verfügbar' : 'Aktuelle Version',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      hasUpdate
-                          ? 'Version $_latestVersion ist verfügbar (Aktuell: $_currentVersion)'
-                          : 'Version $_currentVersion',
-                      style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.8)),
-                    ),
-                  ],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    hasUpdate ? 'Neue Version verfügbar' : 'Aktuelle Version',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasUpdate
+                        ? 'Version $_latestVersion ist verfügbar (Aktuell: $_currentVersion)'
+                        : 'Version $_currentVersion',
+                    style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.8)),
+                  ),
+                ],
               ),
+
               if (hasUpdate) Icon(Icons.open_in_new, color: textColor, size: 20),
             ],
           ),

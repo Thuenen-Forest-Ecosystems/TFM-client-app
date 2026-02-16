@@ -450,12 +450,12 @@ Future<bool?> getCurrentIsControlTroop() async {
   try {
     final selectionService = OrganizationSelectionService();
     final troopId = await selectionService.getSelectedTroopId();
-    
+
     if (troopId == null) {
       print('No troop selected, returning null for isControlTroop');
       return null;
     }
-    
+
     final result = await db.get('SELECT is_control_troop FROM troop WHERE id = ?', [troopId]);
     final isControlTroop = (result['is_control_troop'] as int?) == 1;
     print('Troop $troopId is_control_troop: $isControlTroop');

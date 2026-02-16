@@ -25,7 +25,9 @@ class LayoutService {
   }) async {
     // Return cached layout if already loaded for this directory
     if (_cachedLayout != null && _cachedDirectory == directory) {
-      debugPrint('🔄 Returning CACHED layout for directory: $directory (version: ${_cachedLayout?.version})');
+      debugPrint(
+        '🔄 Returning CACHED layout for directory: $directory (version: ${_cachedLayout?.version})',
+      );
       return _cachedLayout;
     }
 

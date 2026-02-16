@@ -31,6 +31,7 @@ class Record {
   final int? isToBeRecorded;
   final String? note;
   final String? validationErrors;
+  final String? plausibilityErrors;
   final String? cluster;
   final int? isTraining;
 
@@ -60,6 +61,7 @@ class Record {
     this.isToBeRecorded,
     this.note,
     this.validationErrors,
+    this.plausibilityErrors,
     this.cluster,
     this.isTraining,
   });
@@ -95,6 +97,7 @@ class Record {
       isToBeRecorded: row['is_to_be_recorded'] as int?,
       note: row['note'] as String?,
       validationErrors: row['validation_errors'] as String?,
+      plausibilityErrors: row['plausibility_errors'] as String?,
       cluster: row['cluster'] as String?,
       isTraining: row['is_training'] as int?,
     );
@@ -127,6 +130,7 @@ class Record {
       'is_to_be_recorded': isToBeRecorded,
       'note': note,
       'validation_errors': validationErrors,
+      'plausibility_errors': plausibilityErrors,
       'cluster': cluster,
       'is_training': isTraining,
     };
@@ -280,6 +284,7 @@ class Record {
     int? isToBeRecorded,
     String? note,
     String? validationErrors,
+    String? plausibilityErrors,
     String? cluster,
     int? isTraining,
   }) {
@@ -309,6 +314,7 @@ class Record {
       isToBeRecorded: isToBeRecorded ?? this.isToBeRecorded,
       note: note ?? this.note,
       validationErrors: validationErrors ?? this.validationErrors,
+      plausibilityErrors: plausibilityErrors ?? this.plausibilityErrors,
       cluster: cluster ?? this.cluster,
       isTraining: isTraining ?? this.isTraining,
     );
@@ -576,7 +582,7 @@ class RecordsRepository {
     final recordId = record.id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
     await db.execute(
-      'INSERT INTO records (id, properties, schema_name, schema_id, schema_id_validated_by, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration, is_to_be_recorded, note, is_training) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO records (id, properties, schema_name, schema_id, schema_id_validated_by, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration, is_to_be_recorded, note, validation_errors, plausibility_errors, is_training) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         recordId,
         jsonEncode(record.properties),
@@ -600,6 +606,8 @@ class RecordsRepository {
         record.completedAtAdministration,
         record.isToBeRecorded,
         record.note,
+        record.validationErrors,
+        record.plausibilityErrors,
         record.isTraining,
       ],
     );
@@ -626,6 +634,29 @@ class RecordsRepository {
       return Record.fromRow(results.first);
     }
     return null;
+  }
+
+  /// Get ALL records without organization filtering
+  /// Use this for map tile downloads where we need to cover all areas
+  Future<List<Record>> getAllRecordsUnfiltered() async {
+    try {
+      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Fetching all records...');
+      final results = await db
+          .execute('SELECT * FROM records')
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () {
+              debugPrint('RecordsRepository.getAllRecordsUnfiltered: Query timed out');
+              throw TimeoutException('Database query timed out');
+            },
+          );
+      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Found ${results.length} records');
+      return results.map((row) => Record.fromRow(row)).toList();
+    } catch (e, stackTrace) {
+      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Error: $e');
+      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Stack trace: $stackTrace');
+      return [];
+    }
   }
 
   Future<List<Record>> getLimitedRecords(int limit) async {

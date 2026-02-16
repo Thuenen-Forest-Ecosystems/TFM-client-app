@@ -4,6 +4,7 @@ import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.da
 import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
 
 class Schema extends StatefulWidget {
   const Schema({super.key});
@@ -54,14 +55,15 @@ class _SchemaState extends State<Schema> {
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'logout',
-                  child: Row(children: [Icon(Icons.logout), SizedBox(width: 8), Text('Abmelden')]),
+                  child: Row(children: [Text('Abmelden')]),
                 ),
               ];
             },
           ),
         ],
       ),
-      body: const SafeArea(child: Center(child: SchemaSelection())),
+      body: const SchemaSelection(),
+      bottomNavigationBar: const VersionControl(),
     );
   }
 }

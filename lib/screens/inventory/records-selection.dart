@@ -58,6 +58,8 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       _loadInitialData();
       // Listen to map controller provider for bounds changes
       _listenToMapBoundsChanges();
+      // Listen to GPS position provider for position updates
+      _listenToGpsPositionChanges();
     });
   }
 
@@ -67,6 +69,15 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       mapControllerProvider.addListener(_onMapBoundsChanged);
     } catch (e) {
       debugPrint('Error adding map bounds listener: $e');
+    }
+  }
+
+  void _listenToGpsPositionChanges() {
+    try {
+      final gpsProvider = context.read<GpsPositionProvider>();
+      gpsProvider.addListener(_onGpsPositionChanged);
+    } catch (e) {
+      debugPrint('Error adding GPS position listener: $e');
     }
   }
 
@@ -86,6 +97,33 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       }
     } catch (e) {
       debugPrint('Error handling map bounds change: $e');
+    }
+  }
+
+  void _onGpsPositionChanged() {
+    if (!mounted) return;
+
+    try {
+      final gpsProvider = context.read<GpsPositionProvider>();
+      final newPosition = gpsProvider.lastPosition;
+
+      // Update position if it changed
+      if (newPosition != null && newPosition != _currentPosition) {
+        setState(() {
+          _currentPosition = newPosition;
+        });
+
+        // Update provider cache
+        final provider = context.read<RecordsListProvider>();
+        provider.setCurrentPosition(newPosition);
+
+        // Reload data if sorting by distance
+        if (_orderBy == ClusterOrderBy.distance) {
+          _loadInitialData();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error handling GPS position change: $e');
     }
   }
 
@@ -385,11 +423,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
               provider.setCurrentPosition(lastPosition);
             }
           });
-
-          // Reload data with distance ordering if we just got GPS position
-          if (_orderBy == ClusterOrderBy.distance && _allRecords.isEmpty) {
-            _loadInitialData();
-          }
         }
       }
     } catch (e) {
@@ -697,6 +730,14 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       mapControllerProvider.removeListener(_onMapBoundsChanged);
     } catch (e) {
       print('Error removing map bounds listener: $e');
+    }
+
+    // Remove GPS position provider listener
+    try {
+      final gpsProvider = context.read<GpsPositionProvider>();
+      gpsProvider.removeListener(_onGpsPositionChanged);
+    } catch (e) {
+      print('Error removing GPS position listener: $e');
     }
 
     // Only dispose if we created the controller ourselves

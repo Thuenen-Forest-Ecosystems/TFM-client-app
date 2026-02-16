@@ -127,7 +127,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     });
 
     try {
-      final records = await RecordsRepository().getAllRecords();
+      final records = await RecordsRepository().getAllRecordsUnfiltered();
       if (!mounted) return;
 
       setState(() {
@@ -159,7 +159,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
   Future<void> _downloadMapTilesForBasemap(String basemapName) async {
     print('[Download] Starting download for $basemapName...');
-    final records = await RecordsRepository().getAllRecords();
+    final records = await RecordsRepository().getAllRecordsUnfiltered();
     print('[Download] Found ${records.length} records');
 
     if (records.isEmpty) {
@@ -599,90 +599,69 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   @override
   Widget build(BuildContext context) {
     // Only allow download if nothing is currently downloading, not checking, and records exist
+    debugPrint('Checking tiles: $_isCheckingTiles');
+    debugPrint('Missing tiles count: $_missingTilesCount');
+    debugPrint('Downloading basemap: $_downloadingBasemap');
     final canStartDownload =
         _downloadingBasemap == null && !_isCheckingTiles && _missingTilesCount == -1;
-    return Flexible(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: basemapsToSelectFrom.entries.map((entry) {
-            final basemapName = entry.key;
-            final config = entry.value;
-            final title = config['title'] as String? ?? basemapName;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      child: Row(
+        children: basemapsToSelectFrom.entries.map((entry) {
+          final basemapName = entry.key;
+          final config = entry.value;
+          final title = config['title'] as String? ?? basemapName;
 
-            final isDownloading = _downloadingBasemap == basemapName;
-            final isCompleted = _downloadedBasemaps[basemapName] ?? false;
-            final progress = _basemapProgress[basemapName] ?? 0.0;
-            //final status = _basemapStatus[basemapName] ?? '';
+          final isDownloading = _downloadingBasemap == basemapName;
+          final isCompleted = _downloadedBasemaps[basemapName] ?? false;
+          final progress = _basemapProgress[basemapName] ?? 0.0;
+          //final status = _basemapStatus[basemapName] ?? '';
 
-            return Card(
-              margin: const EdgeInsets.only(right: 16, bottom: 16),
-              child: Container(
-                width: 200,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+          return Card(
+            margin: const EdgeInsets.only(right: 16, bottom: 16),
+            child: Container(
+              width: 200,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  if (isDownloading) ...[
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 8),
                     Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      '${(progress * 100).toInt()}%',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.cancel),
+                      onPressed: _cancelDownload,
+                      tooltip: 'Abbrechen',
+                    ),
+                  ] else if (isCompleted) ...[
+                    const Text('Fertig', style: TextStyle(color: Colors.green)),
+                  ] else ...[
                     const SizedBox(height: 16),
-                    if (isDownloading) ...[
-                      const LinearProgressIndicator(),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${(progress * 100).toInt()}%',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.cancel),
-                        onPressed: _cancelDownload,
-                        tooltip: 'Abbrechen',
-                      ),
-                    ] else if (isCompleted) ...[
-                      const Text('Fertig', style: TextStyle(color: Colors.green)),
-                    ] else ...[
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: canStartDownload
-                            ? () => _downloadMapTilesForBasemap(basemapName)
-                            : null,
-                        child: const Text('Download'),
-                      ),
-                    ],
+                    ElevatedButton(
+                      onPressed: canStartDownload
+                          ? () => _downloadMapTilesForBasemap(basemapName)
+                          : null,
+                      child: const Text('Download'),
+                    ),
                   ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-
-    return Material(
-      color: Colors.transparent,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Cards side by side
-
-          // Status message if no records or checking
-          if (_isCheckingTiles)
-            const Padding(padding: EdgeInsets.all(16.0), child: Text('Prüfe Aufnahmepunkte...'))
-          else if (_missingTilesCount == 0)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Keine Aufnahmepunkte gefunden. Bitte laden Sie zuerst Daten.',
-                style: TextStyle(color: Colors.orange),
+                ],
               ),
             ),
-        ],
+          );
+        }).toList(),
       ),
     );
   }

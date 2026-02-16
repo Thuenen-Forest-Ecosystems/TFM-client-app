@@ -503,6 +503,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                     // Show internal GPS if it's active
                     else if (gpsProvider.listeningPosition) {
                       final lastPos = gpsProvider.lastPosition;
+                      final nmea = gpsProvider.currentNMEA;
                       final hasValidPosition = lastPos != null;
 
                       return Column(
@@ -519,7 +520,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
                                 const Text('Device internal GPS sensor'),
                                 if (hasValidPosition) ...[
                                   Text(
-                                    'Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m',
+                                    'Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m | HDOP: ${nmea?.hdop?.toStringAsFixed(1) ?? "N/A"}',
                                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                                   ),
                                   Text(
@@ -690,7 +691,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
       ),
       tooltip: hasValidPosition
           ? (isInternalGPS
-                ? 'Internal GPS: ${lastPos!.accuracy.toStringAsFixed(1)}m'
+                ? 'Internal GPS: ${lastPos!.accuracy.toStringAsFixed(1)}m (HDOP: ${nmea?.hdop?.toStringAsFixed(1) ?? "N/A"})'
                 : hasBLEConnection
                 ? 'GPS: ${gpsProvider.connectedDevice?.platformName} (${nmea!.satellites ?? 0} sats)'
                 : 'GPS: ${gpsProvider.connectedClassicDevice?.name} (${nmea!.satellites ?? 0} sats)')

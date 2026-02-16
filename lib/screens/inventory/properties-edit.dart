@@ -194,9 +194,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Determine which style to use based on control troop status
       final isControlTroop = await getCurrentIsControlTroop() ?? false;
       debugPrint('Using ${isControlTroop ? "CONTROL" : "DEFAULT"} style');
-      
+
       final styleToUse = isControlTroop ? latestSchema.styleControl : latestSchema.styleDefault;
-      
+
       // Validate that required style exists
       if (isControlTroop && latestSchema.styleControl == null) {
         debugPrint('❌ ERROR: Control troop requires style_control but it is NULL');
@@ -559,18 +559,57 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         _isSaving = true;
       });
 
+      // Reload record from database first to get any auto-saved acknowledged errors
+      // This ensures we don't overwrite errors that were auto-saved when closing the dialog
+      if (_record!.id != null) {
+        try {
+          final freshRecord = await repo.RecordsRepository().getRecordById(_record!.id!);
+          if (freshRecord != null) {
+            _record = freshRecord;
+          }
+        } catch (e) {
+          debugPrint('Warning: Could not reload record before save: $e');
+        }
+      }
+
       // Prepare acknowledged errors JSON
-      String? validationErrorsJson;
-      String? plausibilityErrorsJson;
+      // If no new acknowledged errors provided, preserve existing ones from record
+      String? validationErrorsJson = _record!.validationErrors;
+      String? plausibilityErrorsJson = _record!.plausibilityErrors;
+
+      debugPrint('💾 === SAVE ERRORS DEBUG ===');
+      debugPrint('💾 acknowledgedErrors provided: ${acknowledgedErrors != null}');
+      debugPrint('💾 Existing validationErrors from record: $validationErrorsJson');
+      debugPrint('💾 Existing plausibilityErrors from record: $plausibilityErrorsJson');
+
       if (acknowledgedErrors != null) {
         final validationErrors = acknowledgedErrors['validation_errors'] ?? [];
         final plausibilityErrors = acknowledgedErrors['plausibility_errors'] ?? [];
+
+        debugPrint('💾 New validation errors count: ${validationErrors.length}');
+        debugPrint('💾 New plausibility errors count: ${plausibilityErrors.length}');
+
         validationErrorsJson = validationErrors.isNotEmpty
             ? AcknowledgedError.encodeList(validationErrors)
             : null;
         plausibilityErrorsJson = plausibilityErrors.isNotEmpty
             ? AcknowledgedError.encodeList(plausibilityErrors)
             : null;
+
+        debugPrint(
+          '💾 PROPERTIES-EDIT validationErrorsJson type: ${validationErrorsJson.runtimeType}',
+        );
+        debugPrint(
+          '💾 PROPERTIES-EDIT plausibilityErrorsJson type: ${plausibilityErrorsJson.runtimeType}',
+        );
+        debugPrint(
+          '💾 Final validationErrorsJson: ${validationErrorsJson?.substring(0, validationErrorsJson.length > 100 ? 100 : validationErrorsJson.length)}...',
+        );
+        debugPrint(
+          '💾 Final plausibilityErrorsJson: ${plausibilityErrorsJson?.substring(0, plausibilityErrorsJson.length > 100 ? 100 : plausibilityErrorsJson.length)}...',
+        );
+      } else {
+        debugPrint('💾 No new errors provided, using existing from record');
       }
 
       // Check if this is a new record (no id yet)
@@ -584,6 +623,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           completedAtTroop: completedAt,
           isToBeRecorded: 1,
           isTraining: 1,
+          validationErrors: validationErrorsJson,
+          plausibilityErrors: plausibilityErrorsJson,
         );
 
         final newId = await repo.RecordsRepository().insertRecord(recordToInsert);
@@ -599,6 +640,16 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       } else {
         // UPDATE existing record
+        debugPrint('💾 === EXECUTING DATABASE UPDATE ===');
+        debugPrint('💾 Type: $type');
+        debugPrint('💾 Record ID: ${_record!.id}');
+        debugPrint(
+          '💾 Writing validationErrorsJson: ${validationErrorsJson != null ? "${validationErrorsJson.length} chars" : "NULL"}',
+        );
+        debugPrint(
+          '💾 Writing plausibilityErrorsJson: ${plausibilityErrorsJson != null ? "${plausibilityErrorsJson.length} chars" : "NULL"}',
+        );
+
         if (type == 'save') {
           await db.execute(
             'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
@@ -611,6 +662,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record!.id,
             ],
           );
+          debugPrint('💾 ✅ UPDATE (save) executed');
         } else if (type == 'complete') {
           await db.execute(
             'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
@@ -624,6 +676,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record!.id,
             ],
           );
+          debugPrint('💾 ✅ UPDATE (complete) executed');
         }
 
         // Create updated record for local state
@@ -650,6 +703,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           completedAtTroop: _record!.completedAtTroop,
           completedAtAdministration: _record!.completedAtAdministration,
           note: _record!.note,
+          validationErrors: validationErrorsJson,
+          plausibilityErrors: plausibilityErrorsJson,
         );
 
         // Update local state
@@ -657,6 +712,21 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           _record = updatedRecord;
           _isSaving = false;
         });
+
+        // Reload record from database to ensure we have the latest data
+        try {
+          final reloadedRecord = await repo.RecordsRepository().getRecordById(_record!.id!);
+          if (reloadedRecord != null) {
+            setState(() {
+              _record = reloadedRecord;
+            });
+            debugPrint('✅ Reloaded record from database:');
+            debugPrint('✅ validationErrors: ${_record!.validationErrors}');
+            debugPrint('✅ plausibilityErrors: ${_record!.plausibilityErrors}');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Failed to reload record: $e');
+        }
       }
 
       // Show success message and navigate based on save action
@@ -718,6 +788,22 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
     // Check validation before saving (show dialog for errors OR warnings)
     if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
+      // Reload record from database BEFORE opening dialog to get any previously saved errors
+      if (_record?.id != null) {
+        try {
+          final freshRecord = await repo.RecordsRepository().getRecordById(_record!.id!);
+          if (freshRecord != null && mounted) {
+            setState(() {
+              _record = freshRecord;
+            });
+          }
+        } catch (e) {
+          debugPrint('Warning: Could not reload record before opening dialog: $e');
+        }
+      }
+
+      debugPrint('📋 Opening validation dialog with record:');
+      debugPrint('📋 Record ID: ${_record?.id}');
       // Show validation errors/warnings dialog
       final result = await ValidationErrorsDialog.show(
         context,
@@ -725,6 +811,32 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         onNavigateToTab: _navigateToTabFromError,
         record: _record,
       );
+
+      debugPrint('📋 === DIALOG RETURNED ===');
+      debugPrint('📋 Result: ${result != null ? "provided" : "NULL (cancelled)"}');
+      if (result != null) {
+        debugPrint('📋 Action: ${result.action}');
+        debugPrint(
+          '📋 validation_errors: ${result.acknowledgedErrors['validation_errors']?.length ?? 0}',
+        );
+        debugPrint(
+          '📋 plausibility_errors: ${result.acknowledgedErrors['plausibility_errors']?.length ?? 0}',
+        );
+      }
+
+      // Reload record from database AFTER dialog closes to get any auto-saved acknowledged errors
+      if (_record?.id != null) {
+        try {
+          final reloadedRecord = await repo.RecordsRepository().getRecordById(_record!.id!);
+          if (reloadedRecord != null && mounted) {
+            setState(() {
+              _record = reloadedRecord;
+            });
+          }
+        } catch (e) {
+          debugPrint('Failed to reload record after dialog: $e');
+        }
+      }
 
       // If user didn't confirm save from dialog, return
       if (result == null) {
@@ -1042,7 +1154,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Determine which style to use based on control troop status
       final isControlTroop = await getCurrentIsControlTroop() ?? false;
       final styleColumn = isControlTroop ? 'style_control' : 'style_default';
-      debugPrint('Showing ${isControlTroop ? "CONTROL" : "DEFAULT"} style from column: $styleColumn');
+      debugPrint(
+        'Showing ${isControlTroop ? "CONTROL" : "DEFAULT"} style from column: $styleColumn',
+      );
 
       // First try: Get style from current schema's style_control or style_default
       final results = await db.getAll('SELECT $styleColumn FROM schemas WHERE id = ?', [
