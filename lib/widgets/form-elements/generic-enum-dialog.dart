@@ -62,7 +62,9 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
 
     // Debug: Check if interval data is provided
     if (widget.interval != null) {
-      debugPrint('GenericEnumDialog: Filtering with interval data (${widget.interval!.length} entries)');
+      debugPrint(
+        'GenericEnumDialog: Filtering with interval data (${widget.interval!.length} entries)',
+      );
     } else {
       debugPrint('GenericEnumDialog: No interval data provided - showing all values');
     }
@@ -78,7 +80,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
       if (widget.interval != null && i < widget.interval!.length) {
         final intervalValue = widget.interval![i];
         debugPrint('  Enum[$i] = $enumValue, interval = $intervalValue');
-        
+
         // If intervalValue is a non-empty list, check if it contains "ci2027"
         if (intervalValue != null && intervalValue is List && intervalValue.isNotEmpty) {
           if (!intervalValue.contains('ci2027')) {
@@ -190,7 +192,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                         final isSelected = widget.currentValue == enumValue;
 
                         return ListTile(
-                          contentPadding: const EdgeInsets.all(10),
+                          contentPadding: const EdgeInsets.all(5),
                           title: Text(displayText),
                           selected: isSelected,
                           trailing: isSelected ? const Icon(Icons.check) : null,
@@ -216,13 +218,9 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
               bottomRight: Radius.circular(28),
             ),
           ),
-          child: OutlinedButton(
+          child: ElevatedButton(
             onPressed: () => Navigator.of(context).pop(const ClearSelection()),
             child: const Text('Inhalt des Feldes löschen'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.onError,
-              side: BorderSide(color: Theme.of(context).colorScheme.onError),
-            ),
           ),
         ),
       ],

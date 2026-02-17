@@ -544,6 +544,12 @@ class _GenericTextFieldState extends State<GenericTextField> {
           (calculatedValue == '-' || calculatedValue == '?' || calculatedValue == '-----')) {
         // Not suitable, unclear, or not in sample - show nothing
         displayWidget = const SizedBox.shrink();
+      } else if (calculatedValue.isEmpty || 
+          calculatedValue == '0' ||
+          calculatedValue.startsWith('Error') ||
+          calculatedValue == 'No expression') {
+        // Empty, zero, error, or no expression - show nothing
+        displayWidget = const SizedBox.shrink();
       } else {
         // Show text value (with unit if present)
         final displayValue = unit != null && unit.isNotEmpty

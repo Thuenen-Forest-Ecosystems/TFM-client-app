@@ -1088,6 +1088,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isReadOnly = rendererContext.column.readOnly;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     // Get field options from column config or columnItems
@@ -1154,7 +1155,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       alignment: Alignment.centerLeft,
       color: bgColor,
-      child: Text(value?.toString() ?? '', overflow: TextOverflow.ellipsis, maxLines: 1),
+      child: Text(
+        value?.toString() ?? '',
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        style: isReadOnly ? TextStyle(color: Colors.grey) : null,
+      ),
     );
   }
 
@@ -1169,10 +1175,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final nameDe = tfm?['name_de'] as List?;
     final enumValues = propertySchema['enum'] as List?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
-    // Check if field is readonly
-    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+    // Check if field is readonly (column level or schema level)
+    final isReadOnly = rendererContext.column.readOnly || (propertySchema['readonly'] as bool? ?? false);
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     // Get display text
     String displayText = '';
@@ -1188,15 +1194,22 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       displayText = value.toString();
     }
 
-    return InkWell(
-      onTap: isReadOnly ? null : () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        alignment: Alignment.centerLeft,
-        color: bgColor,
-        child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
-      ),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      alignment: Alignment.centerLeft,
+      color: bgColor,
+      child: isReadOnly
+          ? Text(
+              displayText,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(color: Colors.grey),
+            )
+          : InkWell(
+              onTap: () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
+              child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
+            ),
     );
   }
 
@@ -1210,6 +1223,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final unit = tfm?['unit_short'] as String?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isReadOnly = rendererContext.column.readOnly;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     // Check if this column has upDownBtn (spinner buttons)
@@ -1306,7 +1320,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: hasSpinner ? Alignment.center : Alignment.centerRight,
       color: bgColor,
-      child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
+      child: Text(
+        displayText,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        style: isReadOnly ? TextStyle(color: Colors.grey) : null,
+      ),
     );
   }
 
@@ -1319,10 +1338,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final rowIndex = rendererContext.rowIdx;
     final boolValue = value == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
-    // Check if field is readonly
-    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+    // Check if field is readonly (column level or schema level)
+    final isReadOnly = rendererContext.column.readOnly || (propertySchema['readonly'] as bool? ?? false);
+    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     // Get field options from column config or columnItems
     Map<String, dynamic>? fieldOptions;
@@ -1385,7 +1404,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: Alignment.center,
-      child: Text(displayText),
+      color: bgColor,
+      child: Text(
+        displayText,
+        style: isReadOnly ? TextStyle(color: Colors.grey) : null,
+      ),
     );
   }
 
@@ -1398,6 +1421,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Check if parent array or this field is readonly or column is readonly
+    final isReadOnly = rendererContext.column.readOnly || _isArrayReadOnly || (propertySchema['readonly'] as bool? ?? false);
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
 
     // Get nested array data
@@ -1419,9 +1444,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemCount = nestedData?.length ?? 0;
     final displayText = itemCount == 0 ? 'Leer' : '$itemCount Einträge';
 
-    // Check if parent array or this field is readonly
-    final isReadOnly = _isArrayReadOnly || (propertySchema['readonly'] as bool? ?? false);
-
     return Container(
       color: bgColor,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1431,24 +1453,28 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           Expanded(
             child: Text(
               displayText,
-              style: TextStyle(fontSize: 14, color: itemCount == 0 ? Colors.grey : null),
+              style: TextStyle(
+                fontSize: 14,
+                color: isReadOnly
+                    ? Colors.grey
+                    : (itemCount == 0 ? Colors.grey : null),
+              ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit, size: 18),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Bearbeiten',
-            onPressed: isReadOnly
-                ? null
-                : () => _openNestedArrayDialog(
-                    rendererContext,
-                    propertySchema,
-                    fieldKey,
-                    nestedArrayConfig,
-                    nestedData,
-                  ),
-          ),
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.edit, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Bearbeiten',
+              onPressed: () => _openNestedArrayDialog(
+                  rendererContext,
+                  propertySchema,
+                  fieldKey,
+                  nestedArrayConfig,
+                  nestedData,
+                ),
+            ),
         ],
       ),
     );
@@ -1507,7 +1533,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   ) {
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isReadOnly = rendererContext.column.readOnly;
     final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+    final value = rendererContext.cell.value;
 
     // Get current row data to find matching previous row by identifier
     final currentRowData = rendererContext.row.cells.map((key, cell) => MapEntry(key, cell.value));
@@ -1564,19 +1592,29 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
+    final textField = GenericTextField(
+      key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+      fieldName: fieldKey,
+      fieldSchema: propertySchema,
+      value: value,
+      errors: const [],
+      compact: true,
+      previousData: previousRowData,
+      currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
+      fieldOptions: fieldOptions,
+    );
+
     return Container(
       color: bgColor,
-      child: GenericTextField(
-        key: ValueKey('cell_${rowIndex}_${fieldKey}'),
-        fieldName: fieldKey,
-        fieldSchema: propertySchema,
-        value: rendererContext.cell.value,
-        errors: const [],
-        compact: true,
-        previousData: previousRowData,
-        currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
-        fieldOptions: fieldOptions,
-      ),
+      child: isReadOnly
+          ? AbsorbPointer(
+              // Block all pointer interactions for readonly fields
+              child: Opacity(
+                opacity: 0.7,
+                child: textField,
+              ),
+            )
+          : textField,
     );
   }
 
