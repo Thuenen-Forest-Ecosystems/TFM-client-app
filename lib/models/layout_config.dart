@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Layout configuration models for dynamic form rendering
 ///
 /// These models represent the structure defined in layout JSON files (e.g., ci2027.json)
@@ -183,6 +185,12 @@ class ArrayLayout extends LayoutItem {
   }) : super(type: 'array');
 
   factory ArrayLayout.fromJson(Map<String, dynamic> json) {
+    final items = json['items'] as List<dynamic>?;
+    debugPrint('📋 ArrayLayout.fromJson for ${json['id']}: items count = ${items?.length ?? 0}');
+    if (items != null && items.isNotEmpty) {
+      debugPrint('   First item: ${items[0]}');
+    }
+
     return ArrayLayout(
       id: json['id'] as String,
       label: json['label'] as String?,
@@ -190,7 +198,7 @@ class ArrayLayout extends LayoutItem {
       component: json['component'] as String? ?? 'datagrid',
       options: json['options'] as Map<String, dynamic>?,
       columns: json['columns'] as Map<String, dynamic>?,
-      items: json['items'] as List<dynamic>?,
+      items: items,
       identifierField: json['identifierField'] as String?,
       filter: json['filter'] as List<dynamic>?,
       icon: json['icon'] as String?,

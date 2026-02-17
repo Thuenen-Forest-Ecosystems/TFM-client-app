@@ -564,12 +564,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         final fieldName = itemConfig['name'] as String?;
         if (fieldName == null) return null;
 
+        debugPrint('📊 Processing column: $fieldName (type: ${itemConfig['type']})');
+
         // Get schema for this field (or create synthetic for calculated)
         Map<String, dynamic> propertySchema;
 
         if (!properties.containsKey(fieldName)) {
           // Calculated or nested array field defined only in layout
           if (itemConfig['type'] == 'calculated') {
+            debugPrint('✅ Creating synthetic schema for calculated field: $fieldName');
             propertySchema = {
               'type': 'calculated',
               'title': itemConfig['title'] ?? fieldName,
@@ -647,7 +650,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           );
         }
 
-        return TrinaColumn(
+        final trinaColumn = TrinaColumn(
           title: title, //unit != null ? '$title ($unit)' : title,
           field: fieldName,
           type: columnType,
@@ -676,14 +679,24 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               ? (rendererContext) => _buildBooleanCell(rendererContext, propertySchema, fieldName)
               : (rendererContext) => _buildTextCell(rendererContext, fieldName),
         );
+
+        debugPrint(
+          '✅ Created column: $fieldName (calculated: $isCalculated, pinned: $pinnedValue)',
+        );
+        return trinaColumn;
       }
 
       // Process items in order
-      for (final item in widget.columnItems!) {
+      debugPrint('📋 Total items to process: ${widget.columnItems!.length}');
+      for (int i = 0; i < widget.columnItems!.length; i++) {
+        final item = widget.columnItems![i];
         final itemMap = item as Map<String, dynamic>;
+
+        debugPrint('📋 Item $i: name=${itemMap['name']}, type=${itemMap['type']}');
 
         if (itemMap['type'] == 'group') {
           // This is a group - process its nested items
+          debugPrint('  🔸 Processing group: ${itemMap['label']}');
           final groupItems = itemMap['items'] as List?;
           if (groupItems != null) {
             for (final groupItem in groupItems) {
@@ -696,9 +709,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           }
         } else {
           // This is an ungrouped column
+          debugPrint('  🔸 Processing ungrouped column');
           final column = createColumnFromItem(itemMap);
           if (column != null) {
             columns.add(column);
+          } else {
+            debugPrint('  ⚠️ createColumnFromItem returned null for ${itemMap['name']}');
           }
         }
       }

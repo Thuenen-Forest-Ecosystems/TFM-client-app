@@ -155,13 +155,25 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
   String _evaluateExpression() {
     try {
-      final expression = widget.fieldSchema['expression'] as String?;
+      // Check if calculatedFunction is specified (takes precedence over expression)
+      // Look in both fieldSchema and fieldOptions
+      final calculatedFunction =
+          widget.fieldSchema['calculatedFunction'] as String? ??
+          widget.fieldOptions?['calculatedFunction'] as String?;
+      if (calculatedFunction != null && calculatedFunction.isNotEmpty) {
+        return _evaluateCalculatedFunction(calculatedFunction);
+      }
+
+      final expression =
+          widget.fieldSchema['expression'] as String? ??
+          widget.fieldOptions?['expression'] as String?;
       if (expression == null || expression.isEmpty) {
         return 'No expression';
       }
 
-      // Get variables configuration from schema
-      final variables = widget.fieldSchema['variables'] as List?;
+      // Get variables configuration from schema or options
+      final variables =
+          widget.fieldSchema['variables'] as List? ?? widget.fieldOptions?['variables'] as List?;
 
       // Create a map of variable names to values
       final Map<String, double> variableValues = {};
@@ -230,28 +242,205 @@ class _GenericTextFieldState extends State<GenericTextField> {
         }
       }
 
-      // Parse the expression
-      final parser = GrammarParser();
-      Expression exp = parser.parse(expression);
+      // Special handling for boolean expressions with comparisons and multiplications
+      // Parse and evaluate manually for better compatibility
+      String processedExpression = expression;
 
-      // Create variable context
-      final contextModel = ContextModel();
+      // Replace variables with their values
       variableValues.forEach((varName, value) {
-        contextModel.bindVariable(Variable(varName), Number(value));
+        processedExpression = processedExpression.replaceAll(
+          RegExp('\\b$varName\\b'),
+          value.toString(),
+        );
       });
 
-      // Evaluate the expression
-      final result = exp.evaluate(EvaluationType.REAL, contextModel);
+      // Now evaluate the expression by handling comparisons
+      // Replace comparison operators with numeric equivalents
+      // x < y becomes (x < y ? 1 : 0)
+      // x == 0 becomes (x.abs() < 0.01 ? 1 : 0)
+      // x > 0 becomes (x > 0 ? 1 : 0)
+
+      // Evaluate using simple Dart expression evaluation
+      double result = _evaluateSimpleExpression(processedExpression);
 
       // Format result
-      if (result is double) {
-        // Remove trailing zeros
-        return result.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+      // Round to 0 or 1 for boolean-like results
+      if ((result - 0.0).abs() < 0.01) {
+        return '0';
+      } else if ((result - 1.0).abs() < 0.01) {
+        return '1';
       }
-      return result.toString();
+      // Remove trailing zeros for other values
+      return result.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
     } catch (e) {
+      debugPrint('❌ Expression evaluation error for ${widget.fieldName}: $e');
       return 'Error: ${e.toString()}';
     }
+  }
+
+  double _evaluateSimpleExpression(String expr) {
+    // Remove whitespace
+    expr = expr.replaceAll(' ', '');
+
+    // Evaluate expressions with comparisons and arithmetic
+    // Pattern: (value1 < value2) * (value3 == value4) * ...
+
+    // Split by multiplication
+    final parts = expr.split('*');
+    double result = 1.0;
+
+    for (var part in parts) {
+      part = part.trim();
+
+      // Remove surrounding parentheses if present
+      if (part.startsWith('(') && part.endsWith(')')) {
+        part = part.substring(1, part.length - 1);
+      }
+
+      // Evaluate comparison
+      double partResult = _evaluateComparison(part);
+      result *= partResult;
+
+      // Short circuit if result is 0
+      if (result == 0.0) break;
+    }
+
+    return result;
+  }
+
+  double _evaluateComparison(String expr) {
+    // Handle ==, !=, <, >, <=, >=
+
+    if (expr.contains('==')) {
+      final parts = expr.split('==');
+      if (parts.length == 2) {
+        final left = double.tryParse(parts[0].trim()) ?? 0.0;
+        final right = double.tryParse(parts[1].trim()) ?? 0.0;
+        return (left - right).abs() < 0.01 ? 1.0 : 0.0;
+      }
+    } else if (expr.contains('!=')) {
+      final parts = expr.split('!=');
+      if (parts.length == 2) {
+        final left = double.tryParse(parts[0].trim()) ?? 0.0;
+        final right = double.tryParse(parts[1].trim()) ?? 0.0;
+        return (left - right).abs() >= 0.01 ? 1.0 : 0.0;
+      }
+    } else if (expr.contains('<=')) {
+      final parts = expr.split('<=');
+      if (parts.length == 2) {
+        final left = double.tryParse(parts[0].trim()) ?? 0.0;
+        final right = double.tryParse(parts[1].trim()) ?? 0.0;
+        return left <= right ? 1.0 : 0.0;
+      }
+    } else if (expr.contains('>=')) {
+      final parts = expr.split('>=');
+      if (parts.length == 2) {
+        final left = double.tryParse(parts[0].trim()) ?? 0.0;
+        final right = double.tryParse(parts[1].trim()) ?? 0.0;
+        return left >= right ? 1.0 : 0.0;
+      }
+    } else if (expr.contains('<')) {
+      final parts = expr.split('<');
+      if (parts.length == 2) {
+        final left = double.tryParse(parts[0].trim()) ?? 0.0;
+        final right = double.tryParse(parts[1].trim()) ?? 0.0;
+        return left < right ? 1.0 : 0.0;
+      }
+    } else if (expr.contains('>')) {
+      final parts = expr.split('>');
+      if (parts.length == 2) {
+        final left = double.tryParse(parts[0].trim()) ?? 0.0;
+        final right = double.tryParse(parts[1].trim()) ?? 0.0;
+        return left > right ? 1.0 : 0.0;
+      }
+    } else {
+      // No comparison, just return the numeric value
+      return double.tryParse(expr.trim()) ?? 0.0;
+    }
+
+    return 0.0;
+  }
+
+  /// Evaluate a calculated function by name
+  String _evaluateCalculatedFunction(String functionName) {
+    try {
+      switch (functionName) {
+        case 'height_measurement_suitability':
+          return _calculateHeightMeasurementSuitability();
+        default:
+          return 'Unknown function: $functionName';
+      }
+    } catch (e) {
+      debugPrint('❌ Function evaluation error for ${widget.fieldName}: $e');
+      return 'Error';
+    }
+  }
+
+  /// Calculate height measurement tree suitability
+  /// Returns: "-----" (not in sample), "-" (unsuitable), "?" (unclear), "+" (suitable)
+  String _calculateHeightMeasurementSuitability() {
+    String suitability = "?????";
+
+    // Helper function to safely get numeric value from dynamic data
+    num? getNumValue(String key) {
+      final value = widget.currentData?[key];
+      if (value == null) return null;
+      if (value is num) return value;
+      if (value is bool) return value ? 1 : 0;
+      if (value is String) return num.tryParse(value);
+      return null;
+    }
+
+    // Get current data fields
+    final treeStatus = getNumValue('tree_status');
+    final stemForm = getNumValue('stem_form');
+    final stemBreakage = getNumValue('stem_breakage');
+    final damageDead = getNumValue('damage_dead');
+    final standLayer = getNumValue('stand_layer');
+    final distance = getNumValue('distance');
+
+    // Check: Not in sample (tree_status != 0 and != 1)
+    // Pk = 0 (lebend stehend) or 1 (liegend tot)
+    if (treeStatus == null || (treeStatus != 0 && treeStatus != 1)) {
+      return "-----";
+    }
+
+    // TODO: GrenzToleranz check - where does this value come from?
+    // Original: if (GrenzToleranz < distance) return "-----";
+    // This might need to come from plot/position data
+
+    // Now check for unsuitability based on tree properties
+    bool unsuitable = false;
+
+    // Kst (stem_form): 2 = Zwiesel, 3 = Kein Einzelstamm
+    if (stemForm == 2 || stemForm == 3) unsuitable = true;
+
+    // Kh (stem_breakage): 1 = Wipfelbruch, 2 = Kronenbruch
+    if (stemBreakage == 1 || stemBreakage == 2) unsuitable = true;
+
+    // Tot (damage_dead): 1 = Ja (dead) - could be boolean or numeric
+    if (damageDead == 1 || damageDead == true) unsuitable = true;
+
+    // Bs (stand_layer): 9 = ? (unclear layer)
+    if (standLayer == 9) unsuitable = true;
+
+    if (unsuitable) {
+      return "-";
+    }
+
+    // Check if data is complete (for "?" unclear status)
+    bool dataIncomplete = false;
+    if (stemForm == null) dataIncomplete = true;
+    if (stemBreakage == null) dataIncomplete = true;
+    if (damageDead == null) dataIncomplete = true;
+    if (standLayer == null) dataIncomplete = true;
+
+    if (dataIncomplete) {
+      return "?";
+    }
+
+    // All checks passed and data complete -> suitable
+    return "+";
   }
 
   @override
@@ -275,9 +464,101 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
       final unit = tfmData?['unit_short'] as String?;
 
-      final displayValue = unit != null && unit.isNotEmpty
-          ? '$calculatedValue $unit'
-          : calculatedValue;
+      // Check display mode from field schema or fieldOptions
+      final displayMode =
+          widget.fieldSchema['display'] as String? ??
+          widget.fieldOptions?['display'] as String? ??
+          'auto';
+
+      // Check if this is a boolean/icon display (no unit and value is 0 or 1)
+      final numericValue = double.tryParse(calculatedValue.replaceAll(RegExp(r'[^0-9.-]'), ''));
+      final isBooleanIcon =
+          displayMode != 'text' &&
+          unit == null &&
+          numericValue != null &&
+          (numericValue == 0 || numericValue == 1);
+
+      debugPrint(
+        '🎯 ${widget.fieldName}: calculatedValue="$calculatedValue", numericValue=$numericValue, unit=$unit, displayMode=$displayMode, isBooleanIcon=$isBooleanIcon',
+      );
+
+      Widget displayWidget;
+      if (isBooleanIcon && displayMode != 'text') {
+        // Show icon for true (1), nothing for false (0)
+        if (numericValue == 1) {
+          // Get icon from field schema or options
+          final iconName =
+              widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
+
+          // Map icon name to Flutter IconData
+          IconData iconData;
+          switch (iconName) {
+            case 'height':
+              iconData = Icons.height;
+              break;
+            case 'check':
+            case 'check_circle':
+              iconData = Icons.check_circle;
+              break;
+            case 'star':
+              iconData = Icons.star;
+              break;
+            case 'flag':
+              iconData = Icons.flag;
+              break;
+            default:
+              iconData = Icons.check_circle; // Fallback
+          }
+
+          displayWidget = Icon(iconData, color: Colors.green, size: widget.compact ? 20 : 24);
+        } else {
+          displayWidget = const SizedBox.shrink(); // Empty for false
+        }
+      } else if (displayMode == 'text' && calculatedValue == '+') {
+        // Special case: For suitability functions, show icon if suitable ("+")
+        final iconName =
+            widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
+
+        // Map icon name to Flutter IconData
+        IconData iconData;
+        switch (iconName) {
+          case 'height':
+            iconData = Icons.height;
+            break;
+          case 'check':
+          case 'check_circle':
+            iconData = Icons.check_circle;
+            break;
+          case 'star':
+            iconData = Icons.star;
+            break;
+          case 'flag':
+            iconData = Icons.flag;
+            break;
+          default:
+            iconData = Icons.check_circle; // Fallback
+        }
+
+        displayWidget = Icon(iconData, size: widget.compact ? 20 : 24);
+      } else if (displayMode == 'text' &&
+          (calculatedValue == '-' || calculatedValue == '?' || calculatedValue == '-----')) {
+        // Not suitable, unclear, or not in sample - show nothing
+        displayWidget = const SizedBox.shrink();
+      } else {
+        // Show text value (with unit if present)
+        final displayValue = unit != null && unit.isNotEmpty
+            ? '$calculatedValue $unit'
+            : calculatedValue;
+
+        displayWidget = Text(
+          displayValue,
+          style: TextStyle(
+            fontSize: widget.compact ? 14 : 16,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        );
+      }
 
       final child = Container(
         padding: widget.compact
@@ -303,14 +584,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   ),
                 ),
               ),
-            Text(
-              displayValue,
-              style: TextStyle(
-                fontSize: widget.compact ? 14 : 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
+            displayWidget,
           ],
         ),
       );
