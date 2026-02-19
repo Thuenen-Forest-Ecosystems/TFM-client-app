@@ -61,6 +61,25 @@ jobs:
           flutter config --no-analytics
           flutter pub get
 
+      - name: Patch flutter_inappwebview_windows CMakeLists for CMake 3.31+
+        shell: powershell
+        run: |
+          # CMake 3.31 (CMP0175) rejects DEPENDS on add_custom_command(TARGET ...).
+          # Prepend cmake_policy(SET CMP0175 OLD) to suppress the error for this plugin.
+          $cmakePath = "windows\flutter\ephemeral\.plugin_symlinks\flutter_inappwebview_windows\windows\CMakeLists.txt"
+          if (Test-Path $cmakePath) {
+            $content = Get-Content $cmakePath -Raw
+            if ($content -notmatch "cmake_policy\s*\(\s*SET\s+CMP0175") {
+              $patch = "cmake_policy(SET CMP0175 OLD)`n"
+              Set-Content $cmakePath -Value ($patch + $content) -NoNewline
+              Write-Host "Patched flutter_inappwebview_windows CMakeLists.txt (CMP0175 OLD)"
+            } else {
+              Write-Host "CMP0175 already patched, skipping"
+            }
+          } else {
+            Write-Host "flutter_inappwebview_windows CMakeLists.txt not found, skipping patch"
+          }
+
       - name: Patch speech_to_text_windows headers
         shell: powershell
         run: |
