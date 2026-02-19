@@ -10,6 +10,12 @@ set(BINARY_NAME "terrestrial_forest_monitor")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# CMake 3.31+: suppress CMP0175 errors for plugins using DEPENDS with
+# add_custom_command(TARGET ...) (e.g. flutter_inappwebview_windows).
+if(POLICY CMP0175)
+  cmake_policy(SET CMP0175 OLD)
+endif()
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)
