@@ -20,59 +20,37 @@ class ValidationStatusIndicator {
   }) {
     if (validationResult == null) {
       // No validation result yet - show neutral/gray
-      return const Center(child: Icon(Icons.circle, size: 12, color: Colors.grey));
+      return const Center(child: Icon(Icons.circle_outlined, size: 20, color: Colors.grey));
     }
 
     // Check if this row has any errors or warnings
     final hasErrors = _hasRowErrors(rowIndex, propertyName, validationResult);
     final hasWarnings = _hasRowWarnings(rowIndex, propertyName, validationResult);
 
-    // Determine what to show based on errors and warnings
-    if (hasErrors && hasWarnings) {
-      // Both errors and warnings - show both indicators
-      return Center(
-        child: InkWell(
-          onTap: () => _showRowValidationDialog(context, rowIndex, propertyName, validationResult),
-          child: Container(
-            width: 50,
-            height: 50,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.circle, size: 12, color: Colors.red),
-                SizedBox(width: 4),
-                Icon(Icons.circle, size: 12, color: Colors.orange),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    Color statusColor;
+    // Errors take priority over warnings
+    final IconData icon;
+    final Color color;
     if (hasErrors) {
-      statusColor = Colors.red;
+      icon = Icons.report;
+      color = Colors.red;
     } else if (hasWarnings) {
-      statusColor = Colors.orange;
+      icon = Icons.warning;
+      color = Colors.orange;
     } else {
-      statusColor = Colors.green;
+      icon = Icons.check;
+      color = Color.fromARGB(255, 0, 255, 179); // Green color
     }
 
-    // Make indicator clickable if there are errors or warnings
     if (hasErrors || hasWarnings) {
       return Center(
         child: InkWell(
           onTap: () => _showRowValidationDialog(context, rowIndex, propertyName, validationResult),
-          child: Container(
-            width: 50,
-            height: 50,
-            child: Center(child: Icon(Icons.circle, size: 12, color: statusColor)),
-          ),
+          child: Icon(icon, size: 28, color: color),
         ),
       );
     }
 
-    return Center(child: Icon(Icons.circle, size: 12, color: statusColor));
+    return Center(child: Icon(icon, size: 28, color: color));
   }
 
   /// Show validation dialog filtered to this specific row

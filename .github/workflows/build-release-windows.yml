@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to update (e.g., v1.0.0). Leave empty to skip upload."
+        description: "Release tag to update (e.g., v1.0.0+45). Leave empty to skip upload."
         required: false
         type: string
 
@@ -95,10 +95,16 @@ jobs:
           $vcRedistPath = "vc_redist.x64.exe"
           Invoke-WebRequest -Uri $vcRedistUrl -OutFile $vcRedistPath
 
+          # Extract version from pubspec.yaml (e.g. "1.0.3+71" -> "1.0.3")
+          $pubspecContent = Get-Content "pubspec.yaml" -Raw
+          $versionMatch = [regex]::Match($pubspecContent, 'version:\s+(\d+\.\d+\.\d+)')
+          $appVersion = $versionMatch.Groups[1].Value
+          Write-Host "App version: $appVersion"
+
           # Create installer script
-          @'
+          @"
           #define MyAppName "Terrestrial Forest Monitor"
-          #define MyAppVersion "1.0.68"
+          #define MyAppVersion "$appVersion"
           #define MyAppPublisher "Thuenen Institute"
           #define MyAppExeName "terrestrial_forest_monitor.exe"
 
@@ -144,7 +150,7 @@ jobs:
           [Run]
           Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; StatusMsg: "Installing Visual C++ Redistributable..."; Flags: waituntilterminated
           Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
-          '@ | Out-File -FilePath "installer.iss" -Encoding UTF8
+          "@ | Out-File -FilePath "installer.iss" -Encoding UTF8
 
           # Create PowerShell script to install certificates
           @'
@@ -232,7 +238,7 @@ jobs:
           '@ | Out-File -FilePath "install-certificates.ps1" -Encoding UTF8
 
           # Compile installer
-          & $innoPath installer.iss
+          & $innoPath "installer.iss"
 
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2

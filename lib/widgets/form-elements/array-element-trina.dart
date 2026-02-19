@@ -357,15 +357,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return false;
     }
 
-    // Get original index from row (stored during _buildRows, survives sorting)
-    final originalIndex = row.cells['__original_index__']?.value as int?;
-    if (originalIndex == null) return false;
+    // Use current row position in stateManager — this matches the order
+    // _notifyDataChanged sends to the parent, regardless of sorting/reordering.
+    final rows = _stateManager?.rows ?? _rows;
+    final currentIndex = rows.indexOf(row);
+    if (currentIndex == -1) return false;
 
     final errors = widget.validationResult!.ajvErrors;
 
     // Check for errors like: "/propertyName/0/fieldKey" or "/propertyName/0"
-    final cellPath = '/${widget.propertyName}/$originalIndex/$fieldKey';
-    final rowPath = '/${widget.propertyName}/$originalIndex';
+    final cellPath = '/${widget.propertyName}/$currentIndex/$fieldKey';
+    final rowPath = '/${widget.propertyName}/$currentIndex';
 
     return errors.any((error) => error.instancePath == cellPath || error.instancePath == rowPath);
   }
@@ -520,13 +522,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
-          // Use original index for validation lookup (survives sorting/filtering)
-          final originalIndex =
-              rendererContext.row.cells['__original_index__']?.value as int? ??
-              rendererContext.rowIdx;
+          // Use current row position in stateManager for validation lookup.
+          // This matches the index order used in _notifyDataChanged (regardless of sorting).
+          final rows = _stateManager?.rows ?? _rows;
+          final currentIndex = rows.indexOf(rendererContext.row);
           return ValidationStatusIndicator.build(
             context: context,
-            rowIndex: originalIndex,
+            rowIndex: currentIndex != -1 ? currentIndex : rendererContext.rowIdx,
             propertyName: widget.propertyName ?? 'unknown',
             validationResult: widget.validationResult,
           );
