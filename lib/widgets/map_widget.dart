@@ -1977,15 +1977,9 @@ class _MapWidgetState extends State<MapWidget> {
         // Account for both sheet height and map vertical offset
         Positioned(
           left: 60,
-          bottom:
-              (widget.sheetPosition != null
-                  ? MediaQuery.of(context).size.height *
-                            (widget.sheetPosition! * 0.5 + 0.15 * 0.5) +
-                        18
-                  : MediaQuery.of(context).size.height * 0.075 + 8) +
-              (MediaQuery.of(context).orientation == Orientation.portrait
-                  ? 0
-                  : MediaQuery.of(context).padding.bottom),
+          bottom: widget.sheetPosition != null
+              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.11)
+              : MediaQuery.of(context).padding.bottom + 8,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2011,72 +2005,91 @@ class _MapWidgetState extends State<MapWidget> {
           ),
         ),
         // Zoom buttons - only show on tablets and larger screens
-        if (MediaQuery.of(context).size.width >= 600)
-          Positioned(
-            right: 70,
-            bottom:
-                (widget.sheetPosition != null
-                    ? MediaQuery.of(context).size.height *
-                              (widget.sheetPosition! * 0.5 + 0.15 * 0.5) +
-                          8
-                    : MediaQuery.of(context).size.height * 0.075 + 8) +
-                (MediaQuery.of(context).orientation == Orientation.portrait
-                    ? 10
-                    : MediaQuery.of(context).padding.bottom + 0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Zoom buttons
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Zoom in button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(40),
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.add,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: () {
-                          final currentZoom = _mapController.camera.zoom;
-                          final currentCenter = _mapController.camera.center;
-                          _mapController.move(currentCenter, currentZoom + 1);
-                        },
-                      ),
+        //if (MediaQuery.of(context).size.width >= 600)
+        Positioned(
+          right: 70,
+          bottom: widget.sheetPosition != null
+              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.11)
+              : MediaQuery.of(context).padding.bottom + 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Zoom buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Zoom out button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(40),
                     ),
-                    // Divider
-                    const SizedBox(width: 8),
-                    // Zoom out button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(40),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.remove,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.remove,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: () {
-                          final currentZoom = _mapController.camera.zoom;
-                          final currentCenter = _mapController.camera.center;
-                          _mapController.move(currentCenter, currentZoom - 1);
-                        },
-                      ),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () {
+                        final currentZoom = _mapController.camera.zoom;
+                        final currentCenter = _mapController.camera.center;
+                        _mapController.move(currentCenter, currentZoom - 1);
+                      },
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+
+                  // Divider
+                  const SizedBox(width: 8),
+                  // Zoom in button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.add,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () {
+                        final currentZoom = _mapController.camera.zoom;
+                        final currentCenter = _mapController.camera.center;
+                        _mapController.move(currentCenter, currentZoom + 1);
+                      },
+                    ),
+                  ),
+                  // Divider
+                  const SizedBox(width: 8),
+                  // Zoom to current location button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.my_location,
+                        size: 20,
+                        color: _currentPosition != null
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: _currentPosition != null
+                          ? () {
+                              _mapController.move(_currentPosition!, 17.0);
+                            }
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
+        ),
       ],
     );
   }

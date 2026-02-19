@@ -680,44 +680,12 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     double? bearing;
 
     if (_selectedPositionKey != null) {
-      LatLng? targetCoords;
-
-      // Get target coordinates
-      if (_selectedPositionKey == PositionSelector.gpsLiveKey ||
-          _selectedPositionKey == PositionSelector.gpsLockedKey) {
-        if (gpsProvider.lastPosition != null) {
-          targetCoords = LatLng(
-            gpsProvider.lastPosition!.latitude,
-            gpsProvider.lastPosition!.longitude,
-          );
-        }
-      } else {
-        targetCoords =
-            _positionCoordinates[_selectedPositionKey] ??
-            _supportPointCoordinates[_selectedPositionKey];
-      }
-
-      LatLng? fromCoords;
-
-      // Get start coordinates
-      if (_startPositionKey == PositionSelector.gpsLiveKey ||
-          _startPositionKey == PositionSelector.gpsLockedKey) {
-        if (gpsProvider.lastPosition != null) {
-          fromCoords = LatLng(
-            gpsProvider.lastPosition!.latitude,
-            gpsProvider.lastPosition!.longitude,
-          );
-        }
-      } else if (_startPositionKey != null) {
-        fromCoords =
-            _positionCoordinates[_startPositionKey] ?? _supportPointCoordinates[_startPositionKey];
-      } else {
-        // Default to current GPS position
-        final userPosition = gpsProvider.lastPosition;
-        if (userPosition != null) {
-          fromCoords = LatLng(userPosition.latitude, userPosition.longitude);
-        }
-      }
+      final targetCoords = _getCoordinatesForKey(_selectedPositionKey);
+      final fromCoords =
+          _getCoordinatesForKey(_startPositionKey) ??
+          (gpsProvider.lastPosition != null
+              ? LatLng(gpsProvider.lastPosition!.latitude, gpsProvider.lastPosition!.longitude)
+              : null);
 
       if (targetCoords != null && fromCoords != null) {
         distance = _calculateDistance(

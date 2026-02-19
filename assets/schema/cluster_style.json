@@ -34,6 +34,9 @@
             "name": "states_affected"
         },
         {
+            "name": "grid_density"
+        },
+        {
             "name": "topo_map_sheet"
         }
     ]
