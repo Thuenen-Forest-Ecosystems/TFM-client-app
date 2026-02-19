@@ -68,6 +68,10 @@ class _MapWidgetState extends State<MapWidget> {
   double _treeDiameterMultiplier = 1.0;
   bool _showTreeLabels = true;
   Set<String> _treeLabelFields = {'tree_number', 'dbh'};
+  bool _showEdges = true;
+  bool _showCrownCircles = true;
+  bool _showClusterPolygons = true;
+  bool _showProbekreise = true;
   Map<int, String> _treeSpeciesLookup = {}; // Maps species code to species name
 
   List<Color> aggregatedMarkerColors = [
@@ -828,6 +832,20 @@ class _MapWidgetState extends State<MapWidget> {
         });
         debugPrint('Loaded tree label fields: $savedLabelFields');
       }
+
+      // Load layer visibility settings
+      final savedShowEdges = prefs.getBool('show_edges');
+      if (savedShowEdges != null) setState(() => _showEdges = savedShowEdges);
+
+      final savedShowCrownCircles = prefs.getBool('show_crown_circles');
+      if (savedShowCrownCircles != null) setState(() => _showCrownCircles = savedShowCrownCircles);
+
+      final savedShowClusterPolygons = prefs.getBool('show_cluster_polygons');
+      if (savedShowClusterPolygons != null)
+        setState(() => _showClusterPolygons = savedShowClusterPolygons);
+
+      final savedShowProbekreise = prefs.getBool('show_probekreise');
+      if (savedShowProbekreise != null) setState(() => _showProbekreise = savedShowProbekreise);
     } catch (e) {
       debugPrint('Error loading map settings: $e');
     }
@@ -840,6 +858,10 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setDouble('tree_diameter_multiplier', _treeDiameterMultiplier);
       await prefs.setBool('show_tree_labels', _showTreeLabels);
       await prefs.setStringList('tree_label_fields', _treeLabelFields.toList());
+      await prefs.setBool('show_edges', _showEdges);
+      await prefs.setBool('show_crown_circles', _showCrownCircles);
+      await prefs.setBool('show_cluster_polygons', _showClusterPolygons);
+      await prefs.setBool('show_probekreise', _showProbekreise);
     } catch (e) {
       debugPrint('Error saving map settings: $e');
     }
@@ -1415,6 +1437,10 @@ class _MapWidgetState extends State<MapWidget> {
       treeDiameterMultiplier: _treeDiameterMultiplier,
       showTreeLabels: _showTreeLabels,
       treeLabelFields: _treeLabelFields,
+      showEdges: _showEdges,
+      showCrownCircles: _showCrownCircles,
+      showClusterPolygons: _showClusterPolygons,
+      showProbekreise: _showProbekreise,
       onBasemapsChanged: (newBasemaps) {
         setState(() {
           _selectedBasemaps = newBasemaps;
@@ -1437,6 +1463,22 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _treeLabelFields = fields;
         });
+        _saveMapSettings();
+      },
+      onShowEdgesChanged: (value) {
+        setState(() => _showEdges = value);
+        _saveMapSettings();
+      },
+      onShowCrownCirclesChanged: (value) {
+        setState(() => _showCrownCircles = value);
+        _saveMapSettings();
+      },
+      onShowClusterPolygonsChanged: (value) {
+        setState(() => _showClusterPolygons = value);
+        _saveMapSettings();
+      },
+      onShowProbekreiseChanged: (value) {
+        setState(() => _showProbekreise = value);
         _saveMapSettings();
       },
     );
@@ -1610,7 +1652,7 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Cluster polygons (shown at zoom 16+)
-        if (_clusterPolygons.isNotEmpty && _currentZoom > 14)
+        if (_showClusterPolygons && _clusterPolygons.isNotEmpty && _currentZoom > 14)
           PolygonLayer(
             polygons: _clusterPolygons.entries
                 .map((entry) {
@@ -1635,7 +1677,10 @@ class _MapWidgetState extends State<MapWidget> {
         // Historical position polygons from previous_position_data (shown at zoom 16+)
         // Only show for the focused record's cluster
         // Filter based on visibility settings from MapControllerProvider
-        if (_historicalPositionPolygons.isNotEmpty && _currentZoom > 14 && _focusedRecord != null)
+        if (_showClusterPolygons &&
+            _historicalPositionPolygons.isNotEmpty &&
+            _currentZoom > 14 &&
+            _focusedRecord != null)
           PolygonLayer(
             polygons: _historicalPositionPolygons.entries
                 .where((clusterEntry) => clusterEntry.key == _focusedRecord!.clusterId)
@@ -1673,19 +1718,19 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Display PREVIOUS edges (with opacity)
-        if (_previousEdges.isNotEmpty)
+        if (_showEdges && _previousEdges.isNotEmpty)
           EdgeLayers.buildPolylineLayer(
             _previousEdges,
             withOpacity: true,
             color: intervalColorCache['previousColor']!,
           ),
-        if (_previousEdges.isNotEmpty)
+        if (_showEdges && _previousEdges.isNotEmpty)
           EdgeLayers.buildCircleLayer(
             _previousEdges,
             withOpacity: true,
             color: intervalColorCache['previousColor']!,
           ),
-        if (_previousEdges.isNotEmpty)
+        if (_showEdges && _previousEdges.isNotEmpty)
           EdgeLayers.buildMarkerLayer(
             _previousEdges,
             withOpacity: true,
@@ -1693,19 +1738,19 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Display CURRENT edges (without opacity)
-        if (_edges.isNotEmpty)
+        if (_showEdges && _edges.isNotEmpty)
           EdgeLayers.buildPolylineLayer(
             _edges,
             withOpacity: false,
             color: intervalColorCache['currentColor']!,
           ),
-        if (_edges.isNotEmpty)
+        if (_showEdges && _edges.isNotEmpty)
           EdgeLayers.buildCircleLayer(
             _edges,
             withOpacity: false,
             color: intervalColorCache['currentColor']!,
           ),
-        if (_edges.isNotEmpty)
+        if (_showEdges && _edges.isNotEmpty)
           EdgeLayers.buildMarkerLayer(
             _edges,
             withOpacity: false,
@@ -1713,7 +1758,8 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Clickable layer for CURRENT edges (on top for click handling)
-        if (_edges.isNotEmpty) EdgeLayers.buildClickableLayer(_edges, _onEdgeCircleTapped),
+        if (_showEdges && _edges.isNotEmpty)
+          EdgeLayers.buildClickableLayer(_edges, _onEdgeCircleTapped),
 
         // Display PREVIOUS subplots (with opacity)
         /*if (_previousSubplotPositions.isNotEmpty)
@@ -1746,11 +1792,12 @@ class _MapWidgetState extends State<MapWidget> {
         if (_currentZoom > 14 && _records.isNotEmpty)
           MarkerLayer(markers: _buildLabelMarkers(_records)),
 
-        // Default circles (5m, 10m, 25m radius)
-        if (_focusedRecord != null) CircleLayer(circles: _getDefaultCircles(_focusedRecord!)),
+        // Default circles / Probekreise (5m, 10m, 25m radius)
+        if (_showProbekreise && _focusedRecord != null)
+          CircleLayer(circles: _getDefaultCircles(_focusedRecord!)),
 
-        // Tree crown circles for CURRENT trees (based on DBH)
-        if (_focusedRecord != null && _treePositions.isNotEmpty)
+        // Tree crown circles / Grenzkreise for CURRENT trees (based on DBH)
+        if (_showCrownCircles && _focusedRecord != null && _treePositions.isNotEmpty)
           TreeCrownLayers.buildCrownCircleLayer(
             _treePositions,
             withOpacity: false,

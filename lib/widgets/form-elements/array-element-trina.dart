@@ -351,23 +351,28 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   /// Check if a specific cell has validation errors
-  bool _hasValidationError(int rowIndex, String fieldKey) {
+  /// Uses original data index from row cells to ensure errors stay with correct rows after sorting
+  bool _hasValidationError(TrinaRow row, String fieldKey) {
     if (widget.validationResult == null || widget.propertyName == null) {
       return false;
     }
 
+    // Get original index from row (stored during _buildRows, survives sorting)
+    final originalIndex = row.cells['__original_index__']?.value as int?;
+    if (originalIndex == null) return false;
+
     final errors = widget.validationResult!.ajvErrors;
 
     // Check for errors like: "/propertyName/0/fieldKey" or "/propertyName/0"
-    final cellPath = '/${widget.propertyName}/$rowIndex/$fieldKey';
-    final rowPath = '/${widget.propertyName}/$rowIndex';
+    final cellPath = '/${widget.propertyName}/$originalIndex/$fieldKey';
+    final rowPath = '/${widget.propertyName}/$originalIndex';
 
     return errors.any((error) => error.instancePath == cellPath || error.instancePath == rowPath);
   }
 
   /// Get background color for cell based on validation state
-  Color? _getCellBackgroundColor(int rowIndex, String fieldKey, bool isDark) {
-    if (_hasValidationError(rowIndex, fieldKey)) {
+  Color? _getCellBackgroundColor(TrinaRow row, String fieldKey, bool isDark) {
+    if (_hasValidationError(row, fieldKey)) {
       return isDark ? const Color.fromARGB(137, 90, 31, 31) : const Color(0xFFFFCDD2); // Light red
     }
     return null;
@@ -515,9 +520,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
+          // Use original index for validation lookup (survives sorting/filtering)
+          final originalIndex =
+              rendererContext.row.cells['__original_index__']?.value as int? ??
+              rendererContext.rowIdx;
           return ValidationStatusIndicator.build(
             context: context,
-            rowIndex: rendererContext.rowIdx,
+            rowIndex: originalIndex,
             propertyName: widget.propertyName ?? 'unknown',
             validationResult: widget.validationResult,
           );
@@ -1028,10 +1037,18 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
-    // Apply filters if any are active
+    // Apply filters if any are active, tracking original indices
     List<dynamic> filteredData = widget.data!;
+    List<int> originalIndices = List.generate(widget.data!.length, (i) => i);
+
     if (_filters.isNotEmpty && _activeFilterIndices.isNotEmpty) {
-      filteredData = widget.data!.where((item) {
+      final tempFiltered = <dynamic>[];
+      final tempIndices = <int>[];
+
+      for (int i = 0; i < widget.data!.length; i++) {
+        final item = widget.data![i];
+        bool passesFilters = true;
+
         // Row must pass ALL active filters
         for (final filterIndex in _activeFilterIndices) {
           if (filterIndex >= _filters.length) continue;
@@ -1042,18 +1059,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
           // If filter doesn't match, exclude this row
           if (!filter.matches(fieldValue)) {
-            return false;
+            passesFilters = false;
+            break;
           }
         }
-        return true;
-      }).toList();
+
+        if (passesFilters) {
+          tempFiltered.add(item);
+          tempIndices.add(i); // Keep track of original index
+        }
+      }
+
+      filteredData = tempFiltered;
+      originalIndices = tempIndices;
 
       debugPrint(
         'Filtered ${widget.data!.length} rows to ${filteredData.length} rows (${_activeFilterIndices.length} active filters)',
       );
     }
 
-    return filteredData.map((item) {
+    return filteredData.asMap().entries.map((entry) {
+      final filteredIndex = entry.key;
+      final item = entry.value;
+      final originalIndex = originalIndices[filteredIndex];
+
       final rowData = Map<String, dynamic>.from(item is Map ? item : {});
       final cells = <String, TrinaCell>{};
 
@@ -1080,6 +1109,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         }
       }
 
+      // Store original data array index for validation lookup (survives sorting/filtering)
+      cells['__original_index__'] = TrinaCell(value: originalIndex);
+
       return TrinaRow(cells: cells);
     }).toList();
   }
@@ -1088,8 +1120,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isReadOnly = rendererContext.column.readOnly;
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
     // Get field options from column config or columnItems
     Map<String, dynamic>? fieldOptions;
@@ -1155,12 +1186,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       alignment: Alignment.centerLeft,
       color: bgColor,
-      child: Text(
-        value?.toString() ?? '',
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
-        style: isReadOnly ? TextStyle(color: Colors.grey) : null,
-      ),
+      child: Text(value?.toString() ?? '', overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
@@ -1175,10 +1201,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final nameDe = tfm?['name_de'] as List?;
     final enumValues = propertySchema['enum'] as List?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
-    // Check if field is readonly (column level or schema level)
-    final isReadOnly = rendererContext.column.readOnly || (propertySchema['readonly'] as bool? ?? false);
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+    // Check if field is readonly
+    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
 
     // Get display text
     String displayText = '';
@@ -1194,22 +1220,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       displayText = value.toString();
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      alignment: Alignment.centerLeft,
-      color: bgColor,
-      child: isReadOnly
-          ? Text(
-              displayText,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: TextStyle(color: Colors.grey),
-            )
-          : InkWell(
-              onTap: () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
-              child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
-            ),
+    return InkWell(
+      onTap: isReadOnly ? null : () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        alignment: Alignment.centerLeft,
+        color: bgColor,
+        child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
+      ),
     );
   }
 
@@ -1223,8 +1242,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final unit = tfm?['unit_short'] as String?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isReadOnly = rendererContext.column.readOnly;
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
     // Check if this column has upDownBtn (spinner buttons)
     bool hasSpinner = false;
@@ -1320,12 +1338,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: hasSpinner ? Alignment.center : Alignment.centerRight,
       color: bgColor,
-      child: Text(
-        displayText,
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
-        style: isReadOnly ? TextStyle(color: Colors.grey) : null,
-      ),
+      child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
@@ -1338,10 +1351,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final rowIndex = rendererContext.rowIdx;
     final boolValue = value == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
-    // Check if field is readonly (column level or schema level)
-    final isReadOnly = rendererContext.column.readOnly || (propertySchema['readonly'] as bool? ?? false);
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+    // Check if field is readonly
+    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
 
     // Get field options from column config or columnItems
     Map<String, dynamic>? fieldOptions;
@@ -1404,11 +1417,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: Alignment.center,
-      color: bgColor,
-      child: Text(
-        displayText,
-        style: isReadOnly ? TextStyle(color: Colors.grey) : null,
-      ),
+      child: Text(displayText),
     );
   }
 
@@ -1421,9 +1430,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Check if parent array or this field is readonly or column is readonly
-    final isReadOnly = rendererContext.column.readOnly || _isArrayReadOnly || (propertySchema['readonly'] as bool? ?? false);
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
     // Get nested array data
     List<dynamic>? nestedData;
@@ -1444,6 +1451,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemCount = nestedData?.length ?? 0;
     final displayText = itemCount == 0 ? 'Leer' : '$itemCount Einträge';
 
+    // Check if parent array or this field is readonly
+    final isReadOnly = _isArrayReadOnly || (propertySchema['readonly'] as bool? ?? false);
+
     return Container(
       color: bgColor,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1453,28 +1463,24 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           Expanded(
             child: Text(
               displayText,
-              style: TextStyle(
-                fontSize: 14,
-                color: isReadOnly
-                    ? Colors.grey
-                    : (itemCount == 0 ? Colors.grey : null),
-              ),
+              style: TextStyle(fontSize: 14, color: itemCount == 0 ? Colors.grey : null),
             ),
           ),
-          if (!isReadOnly)
-            IconButton(
-              icon: const Icon(Icons.edit, size: 18),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: 'Bearbeiten',
-              onPressed: () => _openNestedArrayDialog(
-                  rendererContext,
-                  propertySchema,
-                  fieldKey,
-                  nestedArrayConfig,
-                  nestedData,
-                ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Bearbeiten',
+            onPressed: isReadOnly
+                ? null
+                : () => _openNestedArrayDialog(
+                    rendererContext,
+                    propertySchema,
+                    fieldKey,
+                    nestedArrayConfig,
+                    nestedData,
+                  ),
+          ),
         ],
       ),
     );
@@ -1533,9 +1539,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   ) {
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isReadOnly = rendererContext.column.readOnly;
-    final bgColor = _getCellBackgroundColor(rowIndex, fieldKey, isDark);
-    final value = rendererContext.cell.value;
+    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
     // Get current row data to find matching previous row by identifier
     final currentRowData = rendererContext.row.cells.map((key, cell) => MapEntry(key, cell.value));
@@ -1592,29 +1596,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
-    final textField = GenericTextField(
-      key: ValueKey('cell_${rowIndex}_${fieldKey}'),
-      fieldName: fieldKey,
-      fieldSchema: propertySchema,
-      value: value,
-      errors: const [],
-      compact: true,
-      previousData: previousRowData,
-      currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
-      fieldOptions: fieldOptions,
-    );
-
     return Container(
       color: bgColor,
-      child: isReadOnly
-          ? AbsorbPointer(
-              // Block all pointer interactions for readonly fields
-              child: Opacity(
-                opacity: 0.7,
-                child: textField,
-              ),
-            )
-          : textField,
+      child: GenericTextField(
+        key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+        fieldName: fieldKey,
+        fieldSchema: propertySchema,
+        value: rendererContext.cell.value,
+        errors: const [],
+        compact: true,
+        previousData: previousRowData,
+        currentData: rendererContext.row.cells.map((k, v) => MapEntry(k, v.value)),
+        fieldOptions: fieldOptions,
+      ),
     );
   }
 
@@ -1724,6 +1718,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         }
       }
 
+      // Set original index for new row (will be the current data length after adding)
+      cells['__original_index__'] = TrinaCell(value: widget.data?.length ?? 0);
+
       final newTrinaRow = TrinaRow(cells: cells);
       _rows.add(newTrinaRow);
 
@@ -1831,6 +1828,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
+    // Set original index for new row (will be the current data length after adding)
+    cells['__original_index__'] = TrinaCell(value: widget.data?.length ?? 0);
+
     final newTrinaRow = TrinaRow(cells: cells);
 
     // Add to internal state first
@@ -1870,9 +1870,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
     rowToCopy.cells.forEach((key, cell) {
-      // Skip auto-generated fields
-      if (key == '__row_number__' || key == '__row_menu__') {
-        newCells[key] = TrinaCell(value: null);
+      // Skip auto-generated fields (including __original_index__ which will be reassigned)
+      if (key == '__row_number__' || key == '__row_menu__' || key == '__original_index__') {
+        if (key == '__row_number__' || key == '__row_menu__') {
+          newCells[key] = TrinaCell(value: null);
+        }
         return;
       }
 
@@ -1919,6 +1921,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     });
 
+    // Set original index for copied row (will be the current data length after adding)
+    newCells['__original_index__'] = TrinaCell(value: widget.data?.length ?? 0);
+
     final newTrinaRow = TrinaRow(cells: newCells);
 
     if (_stateManager != null) {
@@ -1941,7 +1946,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final rowData = <String, dynamic>{};
       row.cells.forEach((key, cell) {
         // Skip auto-generated fields - they're not part of the data
-        if (key != '__row_number__' && key != '__row_menu__') {
+        if (key != '__row_number__' && key != '__row_menu__' && key != '__original_index__') {
           rowData[key] = cell.value;
         }
       });

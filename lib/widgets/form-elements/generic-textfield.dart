@@ -544,7 +544,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
           (calculatedValue == '-' || calculatedValue == '?' || calculatedValue == '-----')) {
         // Not suitable, unclear, or not in sample - show nothing
         displayWidget = const SizedBox.shrink();
-      } else if (calculatedValue.isEmpty || 
+      } else if (calculatedValue.isEmpty ||
           calculatedValue == '0' ||
           calculatedValue.startsWith('Error') ||
           calculatedValue == 'No expression') {
@@ -681,6 +681,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
         return value.toString();
       }
 
+      // Update controller text with current display value
+      _controller.text = getDisplayText(widget.value);
+
       final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: TextField(
@@ -707,7 +710,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   isDense: widget.dense,
                   fillColor: Colors.grey.withOpacity(0.1),
                 ),
-          controller: TextEditingController(text: getDisplayText(widget.value)),
+          controller: _controller,
           onTap: isReadonly
               ? null
               : () async {

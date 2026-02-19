@@ -8,10 +8,18 @@ class MapSettingsModal extends StatefulWidget {
   final double treeDiameterMultiplier;
   final bool showTreeLabels;
   final Set<String> treeLabelFields;
+  final bool showEdges;
+  final bool showCrownCircles;
+  final bool showClusterPolygons;
+  final bool showProbekreise;
   final Function(Set<String>) onBasemapsChanged;
   final Function(double) onTreeDiameterMultiplierChanged;
   final Function(bool) onShowTreeLabelsChanged;
   final Function(Set<String>) onTreeLabelFieldsChanged;
+  final Function(bool) onShowEdgesChanged;
+  final Function(bool) onShowCrownCirclesChanged;
+  final Function(bool) onShowClusterPolygonsChanged;
+  final Function(bool) onShowProbekreiseChanged;
 
   const MapSettingsModal({
     super.key,
@@ -19,10 +27,18 @@ class MapSettingsModal extends StatefulWidget {
     required this.treeDiameterMultiplier,
     required this.showTreeLabels,
     required this.treeLabelFields,
+    required this.showEdges,
+    required this.showCrownCircles,
+    required this.showClusterPolygons,
+    required this.showProbekreise,
     required this.onBasemapsChanged,
     required this.onTreeDiameterMultiplierChanged,
     required this.onShowTreeLabelsChanged,
     required this.onTreeLabelFieldsChanged,
+    required this.onShowEdgesChanged,
+    required this.onShowCrownCirclesChanged,
+    required this.onShowClusterPolygonsChanged,
+    required this.onShowProbekreiseChanged,
   });
 
   /// Show the map settings modal
@@ -32,10 +48,18 @@ class MapSettingsModal extends StatefulWidget {
     required double treeDiameterMultiplier,
     required bool showTreeLabels,
     required Set<String> treeLabelFields,
+    required bool showEdges,
+    required bool showCrownCircles,
+    required bool showClusterPolygons,
+    required bool showProbekreise,
     required Function(Set<String>) onBasemapsChanged,
     required Function(double) onTreeDiameterMultiplierChanged,
     required Function(bool) onShowTreeLabelsChanged,
     required Function(Set<String>) onTreeLabelFieldsChanged,
+    required Function(bool) onShowEdgesChanged,
+    required Function(bool) onShowCrownCirclesChanged,
+    required Function(bool) onShowClusterPolygonsChanged,
+    required Function(bool) onShowProbekreiseChanged,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -44,10 +68,18 @@ class MapSettingsModal extends StatefulWidget {
         treeDiameterMultiplier: treeDiameterMultiplier,
         showTreeLabels: showTreeLabels,
         treeLabelFields: treeLabelFields,
+        showEdges: showEdges,
+        showCrownCircles: showCrownCircles,
+        showClusterPolygons: showClusterPolygons,
+        showProbekreise: showProbekreise,
         onBasemapsChanged: onBasemapsChanged,
         onTreeDiameterMultiplierChanged: onTreeDiameterMultiplierChanged,
         onShowTreeLabelsChanged: onShowTreeLabelsChanged,
         onTreeLabelFieldsChanged: onTreeLabelFieldsChanged,
+        onShowEdgesChanged: onShowEdgesChanged,
+        onShowCrownCirclesChanged: onShowCrownCirclesChanged,
+        onShowClusterPolygonsChanged: onShowClusterPolygonsChanged,
+        onShowProbekreiseChanged: onShowProbekreiseChanged,
       ),
     );
   }
@@ -61,6 +93,10 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
   late double _treeDiameterMultiplier;
   late bool _showTreeLabels;
   late Set<String> _treeLabelFields;
+  late bool _showEdges;
+  late bool _showCrownCircles;
+  late bool _showClusterPolygons;
+  late bool _showProbekreise;
 
   @override
   void initState() {
@@ -69,6 +105,10 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
     _treeDiameterMultiplier = widget.treeDiameterMultiplier;
     _showTreeLabels = widget.showTreeLabels;
     _treeLabelFields = Set.from(widget.treeLabelFields);
+    _showEdges = widget.showEdges;
+    _showCrownCircles = widget.showCrownCircles;
+    _showClusterPolygons = widget.showClusterPolygons;
+    _showProbekreise = widget.showProbekreise;
   }
 
   void _toggleBasemap(String basemap, bool? value) {
@@ -102,32 +142,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Basiskarten', style: Theme.of(context).textTheme.titleMedium),
-            Card.outlined(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CheckboxListTile(
-                    title: const Text('OpenCycleMap (offline)'),
-                    subtitle: const Text('Mittlere Zoomstufen'),
-                    value: _selectedBasemaps.contains('opencycle'),
-                    onChanged: (value) => _toggleBasemap('opencycle', value),
-                  ),
-
-                  CheckboxListTile(
-                    title: const Text('Luftbilder (offline)'),
-                    subtitle: const Text('nur höchste Zoomstufen'),
-                    value: _selectedBasemaps.contains('dop'),
-                    onChanged: (value) => _toggleBasemap('dop', value),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('Baumdarstellung', style: Theme.of(context).textTheme.titleMedium),
-            ),
+            Text('Baumdarstellung', style: Theme.of(context).textTheme.titleMedium),
             Card.outlined(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -218,6 +233,74 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     ],
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('Ebenen', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            Card.outlined(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CheckboxListTile(
+                    title: const Text('Ränder'),
+                    value: _showEdges,
+                    onChanged: (value) {
+                      setState(() => _showEdges = value ?? true);
+                      widget.onShowEdgesChanged(_showEdges);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Grenzkreise'),
+                    subtitle: const Text('basierend auf BHD'),
+                    value: _showCrownCircles,
+                    onChanged: (value) {
+                      setState(() => _showCrownCircles = value ?? true);
+                      widget.onShowCrownCirclesChanged(_showCrownCircles);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Trakt'),
+                    subtitle: const Text('Umrisse der Trakte'),
+                    value: _showClusterPolygons,
+                    onChanged: (value) {
+                      setState(() => _showClusterPolygons = value ?? true);
+                      widget.onShowClusterPolygonsChanged(_showClusterPolygons);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Probekreise'),
+                    subtitle: const Text('5 m · 10 m · 25 m Referenzkreise'),
+                    value: _showProbekreise,
+                    onChanged: (value) {
+                      setState(() => _showProbekreise = value ?? true);
+                      widget.onShowProbekreiseChanged(_showProbekreise);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Basiskarten', style: Theme.of(context).textTheme.titleMedium),
+            Card.outlined(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CheckboxListTile(
+                    title: const Text('OpenCycleMap (offline)'),
+                    subtitle: const Text('Mittlere Zoomstufen'),
+                    value: _selectedBasemaps.contains('opencycle'),
+                    onChanged: (value) => _toggleBasemap('opencycle', value),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Luftbilder (offline)'),
+                    subtitle: const Text('nur höchste Zoomstufen'),
+                    value: _selectedBasemaps.contains('dop'),
+                    onChanged: (value) => _toggleBasemap('dop', value),
+                  ),
+                ],
               ),
             ),
           ],
