@@ -452,7 +452,9 @@ class _StartState extends State<Start> {
     _maxChildSize = maxHeight / screenHeight;
 
     // Get keyboard height
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    //final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardHeight =
+        0.0; // Disable keyboard handling for now due to build collisions during drag (see _onSheetChanged)
     final hasKeyboard = keyboardHeight > 0;
 
     // Auto-expand sheet when keyboard appears (only trigger once)

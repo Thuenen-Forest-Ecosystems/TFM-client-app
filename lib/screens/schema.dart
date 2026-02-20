@@ -63,7 +63,7 @@ class _SchemaState extends State<Schema> {
         ],
       ),
       body: const SchemaSelection(),
-      bottomNavigationBar: const VersionControl(),
+      bottomNavigationBar: const SafeArea(child: VersionControl()),
     );
   }
 }
