@@ -124,7 +124,7 @@ jobs:
           DefaultDirName={autopf}\{#MyAppName}
           DefaultGroupName={#MyAppName}
           AllowNoIcons=yes
-          OutputDir=build\windows\x64\runner\Release
+          OutputDir=build\installer
           OutputBaseFilename=TFM-Setup
           Compression=lzma2
           SolidCompression=yes
@@ -253,7 +253,7 @@ jobs:
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
-          files: build/windows/x64/runner/Release/TFM-Setup.exe
+          files: build/installer/TFM-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
