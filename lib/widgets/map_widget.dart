@@ -73,6 +73,7 @@ class _MapWidgetState extends State<MapWidget> {
   bool _showClusterPolygons = true;
   bool _showProbekreise = true;
   Map<int, String> _treeSpeciesLookup = {}; // Maps species code to species name
+  String? _lastRecordsFingerprint; // Guard against redundant reloads
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -916,7 +917,9 @@ class _MapWidgetState extends State<MapWidget> {
       _loadRecordsFromProvider();
     }
 
-    // Listen for future updates
+    // Listen for future updates (remove first to avoid duplicate registrations
+    // when didChangeDependencies is called multiple times, e.g. on GPS updates)
+    provider.removeListener(_onProviderChanged);
     provider.addListener(_onProviderChanged);
   }
 
@@ -938,6 +941,16 @@ class _MapWidgetState extends State<MapWidget> {
         final recordsWithCoords = records
             .where((record) => record.getCoordinates() != null)
             .toList();
+
+        // Build a cheap fingerprint: count + first/last record identifiers.
+        // Skip the full setState if nothing has changed (e.g. frequent GPS-driven notifications).
+        final fingerprint =
+            '${recordsWithCoords.length}'
+            '${recordsWithCoords.isNotEmpty ? recordsWithCoords.first.clusterId + recordsWithCoords.last.clusterId : ''}';
+        if (fingerprint == _lastRecordsFingerprint) {
+          return; // Data unchanged – skip rebuild
+        }
+        _lastRecordsFingerprint = fingerprint;
 
         debugPrint('MapWidget: Loaded ${recordsWithCoords.length} records from provider cache');
 
@@ -994,6 +1007,7 @@ class _MapWidgetState extends State<MapWidget> {
             _clusterPolygons = {};
             _historicalPositionPolygons = {};
           });
+          _lastRecordsFingerprint = null;
           debugPrint('MapWidget: Cache cleared, removed all markers');
         }
       }

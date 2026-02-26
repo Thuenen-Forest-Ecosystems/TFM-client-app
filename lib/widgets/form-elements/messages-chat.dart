@@ -88,7 +88,7 @@ class _MessagesChatState extends State<MessagesChat> {
     if (messageText.isEmpty) return;
 
     final messageId = db.execute('SELECT uuid() as id').then((result) => result.first['id']);
-    final timestamp = DateTime.now().toIso8601String();
+    final timestamp = DateTime.now().toUtc().toIso8601String();
 
     try {
       await db.execute(
@@ -100,6 +100,7 @@ class _MessagesChatState extends State<MessagesChat> {
       );
 
       _messageController.clear();
+      FocusManager.instance.primaryFocus?.unfocus();
 
       // Verify what was actually saved
       final saved = await db.get('SELECT id, records_id, note FROM records_messages WHERE id = ?', [
@@ -139,6 +140,7 @@ class _MessagesChatState extends State<MessagesChat> {
             onPressed: () {
               Navigator.of(context).pop();
               _deleteMessage(messageId);
+              FocusManager.instance.primaryFocus?.unfocus();
             },
             child: const Text('Löschen', style: TextStyle(color: Colors.red)),
           ),

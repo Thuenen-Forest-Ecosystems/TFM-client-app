@@ -24,6 +24,7 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/new_record_dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/submission_success_dialog.dart';
 
 import 'package:beamer/beamer.dart';
 
@@ -45,6 +46,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Map<String, dynamic>? _originalJsonSchema; // Unmodified schema for applying conditional rules
   Map<String, dynamic>? _rootSchema; // Full root schema (not just plot items)
   Map<String, dynamic>? _formData;
+  Map<String, dynamic>? _initialFormData;
   Map<String, dynamic>? _previousFormData;
   TFMValidationResult? _validationResult;
   bool _isValidating = false;
@@ -58,6 +60,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   late final GlobalKey<FormWrapperState> _formWrapperKey;
   List<ConditionalRule> _conditionalRules = [];
   Timer? _validationDebounceTimer;
+
+  /// Whether the form data has been modified since last load/save.
+  bool get _hasUnsavedChanges {
+    if (_formData == null && _initialFormData == null) return false;
+    if (_formData == null || _initialFormData == null) return true;
+    return jsonEncode(_formData) != jsonEncode(_initialFormData);
+  }
 
   @override
   void initState() {
@@ -396,7 +405,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         widget.plotName,
       );
       _formData = records.isNotEmpty ? records.first.properties : null;
-      // print _formData.plot_coordinates to debug console
+      _initialFormData = _formData != null ? _deepCopyMap(_formData!) : null;
 
       _previousFormData = records.isNotEmpty ? records.first.previousProperties : null;
       if (mounted) {
@@ -514,6 +523,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           setState(() {
             _record = newRecord;
             _formData = {};
+            _initialFormData = {};
             _previousFormData = null;
             _isLoading = false;
           });
@@ -729,31 +739,26 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       }
 
-      // Show success message and navigate based on save action
-      if (mounted) {
-        // Find root scaffold messenger to show above bottom sheet
-        final rootScaffoldMessenger = ScaffoldMessenger.of(context);
-        rootScaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              type == 'complete'
-                  ? 'Datensatz gespeichert und abgeschlossen'
-                  : 'Datensatz erfolgreich gespeichert',
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.7,
-              left: 16,
-              right: 16,
-            ),
-          ),
-        );
+      // Update initial form data snapshot so save button disables again
+      if (_formData != null) {
+        _initialFormData = _deepCopyMap(_formData!);
+      }
 
-        // Only navigate away if "complete" was chosen
-        if (type == 'complete') {
-          Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
+      // Show submission success dialog with next-record options
+      if (mounted) {
+        final result = await SubmissionSuccessDialog.show(context, submittedRecord: _record!);
+
+        if (mounted) {
+          if (result != null && result.action == 'open' && result.selectedRecord != null) {
+            // Navigate to the selected record
+            final r = result.selectedRecord!;
+            Beamer.of(context).beamToNamed(
+              '/properties-edit/${Uri.encodeComponent(r.clusterName)}/${Uri.encodeComponent(r.plotName)}',
+            );
+          } else {
+            // Default: go back to records-selection
+            Beamer.of(context).beamToNamed('/records-selection/${_record!.schemaId}');
+          }
         }
       }
     } catch (e) {
@@ -1424,7 +1429,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     child: Row(
                       children: [
                         IconButton(
-                          onPressed: (_isSaving || !_hasCompletedInitialValidation)
+                          onPressed:
+                              (_isSaving || !_hasCompletedInitialValidation || !_hasUnsavedChanges)
                               ? null
                               : () => save('save'),
                           color: Theme.of(context).colorScheme.primary,

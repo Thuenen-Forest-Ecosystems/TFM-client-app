@@ -693,42 +693,51 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         children: [
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () async {
-                                // Validate acknowledged errors
-                                if (!_validateAcknowledgedErrors()) return;
+                              onPressed: _unacknowledgedErrorsCount > 0
+                                  ? null
+                                  : () async {
+                                      // Validate acknowledged errors
+                                      if (!_validateAcknowledgedErrors()) return;
 
-                                // Collect all acknowledged errors (including warnings without notes)
-                                // _validateAcknowledgedErrors already ensures errors have notes
-                                final acknowledged = _collectAcknowledgedErrors(
-                                  requireNotes: false,
-                                );
+                                      // Collect all acknowledged errors (including warnings without notes)
+                                      // _validateAcknowledgedErrors already ensures errors have notes
+                                      final acknowledged = _collectAcknowledgedErrors(
+                                        requireNotes: false,
+                                      );
 
-                                debugPrint('📋 === DIALOG SUBMIT ===');
-                                debugPrint(
-                                  '📋 validation_errors collected: ${acknowledged['validation_errors']?.length ?? 0}',
-                                );
-                                debugPrint(
-                                  '📋 plausibility_errors collected: ${acknowledged['plausibility_errors']?.length ?? 0}',
-                                );
-                                debugPrint('📋 Action: ${errorCount == 0 ? 'complete' : 'save'}');
+                                      debugPrint('📋 === DIALOG SUBMIT ===');
+                                      debugPrint(
+                                        '📋 validation_errors collected: ${acknowledged['validation_errors']?.length ?? 0}',
+                                      );
+                                      debugPrint(
+                                        '📋 plausibility_errors collected: ${acknowledged['plausibility_errors']?.length ?? 0}',
+                                      );
+                                      debugPrint(
+                                        '📋 Action: ${errorCount == 0 ? 'complete' : 'save'}',
+                                      );
 
-                                if (mounted) {
-                                  // Mark as saved so PopScope's callback skips DB save
-                                  // (the acknowledged errors are returned in the result
-                                  // and will be written by save() in properties-edit)
-                                  _hasSaved = true;
+                                      if (mounted) {
+                                        // Mark as saved so PopScope's callback skips DB save
+                                        // (the acknowledged errors are returned in the result
+                                        // and will be written by save() in properties-edit)
+                                        _hasSaved = true;
 
-                                  final action = errorCount == 0 ? 'complete' : 'save';
-                                  Navigator.of(context).pop(
-                                    ValidationDialogResult(
-                                      action: action,
-                                      acknowledgedErrors: acknowledged,
-                                    ),
-                                  );
-                                }
-                              },
+                                        final action = errorCount == 0 ? 'complete' : 'save';
+                                        Navigator.of(context).pop(
+                                          ValidationDialogResult(
+                                            action: action,
+                                            acknowledgedErrors: acknowledged,
+                                          ),
+                                        );
+                                      }
+                                    },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: errorCount == 0 ? Colors.green : null,
+                                backgroundColor: _unacknowledgedErrorsCount == 0
+                                    ? Theme.of(context).colorScheme.primary
+                                    : null,
+                                foregroundColor: _unacknowledgedErrorsCount == 0
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : null,
                               ),
                               child: Text(
                                 _unacknowledgedErrorsCount == 0

@@ -395,6 +395,16 @@ class RecordsRepository {
     return results.map((row) => Record.fromRow(row)).toList();
   }
 
+  /// Get all records that share the same cluster_name as the given record
+  Future<List<Record>> getRecordsByClusterName(String clusterName) async {
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute(
+      'SELECT * FROM records WHERE cluster_name = ? AND $orgFilter ORDER BY plot_name',
+      [clusterName],
+    );
+    return results.map((row) => Record.fromRow(row)).toList();
+  }
+
   /// Test database connectivity with a simple COUNT query
   Future<int> testSimpleQuery() async {
     try {

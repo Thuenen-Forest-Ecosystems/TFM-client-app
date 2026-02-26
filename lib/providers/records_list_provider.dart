@@ -70,8 +70,12 @@ class RecordsListProvider extends ChangeNotifier {
   bool get isPermissionIdLoaded => _currentPermissionId != null;
 
   void setCurrentPosition(Position? position) {
+    // Just store the position for use in distance-based sorting.
+    // Callers are responsible for triggering any reload they need.
+    // Do NOT call notifyListeners() here – position changes alone do not
+    // affect the record cache and doing so causes a flood of rebuilds in
+    // every widget that listens to this provider (e.g. MapWidget).
     _currentPosition = position;
-    notifyListeners();
   }
 
   // Cache records for an interval and order

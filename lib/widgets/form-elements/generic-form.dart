@@ -54,7 +54,17 @@ class _GenericFormState extends State<GenericForm> {
     setState(() {
       _localData[key] = value;
     });
-    widget.onDataChanged?.call(Map<String, dynamic>.from(_localData));
+    // Only propagate fields this form "owns" (those in includeProperties).
+    // Propagating the full _localData would overwrite values for fields managed by
+    // sibling GenericForms, because _localData is a snapshot taken at init time and
+    // never refreshed for fields outside this form's scope.
+    final ownFields = widget.includeProperties?.toSet();
+    final dataToPropagate = ownFields != null
+        ? Map<String, dynamic>.fromEntries(
+            _localData.entries.where((e) => ownFields.contains(e.key)),
+          )
+        : Map<String, dynamic>.from(_localData);
+    widget.onDataChanged?.call(dataToPropagate);
   }
 
   List<ValidationError> _getErrorsForField(String fieldName) {

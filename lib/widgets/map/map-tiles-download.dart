@@ -58,6 +58,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   bool _isCheckingTiles = true;
   int _missingTilesCount = 0;
   bool _cancelRequested = false;
+  String? _checkError;
 
   @override
   void initState() {
@@ -133,6 +134,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       setState(() {
         _missingTilesCount = records.isNotEmpty ? -1 : 0; // -1 = ready to download
         _isCheckingTiles = false;
+        _checkError = null;
       });
     } catch (e) {
       print('[Check] Error checking records: $e');
@@ -141,6 +143,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       setState(() {
         _missingTilesCount = 0;
         _isCheckingTiles = false;
+        _checkError = e.toString();
       });
     }
   }
@@ -633,7 +636,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 16),
                   if (isDownloading) ...[
                     const LinearProgressIndicator(),
                     const SizedBox(height: 8),
@@ -648,6 +650,33 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                     ),
                   ] else if (isCompleted) ...[
                     const Text('Fertig', style: TextStyle(color: Colors.green)),
+                  ] else if (_isCheckingTiles) ...[
+                    const SizedBox(height: 16),
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Prüfe Daten...', style: Theme.of(context).textTheme.bodySmall),
+                  ] else if (_checkError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Fehler beim Laden',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red),
+                    ),
+                    TextButton(
+                      onPressed: _checkMissingTiles,
+                      child: const Text('Erneut versuchen'),
+                    ),
+                  ] else if (_missingTilesCount == 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Keine Aufnahmepunkte vorhanden.\nBitte zuerst Daten synchronisieren.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton(onPressed: _checkMissingTiles, child: const Text('Erneut prüfen')),
                   ] else ...[
                     const SizedBox(height: 16),
                     ElevatedButton(
