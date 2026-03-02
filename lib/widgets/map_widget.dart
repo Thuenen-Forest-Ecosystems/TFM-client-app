@@ -1261,31 +1261,35 @@ class _MapWidgetState extends State<MapWidget> {
 
           return Marker(
             point: LatLng(lat, lng),
-            width: 85,
-            height: 16,
-            alignment: Alignment.bottomCenter,
+            width: 350,
+            alignment: Alignment.center,
             child: GestureDetector(
               onTap: () {
                 _onMarkerTapped(record);
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black87.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.black54, width: 1),
-                ),
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
+              child: Align(
+                alignment: Alignment.center,
+                child: IntrinsicWidth(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    decoration: BoxDecoration(
+                      color: Colors.black87.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.normal,
+                        decoration: TextDecoration.none,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
               ),
             ),
