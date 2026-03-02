@@ -357,17 +357,16 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return false;
     }
 
-    // Use current row position in stateManager — this matches the order
-    // _notifyDataChanged sends to the parent, regardless of sorting/reordering.
-    final rows = _stateManager?.rows ?? _rows;
-    final currentIndex = rows.indexOf(row);
-    if (currentIndex == -1) return false;
+    // Use the original data index stored in the row so validation errors
+    // stay attached to the correct row even after sorting/reordering.
+    final originalIndex = row.cells['__original_index__']?.value as int?;
+    if (originalIndex == null) return false;
 
     final errors = widget.validationResult!.ajvErrors;
 
     // Check for errors like: "/propertyName/0/fieldKey" or "/propertyName/0"
-    final cellPath = '/${widget.propertyName}/$currentIndex/$fieldKey';
-    final rowPath = '/${widget.propertyName}/$currentIndex';
+    final cellPath = '/${widget.propertyName}/$originalIndex/$fieldKey';
+    final rowPath = '/${widget.propertyName}/$originalIndex';
 
     return errors.any((error) => error.instancePath == cellPath || error.instancePath == rowPath);
   }
@@ -522,13 +521,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
-          // Use current row position in stateManager for validation lookup.
-          // This matches the index order used in _notifyDataChanged (regardless of sorting).
-          final rows = _stateManager?.rows ?? _rows;
-          final currentIndex = rows.indexOf(rendererContext.row);
+          // Use the original data index stored in the row so the validation
+          // indicator stays with the correct row after sorting.
+          final originalIndex = rendererContext.row.cells['__original_index__']?.value as int?;
           return ValidationStatusIndicator.build(
             context: context,
-            rowIndex: currentIndex != -1 ? currentIndex : rendererContext.rowIdx,
+            rowIndex: originalIndex ?? rendererContext.rowIdx,
             propertyName: widget.propertyName ?? 'unknown',
             validationResult: widget.validationResult,
           );
