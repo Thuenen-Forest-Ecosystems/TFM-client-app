@@ -259,7 +259,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     // Filter by search query if provided
     if (_searchQuery.isNotEmpty) {
       records = records.where((record) {
-        return record.clusterName.toLowerCase().contains(_searchQuery.toLowerCase());
+        return record.clusterName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false;
       }).toList();
     }
 
@@ -340,9 +340,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
       case ClusterOrderBy.clusterName:
         records.sort((a, b) {
-          final comparison = a.clusterName.compareTo(b.clusterName);
+          final comparison = (a.clusterName ?? '').compareTo(b.clusterName ?? '');
           if (comparison != 0) return comparison;
-          return a.plotName.compareTo(b.plotName);
+          return (a.plotName ?? '').compareTo(b.plotName ?? '');
         });
     }
 
@@ -522,7 +522,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       },
                     ),
                     //IconButton(onPressed: _openFilterDialog, icon: Icon(Icons.filter_list)),
-                    //IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
+                    IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
                   ],
                 ),
               ),

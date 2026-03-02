@@ -354,24 +354,24 @@ class _MapWidgetState extends State<MapWidget> {
   Map<String, List<LatLng>> _buildClusterPolygons(List<Record> records) {
     final Map<String, List<LatLng>> polygons = {};
 
-    // Group records by cluster_name
+    // Group records by cluster_id
     for (final record in records) {
-      final clusterName = record.clusterName;
+      final clusterId = record.clusterId;
       final coords = record.getCoordinates();
 
       if (coords != null) {
         final lat = coords['latitude'] as double;
         final lng = coords['longitude'] as double;
 
-        if (!polygons.containsKey(clusterName)) {
-          polygons[clusterName] = [];
+        if (!polygons.containsKey(clusterId)) {
+          polygons[clusterId] = [];
         }
-        polygons[clusterName]!.add(LatLng(lat, lng));
+        polygons[clusterId]!.add(LatLng(lat, lng));
       }
     }
 
     // Sort points by angle from centroid to create proper polygon
-    polygons.forEach((clusterName, points) {
+    polygons.forEach((clusterId, points) {
       if (points.length >= 3) {
         // Calculate centroid
         double centerLat = 0, centerLng = 0;
@@ -1212,7 +1212,7 @@ class _MapWidgetState extends State<MapWidget> {
         .where(
           (record) =>
               _focusedRecord == null ||
-              record.clusterName != _focusedRecord!.clusterName ||
+              record.clusterId != _focusedRecord!.clusterId ||
               record.plotName != _focusedRecord!.plotName,
         )
         .map((record) {
@@ -1249,7 +1249,7 @@ class _MapWidgetState extends State<MapWidget> {
         .where(
           (record) =>
               _focusedRecord == null ||
-              record.clusterName != _focusedRecord!.clusterName ||
+              record.clusterId != _focusedRecord!.clusterId ||
               record.plotName != _focusedRecord!.plotName,
         )
         .map((record) {
@@ -1312,7 +1312,7 @@ class _MapWidgetState extends State<MapWidget> {
       // Request navigation through provider (same as from records-selection card tap)
       // This will be handled by start.dart's nested BeamerDelegate
       final navPath =
-          '/properties-edit/${Uri.encodeComponent(record.clusterName)}/${Uri.encodeComponent(record.plotName)}';
+          '/properties-edit/${Uri.encodeComponent(record.clusterId)}/${Uri.encodeComponent(record.plotName ?? '')}';
       mapControllerProvider.requestNavigation(navPath);
     } catch (e) {
       debugPrint('Error marking manual interaction or requesting navigation: $e');

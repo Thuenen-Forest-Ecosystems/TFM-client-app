@@ -85,32 +85,10 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     return {'azimuth': azimuthGon, 'distance': distanceMeters};
   }
 
-  Map<String, double>? _calculateTotalNavigation() {
-    if (widget.startPosition == null || widget.targetPosition == null) {
-      return null;
-    }
-
-    // Calculate total distance from all steps
-    double totalDistance = 0.0;
-    for (var step in _steps) {
-      if (step.distance != null) {
-        totalDistance += step.distance!;
-      }
-    }
-
-    // Get remaining distance and bearing from current position to target
-    final remaining = _calculateRemainingToTarget();
-    if (remaining != null) {
-      totalDistance += remaining['distance']!;
-      return {'azimuth': remaining['azimuth']!, 'distance': totalDistance};
-    }
-
-    return null;
-  }
-
   void _notifyNavigationCalculated() {
     if (widget.onNavigationCalculated != null) {
-      widget.onNavigationCalculated!(_calculateTotalNavigation());
+      // Show distance/azimuth from last step (or start) to target
+      widget.onNavigationCalculated!(_calculateRemainingToTarget());
     }
     if (widget.onStepPositionsCalculated != null) {
       widget.onStepPositionsCalculated!(_calculateAllStepPositions());

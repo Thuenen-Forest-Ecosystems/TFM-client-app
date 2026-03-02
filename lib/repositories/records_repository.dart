@@ -14,8 +14,8 @@ class Record {
   final int? schemaVersion;
   final String plotId;
   final String clusterId;
-  final String plotName;
-  final String clusterName;
+  final String? plotName;
+  final String? clusterName;
   final Map<String, dynamic>? previousProperties;
   final Map<String, dynamic>? previousPositionData;
   final int? isValid;
@@ -44,8 +44,8 @@ class Record {
     this.schemaVersion,
     required this.plotId,
     required this.clusterId,
-    required this.plotName,
-    required this.clusterName,
+    this.plotName,
+    this.clusterName,
     this.previousProperties,
     this.previousPositionData,
     this.isValid,
@@ -76,8 +76,8 @@ class Record {
       schemaVersion: row['schema_version'] as int?,
       plotId: row['plot_id'] as String,
       clusterId: row['cluster_id'] as String,
-      plotName: row['plot_name'] as String,
-      clusterName: row['cluster_name'] as String,
+      plotName: row['plot_name'] as String?,
+      clusterName: row['cluster_name'] as String?,
       previousProperties: row['previous_properties'] != null
           ? jsonDecode(row['previous_properties'] as String) as Map<String, dynamic>
           : null,
@@ -391,6 +391,29 @@ class RecordsRepository {
          LEFT JOIN schemas s ON r.schema_id_validated_by = s.id 
          WHERE r.cluster_name = ? AND r.plot_name = ? AND $orgFilter''',
       [clusterName, plotName],
+    );
+    return results.map((row) => Record.fromRow(row)).toList();
+  }
+
+  /// Get a record by cluster_id and plot_name (preferred over clusterName which can be null)
+  Future<List<Record>> getRecordsByClusterIdAndPlotName(String clusterId, String plotName) async {
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute(
+      '''SELECT r.*, s.version as schema_version 
+         FROM records r 
+         LEFT JOIN schemas s ON r.schema_id_validated_by = s.id 
+         WHERE r.cluster_id = ? AND r.plot_name = ? AND $orgFilter''',
+      [clusterId, plotName],
+    );
+    return results.map((row) => Record.fromRow(row)).toList();
+  }
+
+  /// Get all records that share the same cluster_id as the given record
+  Future<List<Record>> getRecordsByClusterId(String clusterId) async {
+    final orgFilter = await _getOrganizationFilter();
+    final results = await db.execute(
+      'SELECT * FROM records WHERE cluster_id = ? AND $orgFilter ORDER BY plot_name',
+      [clusterId],
     );
     return results.map((row) => Record.fromRow(row)).toList();
   }

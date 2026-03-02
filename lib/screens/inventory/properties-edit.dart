@@ -25,14 +25,15 @@ import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart'
 import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/new_record_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/submission_success_dialog.dart';
+import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.dart';
 
 import 'package:beamer/beamer.dart';
 
 class PropertiesEdit extends StatefulWidget {
-  final String clusterName;
+  final String clusterId;
   final String plotName;
 
-  const PropertiesEdit({super.key, required this.clusterName, required this.plotName});
+  const PropertiesEdit({super.key, required this.clusterId, required this.plotName});
 
   @override
   State<PropertiesEdit> createState() => _PropertiesEditState();
@@ -394,14 +395,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     });
 
     // Check if this is a NEW record creation
-    if (widget.clusterName == 'NEW' && widget.plotName == 'NEW') {
+    if (widget.clusterId == 'NEW' && widget.plotName == 'NEW') {
       await _createNewRecord();
       return;
     }
 
     try {
-      final records = await repo.RecordsRepository().getRecordsByClusterAndPlot(
-        widget.clusterName,
+      final records = await repo.RecordsRepository().getRecordsByClusterIdAndPlotName(
+        widget.clusterId,
         widget.plotName,
       );
       _formData = records.isNotEmpty ? records.first.properties : null;
@@ -556,6 +557,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Future<void> save(String type, {Map<String, List<AcknowledgedError>>? acknowledgedErrors}) async {
     if (_record == null || _formData == null) {
       debugPrint('Cannot save: record or form data is null');
+      return;
+    }
+
+    // Refuse to save in playground mode
+    if (context.read<PlaygroundModeProvider>().isPlaygroundMode) {
+      debugPrint('Save blocked: playground mode is active');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🧪 Playground-Modus aktiv – Speichern nicht möglich.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
 
@@ -753,7 +767,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             // Navigate to the selected record
             final r = result.selectedRecord!;
             Beamer.of(context).beamToNamed(
-              '/properties-edit/${Uri.encodeComponent(r.clusterName)}/${Uri.encodeComponent(r.plotName)}',
+              '/properties-edit/${Uri.encodeComponent(r.clusterId)}/${Uri.encodeComponent(r.plotName ?? '')}',
             );
           } else {
             // Default: go back to records-selection
@@ -1374,6 +1388,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   @override
   Widget build(BuildContext context) {
+    final isPlayground = context.watch<PlaygroundModeProvider>().isPlaygroundMode;
+
     return Scaffold(
       body: MediaQuery.removePadding(
         context: context,
@@ -1401,7 +1417,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Trakt: ${widget.clusterName}',
+                          'Trakt: ${_record?.clusterName ?? widget.clusterId}',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1430,7 +1446,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       children: [
                         IconButton(
                           onPressed:
-                              (_isSaving || !_hasCompletedInitialValidation || !_hasUnsavedChanges)
+                              (_isSaving ||
+                                  !_hasCompletedInitialValidation ||
+                                  !_hasUnsavedChanges ||
+                                  isPlayground)
                               ? null
                               : () => save('save'),
                           color: Theme.of(context).colorScheme.primary,
@@ -1453,7 +1472,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                               _validationResult != null && _validationResult!.allIssues.isNotEmpty,
                           textColor: Colors.white,
                           child: TextButton(
-                            onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
+                            onPressed:
+                                (_jsonSchema != null &&
+                                    _hasCompletedInitialValidation &&
+                                    !isPlayground)
                                 ? saveRecord
                                 : null,
                             child: const Text('FERTIG'),
@@ -1539,6 +1561,28 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 ],
               ),
             ),
+            // Playground mode banner
+            if (isPlayground)
+              Container(
+                width: double.infinity,
+                color: Colors.orange,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.science, size: 14, color: Colors.white),
+                    SizedBox(width: 6),
+                    Text(
+                      'Playground-Modus – Änderungen werden nicht gespeichert',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())

@@ -49,7 +49,7 @@ class ClusterInfoButton extends StatelessWidget {
       context: context,
       builder: (context) => ClusterInfoDialog(
         clusterData: clusterMap,
-        clusterName: record!.clusterName,
+        clusterName: record!.clusterName ?? '',
         rootSchema: rootSchema,
       ),
     );

@@ -772,6 +772,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               onFocusPosition: _focusMapOnPosition,
               label: 'Ziel',
               icon: Icons.where_to_vote,
+              showGpsOptions: false,
               hasGpsPosition: gpsProvider.lastPosition != null,
               currentGpsPosition: gpsProvider.lastPosition != null
                   ? LatLng(gpsProvider.lastPosition!.latitude, gpsProvider.lastPosition!.longitude)

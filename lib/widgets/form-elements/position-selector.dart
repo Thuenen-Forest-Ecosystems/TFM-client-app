@@ -21,6 +21,7 @@ class PositionSelector extends StatelessWidget {
   final LatLng? mapTappedPosition; // Position selected from map tap
   final String? centerPositionKey; // Key of position currently set as center
   final ValueChanged<String?>? onSetAsCenter; // Callback to set position as center
+  final bool showGpsOptions; // Whether to show GPS and map-tap position options
 
   static const String gpsLiveKey = '__GPS_LIVE__';
   static const String gpsLockedKey = '__GPS_LOCKED__';
@@ -47,6 +48,7 @@ class PositionSelector extends StatelessWidget {
     this.mapTappedPosition,
     this.centerPositionKey,
     this.onSetAsCenter,
+    this.showGpsOptions = true,
   });
 
   @override
@@ -106,6 +108,7 @@ class PositionSelector extends StatelessWidget {
       ),
       children: [
         // GPS Position section
+        if (showGpsOptions) ...[
         Padding(
           padding: const EdgeInsets.only(left: 10, top: 16, bottom: 8),
           child: Align(
@@ -202,6 +205,8 @@ class PositionSelector extends StatelessWidget {
             onTap: () => onPositionSelected(null),
           ),
         ],
+
+        ], // end showGpsOptions
 
         // Map tap position option
         if (onSelectFromMap != null) ...[

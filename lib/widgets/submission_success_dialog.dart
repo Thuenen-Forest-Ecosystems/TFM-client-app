@@ -49,7 +49,7 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
   Future<void> _loadClusterRecords() async {
     try {
       final records = await RecordsRepository().getRecordsByClusterName(
-        widget.submittedRecord.clusterName,
+        widget.submittedRecord.clusterName ?? '',
       );
 
       // Exclude the just-submitted record from the list

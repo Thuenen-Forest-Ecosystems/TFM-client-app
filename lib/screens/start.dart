@@ -103,27 +103,27 @@ class _StartState extends State<Start> {
               ),
             );
           },
-          '/properties-edit/:clusterName/:plotName': (context, state, data) {
-            final clusterName = state.pathParameters['clusterName'];
+          '/properties-edit/:clusterId/:plotName': (context, state, data) {
+            final clusterId = state.pathParameters['clusterId'];
             final plotName = state.pathParameters['plotName'];
-            if (clusterName == null || plotName == null) {
+            if (clusterId == null || plotName == null) {
               return BeamPage(
                 key: const ValueKey('schema-selection'),
                 child: const SchemaSelection(),
               );
             }
-            final decodedClusterName = Uri.decodeComponent(clusterName);
+            final decodedClusterId = Uri.decodeComponent(clusterId);
             final decodedPlotName = Uri.decodeComponent(plotName);
 
             return BeamPage(
-              key: ValueKey('properties-edit-$decodedClusterName-$decodedPlotName'),
+              key: ValueKey('properties-edit-$decodedClusterId-$decodedPlotName'),
               child: PopScope(
                 canPop: false,
                 onPopInvokedWithResult: (didPop, result) async {
                   if (didPop) return;
                   await _handleCloseButtonPressed();
                 },
-                child: PropertiesEdit(clusterName: decodedClusterName, plotName: decodedPlotName),
+                child: PropertiesEdit(clusterId: decodedClusterId, plotName: decodedPlotName),
               ),
             );
           },
@@ -408,17 +408,17 @@ class _StartState extends State<Start> {
     if (shouldNavigate == true) {
       // If on properties-edit, navigate back to records-selection with intervalName
       if (currentPath.startsWith('/properties-edit')) {
-        // Extract clusterName and plotName from URI path: /properties-edit/:clusterName/:plotName
+        // Extract clusterId and plotName from URI path: /properties-edit/:clusterId/:plotName
         final pathSegments = Uri.parse(currentPath).pathSegments;
         if (pathSegments.length >= 3) {
-          final clusterName = Uri.decodeComponent(pathSegments[1]);
+          final clusterId = Uri.decodeComponent(pathSegments[1]);
           final plotName = Uri.decodeComponent(pathSegments[2]);
 
           // Load the record to get the schemaName/intervalName
           try {
             final recordsRepository = RecordsRepository();
-            final records = await recordsRepository.getRecordsByClusterAndPlot(
-              clusterName,
+            final records = await recordsRepository.getRecordsByClusterIdAndPlotName(
+              clusterId,
               plotName,
             );
 

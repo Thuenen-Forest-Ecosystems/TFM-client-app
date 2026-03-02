@@ -5,6 +5,7 @@ import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
+import 'package:terrestrial_forest_monitor/widgets/playground-mode-button.dart';
 
 class Schema extends StatefulWidget {
   const Schema({super.key});
@@ -25,6 +26,7 @@ class _SchemaState extends State<Schema> {
         title: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
         actions: [
           const SyncStatusButton(),
+          const PlaygroundModeButton(),
           //SizedBox(width: 5),
           IconButton(
             onPressed: () => Beamer.of(context).beamToNamed('/profile'),

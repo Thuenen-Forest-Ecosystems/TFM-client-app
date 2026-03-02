@@ -157,7 +157,7 @@ class _RecordCardState extends State<RecordCard> {
             InkWell(
               onTap: () {
                 Beamer.of(context).beamToNamed(
-                  '/properties-edit/${Uri.encodeComponent(widget.record.clusterName)}/${Uri.encodeComponent(widget.record.plotName)}',
+                  '/properties-edit/${Uri.encodeComponent(widget.record.clusterId)}/${Uri.encodeComponent(widget.record.plotName ?? '')}',
                 );
               },
               child: IntrinsicHeight(
@@ -242,8 +242,10 @@ class _RecordCardState extends State<RecordCard> {
                                   ],
                                 ),
                               ),
-                            if (widget.record.previousProperties?['plot_support_points'].length >
-                                    0 &&
+                            if (((widget.record.previousProperties?['plot_support_points'])
+                                            as List?)
+                                        ?.isNotEmpty ==
+                                    true &&
                                 !widget.isDense)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 4),

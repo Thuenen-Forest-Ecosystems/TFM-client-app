@@ -20,6 +20,7 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/database_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.dart';
 import 'package:terrestrial_forest_monitor/repositories/forest_location_repository.dart';
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 
@@ -88,9 +89,9 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           child: Start(),
           type: BeamPageType.noTransition,
         ),
-        '/properties-edit/:clusterName/:plotName': (context, state, data) => BeamPage(
+        '/properties-edit/:clusterId/:plotName': (context, state, data) => BeamPage(
           key: ValueKey(
-            'properties-${state.pathParameters['clusterName']}-${state.pathParameters['plotName']}-${DateTime.now().millisecondsSinceEpoch}',
+            'properties-${state.pathParameters['clusterId']}-${state.pathParameters['plotName']}-${DateTime.now().millisecondsSinceEpoch}',
           ),
           title: 'TFM',
           child: Start(),
@@ -216,6 +217,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => gpsProvider),
         ChangeNotifierProvider(create: (_) => RecordsListProvider()),
         ChangeNotifierProvider(create: (_) => MapControllerProvider()),
+        ChangeNotifierProvider(create: (_) => PlaygroundModeProvider()),
 
         // Repositories
         Provider(create: (_) => ForestLocationRepository()),
