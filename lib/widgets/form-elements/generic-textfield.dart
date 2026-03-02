@@ -840,36 +840,58 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   prefixIcon: hasSpinner
                       ? SizedBox(
                           width: 20,
-                          child: IconButton(
-                            icon: const Icon(Icons.remove, size: 14),
-                            onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                            iconSize: 14,
+                          child: ExcludeFocus(
+                            child: IconButton(
+                              icon: const Icon(Icons.remove, size: 14),
+                              onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                              iconSize: 14,
+                            ),
                           ),
                         )
                       : null,
                   suffixIcon: hasSpinner
-                      ? SizedBox(
-                          width: unit != null && unit.isNotEmpty ? 70 : 40,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (unit != null && unit.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: Text(unit, style: const TextStyle(fontSize: 12)),
+                      ? (unit != null && unit.isNotEmpty
+                            ? SizedBox(
+                                width: 70,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Text(unit, style: const TextStyle(fontSize: 12)),
+                                    ),
+                                    ExcludeFocus(
+                                      child: IconButton(
+                                        icon: const Icon(Icons.add, size: 14),
+                                        onPressed: isReadonly
+                                            ? null
+                                            : () => adjustValue(upDownBtn!),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 20,
+                                          minHeight: 20,
+                                        ),
+                                        iconSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              IconButton(
-                                icon: const Icon(Icons.add, size: 14),
-                                onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                                iconSize: 14,
-                              ),
-                            ],
-                          ),
-                        )
+                              )
+                            : SizedBox(
+                                width: 20,
+                                child: ExcludeFocus(
+                                  child: IconButton(
+                                    icon: const Icon(Icons.add, size: 14),
+                                    onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                                    iconSize: 14,
+                                  ),
+                                ),
+                              ))
                       : null,
                 )
               : InputDecoration(
@@ -884,9 +906,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
                   suffixText: !hasSpinner && unit != null && unit.isNotEmpty ? ' $unit' : null,
                   prefixIcon: hasSpinner
-                      ? IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                      ? ExcludeFocus(
+                          child: IconButton(
+                            icon: const Icon(Icons.remove),
+                            onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                          ),
                         )
                       : null,
                   suffixIcon: hasSpinner
@@ -901,9 +925,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
                                   padding: const EdgeInsets.only(right: 8),
                                   child: Text(unit, style: const TextStyle(fontSize: 14)),
                                 ),
-                              IconButton(
-                                icon: const Icon(Icons.add),
-                                onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                              ExcludeFocus(
+                                child: IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                                ),
                               ),
                             ],
                           ),
