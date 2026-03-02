@@ -722,7 +722,9 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                                         // and will be written by save() in properties-edit)
                                         _hasSaved = true;
 
-                                        final action = errorCount == 0 ? 'complete' : 'save';
+                                        //final action = errorCount == 0 ? 'complete' : 'save';
+                                        final action =
+                                            'complete'; // Always complete, even if there are errors, since we require acknowledgment with notes
                                         Navigator.of(context).pop(
                                           ValidationDialogResult(
                                             action: action,
