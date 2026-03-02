@@ -15,7 +15,6 @@ class _MapAdminState extends State<MapAdmin> {
     //'wms_dtk25__',
     'wms_dop__',
     'OpenCycleMap',
-    'esri_satellite',
   ];
 
   Map<String, int> _storeTileCounts = {};

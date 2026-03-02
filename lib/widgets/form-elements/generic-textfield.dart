@@ -64,8 +64,37 @@ class _GenericTextFieldState extends State<GenericTextField> {
   @override
   void didUpdateWidget(GenericTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Capture current cursor position before any updates.
+    // On Windows, changes to InputDecoration (e.g. error state going from
+    // invalid→valid, fillColor change) while a TextField has focus can
+    // trigger an unintended select-all through the platform text input
+    // connection reset.
+    final shouldPreserve = _getType() != 'boolean' && _focusNode.hasFocus;
+    final savedOffset = shouldPreserve ? _controller.selection.extentOffset : null;
+
     if (widget.value != oldWidget.value) {
       _updateControllers();
+    }
+
+    // After the rebuild frame completes, check whether the platform
+    // unexpectedly selected all text and revert to the saved cursor position.
+    if (savedOffset != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _focusNode.hasFocus && _getType() != 'boolean') {
+          final sel = _controller.selection;
+          // Detect unintended select-all: non-collapsed selection spanning
+          // the entire text that the user did not initiate.
+          if (!sel.isCollapsed &&
+              sel.baseOffset == 0 &&
+              sel.extentOffset == _controller.text.length &&
+              _controller.text.isNotEmpty) {
+            _controller.selection = TextSelection.collapsed(
+              offset: savedOffset.clamp(0, _controller.text.length),
+            );
+          }
+        }
+      });
     }
   }
 
@@ -125,7 +154,16 @@ class _GenericTextFieldState extends State<GenericTextField> {
     } else {
       // Only update controller text if it's different to avoid cursor position reset
       if (_controller.text != newValue) {
+        // Preserve cursor position when the field has focus to prevent
+        // the Windows platform from selecting all text on value update.
+        final hadFocus = _focusNode.hasFocus;
+        final previousOffset = hadFocus ? _controller.selection.extentOffset : 0;
         _controller.text = newValue;
+        if (hadFocus) {
+          _controller.selection = TextSelection.collapsed(
+            offset: previousOffset.clamp(0, newValue.length),
+          );
+        }
       }
     }
   }

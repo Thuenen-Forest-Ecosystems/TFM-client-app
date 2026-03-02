@@ -1263,31 +1263,34 @@ class _MapWidgetState extends State<MapWidget> {
             point: LatLng(lat, lng),
             width: 350,
             alignment: Alignment.center,
-            child: GestureDetector(
-              onTap: () {
-                _onMarkerTapped(record);
-              },
-              child: Align(
-                alignment: Alignment.center,
-                child: IntrinsicWidth(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black87.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.white, width: 1),
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.normal,
-                        decoration: TextDecoration.none,
+            child: Transform.translate(
+              offset: const Offset(0, 15),
+              child: GestureDetector(
+                onTap: () {
+                  _onMarkerTapped(record);
+                },
+                child: Align(
+                  alignment: Alignment.center,
+                  child: IntrinsicWidth(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black87.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.white, width: 1),
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.normal,
+                          decoration: TextDecoration.none,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ),
