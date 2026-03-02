@@ -94,6 +94,9 @@ class _LoginState extends State<Login> {
   }
 
   void _handleLogin() async {
+    // Dismiss keyboard before login
+    FocusManager.instance.primaryFocus?.unfocus();
+
     // Always validate first
     if (!_formKey.currentState!.validate()) {
       print('Login: Form validation failed');
@@ -196,6 +199,9 @@ class _LoginState extends State<Login> {
   }
 
   void _handleOfflineLogin() async {
+    // Dismiss keyboard before login
+    FocusManager.instance.primaryFocus?.unfocus();
+
     // Always validate first
     if (!_formKey.currentState!.validate()) {
       print('Login: Form validation failed');
@@ -310,7 +316,7 @@ class _LoginState extends State<Login> {
                               obscureText: _obscurePassword,
                               autofillHints: const [AutofillHints.password],
                               decoration: InputDecoration(
-                                labelText: 'Passwort',
+                                labelText: 'Passworter',
                                 prefixIcon: const Icon(Icons.lock),
                                 border: const OutlineInputBorder(
                                   borderRadius: BorderRadius.all(Radius.circular(50.0)),

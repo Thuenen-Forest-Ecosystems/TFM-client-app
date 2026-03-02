@@ -1271,7 +1271,7 @@ class _MapWidgetState extends State<MapWidget> {
                 alignment: Alignment.center,
                 child: IntrinsicWidth(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.black87.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(4),

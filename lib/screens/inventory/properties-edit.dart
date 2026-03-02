@@ -107,6 +107,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   @override
   void dispose() {
+    // Dismiss keyboard before disposing to prevent the Windows soft keyboard
+    // from staying active after navigation (focus node destroyed without
+    // closing the system text input connection).
+    FocusManager.instance.primaryFocus?.unfocus();
+
     // Cancel any pending validation timer
     _validationDebounceTimer?.cancel();
 

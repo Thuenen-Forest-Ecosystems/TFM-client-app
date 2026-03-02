@@ -789,6 +789,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
           focusNode: _focusNode,
           controller: _controller,
           readOnly: isReadonly,
+          autofocus: widget.autofocus,
           textAlign: hasSpinner ? TextAlign.center : TextAlign.right,
           decoration: widget.compact
               ? InputDecoration(
@@ -923,6 +924,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
         focusNode: _focusNode,
         controller: _controller,
         readOnly: isReadonly,
+        autofocus: widget.autofocus,
         decoration: widget.compact
             ? InputDecoration(
                 border: InputBorder.none,

@@ -315,6 +315,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   }
 
   void _onTabChanged() {
+    // Dismiss keyboard/unfocus before the old tab's widgets get disposed.
+    // Without this, Windows keeps the text input service active and the
+    // soft keyboard reopens on every subsequent tap.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     _updateCurrentTabType();
     // Force rebuild to update isVisible for PreviousPositionsNavigation
     setState(() {});
@@ -971,6 +976,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
   @override
   void dispose() {
+    // Release any active text field focus before disposing tab controller,
+    // otherwise the system text input connection leaks on Windows.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     super.dispose();

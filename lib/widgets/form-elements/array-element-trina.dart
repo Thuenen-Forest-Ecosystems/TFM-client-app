@@ -671,6 +671,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableColumnDrag: false,
           enableContextMenu: false,
           readOnly: isReadOnly || isCalculated,
+          enableEditingMode: false,
           renderer: isNestedArray
               ? (rendererContext) => _buildNestedArrayCell(
                   rendererContext,
@@ -898,6 +899,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableColumnDrag: false,
           enableContextMenu: false,
           readOnly: isReadOnly || isCalculated,
+          enableEditingMode: false,
           // Custom renderer for calculated, enum, numeric, boolean, nested array, or grouped columns
           renderer: isNestedArray
               ? (rendererContext) =>

@@ -109,105 +109,107 @@ class PositionSelector extends StatelessWidget {
       children: [
         // GPS Position section
         if (showGpsOptions) ...[
-        Padding(
-          padding: const EdgeInsets.only(left: 10, top: 16, bottom: 8),
-          child: Align(
-            alignment: Alignment.bottomLeft,
-            child: Text(
-              'GPS Position',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[700]),
-            ),
-          ),
-        ),
-        // Live GPS tracking option
-        ListTile(
-          dense: true,
-          selected: selectedPositionKey == gpsLiveKey,
-          enabled: hasGpsPosition,
-          leading: Icon(
-            selectedPositionKey == gpsLiveKey
-                ? Icons.radio_button_checked
-                : Icons.radio_button_unchecked,
-            color: selectedPositionKey == gpsLiveKey
-                ? Colors.blue
-                : (hasGpsPosition ? null : Colors.grey),
-          ),
-          title: Row(
-            children: [
-              Text(
-                'Aktuelle GPS Position',
-                style: TextStyle(color: hasGpsPosition ? null : Colors.grey),
+          Padding(
+            padding: const EdgeInsets.only(left: 10, top: 16, bottom: 8),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Text(
+                'GPS Position',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
               ),
-            ],
-          ),
-          subtitle: hasGpsPosition && currentGpsPosition != null
-              ? Text(
-                  'Lat: ${currentGpsPosition!.latitude.toStringAsFixed(6)}, '
-                  'Lon: ${currentGpsPosition!.longitude.toStringAsFixed(6)}',
-                  style: const TextStyle(fontSize: 11),
-                )
-              : const Text('Keine GPS-Daten verfügbar', style: TextStyle(fontSize: 11)),
-          trailing: hasGpsPosition && selectedPositionKey == gpsLiveKey
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (onFocusPosition != null && currentGpsPosition != null)
-                      IconButton(
-                        icon: const Icon(Icons.my_location, size: 20),
-                        tooltip: 'Auf Karte anzeigen',
-                        onPressed: () => onFocusPosition!(currentGpsPosition!),
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.add_location, size: 20),
-                      tooltip: 'Position festlegen',
-                      onPressed: () => onPositionSelected(gpsLockedKey),
-                    ),
-                  ],
-                )
-              : (onFocusPosition != null && currentGpsPosition != null && hasGpsPosition)
-              ? IconButton(
-                  icon: const Icon(Icons.my_location, size: 20),
-                  tooltip: 'Auf Karte anzeigen',
-                  onPressed: () => onFocusPosition!(currentGpsPosition!),
-                )
-              : null,
-          onTap: hasGpsPosition
-              ? () => onPositionSelected(selectedPositionKey == gpsLiveKey ? null : gpsLiveKey)
-              : null,
-        ),
-        // Locked GPS position option
-        if (selectedPositionKey == gpsLockedKey && currentGpsPosition != null) ...[
-          ListTile(
-            selected: true,
-            leading: Icon(Icons.radio_button_checked, color: Colors.blue),
-            title: Row(children: [const Text('gespeichert')]),
-            subtitle: Text(
-              'Lat: ${currentGpsPosition!.latitude.toStringAsFixed(6)}, '
-              'Lon: ${currentGpsPosition!.longitude.toStringAsFixed(6)}',
-              style: const TextStyle(fontSize: 11),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+          ),
+          // Live GPS tracking option
+          ListTile(
+            dense: true,
+            selected: selectedPositionKey == gpsLiveKey,
+            enabled: hasGpsPosition,
+            leading: Icon(
+              selectedPositionKey == gpsLiveKey
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: selectedPositionKey == gpsLiveKey
+                  ? Colors.blue
+                  : (hasGpsPosition ? null : Colors.grey),
+            ),
+            title: Row(
               children: [
-                if (onFocusPosition != null)
-                  IconButton(
-                    icon: const Icon(Icons.my_location, size: 20),
-                    tooltip: 'Auf Karte anzeigen',
-                    onPressed: () => onFocusPosition!(currentGpsPosition!),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.delete, size: 20),
-                  tooltip: 'Live-Tracking aktivieren',
-                  onPressed: () => onPositionSelected(gpsLiveKey),
+                Text(
+                  'Aktuelle GPS Position',
+                  style: TextStyle(color: hasGpsPosition ? null : Colors.grey),
                 ),
               ],
             ),
-            onTap: () => onPositionSelected(null),
+            subtitle: hasGpsPosition && currentGpsPosition != null
+                ? Text(
+                    'Lat: ${currentGpsPosition!.latitude.toStringAsFixed(6)}, '
+                    'Lon: ${currentGpsPosition!.longitude.toStringAsFixed(6)}',
+                    style: const TextStyle(fontSize: 11),
+                  )
+                : const Text('Keine GPS-Daten verfügbar', style: TextStyle(fontSize: 11)),
+            trailing: hasGpsPosition && selectedPositionKey == gpsLiveKey
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onFocusPosition != null && currentGpsPosition != null)
+                        IconButton(
+                          icon: const Icon(Icons.my_location, size: 20),
+                          tooltip: 'Auf Karte anzeigen',
+                          onPressed: () => onFocusPosition!(currentGpsPosition!),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.add_location, size: 20),
+                        tooltip: 'Position festlegen',
+                        onPressed: () => onPositionSelected(gpsLockedKey),
+                      ),
+                    ],
+                  )
+                : (onFocusPosition != null && currentGpsPosition != null && hasGpsPosition)
+                ? IconButton(
+                    icon: const Icon(Icons.my_location, size: 20),
+                    tooltip: 'Auf Karte anzeigen',
+                    onPressed: () => onFocusPosition!(currentGpsPosition!),
+                  )
+                : null,
+            onTap: hasGpsPosition
+                ? () => onPositionSelected(selectedPositionKey == gpsLiveKey ? null : gpsLiveKey)
+                : null,
           ),
-        ],
-
+          // Locked GPS position option
+          if (selectedPositionKey == gpsLockedKey && currentGpsPosition != null) ...[
+            ListTile(
+              selected: true,
+              leading: Icon(Icons.radio_button_checked, color: Colors.blue),
+              title: Row(children: [const Text('gespeichert')]),
+              subtitle: Text(
+                'Lat: ${currentGpsPosition!.latitude.toStringAsFixed(6)}, '
+                'Lon: ${currentGpsPosition!.longitude.toStringAsFixed(6)}',
+                style: const TextStyle(fontSize: 11),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onFocusPosition != null)
+                    IconButton(
+                      icon: const Icon(Icons.my_location, size: 20),
+                      tooltip: 'Auf Karte anzeigen',
+                      onPressed: () => onFocusPosition!(currentGpsPosition!),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, size: 20),
+                    tooltip: 'Live-Tracking aktivieren',
+                    onPressed: () => onPositionSelected(gpsLiveKey),
+                  ),
+                ],
+              ),
+              onTap: () => onPositionSelected(null),
+            ),
+          ],
         ], // end showGpsOptions
-
         // Map tap position option
         if (onSelectFromMap != null) ...[
           ListTile(
