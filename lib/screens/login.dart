@@ -80,14 +80,27 @@ class _LoginState extends State<Login> {
 
   void _onAuthStateChanged() {
     if (_authProvider.isAuthenticated && mounted) {
-      // On Windows, fully close the text input client before navigating.
-      // TextInput.hide only hides the keyboard but keeps the client registered,
-      // causing the keyboard to re-appear on any tap in the new page.
+      // Dismiss keyboard and close text input connections through the
+      // framework BEFORE the widget tree changes.
       _dismissKeyboard();
+
       if (!kIsWeb && Platform.isWindows) {
-        SystemChannels.textInput.invokeMethod('TextInput.clearClient');
+        // On Windows tablets, delay navigation by one frame so that the
+        // platform has time to process TextInput.hide. Navigating
+        // immediately causes the Login widget to dispose while the
+        // platform still thinks there is an active text-input client,
+        // leaving the Windows touch keyboard stuck open.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            // One more hide after the frame to catch any re-attachment
+            // from EditableText disposal/deactivation.
+            SystemChannels.textInput.invokeMethod('TextInput.hide');
+            context.beamToNamed('/');
+          }
+        });
+      } else {
+        context.beamToNamed('/');
       }
-      context.beamToNamed('/');
     }
   }
 
@@ -105,23 +118,24 @@ class _LoginState extends State<Login> {
   }
 
   /// Force-close the soft keyboard on Windows tablets.
-  /// FocusManager.unfocus() alone doesn't reliably hide the Windows
-  /// on-screen keyboard; we must also tell the platform text-input
-  /// channel to hide it explicitly.
+  ///
+  /// Important: Do NOT call `TextInput.clearClient` via the raw platform
+  /// channel — it bypasses Flutter's internal `TextInput._currentConnection`
+  /// bookkeeping.  When `EditableText` later disposes and tries to close its
+  /// connection through the framework the mismatch can cause the Windows
+  /// touch-keyboard to re-activate.
   void _dismissKeyboard() {
-    // 1. Unfocus any focused widget
+    // 1. Unfocus the entire focus tree so that EditableText closes its
+    //    TextInputConnection through the framework (keeps internal state
+    //    in sync with the platform).
     FocusManager.instance.primaryFocus?.unfocus();
-    // 2. Also unfocus our own nodes to be safe
+
+    // 2. Also unfocus our own nodes to be safe.
     _emailFocusNode.unfocus();
     _passwordFocusNode.unfocus();
-    // 3. Explicitly hide the platform soft keyboard (critical on Windows)
+
+    // 3. Explicitly hide the platform soft keyboard.
     SystemChannels.textInput.invokeMethod('TextInput.hide');
-    // 4. On Windows, also clear the text input client entirely.
-    //    TextInput.hide only hides the keyboard but the client stays registered,
-    //    causing any subsequent tap to re-open the keyboard.
-    if (!kIsWeb && Platform.isWindows) {
-      SystemChannels.textInput.invokeMethod('TextInput.clearClient');
-    }
   }
 
   void _handleLogin() async {
@@ -339,7 +353,13 @@ class _LoginState extends State<Login> {
                               controller: _emailController,
                               focusNode: _emailFocusNode,
                               keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.email],
+                              // Skip autofillHints on Windows: the platform-level
+                              // IME / autofill connection persists beyond widget
+                              // disposal on Windows tablets, causing the touch
+                              // keyboard to re-appear on any tap after navigation.
+                              autofillHints: (!kIsWeb && Platform.isWindows)
+                                  ? null
+                                  : const [AutofillHints.email],
                               decoration: const InputDecoration(
                                 labelText: 'Email',
                                 prefixIcon: Icon(Icons.email),
@@ -362,7 +382,9 @@ class _LoginState extends State<Login> {
                               controller: _passwordController,
                               focusNode: _passwordFocusNode,
                               obscureText: _obscurePassword,
-                              autofillHints: const [AutofillHints.password],
+                              autofillHints: (!kIsWeb && Platform.isWindows)
+                                  ? null
+                                  : const [AutofillHints.password],
                               decoration: InputDecoration(
                                 labelText: 'Passworter',
                                 prefixIcon: const Icon(Icons.lock),
@@ -576,12 +598,11 @@ class _LoginState extends State<Login> {
     _passwordController.removeListener(_validateForm);
     _authProvider.removeListener(_onAuthStateChanged);
 
-    // On Windows, fully close the text input client before disposing focus nodes.
-    // TextInput.hide alone is not enough — clearClient terminates the connection
-    // so the engine no longer thinks there is an active text input.
+    // Hide the platform keyboard before disposing focus nodes.
+    // The focus-node disposal will close the TextInputConnection through
+    // the framework, keeping Flutter's internal state in sync.
     if (!kIsWeb && Platform.isWindows) {
       SystemChannels.textInput.invokeMethod('TextInput.hide');
-      SystemChannels.textInput.invokeMethod('TextInput.clearClient');
     }
 
     _emailFocusNode.dispose();

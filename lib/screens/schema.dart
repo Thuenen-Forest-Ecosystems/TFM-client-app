@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.dart';
 import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
@@ -17,6 +20,19 @@ class Schema extends StatefulWidget {
 }
 
 class _SchemaState extends State<Schema> {
+  @override
+  void initState() {
+    super.initState();
+    // On Windows tablets, ensure the soft keyboard is dismissed when this
+    // screen mounts (safety net after login navigation).
+    if (!kIsWeb && Platform.isWindows) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // add Logo THUENEN_SCREEN_Black.svg
