@@ -80,6 +80,13 @@ class _LoginState extends State<Login> {
 
   void _onAuthStateChanged() {
     if (_authProvider.isAuthenticated && mounted) {
+      // On Windows, fully close the text input client before navigating.
+      // TextInput.hide only hides the keyboard but keeps the client registered,
+      // causing the keyboard to re-appear on any tap in the new page.
+      _dismissKeyboard();
+      if (!kIsWeb && Platform.isWindows) {
+        SystemChannels.textInput.invokeMethod('TextInput.clearClient');
+      }
       context.beamToNamed('/');
     }
   }
@@ -109,6 +116,12 @@ class _LoginState extends State<Login> {
     _passwordFocusNode.unfocus();
     // 3. Explicitly hide the platform soft keyboard (critical on Windows)
     SystemChannels.textInput.invokeMethod('TextInput.hide');
+    // 4. On Windows, also clear the text input client entirely.
+    //    TextInput.hide only hides the keyboard but the client stays registered,
+    //    causing any subsequent tap to re-open the keyboard.
+    if (!kIsWeb && Platform.isWindows) {
+      SystemChannels.textInput.invokeMethod('TextInput.clearClient');
+    }
   }
 
   void _handleLogin() async {
@@ -146,11 +159,16 @@ class _LoginState extends State<Login> {
 
       print('Login: Login successful');
 
-      // Notify autofill service that login was successful
-      TextInput.finishAutofillContext();
+      // Notify autofill service that login was successful.
+      // SKIP on Windows: finishAutofillContext re-engages the platform text
+      // input connection, and since _onAuthStateChanged has already triggered
+      // navigation at this point, it creates a dangling text input client
+      // that causes the keyboard to stick open on the next page.
+      if (kIsWeb || !Platform.isWindows) {
+        TextInput.finishAutofillContext();
+      }
 
-      // Force-hide keyboard again after finishAutofillContext,
-      // which can re-engage the text input connection on Windows
+      // Final keyboard cleanup
       _dismissKeyboard();
 
       // Navigation will be handled by the auth state listener
@@ -255,10 +273,13 @@ class _LoginState extends State<Login> {
 
       print('Login: Offline login successful');
 
-      // Notify autofill service that login was successful
-      TextInput.finishAutofillContext();
+      // Notify autofill service that login was successful.
+      // SKIP on Windows (see comment in _handleLogin).
+      if (kIsWeb || !Platform.isWindows) {
+        TextInput.finishAutofillContext();
+      }
 
-      // Force-hide keyboard again after finishAutofillContext
+      // Final keyboard cleanup
       _dismissKeyboard();
 
       // Navigation will be handled by the auth state listener
@@ -555,10 +576,12 @@ class _LoginState extends State<Login> {
     _passwordController.removeListener(_validateForm);
     _authProvider.removeListener(_onAuthStateChanged);
 
-    // On Windows, force-hide the keyboard before disposing focus nodes
-    // to prevent the soft keyboard from getting stuck open
+    // On Windows, fully close the text input client before disposing focus nodes.
+    // TextInput.hide alone is not enough — clearClient terminates the connection
+    // so the engine no longer thinks there is an active text input.
     if (!kIsWeb && Platform.isWindows) {
       SystemChannels.textInput.invokeMethod('TextInput.hide');
+      SystemChannels.textInput.invokeMethod('TextInput.clearClient');
     }
 
     _emailFocusNode.dispose();
