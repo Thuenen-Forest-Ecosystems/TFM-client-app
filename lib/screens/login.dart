@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 //import 'package:flutter_svg/flutter_svg.dart';
@@ -22,6 +24,8 @@ class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isFormValid = false;
   bool _isOffline = false;
@@ -93,9 +97,23 @@ class _LoginState extends State<Login> {
     }
   }
 
+  /// Force-close the soft keyboard on Windows tablets.
+  /// FocusManager.unfocus() alone doesn't reliably hide the Windows
+  /// on-screen keyboard; we must also tell the platform text-input
+  /// channel to hide it explicitly.
+  void _dismissKeyboard() {
+    // 1. Unfocus any focused widget
+    FocusManager.instance.primaryFocus?.unfocus();
+    // 2. Also unfocus our own nodes to be safe
+    _emailFocusNode.unfocus();
+    _passwordFocusNode.unfocus();
+    // 3. Explicitly hide the platform soft keyboard (critical on Windows)
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
+
   void _handleLogin() async {
     // Dismiss keyboard before login
-    FocusManager.instance.primaryFocus?.unfocus();
+    _dismissKeyboard();
 
     // Always validate first
     if (!_formKey.currentState!.validate()) {
@@ -128,8 +146,12 @@ class _LoginState extends State<Login> {
 
       print('Login: Login successful');
 
-      // Notify Android autofill service that login was successful
+      // Notify autofill service that login was successful
       TextInput.finishAutofillContext();
+
+      // Force-hide keyboard again after finishAutofillContext,
+      // which can re-engage the text input connection on Windows
+      _dismissKeyboard();
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
@@ -200,7 +222,7 @@ class _LoginState extends State<Login> {
 
   void _handleOfflineLogin() async {
     // Dismiss keyboard before login
-    FocusManager.instance.primaryFocus?.unfocus();
+    _dismissKeyboard();
 
     // Always validate first
     if (!_formKey.currentState!.validate()) {
@@ -233,8 +255,11 @@ class _LoginState extends State<Login> {
 
       print('Login: Offline login successful');
 
-      // Notify Android autofill service that login was successful
+      // Notify autofill service that login was successful
       TextInput.finishAutofillContext();
+
+      // Force-hide keyboard again after finishAutofillContext
+      _dismissKeyboard();
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
@@ -291,6 +316,7 @@ class _LoginState extends State<Login> {
                             const SizedBox(height: 10),
                             TextFormField(
                               controller: _emailController,
+                              focusNode: _emailFocusNode,
                               keyboardType: TextInputType.emailAddress,
                               autofillHints: const [AutofillHints.email],
                               decoration: const InputDecoration(
@@ -313,6 +339,7 @@ class _LoginState extends State<Login> {
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: _passwordController,
+                              focusNode: _passwordFocusNode,
                               obscureText: _obscurePassword,
                               autofillHints: const [AutofillHints.password],
                               decoration: InputDecoration(
@@ -527,6 +554,15 @@ class _LoginState extends State<Login> {
     _emailController.removeListener(_validateForm);
     _passwordController.removeListener(_validateForm);
     _authProvider.removeListener(_onAuthStateChanged);
+
+    // On Windows, force-hide the keyboard before disposing focus nodes
+    // to prevent the soft keyboard from getting stuck open
+    if (!kIsWeb && Platform.isWindows) {
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+    }
+
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
