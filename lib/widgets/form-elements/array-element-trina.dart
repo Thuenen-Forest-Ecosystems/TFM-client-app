@@ -2067,13 +2067,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                       onPressed: _isArrayReadOnly ? null : addRow,
                       child: Text('Zeile hinzufügen'),
                     ),
-                    /*Container(width: 1, height: 24, color: Colors.white54),
+                    Container(width: 1, height: 24, color: Colors.white54),
                     IconButton(
                       onPressed: _addRowAsFormDialog,
                       icon: const Icon(Icons.playlist_add),
                       tooltip: 'Zeile über Formular hinzufügen',
                       color: Theme.of(context).colorScheme.primary,
-                    ),*/
+                    ),
                   ],
                 ),
               ),

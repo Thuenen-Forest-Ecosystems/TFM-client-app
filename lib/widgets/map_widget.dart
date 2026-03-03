@@ -1408,16 +1408,28 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   List<CircleMarker> _getDefaultCircles(Record record) {
-    final coords = record.getCoordinates();
-    if (coords == null) return [];
+    // Use the selected center position if available (same logic as tree/edge/subplot layers),
+    // otherwise fall back to the record's SOLL coordinates.
+    LatLng? center;
+    try {
+      final mapControllerProvider = context.read<MapControllerProvider>();
+      final centerPosition = mapControllerProvider.centerPosition;
+      if (centerPosition != null) {
+        center = centerPosition;
+      }
+    } catch (_) {}
 
+    if (center == null) {
+      final coords = record.getCoordinates();
+      if (coords == null) return [];
+      center = LatLng(coords['latitude']!, coords['longitude']!);
+    }
+
+    final centerPoint = center;
     return [
       // 25m radius circle
       CircleMarker(
-        point: LatLng(
-          _focusedRecord!.getCoordinates()!['latitude']!,
-          _focusedRecord!.getCoordinates()!['longitude']!,
-        ),
+        point: centerPoint,
         radius: 25.0,
         useRadiusInMeter: true,
         color: Color.fromARGB(15, 120, 189, 30),
@@ -1426,10 +1438,7 @@ class _MapWidgetState extends State<MapWidget> {
       ),
       // 10m radius circle
       CircleMarker(
-        point: LatLng(
-          _focusedRecord!.getCoordinates()!['latitude']!,
-          _focusedRecord!.getCoordinates()!['longitude']!,
-        ),
+        point: centerPoint,
         radius: 10.0,
         useRadiusInMeter: true,
         color: Color.fromARGB(15, 120, 189, 30),
@@ -1438,10 +1447,7 @@ class _MapWidgetState extends State<MapWidget> {
       ),
       // 5m radius circle
       CircleMarker(
-        point: LatLng(
-          _focusedRecord!.getCoordinates()!['latitude']!,
-          _focusedRecord!.getCoordinates()!['longitude']!,
-        ),
+        point: centerPoint,
         radius: 5.0,
         useRadiusInMeter: true,
         color: Color.fromARGB(15, 120, 189, 30),
