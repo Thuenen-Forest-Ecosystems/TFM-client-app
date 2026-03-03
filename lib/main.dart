@@ -24,7 +24,7 @@ import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.da
 import 'package:terrestrial_forest_monitor/repositories/forest_location_repository.dart';
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
@@ -297,10 +297,11 @@ class _LayoutState extends State<Layout> with WindowListener {
     String selectedLanguage = languageProvider.split('_')[0];
 
     final themeProvider = Provider.of<ThemeModeProvider>(context);
+    final isPlayground = context.watch<PlaygroundModeProvider>().isPlaygroundMode;
 
     //context.watch<MapState>().mapOpen
 
-    return UpgradeAlert(
+    Widget app = UpgradeAlert(
       upgrader: Upgrader(
         durationUntilAlertAgain: Duration(days: 1),
         countryCode: 'DE',
@@ -375,6 +376,18 @@ class _LayoutState extends State<Layout> with WindowListener {
         routerDelegate: widget.routerDelegate,
       ),
     );
+
+    if (isPlayground) {
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: Container(
+          decoration: BoxDecoration(border: Border.all(color: Colors.orange, width: 4)),
+          child: app,
+        ),
+      );
+    }
+
+    return app;
   }
 }
 

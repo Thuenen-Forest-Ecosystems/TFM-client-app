@@ -763,8 +763,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         _initialFormData = _deepCopyMap(_formData!);
       }
 
-      // Show submission success dialog with next-record options
-      if (mounted) {
+      // Show submission success dialog only on 'complete', not on 'save'
+      if (mounted && type == 'complete') {
         final result = await SubmissionSuccessDialog.show(context, submittedRecord: _record!);
 
         if (mounted) {
@@ -826,8 +826,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       }
 
-      debugPrint('📋 Opening validation dialog with record:');
-      debugPrint('📋 Record ID: ${_record?.id}');
       // Show validation errors/warnings dialog
       final result = await ValidationErrorsDialog.show(
         context,
@@ -836,16 +834,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         record: _record,
       );
 
-      debugPrint('📋 === DIALOG RETURNED ===');
-      debugPrint('📋 Result: ${result != null ? "provided" : "NULL (cancelled)"}');
       if (result != null) {
         debugPrint('📋 Action: ${result.action}');
-        debugPrint(
-          '📋 validation_errors: ${result.acknowledgedErrors['validation_errors']?.length ?? 0}',
-        );
-        debugPrint(
-          '📋 plausibility_errors: ${result.acknowledgedErrors['plausibility_errors']?.length ?? 0}',
-        );
       }
 
       // Reload record from database AFTER dialog closes to get any auto-saved acknowledged errors
@@ -1566,28 +1556,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 ],
               ),
             ),
-            // Playground mode banner
-            if (isPlayground)
-              Container(
-                width: double.infinity,
-                color: Colors.orange,
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.science, size: 14, color: Colors.white),
-                    SizedBox(width: 6),
-                    Text(
-                      'Playground-Modus – Änderungen werden nicht gespeichert',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())

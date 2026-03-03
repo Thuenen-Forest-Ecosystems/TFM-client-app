@@ -12,28 +12,20 @@ class PlaygroundModeButton extends StatelessWidget {
     final provider = context.watch<PlaygroundModeProvider>();
     final isActive = provider.isPlaygroundMode;
 
+    if (isActive) {
+      return Chip(
+        avatar: const Icon(Icons.science, size: 18, color: Colors.white),
+        label: const Text('Playground', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.orange,
+        deleteIcon: const Icon(Icons.close, size: 18, color: Colors.white),
+        onDeleted: () => provider.toggle(),
+        side: BorderSide.none,
+      );
+    }
+
     return Tooltip(
-      message: isActive
-          ? 'Playground-Modus aktiv – Speichern deaktiviert. Tippen zum Deaktivieren.'
-          : 'Playground-Modus aktivieren (kein Speichern möglich)',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          provider.toggle();
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.science),
-              if (isActive) ...[const SizedBox(width: 4), const Text('Playground')],
-            ],
-          ),
-        ),
-      ),
+      message: 'Playground-Modus aktivieren (kein Speichern möglich)',
+      child: IconButton(icon: const Icon(Icons.science), onPressed: () => provider.toggle()),
     );
   }
 }

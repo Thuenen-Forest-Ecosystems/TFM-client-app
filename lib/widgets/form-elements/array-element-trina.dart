@@ -213,10 +213,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           'Grid selection event for ${widget.propertyName}: identifier=$selectedIdentifier',
         );
 
-        // Scroll and select the matching row
+        // Open form dialog for the matching row
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _scrollToAndSelectRow(selectedIdentifier);
+            openRowFormByIdentifier(selectedIdentifier);
             // Clear the selection request after processing
             _mapControllerProvider?.clearGridRowSelection();
           }
@@ -262,6 +262,29 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     } catch (e) {
       debugPrint('Error selecting row: $e');
     }
+  }
+
+  /// Open the form dialog for a row identified by its identifier value (e.g. tree_number)
+  void openRowFormByIdentifier(dynamic identifier) {
+    final identifierField = widget.identifierField ?? 'tree_number';
+    final rows = _stateManager?.rows ?? _rows;
+
+    // Find the row index in the grid rows by matching the identifier field
+    int? matchingRowIndex;
+    for (int i = 0; i < rows.length; i++) {
+      final cellValue = rows[i].cells[identifierField]?.value;
+      if (cellValue == identifier) {
+        matchingRowIndex = i;
+        break;
+      }
+    }
+
+    if (matchingRowIndex == null) {
+      debugPrint('No row found with $identifierField=$identifier for form dialog');
+      return;
+    }
+
+    _editRowAsFormDialog(matchingRowIndex);
   }
 
   @override
@@ -459,9 +482,25 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                   _deleteRow(rendererContext.rowIdx);
                 } else if (value == 'copy') {
                   _copyRow(rendererContext.rowIdx);
+                } else if (value == 'edit') {
+                  _editRowAsFormDialog(rendererContext.rowIdx);
                 }
               },
               itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  enabled: !_isArrayReadOnly,
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 18, color: _isArrayReadOnly ? Colors.grey : null),
+                      SizedBox(width: 8),
+                      Text(
+                        'Zeile bearbeiten',
+                        style: TextStyle(color: _isArrayReadOnly ? Colors.grey : null),
+                      ),
+                    ],
+                  ),
+                ),
                 PopupMenuItem(
                   value: 'copy',
                   enabled: !_isArrayReadOnly,
@@ -1654,6 +1693,45 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     _notifyDataChanged(true);
   }
 
+  Future<void> _editRowAsFormDialog(int rowIndex) async {
+    final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
+    if (itemSchema == null) return;
+
+    // Build current row data from cells
+    final row = (_stateManager?.rows ?? _rows)[rowIndex];
+    final currentData = <String, dynamic>{};
+    row.cells.forEach((key, cell) {
+      if (key != '__row_number__' && key != '__row_menu__' && key != '__original_index__') {
+        currentData[key] = cell.value;
+      }
+    });
+
+    final result = await ArrayRowFormDialog.show(
+      context: context,
+      itemSchema: itemSchema,
+      initialData: currentData,
+      columnConfig: widget.columnConfig,
+      columnItems: widget.columnItems,
+      layoutOptions: widget.layoutOptions,
+      title: 'Zeile bearbeiten',
+      readOnly: _isArrayReadOnly,
+    );
+
+    if (result != null) {
+      // Update existing row cells with form result
+      final rows = _stateManager?.rows ?? _rows;
+      final targetRow = rows[rowIndex];
+      result.forEach((key, value) {
+        if (targetRow.cells.containsKey(key)) {
+          targetRow.cells[key]!.value = value;
+        }
+      });
+      _stateManager?.notifyListeners();
+      _notifyDataChanged();
+      setState(() {});
+    }
+  }
+
   Future<void> _addRowAsFormDialog() async {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     if (itemSchema == null) return;
@@ -1662,6 +1740,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       context: context,
       itemSchema: itemSchema,
       columnConfig: widget.columnConfig,
+      columnItems: widget.columnItems,
       layoutOptions: widget.layoutOptions,
       title: 'Zeile hinzufügen',
       readOnly: _isArrayReadOnly,

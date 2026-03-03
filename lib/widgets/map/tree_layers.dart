@@ -223,7 +223,10 @@ class TreeLayers {
               height: 40,
               alignment: Alignment.center,
               child: GestureDetector(
-                onTap: () => onTreeTapped(treeNumber),
+                onTap: () {
+                  debugPrint('🌳 GestureDetector onTap fired for tree_number=$treeNumber');
+                  onTreeTapped(treeNumber);
+                },
                 child: Container(width: 40, height: 40, color: Colors.transparent),
               ),
             );

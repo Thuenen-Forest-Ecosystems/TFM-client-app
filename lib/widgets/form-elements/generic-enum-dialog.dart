@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Wrapper class to indicate explicit null selection (clearing the field)
 class ClearSelection {
@@ -32,7 +35,69 @@ class _GenericEnumDialogWidget extends StatefulWidget {
 class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
   final TextEditingController _filterController = TextEditingController();
   String _filterText = '';
+  bool _useChipsView = false;
   final FocusNode _searchFocusNode = FocusNode();
+
+  String get _prefsKey => 'enum_chips_view_${widget.fieldName}';
+  String get _freqKey => 'enum_freq_${widget.fieldName}';
+  Map<String, int> _frequencyMap = {};
+  List<int> _topIndices = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadViewPreference();
+    _loadFrequencyData();
+  }
+
+  Future<void> _loadViewPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getBool(_prefsKey);
+    if (saved != null && mounted) {
+      setState(() {
+        _useChipsView = saved;
+      });
+    }
+  }
+
+  Future<void> _saveViewPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsKey, _useChipsView);
+  }
+
+  Future<void> _loadFrequencyData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString(_freqKey);
+    if (jsonStr != null && mounted) {
+      setState(() {
+        _frequencyMap = Map<String, int>.from(json.decode(jsonStr) as Map);
+        _updateTopIndices();
+      });
+    }
+  }
+
+  Future<void> _incrementFrequency(dynamic enumValue) async {
+    final key = enumValue.toString();
+    _frequencyMap[key] = (_frequencyMap[key] ?? 0) + 1;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_freqKey, json.encode(_frequencyMap));
+  }
+
+  void _updateTopIndices() {
+    // Build a list of (index, count) for enum values that have been selected at least once
+    final entries = <MapEntry<int, int>>[];
+    for (int i = 0; i < widget.enumValues.length; i++) {
+      final val = widget.enumValues[i];
+      if (val == null) continue;
+      final count = _frequencyMap[val.toString()] ?? 0;
+      if (count > 0) {
+        entries.add(MapEntry(i, count));
+      }
+    }
+    // Sort descending by count, take top 10
+    entries.sort((a, b) => b.value.compareTo(a.value));
+    _topIndices = entries.take(10).map((e) => e.key).toList();
+  }
 
   @override
   void dispose() {
@@ -117,6 +182,17 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
   Widget build(BuildContext context) {
     final filteredIndices = _getFilteredIndices();
 
+    // Move selected value to the top
+    if (widget.currentValue != null) {
+      final selectedIdx = filteredIndices.indexWhere(
+        (i) => widget.enumValues[i] == widget.currentValue,
+      );
+      if (selectedIdx > 0) {
+        final idx = filteredIndices.removeAt(selectedIdx);
+        filteredIndices.insert(0, idx);
+      }
+    }
+
     return AlertDialog(
       /*insetPadding: widget.fullscreen
           ? EdgeInsets.zero
@@ -167,6 +243,16 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
               ),
             ),
             IconButton(
+              icon: Icon(_useChipsView ? Icons.list : Icons.grid_view),
+              onPressed: () {
+                setState(() {
+                  _useChipsView = !_useChipsView;
+                });
+                _saveViewPreference();
+              },
+              tooltip: _useChipsView ? 'Listenansicht' : 'Chips-Ansicht',
+            ),
+            IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.of(context).pop(),
               tooltip: 'Schließen',
@@ -179,9 +265,73 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Top 10 most frequently selected values
+            if (_topIndices.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: Text(
+                      'Häufig verwendet',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 42,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _topIndices.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        final index = _topIndices[i];
+                        final enumValue = widget.enumValues[index];
+                        final displayText = _getDisplayText(enumValue, index);
+                        final isSelected = widget.currentValue == enumValue;
+
+                        return ChoiceChip(
+                          label: Text(displayText),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            _incrementFrequency(enumValue);
+                            Navigator.of(context).pop(enumValue);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const Divider(),
+                ],
+              ),
             Expanded(
               child: filteredIndices.isEmpty
                   ? const Center(child: Text('Keine Ergebnisse gefunden'))
+                  : _useChipsView
+                  ? SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Wrap(
+                          spacing: 8.0,
+                          runSpacing: 8.0,
+                          children: filteredIndices.map((index) {
+                            final enumValue = widget.enumValues[index];
+                            final displayText = _getDisplayText(enumValue, index);
+                            final isSelected = widget.currentValue == enumValue;
+
+                            return ChoiceChip(
+                              label: Text(displayText),
+                              selected: isSelected,
+                              onSelected: (_) {
+                                _incrementFrequency(enumValue);
+                                Navigator.of(context).pop(enumValue);
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    )
                   : ListView.builder(
                       shrinkWrap: true,
                       itemCount: filteredIndices.length,
@@ -197,6 +347,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                           selected: isSelected,
                           trailing: isSelected ? const Icon(Icons.check) : null,
                           onTap: () {
+                            _incrementFrequency(enumValue);
                             Navigator.of(context).pop(enumValue);
                           },
                         );

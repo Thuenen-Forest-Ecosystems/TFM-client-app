@@ -1336,12 +1336,11 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void _onTreeCircleTapped(int treeNumber) {
-    debugPrint('Tree circle tapped: tree_number=$treeNumber');
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('tree', treeNumber);
     } catch (e) {
-      debugPrint('Error handling tree circle tap: $e');
+      debugPrint('🌳 Error handling tree circle tap: $e');
     }
   }
 
@@ -1882,8 +1881,8 @@ class _MapWidgetState extends State<MapWidget> {
           ),
 
         // Clickable layer for CURRENT trees (on top for click handling)
-        //if (_focusedRecord != null && _treePositions.isNotEmpty)
-        //  TreeLayers.buildClickableLayer(_treePositions, _onTreeCircleTapped),
+        if (_focusedRecord != null && _treePositions.isNotEmpty)
+          TreeLayers.buildClickableLayer(_treePositions, _onTreeCircleTapped),
 
         // GPS Location Marker (accuracy circle)
         if (_currentPosition != null && _currentAccuracy != null)

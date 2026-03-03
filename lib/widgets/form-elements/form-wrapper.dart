@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
 import 'package:terrestrial_forest_monitor/services/layout_service.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
@@ -66,6 +69,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   String? _currentTabType;
   final Map<String, GlobalKey<ArrayElementTrinaState>> _arrayElementKeys = {};
 
+  // MapControllerProvider listener for tree/edge tap -> form dialog
+  MapControllerProvider? _mapControllerProvider;
+  DateTime? _lastSelectionTimestamp;
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +81,141 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
     // Load layout configuration asynchronously
     _initializeLayout();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_mapControllerProvider == null) {
+      try {
+        _mapControllerProvider = context.read<MapControllerProvider>();
+        _mapControllerProvider!.addListener(_onMapGridRowSelection);
+        debugPrint('FormWrapper: MapControllerProvider listener added');
+      } catch (e) {
+        debugPrint('FormWrapper: MapControllerProvider not available: $e');
+      }
+    }
+  }
+
+  void _onMapGridRowSelection() {
+    if (!mounted || _mapControllerProvider == null) return;
+
+    final selectedArrayName = _mapControllerProvider!.selectedArrayName;
+    final selectedIdentifier = _mapControllerProvider!.selectedRowIdentifier;
+    final selectionTimestamp = _mapControllerProvider!.selectionTimestamp;
+
+    if (selectedArrayName == null ||
+        selectedIdentifier == null ||
+        selectionTimestamp == null ||
+        selectionTimestamp == _lastSelectionTimestamp) {
+      return;
+    }
+
+    _lastSelectionTimestamp = selectionTimestamp;
+    debugPrint('FormWrapper: Grid row selection for $selectedArrayName[$selectedIdentifier]');
+
+    // Find the tab that contains this array
+    final tabIndex = _tabs.indexWhere((tab) => tab.id == selectedArrayName);
+    if (tabIndex < 0) {
+      debugPrint('FormWrapper: No tab found for array: $selectedArrayName');
+      return;
+    }
+
+    // Switch to the correct tab
+    _tabController?.animateTo(tabIndex);
+    _previousTabIndex = tabIndex;
+
+    // Clear the selection immediately so the ArrayElementTrina doesn't also process it
+    _mapControllerProvider!.clearGridRowSelection();
+
+    // Open form dialog after tab switch + rebuild
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Give TabBarView time to build the new tab content
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        final arrayKey = _arrayElementKeys[selectedArrayName];
+        if (arrayKey?.currentState != null) {
+          arrayKey!.currentState!.openRowFormByIdentifier(selectedIdentifier);
+        } else {
+          debugPrint('FormWrapper: ArrayElementTrina state not available for $selectedArrayName');
+          // Fallback: open the dialog directly from form-wrapper
+          _openRowFormDirectly(selectedArrayName, selectedIdentifier);
+        }
+      });
+    });
+  }
+
+  /// Fallback: open the form dialog directly when the ArrayElementTrina widget is not accessible via GlobalKey
+  void _openRowFormDirectly(String arrayName, dynamic identifier) {
+    final schemaProperties = widget.jsonSchema?['properties'] as Map<String, dynamic>?;
+    if (schemaProperties == null) return;
+
+    final arraySchema = schemaProperties[arrayName] as Map<String, dynamic>?;
+    if (arraySchema == null) return;
+
+    final itemSchema = arraySchema['items'] as Map<String, dynamic>?;
+    if (itemSchema == null) return;
+
+    final identifierField = _getIdentifierFieldForArray(arrayName);
+    final arrayData = _localFormData[arrayName] as List<dynamic>?;
+    if (arrayData == null) return;
+
+    // Find the row data by identifier
+    Map<String, dynamic>? rowData;
+    int? rowIndex;
+    for (int i = 0; i < arrayData.length; i++) {
+      final item = arrayData[i];
+      if (item is Map<String, dynamic> && item[identifierField] == identifier) {
+        rowData = item;
+        rowIndex = i;
+        break;
+      }
+    }
+
+    if (rowData == null || rowIndex == null) {
+      debugPrint('FormWrapper: No row found with $identifierField=$identifier');
+      return;
+    }
+
+    // Get column config from layout if available
+    Map<String, dynamic>? columnConfig;
+    Map<String, dynamic>? layoutOptions;
+    if (_layoutConfig != null) {
+      final layoutItem = LayoutService.findItemById(_layoutConfig, arrayName);
+      if (layoutItem is ArrayLayout) {
+        columnConfig = layoutItem.columns;
+        layoutOptions = layoutItem.options;
+      }
+    }
+
+    ArrayRowFormDialog.show(
+      context: context,
+      itemSchema: itemSchema,
+      initialData: Map<String, dynamic>.from(rowData),
+      columnConfig: columnConfig,
+      layoutOptions: layoutOptions,
+      title: 'Zeile bearbeiten',
+    ).then((result) {
+      if (result != null && rowIndex != null) {
+        setState(() {
+          _localFormData[arrayName][rowIndex] = result;
+        });
+        widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+      }
+    });
+  }
+
+  String _getIdentifierFieldForArray(String arrayName) {
+    if (_layoutConfig != null) {
+      final layoutItem = LayoutService.findItemById(_layoutConfig, arrayName);
+      if (layoutItem is ArrayLayout && layoutItem.identifierField != null) {
+        return layoutItem.identifierField!;
+      }
+    }
+    // Fallback defaults
+    if (arrayName == 'edges') return 'edge_number';
+    return 'tree_number';
   }
 
   Future<void> _initializeLayout() async {
@@ -980,6 +1122,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     // otherwise the system text input connection leaks on Windows.
     FocusManager.instance.primaryFocus?.unfocus();
 
+    _mapControllerProvider?.removeListener(_onMapGridRowSelection);
     _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     super.dispose();
