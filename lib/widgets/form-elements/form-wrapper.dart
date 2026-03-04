@@ -856,6 +856,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           rawRecord: widget.rawRecord,
           jsonSchema: widget.jsonSchema,
           isVisible: isVisible,
+          formData: Map<String, dynamic>.from(_localFormData),
         );
       }
       if (layoutItem.component == 'plot_support_points') {

@@ -121,8 +121,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       final issue = widget.validationResult.allIssues[i];
       final issueKey = _getIssueKey(issue, i);
 
-      debugPrint('🔑 Checking issue: $issueKey');
-
       // Check if this issue was previously acknowledged
       final savedError = savedErrors[issueKey];
       if (savedError != null) {

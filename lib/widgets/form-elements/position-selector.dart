@@ -22,6 +22,7 @@ class PositionSelector extends StatelessWidget {
   final String? centerPositionKey; // Key of position currently set as center
   final ValueChanged<String?>? onSetAsCenter; // Callback to set position as center
   final bool showGpsOptions; // Whether to show GPS and map-tap position options
+  final LatLng? lockedGpsPosition; // Stored position when GPS was locked
 
   static const String gpsLiveKey = '__GPS_LIVE__';
   static const String gpsLockedKey = '__GPS_LOCKED__';
@@ -49,6 +50,7 @@ class PositionSelector extends StatelessWidget {
     this.centerPositionKey,
     this.onSetAsCenter,
     this.showGpsOptions = true,
+    this.lockedGpsPosition,
   });
 
   @override
@@ -56,8 +58,10 @@ class PositionSelector extends StatelessWidget {
     // Get coordinates for selected position
     LatLng? selectedCoordinates;
     if (selectedPositionKey != null) {
-      if (selectedPositionKey == gpsLiveKey || selectedPositionKey == gpsLockedKey) {
+      if (selectedPositionKey == gpsLiveKey) {
         selectedCoordinates = currentGpsPosition;
+      } else if (selectedPositionKey == gpsLockedKey) {
+        selectedCoordinates = lockedGpsPosition;
       } else if (selectedPositionKey == mapTappedKey) {
         selectedCoordinates = mapTappedPosition;
       } else {
@@ -180,14 +184,14 @@ class PositionSelector extends StatelessWidget {
                 : null,
           ),
           // Locked GPS position option
-          if (selectedPositionKey == gpsLockedKey && currentGpsPosition != null) ...[
+          if (selectedPositionKey == gpsLockedKey && lockedGpsPosition != null) ...[
             ListTile(
               selected: true,
               leading: Icon(Icons.radio_button_checked, color: Colors.blue),
               title: Row(children: [const Text('gespeichert')]),
               subtitle: Text(
-                'Lat: ${currentGpsPosition!.latitude.toStringAsFixed(6)}, '
-                'Lon: ${currentGpsPosition!.longitude.toStringAsFixed(6)}',
+                'Lat: ${lockedGpsPosition!.latitude.toStringAsFixed(6)}, '
+                'Lon: ${lockedGpsPosition!.longitude.toStringAsFixed(6)}',
                 style: const TextStyle(fontSize: 11),
               ),
               trailing: Row(
@@ -197,7 +201,7 @@ class PositionSelector extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.my_location, size: 20),
                       tooltip: 'Auf Karte anzeigen',
-                      onPressed: () => onFocusPosition!(currentGpsPosition!),
+                      onPressed: () => onFocusPosition!(lockedGpsPosition!),
                     ),
                   IconButton(
                     icon: const Icon(Icons.delete, size: 20),

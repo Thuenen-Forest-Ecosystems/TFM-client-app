@@ -39,15 +39,15 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
   final FocusNode _searchFocusNode = FocusNode();
 
   String get _prefsKey => 'enum_chips_view_${widget.fieldName}';
-  String get _freqKey => 'enum_freq_${widget.fieldName}';
-  Map<String, int> _frequencyMap = {};
-  List<int> _topIndices = [];
+  String get _recentKey => 'enum_recent_${widget.fieldName}';
+  List<String> _recentValues = [];
+  List<int> _recentIndices = [];
 
   @override
   void initState() {
     super.initState();
     _loadViewPreference();
-    _loadFrequencyData();
+    _loadRecentData();
   }
 
   Future<void> _loadViewPreference() async {
@@ -65,38 +65,35 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     await prefs.setBool(_prefsKey, _useChipsView);
   }
 
-  Future<void> _loadFrequencyData() async {
+  Future<void> _loadRecentData() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString(_freqKey);
+    final jsonStr = prefs.getString(_recentKey);
     if (jsonStr != null && mounted) {
       setState(() {
-        _frequencyMap = Map<String, int>.from(json.decode(jsonStr) as Map);
-        _updateTopIndices();
+        _recentValues = List<String>.from(json.decode(jsonStr) as List);
+        _updateRecentIndices();
       });
     }
   }
 
-  Future<void> _incrementFrequency(dynamic enumValue) async {
+  Future<void> _addToRecent(dynamic enumValue) async {
     final key = enumValue.toString();
-    _frequencyMap[key] = (_frequencyMap[key] ?? 0) + 1;
+    _recentValues.remove(key);
+    _recentValues.insert(0, key);
+    if (_recentValues.length > 10) _recentValues = _recentValues.sublist(0, 10);
+    _updateRecentIndices();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_freqKey, json.encode(_frequencyMap));
+    await prefs.setString(_recentKey, json.encode(_recentValues));
   }
 
-  void _updateTopIndices() {
-    // Build a list of (index, count) for enum values that have been selected at least once
-    final entries = <MapEntry<int, int>>[];
+  void _updateRecentIndices() {
+    // Map recent value keys back to their indices in enumValues, preserving recency order
+    final indexMap = <String, int>{};
     for (int i = 0; i < widget.enumValues.length; i++) {
       final val = widget.enumValues[i];
-      if (val == null) continue;
-      final count = _frequencyMap[val.toString()] ?? 0;
-      if (count > 0) {
-        entries.add(MapEntry(i, count));
-      }
+      if (val != null) indexMap[val.toString()] = i;
     }
-    // Sort descending by count, take top 10
-    entries.sort((a, b) => b.value.compareTo(a.value));
-    _topIndices = entries.take(10).map((e) => e.key).toList();
+    _recentIndices = _recentValues.map((key) => indexMap[key]).whereType<int>().toList();
   }
 
   @override
@@ -266,14 +263,14 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Top 10 most frequently selected values
-            if (_topIndices.isNotEmpty)
+            if (_recentIndices.isNotEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4.0),
                     child: Text(
-                      'Häufig verwendet',
+                      'Zuletzt genutzt',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -283,10 +280,10 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                     height: 42,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: _topIndices.length,
+                      itemCount: _recentIndices.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (context, i) {
-                        final index = _topIndices[i];
+                        final index = _recentIndices[i];
                         final enumValue = widget.enumValues[index];
                         final displayText = _getDisplayText(enumValue, index);
                         final isSelected = widget.currentValue == enumValue;
@@ -295,7 +292,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                           label: Text(displayText),
                           selected: isSelected,
                           onSelected: (_) {
-                            _incrementFrequency(enumValue);
+                            _addToRecent(enumValue);
                             Navigator.of(context).pop(enumValue);
                           },
                         );
@@ -324,7 +321,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                               label: Text(displayText),
                               selected: isSelected,
                               onSelected: (_) {
-                                _incrementFrequency(enumValue);
+                                _addToRecent(enumValue);
                                 Navigator.of(context).pop(enumValue);
                               },
                             );
@@ -347,7 +344,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                           selected: isSelected,
                           trailing: isSelected ? const Icon(Icons.check) : null,
                           onTap: () {
-                            _incrementFrequency(enumValue);
+                            _addToRecent(enumValue);
                             Navigator.of(context).pop(enumValue);
                           },
                         );

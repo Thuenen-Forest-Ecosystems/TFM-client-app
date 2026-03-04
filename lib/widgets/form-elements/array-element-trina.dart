@@ -394,10 +394,18 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return errors.any((error) => error.instancePath == cellPath || error.instancePath == rowPath);
   }
 
-  /// Get background color for cell based on validation state
-  Color? _getCellBackgroundColor(TrinaRow row, String fieldKey, bool isDark) {
+  /// Get background color for cell based on validation state or readonly status
+  Color? _getCellBackgroundColor(
+    TrinaRow row,
+    String fieldKey,
+    bool isDark, {
+    bool isReadOnly = false,
+  }) {
     if (_hasValidationError(row, fieldKey)) {
       return isDark ? const Color.fromARGB(137, 90, 31, 31) : const Color(0xFFFFCDD2); // Light red
+    }
+    if (isReadOnly) {
+      return isDark ? Colors.grey.withAlpha(30) : Colors.grey.withAlpha(25);
     }
     return null;
   }
@@ -603,8 +611,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     // NEW STRUCTURE: Use columnItems array if provided (items with groups)
     if (widget.columnItems != null && widget.columnItems!.isNotEmpty) {
-      debugPrint('📋 Using NEW columnItems structure for ${widget.propertyName}');
-
       int frozenColumnCount = 0;
 
       // Helper function to create a column from item config
@@ -612,15 +618,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         final fieldName = itemConfig['name'] as String?;
         if (fieldName == null) return null;
 
-        debugPrint('📊 Processing column: $fieldName (type: ${itemConfig['type']})');
-
         // Get schema for this field (or create synthetic for calculated)
         Map<String, dynamic> propertySchema;
 
         if (!properties.containsKey(fieldName)) {
           // Calculated or nested array field defined only in layout
           if (itemConfig['type'] == 'calculated') {
-            debugPrint('✅ Creating synthetic schema for calculated field: $fieldName');
             propertySchema = {
               'type': 'calculated',
               'title': itemConfig['title'] ?? fieldName,
@@ -729,23 +732,16 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               : (rendererContext) => _buildTextCell(rendererContext, fieldName),
         );
 
-        debugPrint(
-          '✅ Created column: $fieldName (calculated: $isCalculated, pinned: $pinnedValue)',
-        );
         return trinaColumn;
       }
 
       // Process items in order
-      debugPrint('📋 Total items to process: ${widget.columnItems!.length}');
       for (int i = 0; i < widget.columnItems!.length; i++) {
         final item = widget.columnItems![i];
         final itemMap = item as Map<String, dynamic>;
 
-        debugPrint('📋 Item $i: name=${itemMap['name']}, type=${itemMap['type']}');
-
         if (itemMap['type'] == 'group') {
           // This is a group - process its nested items
-          debugPrint('  🔸 Processing group: ${itemMap['label']}');
           final groupItems = itemMap['items'] as List?;
           if (groupItems != null) {
             for (final groupItem in groupItems) {
@@ -758,7 +754,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           }
         } else {
           // This is an ungrouped column
-          debugPrint('  🔸 Processing ungrouped column');
           final column = createColumnFromItem(itemMap);
           if (column != null) {
             columns.add(column);
@@ -771,9 +766,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       debugPrint('Total frozen columns: $frozenColumnCount');
       return columns;
     }
-
-    // OLD STRUCTURE: Fallback to columnConfig/properties approach
-    debugPrint('📋 Using OLD columnConfig structure for ${widget.propertyName}');
 
     // Create list of column entries with sortBy for sorting
     final columnEntries = <MapEntry<String, dynamic>>[];
@@ -1161,7 +1153,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(
+      rendererContext.row,
+      fieldKey,
+      isDark,
+      isReadOnly: rendererContext.column.readOnly,
+    );
 
     // Get field options from column config or columnItems
     Map<String, dynamic>? fieldOptions;
@@ -1223,10 +1220,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     // Display mode
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      alignment: Alignment.centerLeft,
       color: bgColor,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      alignment: Alignment.centerLeft,
       child: Text(value?.toString() ?? '', overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
@@ -1242,10 +1238,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final nameDe = tfm?['name_de'] as List?;
     final enumValues = propertySchema['enum'] as List?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
     // Check if field is readonly
     final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+    final bgColor = _getCellBackgroundColor(
+      rendererContext.row,
+      fieldKey,
+      isDark,
+      isReadOnly: rendererContext.column.readOnly,
+    );
 
     // Get display text
     String displayText = '';
@@ -1264,10 +1265,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return InkWell(
       onTap: isReadOnly ? null : () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        alignment: Alignment.centerLeft,
         color: bgColor,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        alignment: Alignment.centerLeft,
         child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
     );
@@ -1283,7 +1283,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final unit = tfm?['unit_short'] as String?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(
+      rendererContext.row,
+      fieldKey,
+      isDark,
+      isReadOnly: rendererContext.column.readOnly,
+    );
 
     // Check if this column has upDownBtn (spinner buttons)
     bool hasSpinner = false;
@@ -1374,12 +1379,28 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
+    // Check for attentionIfNot: show warning icon when value differs from expected
+    final attentionIfNot = fieldOptions?['attentionIfNot'] ?? tfm?['attentionIfNot'];
+    final showAttention =
+        attentionIfNot != null &&
+        value != null &&
+        value.toString() != 'null' &&
+        value != attentionIfNot;
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      alignment: hasSpinner ? Alignment.center : Alignment.centerRight,
       color: bgColor,
-      child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      alignment: hasSpinner ? Alignment.center : Alignment.centerRight,
+      child: showAttention
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
+                const SizedBox(width: 4),
+                Flexible(child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1)),
+              ],
+            )
+          : Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
@@ -1392,10 +1413,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final rowIndex = rendererContext.rowIdx;
     final boolValue = value == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
 
     // Check if field is readonly
     final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+    final bgColor = _getCellBackgroundColor(
+      rendererContext.row,
+      fieldKey,
+      isDark,
+      isReadOnly: rendererContext.column.readOnly,
+    );
 
     // Get field options from column config or columnItems
     Map<String, dynamic>? fieldOptions;
@@ -1455,8 +1481,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final displayText = boolValue ? 'Ja' : 'Nein';
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      color: bgColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       alignment: Alignment.center,
       child: Text(displayText),
     );
@@ -1471,7 +1497,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(
+      rendererContext.row,
+      fieldKey,
+      isDark,
+      isReadOnly: rendererContext.column.readOnly,
+    );
 
     // Get nested array data
     List<dynamic>? nestedData;
@@ -1580,7 +1611,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   ) {
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = _getCellBackgroundColor(rendererContext.row, fieldKey, isDark);
+    final bgColor = _getCellBackgroundColor(
+      rendererContext.row,
+      fieldKey,
+      isDark,
+      isReadOnly: rendererContext.column.readOnly,
+    );
 
     // Get current row data to find matching previous row by identifier
     final currentRowData = rendererContext.row.cells.map((key, cell) => MapEntry(key, cell.value));
@@ -1732,13 +1768,123 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
   }
 
+  /// Collect all field names that have autoIncrement enabled,
+  /// checking schema ($tfm.form.autoIncrement), columnItems, and columnConfig.
+  Set<String> _getAutoIncrementFields(Map<String, dynamic> properties) {
+    final fields = <String>{};
+
+    // Schema-based autoIncrement
+    properties.forEach((key, value) {
+      final propertySchema = value as Map<String, dynamic>;
+      final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
+      final form = tfm?['form'] as Map<String, dynamic>?;
+      if (form?['autoIncrement'] == true) {
+        fields.add(key);
+      }
+    });
+
+    // columnItems-based autoIncrement (new structure with groups)
+    if (widget.columnItems != null) {
+      for (final item in widget.columnItems!) {
+        if (item is! Map<String, dynamic>) continue;
+        if (item['type'] == 'group') {
+          final groupItems = item['items'] as List<dynamic>? ?? [];
+          for (final subItem in groupItems) {
+            if (subItem is! Map<String, dynamic>) continue;
+            final name = subItem['name'] as String?;
+            if (name != null && subItem['autoIncrement'] == true) fields.add(name);
+          }
+        } else {
+          final name = item['name'] as String?;
+          if (name != null && item['autoIncrement'] == true) fields.add(name);
+        }
+      }
+    }
+
+    // columnConfig-based autoIncrement (old flat structure)
+    if (widget.columnConfig != null) {
+      widget.columnConfig!.forEach((key, config) {
+        if (config is Map<String, dynamic> && config['autoIncrement'] == true) {
+          fields.add(key);
+        }
+      });
+    }
+
+    return fields;
+  }
+
+  /// Collect all field names that have resetOnCopy enabled,
+  /// checking columnItems and columnConfig.
+  Set<String> _getResetOnCopyFields(Map<String, dynamic> properties) {
+    final fields = <String>{};
+
+    // columnItems-based resetOnCopy (new structure with groups)
+    if (widget.columnItems != null) {
+      for (final item in widget.columnItems!) {
+        if (item is! Map<String, dynamic>) continue;
+        if (item['type'] == 'group') {
+          final groupItems = item['items'] as List<dynamic>? ?? [];
+          for (final subItem in groupItems) {
+            if (subItem is! Map<String, dynamic>) continue;
+            final name = subItem['name'] as String?;
+            if (name != null && subItem['resetOnCopy'] == true) fields.add(name);
+          }
+        } else {
+          final name = item['name'] as String?;
+          if (name != null && item['resetOnCopy'] == true) fields.add(name);
+        }
+      }
+    }
+
+    // columnConfig-based resetOnCopy (old flat structure)
+    if (widget.columnConfig != null) {
+      widget.columnConfig!.forEach((key, config) {
+        if (config is Map<String, dynamic> && config['resetOnCopy'] == true) {
+          fields.add(key);
+        }
+      });
+    }
+
+    return fields;
+  }
+
+  /// Compute the next auto-increment value for a field given current rows.
+  int _computeNextAutoIncrementValue(String key, Map<String, dynamic> propertySchema) {
+    final existingValues = _rows
+        .map((row) => row.cells[key]?.value)
+        .where((v) => v != null && v is num)
+        .map((v) => (v as num).toInt())
+        .toList();
+    final defaultValue = propertySchema['default'] as int? ?? 1;
+    return existingValues.isEmpty
+        ? defaultValue
+        : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+  }
+
   Future<void> _addRowAsFormDialog() async {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     if (itemSchema == null) return;
 
+    final properties = itemSchema['properties'] as Map<String, dynamic>?;
+
+    // Pre-compute auto-increment values so the form opens with correct defaults.
+    // Checks both schema ($tfm.form.autoIncrement) and columnItems/columnConfig.
+    final autoIncrementInitialData = <String, dynamic>{};
+    if (properties != null) {
+      final autoIncrFields = _getAutoIncrementFields(properties);
+      for (final key in autoIncrFields) {
+        final propertySchema = properties[key] as Map<String, dynamic>?;
+        if (propertySchema != null) {
+          autoIncrementInitialData[key] = _computeNextAutoIncrementValue(key, propertySchema);
+          debugPrint('  🔢 Pre-computed autoIncrement $key = ${autoIncrementInitialData[key]}');
+        }
+      }
+    }
+
     final result = await ArrayRowFormDialog.show(
       context: context,
       itemSchema: itemSchema,
+      initialData: autoIncrementInitialData.isNotEmpty ? autoIncrementInitialData : null,
       columnConfig: widget.columnConfig,
       columnItems: widget.columnItems,
       layoutOptions: widget.layoutOptions,
@@ -1748,10 +1894,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     if (result != null) {
       // Add the row with data from form
-      final properties = itemSchema['properties'] as Map<String, dynamic>?;
       if (properties == null) return;
 
       final newRow = <String, dynamic>{};
+      final autoIncrFields = _getAutoIncrementFields(properties);
 
       // Initialize with form data and apply defaults/auto-increment
       properties.forEach((key, value) {
@@ -1766,23 +1912,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
         }
 
-        // Check if field has autoIncrement enabled
-        final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-        final form = tfm?['form'] as Map<String, dynamic>?;
-        final autoIncrement = form?['autoIncrement'] as bool? ?? false;
-
-        if (autoIncrement && (type == 'integer' || type == 'number')) {
-          // Auto-increment: find max value and add 1
-          final existingValues = _rows
-              .map((row) => row.cells[key]?.value)
-              .where((v) => v != null && v is num)
-              .map((v) => (v as num).toInt())
-              .toList();
-
-          final defaultValue = propertySchema['default'] as int? ?? 1;
-          newRow[key] = existingValues.isEmpty
-              ? defaultValue
-              : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+        if (autoIncrFields.contains(key) && (type == 'integer' || type == 'number')) {
+          // Use the pre-computed auto-increment value (consistent with what was shown in form)
+          newRow[key] =
+              autoIncrementInitialData[key] ?? _computeNextAutoIncrementValue(key, propertySchema);
         } else {
           // Use value from form, or default, or type-based default
           newRow[key] = result[key] ?? propertySchema['default'] ?? _getDefaultValue(type);
@@ -1950,12 +2083,34 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
+    // Get fields that should reset to default on copy
+    final resetOnCopyFields = properties != null ? _getResetOnCopyFields(properties) : <String>{};
+
     rowToCopy.cells.forEach((key, cell) {
       // Skip auto-generated fields (including __original_index__ which will be reassigned)
       if (key == '__row_number__' || key == '__row_menu__' || key == '__original_index__') {
         if (key == '__row_number__' || key == '__row_menu__') {
           newCells[key] = TrinaCell(value: null);
         }
+        return;
+      }
+
+      // Check if this field should reset to default on copy
+      if (resetOnCopyFields.contains(key)) {
+        final propertySchema = properties?[key] as Map<String, dynamic>?;
+        final schemaDefault = propertySchema?['default'];
+        final typeValue = propertySchema?['type'];
+        String? type;
+        if (typeValue is String) {
+          type = typeValue;
+        } else if (typeValue is List) {
+          type =
+              typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
+        }
+        newCells[key] = TrinaCell(value: schemaDefault ?? _getDefaultValue(type));
+        debugPrint(
+          '  🔄 ResetOnCopy field $key: set to default ${schemaDefault ?? _getDefaultValue(type)}',
+        );
         return;
       }
 
@@ -2008,12 +2163,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final newTrinaRow = TrinaRow(cells: newCells);
 
     if (_stateManager != null) {
-      // Insert after the copied row
-      _stateManager!.insertRows(rowIndex + 1, [newTrinaRow]);
+      // Insert at the end
+      _stateManager!.insertRows(_stateManager!.rows.length, [newTrinaRow]);
       _rows = _stateManager!.rows;
       _notifyDataChanged();
     } else {
-      _rows.insert(rowIndex + 1, newTrinaRow);
+      _rows.add(newTrinaRow);
       _notifyDataChanged();
       setState(() {});
     }

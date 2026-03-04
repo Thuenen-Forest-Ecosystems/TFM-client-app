@@ -309,7 +309,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                initiallyExpanded: true,
+                initiallyExpanded: false,
                 tilePadding: const EdgeInsets.symmetric(horizontal: 4),
                 childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
                 children: [wrappedFields],

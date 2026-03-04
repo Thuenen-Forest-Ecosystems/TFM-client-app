@@ -17,12 +17,14 @@ class PreviousPositionsNavigation extends StatefulWidget {
   final repo.Record? rawRecord;
   final Map<String, dynamic>? jsonSchema;
   final bool isVisible; // Whether this tab is currently visible
+  final Map<String, dynamic>? formData; // Current form data (to access saved position measurement)
 
   const PreviousPositionsNavigation({
     super.key,
     this.rawRecord,
     this.jsonSchema,
     this.isVisible = true,
+    this.formData,
   });
 
   @override
@@ -65,6 +67,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
   List<LatLng>? _stepPositions;
   LatLng? _startMapTappedPosition; // Position selected from map for start
   LatLng? _targetMapTappedPosition; // Position selected from map for target
+  LatLng? _startLockedGpsPosition; // Locked GPS position for start
   StreamSubscription? _mapTapSubscription; // Subscription to map tap events
 
   @override
@@ -196,6 +199,9 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       });
     }
 
+    // Load current measurement from form data (saved via RecordPosition._saveToForm)
+    _loadCurrentMeasurement();
+
     // Load support points
     _loadSupportPoints();
 
@@ -218,6 +224,38 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           _updateNavigationPath();
         }
       });
+    }
+  }
+
+  /// Load the current measurement from form data (saved via RecordPosition)
+  void _loadCurrentMeasurement() {
+    if (widget.formData == null) return;
+
+    // Position data is stored at formData['position'] by RecordPosition._saveToForm()
+    final positionData = widget.formData!['position'];
+    if (positionData is Map<String, dynamic>) {
+      final positionMean = positionData['position_mean'];
+      if (positionMean is Map<String, dynamic>) {
+        final lat = _extractDouble(positionMean['latitude']);
+        final lng = _extractDouble(positionMean['longitude']);
+        if (lat != null && lng != null) {
+          const key = 'Aktuelle Messung';
+          if (!_positionKeys.contains(key)) {
+            _positionKeys.add(key);
+          }
+          _positionCoordinates[key] = LatLng(lat, lng);
+
+          // Store quality/accuracy metadata
+          _positionMetadata[key] = {
+            'quality': positionData['quality'],
+            'hdop_mean': positionData['hdop_mean'],
+            'pdop_mean': positionData['pdop_mean'],
+            'rtcm_age': positionData['rtcm_age'],
+            'satellites_count_mean': positionData['satellites_count_mean'],
+            'measurement_count': positionData['measurement_count'],
+          };
+        }
+      }
     }
   }
 
@@ -504,17 +542,20 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         // Clear navigation start
         mapProvider.clearNavigationStart();
         mapProvider.clearNavigationLineStrings();
+        _startLockedGpsPosition = null;
       } else if (positionKey == PositionSelector.gpsLiveKey) {
         // GPS live tracking - don't set a fixed position, let it track
         mapProvider.clearNavigationStart();
+        _startLockedGpsPosition = null; // Clear locked position
       } else if (positionKey == PositionSelector.gpsLockedKey) {
         // Lock current GPS position
         final gpsProvider = context.read<GpsPositionProvider>();
         if (gpsProvider.lastPosition != null) {
-          final lockedPosition = LatLng(
+          _startLockedGpsPosition = LatLng(
             gpsProvider.lastPosition!.latitude,
             gpsProvider.lastPosition!.longitude,
           );
+          final lockedPosition = _startLockedGpsPosition!;
           mapProvider.setNavigationStart(lockedPosition, label: 'GPS Position (Gesperrt)');
         }
       } else {
@@ -588,10 +629,12 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
 
     final gpsProvider = context.read<GpsPositionProvider>();
 
-    if (key == PositionSelector.gpsLiveKey || key == PositionSelector.gpsLockedKey) {
+    if (key == PositionSelector.gpsLiveKey) {
       if (gpsProvider.lastPosition != null) {
         return LatLng(gpsProvider.lastPosition!.latitude, gpsProvider.lastPosition!.longitude);
       }
+    } else if (key == PositionSelector.gpsLockedKey) {
+      return _startLockedGpsPosition;
     } else if (key == PositionSelector.mapTappedKey) {
       // Return the appropriate map-tapped position based on context
       // This is a simplified approach - you might need to track which selector is being used
@@ -730,6 +773,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               onSelectFromMap: _enableMapTapModeForStart,
               mapTappedPosition: _startMapTappedPosition,
               centerPositionKey: mapControllerProvider.centerPositionKey,
+              lockedGpsPosition: _startLockedGpsPosition,
               subtitle: _startPositionKey != null
                   ? () {
                       final coords = _getCoordinatesForKey(_startPositionKey);
@@ -861,6 +905,20 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         widget.rawRecord?.previousProperties != oldWidget.rawRecord?.previousProperties;
     final positionDataChanged =
         widget.rawRecord?.previousPositionData != oldWidget.rawRecord?.previousPositionData;
+    final oldPosition = oldWidget.formData?['position'];
+    final newPosition = widget.formData?['position'];
+    final formDataChanged = newPosition != oldPosition;
+
+    // Update current measurement when form data changes (e.g., after RecordPosition saves)
+    if (formDataChanged && !propertiesChanged && !positionDataChanged) {
+      // Only the form data changed - update "Aktuelle Messung" without clearing everything
+      _positionKeys.remove('Aktuelle Messung');
+      _positionCoordinates.remove('Aktuelle Messung');
+      _positionMetadata.remove('Aktuelle Messung');
+      _loadCurrentMeasurement();
+      setState(() {});
+      return;
+    }
 
     if (propertiesChanged || positionDataChanged) {
       _positionKeys.clear();

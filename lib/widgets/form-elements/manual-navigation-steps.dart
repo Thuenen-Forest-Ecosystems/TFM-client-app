@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
@@ -29,7 +30,20 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
   bool _isExpanded = false;
 
   @override
+  void initState() {
+    super.initState();
+    _azimuthController.addListener(_onInputChanged);
+    _distanceController.addListener(_onInputChanged);
+  }
+
+  void _onInputChanged() {
+    setState(() {});
+  }
+
+  @override
   void dispose() {
+    _azimuthController.removeListener(_onInputChanged);
+    _distanceController.removeListener(_onInputChanged);
     _azimuthController.dispose();
     _distanceController.dispose();
     _azimuthFocusNode.dispose();
@@ -116,14 +130,19 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     return positions;
   }
 
+  bool get _isInputValid {
+    final azimuth = int.tryParse(_azimuthController.text);
+    final distanceValue = double.tryParse(_distanceController.text.replaceAll(',', '.'));
+    if (azimuth == null || distanceValue == null) return false;
+    if (azimuth < 0 || azimuth >= 400) return false;
+    return true;
+  }
+
   void _addNavigationStep() {
-    final azimuth = double.tryParse(_azimuthController.text);
-    final distanceValue = double.tryParse(_distanceController.text);
+    final azimuth = int.tryParse(_azimuthController.text);
+    final distanceValue = double.tryParse(_distanceController.text.replaceAll(',', '.'));
 
     if (azimuth == null || distanceValue == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bitte gültige Werte für Azimut und Entfernung eingeben')),
-      );
       return;
     }
 
@@ -135,7 +154,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     }
 
     setState(() {
-      _steps.add(NavigationStep(azimuth: azimuth, distance: distanceValue));
+      _steps.add(NavigationStep(azimuth: azimuth.toDouble(), distance: distanceValue));
       _azimuthController.clear();
       _distanceController.clear();
     });
@@ -198,9 +217,9 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                     ),
                     title: Row(
                       children: [
-                        Text('${step.azimuth?.toStringAsFixed(1) ?? "?"} gon'),
+                        Text('${step.distance ?? "?"} m'),
                         const SizedBox(width: 16),
-                        Text('${step.distance?.toStringAsFixed(1) ?? "?"} m'),
+                        Text('${step.azimuth?.toInt() ?? "?"} gon'),
                       ],
                     ),
                     trailing: Row(
@@ -285,15 +304,14 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: _azimuthController,
-                          focusNode: _azimuthFocusNode,
+                          controller: _distanceController,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.right,
                           decoration: const InputDecoration(
                             isDense: true,
-                            labelText: 'Azimut',
-                            //hintText: '0-400',
-                            suffix: Text('Gon'),
+                            labelText: 'Entfernung',
+                            //hintText: 'Meter',
+                            suffix: Text(' m'),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(40)),
                             ),
@@ -303,34 +321,38 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
-                          controller: _distanceController,
+                          controller: _azimuthController,
+                          focusNode: _azimuthFocusNode,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.right,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           decoration: const InputDecoration(
                             isDense: true,
-                            labelText: 'Entfernung',
-                            //hintText: 'Meter',
-                            suffix: Text('m'),
+                            labelText: 'Azimut',
+                            //hintText: '0-400',
+                            suffix: Text(' Gon'),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(40)),
                             ),
                           ),
                         ),
                       ),
-                      /*const SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       IconButton(
-                        onPressed: _addNavigationStep,
+                        onPressed: _isInputValid ? _addNavigationStep : null,
                         icon: const Icon(Icons.add_circle, size: 28),
-                        color: Theme.of(context).primaryColor,
-                      ),*/
+                        color: _isInputValid ? Theme.of(context).primaryColor : Colors.grey,
+                      ),
                     ],
                   ),
                   // Add Button
-                  ElevatedButton.icon(
+                  /*ElevatedButton.icon(
                     onPressed: _addNavigationStep,
                     label: const Text('Hinzufügen'),
                     icon: const Icon(Icons.add_circle),
-                  ),
+                  ),*/
 
                   // Remaining distance info
                   /*if (remaining != null) ...[

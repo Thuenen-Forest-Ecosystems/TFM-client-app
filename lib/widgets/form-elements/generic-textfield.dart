@@ -516,10 +516,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
           numericValue != null &&
           (numericValue == 0 || numericValue == 1);
 
-      debugPrint(
-        '🎯 ${widget.fieldName}: calculatedValue="$calculatedValue", numericValue=$numericValue, unit=$unit, displayMode=$displayMode, isBooleanIcon=$isBooleanIcon',
-      );
-
       Widget displayWidget;
       if (isBooleanIcon && displayMode != 'text') {
         // Show icon for true (1), nothing for false (0)
