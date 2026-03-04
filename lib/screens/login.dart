@@ -598,15 +598,22 @@ class _LoginState extends State<Login> {
     _passwordController.removeListener(_validateForm);
     _authProvider.removeListener(_onAuthStateChanged);
 
-    // Hide the platform keyboard before disposing focus nodes.
-    // The focus-node disposal will close the TextInputConnection through
-    // the framework, keeping Flutter's internal state in sync.
-    if (!kIsWeb && Platform.isWindows) {
-      SystemChannels.textInput.invokeMethod('TextInput.hide');
-    }
-
+    // Dispose focus nodes FIRST so that the framework tears down its
+    // TextInputConnection cleanly.  If we send TextInput.hide before
+    // disposal, the framework's own dispose-path can briefly re-register
+    // a text-input client with the platform, causing the Windows touch
+    // keyboard to re-appear on the next screen.
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
+
+    // THEN hide the keyboard in a post-frame callback so the platform
+    // processes the disposal (clearClient) before receiving the hide.
+    if (!kIsWeb && Platform.isWindows) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+      });
+    }
+
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();

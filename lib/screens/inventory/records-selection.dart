@@ -522,7 +522,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       },
                     ),
                     //IconButton(onPressed: _openFilterDialog, icon: Icon(Icons.filter_list)),
-                    IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
+                    //IconButton(onPressed: _addRecord, icon: const Icon(Icons.add)),
                   ],
                 ),
               ),

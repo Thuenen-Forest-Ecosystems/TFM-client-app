@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
@@ -56,6 +58,17 @@ class _GenericTextFieldState extends State<GenericTextField> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_focusNode.hasFocus) {
           _focusNode.requestFocus();
+          // Windows touch keyboard: programmatic requestFocus() does not
+          // trigger the on-screen keyboard because the tap was consumed by
+          // the parent grid gesture detector. Explicitly ask the platform
+          // to show the soft keyboard after focus is established.
+          if (!kIsWeb && Platform.isWindows) {
+            Future.delayed(const Duration(milliseconds: 50), () {
+              if (mounted) {
+                SystemChannels.textInput.invokeMethod('TextInput.show');
+              }
+            });
+          }
         }
       });
     }

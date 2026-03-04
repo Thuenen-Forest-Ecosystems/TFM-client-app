@@ -1,0 +1,78 @@
+name: Build iOS Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to update (e.g., v1.0.0+45). Leave empty to skip upload."
+        required: false
+        type: string
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter with caching
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: "3.38.4"
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: ${{ runner.tool_cache }}/flutter
+
+      - name: Create .env file
+        run: |
+          touch .env
+          echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
+
+      - name: Install dependencies
+        run: |
+          flutter config --no-analytics
+          flutter pub get
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Build iOS (no codesign)
+        run: flutter build ipa --no-codesign
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "App version: $VERSION"
+
+      - name: Compress iOS build
+        run: |
+          cd build
+          tar -czf ios_build.tar.gz ios
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TFM-iOS-${{ steps.version.outputs.VERSION }}
+          path: build/ios_build.tar.gz
+          retention-days: 90
+
+      - name: Upload artifact to release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+        with:
+          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+          files: build/ios_build.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
