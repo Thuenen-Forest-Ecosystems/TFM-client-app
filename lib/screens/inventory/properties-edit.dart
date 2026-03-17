@@ -1020,6 +1020,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _jsonSchema = modifiedSchema;
             });
           }
+
+          // Auto-save after validation completes for existing records
+          if (mounted && _record?.id != null && !_isSaving) {
+            final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
+            if (!isPlayground && _hasUnsavedChanges) {
+              debugPrint('Auto-saving after validation...');
+              save('save');
+            }
+          }
         } catch (e) {
           debugPrint('Validation error: $e');
           if (mounted) {

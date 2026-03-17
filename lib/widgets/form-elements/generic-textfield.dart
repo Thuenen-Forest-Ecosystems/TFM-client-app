@@ -418,6 +418,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
       switch (functionName) {
         case 'height_measurement_suitability':
           return _calculateHeightMeasurementSuitability();
+        case 'calculate_basal_area_factor':
+          return _calculateBasalAreaFactor();
         default:
           return 'Unknown function: $functionName';
       }
@@ -425,6 +427,29 @@ class _GenericTextFieldState extends State<GenericTextField> {
       debugPrint('❌ Function evaluation error for ${widget.fieldName}: $e');
       return 'Error';
     }
+  }
+
+  /// Calculate the corrected DBH (Grundkreisdurchmesser) for WZP angle-count sampling.
+  /// Formula: ((dbh * (1.0 + (0.0011 * (dbh_height - 130)))) / 10 / 4 * 100) * 1.02
+  /// - dbh: measured diameter at breast height in mm
+  /// - dbh_height: height of DBH measurement in cm (default 130)
+  /// Returns the corrected BHD in cm as a string.
+  String _calculateBasalAreaFactor() {
+    num? getNumValue(String key) {
+      final value = widget.currentData?[key];
+      if (value == null) return null;
+      if (value is num) return value;
+      if (value is String) return num.tryParse(value);
+      return null;
+    }
+
+    final dbh = getNumValue('dbh');
+    if (dbh == null || dbh <= 0) return '';
+
+    final dbhHeight = getNumValue('dbh_height') ?? 130;
+
+    final corrected = ((dbh * (1.0 + (0.0011 * (dbhHeight - 130)))) / 10 / 4 * 100) * 1.02;
+    return corrected.round().toString();
   }
 
   /// Calculate height measurement tree suitability
@@ -513,7 +538,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
     if (type == 'calculated') {
       final calculatedValue = _evaluateExpression();
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
-      final unit = tfmData?['unit_short'] as String?;
+      final unit =
+          tfmData?['unit_short'] as String? ??
+          widget.fieldOptions?['unit_short'] as String? ??
+          widget.fieldSchema['unit_short'] as String?;
 
       // Check display mode from field schema or fieldOptions
       final displayMode =
@@ -603,14 +631,52 @@ class _GenericTextFieldState extends State<GenericTextField> {
             ? '$calculatedValue $unit'
             : calculatedValue;
 
-        displayWidget = Text(
-          displayValue,
-          style: TextStyle(
-            fontSize: widget.compact ? 14 : 16,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        );
+        // Check attention condition for basal_area_factor: show warning if factor < distance
+        final calculatedFunction =
+            widget.fieldSchema['calculatedFunction'] as String? ??
+            widget.fieldOptions?['calculatedFunction'] as String?;
+        final bool showAttention =
+            calculatedFunction == 'calculate_basal_area_factor' &&
+            numericValue != null &&
+            numericValue > 0 &&
+            () {
+              final distRaw = widget.currentData?['distance'];
+              final dist = distRaw is num
+                  ? distRaw.toDouble()
+                  : double.tryParse(distRaw?.toString() ?? '');
+              return dist != null && numericValue < dist;
+            }();
+
+        if (showAttention) {
+          displayWidget = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: widget.compact ? 16 : 18,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                displayValue,
+                style: TextStyle(
+                  fontSize: widget.compact ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          );
+        } else {
+          displayWidget = Text(
+            displayValue,
+            style: TextStyle(
+              fontSize: widget.compact ? 14 : 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          );
+        }
       }
 
       final child = Container(
@@ -625,6 +691,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 border: Border.all(color: Colors.grey.withOpacity(0.3)),
               ),
         child: Row(
+          mainAxisAlignment: widget.compact ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!widget.compact)
               Expanded(

@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/services/gnss_service.dart';
 
@@ -78,6 +79,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   StreamSubscription<GnssStatus>? _gnssStatusSubscription;
   GnssStatus? _lastGnssStatus;
 
+  // Compass (magnetometer) for heading when stationary
+  StreamSubscription<CompassEvent>? _compassSubscription;
+  double? _lastCompassHeading;
+  double? _lastCompassAccuracy;
+  bool _hasReliableGpsHeading = false;
+  String _headingSource = 'none'; // 'gps', 'compass', 'none'
+
   late final StreamController<LocationMarkerPosition> _positionStreamController;
   late final StreamController<LocationMarkerHeading> _headingStreamController;
 
@@ -95,6 +103,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   Stream<LocationMarkerHeading> get headingStreamController => _headingStreamController.stream;
   LocationPermission? get permission => _permission;
   CurrentNMEA? get currentNMEA => _currentNMEA;
+  String get headingSource => _headingSource;
+
+  /// Whether position data comes from an external GNSS device (BLE or Classic Bluetooth).
+  /// When true, compass heading is unreliable (phone orientation != walking direction).
+  bool get isUsingExternalGnss => connectedDevice != null || connectedClassicDevice != null;
 
   final LocationSettings locationSettings = AndroidSettings(
     accuracy: LocationAccuracy.high,
@@ -268,6 +281,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         _saveConnectedDevice(device);
         connectedDevice = device;
         await _discoverServices(device);
+        _startCompass();
         _isConnecting = false;
         notifyListeners();
       }
@@ -425,6 +439,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _isConnecting = false;
       _isClassicReconnecting = false;
       _classicReconnectAttempts = 0; // Reset on successful connection
+      _startCompass();
       notifyListeners();
     } catch (e) {
       debugPrint('Error connecting to Classic Bluetooth device: $e');
@@ -517,8 +532,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       timestamp: DateTime.now(),
     );
 
-    // Update heading if available
-    if (_currentNMEA?.heading != null) {
+    // Update heading: prefer GPS course-over-ground when moving, fall back to compass
+    if (_currentNMEA?.heading != null &&
+        _currentNMEA?.speedKnots != null &&
+        _currentNMEA!.speedKnots! >= 0.5) {
+      // Moving: GPS heading is reliable
       double estimatedHeadingAccuracy = 10.0;
 
       if (_currentNMEA?.hdop != null) {
@@ -531,15 +549,29 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         }
       }
 
-      if (_currentNMEA?.speedKnots != null && _currentNMEA!.speedKnots! < 0.5) {
-        estimatedHeadingAccuracy = 30.0;
-      }
-
+      _hasReliableGpsHeading = true;
+      _headingSource = 'gps';
       _headingStreamController.add(
         LocationMarkerHeading(heading: _currentNMEA!.heading!, accuracy: estimatedHeadingAccuracy),
       );
     } else {
-      _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+      // Stationary or no GPS heading
+      _hasReliableGpsHeading = false;
+      if (!isUsingExternalGnss && _lastCompassHeading != null) {
+        // Only use compass with internal GPS (phone is in hand).
+        // With external GNSS the phone may be in a pocket — compass heading
+        // would show device orientation, not walking direction.
+        _headingSource = 'compass';
+        _headingStreamController.add(
+          LocationMarkerHeading(
+            heading: _lastCompassHeading!,
+            accuracy: _lastCompassAccuracy ?? 25.0,
+          ),
+        );
+      } else {
+        _headingSource = 'none';
+        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+      }
     }
 
     // Add position to stream for map widget
@@ -555,9 +587,42 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     notifyListeners();
   }
 
+  /// Start listening to the device compass (magnetometer)
+  void _startCompass() {
+    _compassSubscription?.cancel();
+    _compassSubscription = FlutterCompass.events?.listen((CompassEvent event) {
+      if (event.heading != null) {
+        _lastCompassHeading = event.heading!;
+        // accuracy from compass: event.accuracy may be null or 0
+        // Use reasonable default; compass is less accurate than GPS heading
+        _lastCompassAccuracy = (event.accuracy != null && event.accuracy! > 0)
+            ? event.accuracy!.clamp(15.0, 45.0)
+            : 25.0;
+
+        // If GPS heading is not reliable and we're using internal GPS, emit compass heading.
+        // Skip when using external GNSS — phone orientation != walking direction.
+        if (!_hasReliableGpsHeading && _lastPosition != null && !isUsingExternalGnss) {
+          _headingSource = 'compass';
+          _headingStreamController.add(
+            LocationMarkerHeading(heading: _lastCompassHeading!, accuracy: _lastCompassAccuracy!),
+          );
+        }
+      }
+    });
+  }
+
+  /// Stop listening to compass
+  void _stopCompass() {
+    _compassSubscription?.cancel();
+    _compassSubscription = null;
+    _lastCompassHeading = null;
+    _lastCompassAccuracy = null;
+  }
+
   @override
   void dispose() {
     stopAll();
+    _stopCompass();
     _gnssStatusSubscription?.cancel();
     _gnssService?.stopGnssListener();
     _gnssService?.dispose();
@@ -612,6 +677,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _navigationTarget = null;
     _lastPosition = null;
     _positionStream = null;
+    _hasReliableGpsHeading = false;
+    _headingSource = 'none';
+    _stopCompass();
     notifyListeners();
   }
 
@@ -717,6 +785,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     _isConnecting = true;
     notifyListeners();
+
+    // Start compass as heading fallback when stationary
+    _startCompass();
+
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
         .handleError((error) {
           // <-- Add error handling for the stream
@@ -775,9 +847,31 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               accuracy: position.accuracy,
             ),
           );
-          _headingStreamController.add(
-            LocationMarkerHeading(heading: position.heading, accuracy: position.headingAccuracy),
-          );
+          // Heading: prefer GPS course-over-ground when moving, compass when stationary
+          final speedKnots = position.speed * 1.94384;
+          if (position.heading != 0 && speedKnots >= 0.5) {
+            _hasReliableGpsHeading = true;
+            _headingSource = 'gps';
+            _headingStreamController.add(
+              LocationMarkerHeading(
+                heading: position.heading,
+                accuracy: position.headingAccuracy > 0 ? position.headingAccuracy : 10.0,
+              ),
+            );
+          } else if (_lastCompassHeading != null) {
+            _hasReliableGpsHeading = false;
+            _headingSource = 'compass';
+            _headingStreamController.add(
+              LocationMarkerHeading(
+                heading: _lastCompassHeading!,
+                accuracy: _lastCompassAccuracy ?? 25.0,
+              ),
+            );
+          } else {
+            _hasReliableGpsHeading = false;
+            _headingSource = 'none';
+            _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+          }
           _listeningPosition = true;
           _isConnecting = false;
           notifyListeners();

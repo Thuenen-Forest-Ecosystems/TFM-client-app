@@ -379,26 +379,23 @@ class _StartState extends State<Start> {
     bool? shouldNavigate = true;
 
     if (currentPath.startsWith('/properties-edit')) {
-      title = 'Abbrechen';
+      title = 'Aufnahme verlassen';
 
       shouldNavigate = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(title),
-          content: const Text('Ungespeicherten Änderungen gehen verloren.'),
+          content: const Text('Mögliche Änderungen wurden automatisch gespeichert.'),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('zurück'),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey),
+              child: const Text('abbrechen'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Änderungen verwerfen'),
+              child: const Text('Zur Übersicht'),
             ),
           ],
         ),

@@ -18,6 +18,7 @@ import 'package:terrestrial_forest_monitor/widgets/map/edge_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/tree_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/tree_crown_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/subplot_layers.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/heading_layer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -47,6 +48,10 @@ class _MapWidgetState extends State<MapWidget> {
   DateTime? _lastManualFocusTime;
   LatLng? _currentPosition;
   double? _currentAccuracy;
+  double? _currentHeading;
+  double? _currentHeadingAccuracy;
+  String _headingSource = 'none'; // 'gps', 'compass', 'none'
+  StreamSubscription? _headingSubscription;
   Set<String> _selectedBasemaps = {
     'topo_offline',
   }; // Can select multiple: 'osm', 'topo_offline', 'dop'
@@ -1073,6 +1078,21 @@ class _MapWidgetState extends State<MapWidget> {
           debugPrint('GPS stream closed');
         },
       );
+
+      _headingSubscription?.cancel();
+      _headingSubscription = gpsProvider.headingStreamController.listen(
+        (heading) {
+          if (_isDisposed) return;
+          setState(() {
+            _currentHeading = heading.heading;
+            _currentHeadingAccuracy = heading.accuracy;
+            _headingSource = gpsProvider.headingSource;
+          });
+        },
+        onError: (error) {
+          debugPrint('❌ Heading stream error: $error');
+        },
+      );
     } catch (e) {
       debugPrint('❌ Error subscribing to GPS: $e');
     }
@@ -1516,6 +1536,8 @@ class _MapWidgetState extends State<MapWidget> {
     _debounceTimer?.cancel();
     _gpsSubscription?.cancel();
     _gpsSubscription = null;
+    _headingSubscription?.cancel();
+    _headingSubscription = null;
 
     // Remove listeners
     try {
@@ -1898,6 +1920,26 @@ class _MapWidgetState extends State<MapWidget> {
               ),
             ],
           ),
+
+        // GPS Heading direction cone (hidden when not enough data)
+        if (_currentPosition != null &&
+            _currentHeading != null &&
+            _currentHeadingAccuracy != null &&
+            _headingSource != 'none') ...[
+          if (HeadingLayer.buildHeadingMarker(
+                position: _currentPosition!,
+                headingDegrees: _currentHeading!,
+                headingAccuracy: _currentHeadingAccuracy!,
+                source: _headingSource,
+              ) !=
+              null)
+            HeadingLayer.buildHeadingMarker(
+              position: _currentPosition!,
+              headingDegrees: _currentHeading!,
+              headingAccuracy: _currentHeadingAccuracy!,
+              source: _headingSource,
+            )!,
+        ],
 
         // GPS Location Marker (center dot)
         if (_currentPosition != null)
