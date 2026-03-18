@@ -335,13 +335,13 @@ Future<PowerSyncDatabase> openDatabase() async {
         currentConnector = null;
         await db.disconnect();
       } else if (event == AuthChangeEvent.tokenRefreshed) {
-        print('Token refreshed - updating PowerSync credentials');
-        // Do NOT call invalidateCredentials here, it triggers another refresh!
-        // currentConnector?.invalidateCredentials();
-        // Instead, just reconnect to force credential fetch
-        if (currentConnector != null) {
-          db.connect(connector: currentConnector!);
-        }
+        print(
+          'Token refreshed - PowerSync handles credential updates automatically via fetchCredentials()',
+        );
+        // Do NOT call db.connect() here — it restarts the sync connection,
+        // causing in-progress downloads to start over from scratch.
+        // PowerSync automatically calls fetchCredentials() on the connector
+        // when the current token expires.
       }
     } catch (e) {
       print('Error handling auth state change: $e');

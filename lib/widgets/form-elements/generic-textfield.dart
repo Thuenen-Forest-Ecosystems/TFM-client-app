@@ -448,7 +448,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     final dbhHeight = getNumValue('dbh_height') ?? 130;
 
-    final corrected = ((dbh * (1.0 + (0.0011 * (dbhHeight - 130)))) / 10 / 4 * 100) * 1.02;
+    final corrected =
+        ((dbh * (1.0 + (0.0011 * (dbhHeight - 130)))) / 10 / 4 * 100) *
+        (dbhHeight != 130 ? 1.02 : 1.0);
     return corrected.round().toString();
   }
 

@@ -185,7 +185,7 @@ String _getStatusText(SyncStatus status) {
   } else if (status.connecting) {
     return 'Connecting';
   } else if (status.uploading && status.downloading) {
-    return 'Uploading and downloading';
+    return 'Syncing...';
   } else if (status.uploading) {
     return 'Uploading';
   } else if (status.downloading) {
@@ -211,7 +211,11 @@ void _showStatusDialog(BuildContext context, SyncStatus status) {
               _buildStatusRow('Downloading', status.downloading ? 'Yes' : 'No'),
               _buildStatusRow('Uploading', status.uploading ? 'Yes' : 'No'),
               const Divider(),
-              _buildStatusRow('Last Synced At', status.lastSyncedAt?.toString() ?? 'Never'),
+              _buildStatusRow(
+                'Last Synced At',
+                status.lastSyncedAt?.toLocal().toString() ?? 'Never',
+              ),
+              _buildStatusRow('Has Synced', (status.hasSynced ?? false) ? 'Yes' : 'No'),
               if (status.anyError != null) ...[
                 const Divider(),
                 const Text(
@@ -244,6 +248,16 @@ void _showStatusDialog(BuildContext context, SyncStatus status) {
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // Force disconnect and reconnect to recover from stuck sync
+              await db.disconnect();
+              final connector = SupabaseConnector();
+              db.connect(connector: connector);
+            },
+            child: const Text('Reconnect'),
+          ),
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
         ],
       );

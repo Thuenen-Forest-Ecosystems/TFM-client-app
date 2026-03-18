@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+//import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
@@ -8,12 +8,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/permissions-selection.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
+//import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
-import 'package:terrestrial_forest_monitor/widgets/auth/user-info-tile.dart';
+//import 'package:terrestrial_forest_monitor/widgets/auth/user-info-tile.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-tiles-download.dart';
-import 'package:terrestrial_forest_monitor/widgets/map/map-tiles-download-windows.dart';
-import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
+//import 'package:terrestrial_forest_monitor/widgets/map/map-tiles-download-windows.dart';
+//import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
 
 class SchemaSelection extends StatefulWidget {
   const SchemaSelection({super.key});

@@ -151,12 +151,12 @@ class AuthProvider extends ChangeNotifier {
         );
         print('AuthProvider: Credentials saved for offline use');
 
-        // Register background sync after successful login (runs every hour)
+        // Register periodic background sync (runs every hour, for when app is backgrounded)
+        // Do NOT register an immediate one-time sync here — the foreground
+        // PowerSync connection is already syncing. A competing background
+        // connection would interfere with the in-progress download.
         await BackgroundSyncService.registerPeriodicSync();
-
-        // Trigger an immediate one-time sync after login
-        await BackgroundSyncService.registerOneTimeSync(delay: const Duration(seconds: 5));
-        print('AuthProvider: Background sync registered (periodic + immediate)');
+        print('AuthProvider: Background periodic sync registered');
       }
 
       // User will be updated via the auth state listener

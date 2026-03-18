@@ -201,11 +201,14 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
   }
 
   List<Widget> _buildPermissionTile(PermissionModel permission, List<TroopModel> userTroops) {
+    final List<Widget> tiles = [];
+
     if (permission.isOrganizationAdmin) {
-      // Show admin role
-      return [
+      // Show admin role (disabled, not selectable)
+      tiles.add(
         ListTile(
           dense: true,
+          enabled: false,
           leading: const Icon(Icons.shield, size: 20),
           title: const Text(
             'Administrator',
@@ -215,46 +218,34 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
             'Berechtigung seit ${_formatDate(permission.createdAt)}',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
-          onTap: () {
-            _selectePermissionAndRoute(permission.id, permission.organizationId, isAdmin: true);
-          },
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         ),
-      ];
-    } else {
-      // Show troop memberships
-      final organizationTroops = userTroops
-          .where((troop) => troop.organizationId == permission.organizationId)
-          .toList();
+      );
+    }
 
-      if (organizationTroops.isEmpty) {
-        return [
-          Container(
-            margin: const EdgeInsets.only(bottom: 8.0),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(4.0)),
-            child: ListTile(
-              dense: true,
-              title: const Text(
-                'Trupp-Zugehörigkeit benötigt',
-                style: TextStyle(fontSize: 14, color: Colors.red),
-              ),
-            ),
-          ),
-        ];
-        return [
-          ListTile(
+    // Show troop memberships (for both admin and non-admin permissions)
+    final organizationTroops = userTroops
+        .where((troop) => troop.organizationId == permission.organizationId)
+        .toList();
+
+    if (organizationTroops.isEmpty && !permission.isOrganizationAdmin) {
+      tiles.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 8.0),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(4.0)),
+          child: ListTile(
             dense: true,
-            leading: const Icon(Icons.person, size: 20),
-            title: const Text('Mitglied', style: TextStyle(fontSize: 14)),
-            subtitle: Text(
-              'Berechtigung seit ${_formatDate(permission.createdAt)}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            title: const Text(
+              'Trupp-Zugehörigkeit benötigt',
+              style: TextStyle(fontSize: 14, color: Colors.red),
             ),
           ),
-        ];
-      }
+        ),
+      );
+      return tiles;
+    }
 
-      return organizationTroops.map((troop) {
+    tiles.addAll(
+      organizationTroops.map((troop) {
         return StreamBuilder<int>(
           stream: _repository.watchRecordCountForTroop(troop.id, troop.organizationId),
           builder: (context, countSnapshot) {
@@ -277,7 +268,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                 _selectePermissionAndRoute(
                   permission.id,
                   permission.organizationId,
-                  isAdmin: false,
+                  isAdmin: permission.isOrganizationAdmin,
                   troopId: troop.id,
                 );
               },
@@ -285,7 +276,9 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
             );
           },
         );
-      }).toList();
-    }
+      }),
+    );
+
+    return tiles;
   }
 }

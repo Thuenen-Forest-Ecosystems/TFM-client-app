@@ -15,10 +15,12 @@ class BackgroundSyncService {
   static Future<void> initialize() async {
     // Skip workmanager initialization on web and desktop platforms (macOS, Windows, Linux)
     if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      debugPrint('BackgroundSyncService: Skipping initialization on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
+      debugPrint(
+        'BackgroundSyncService: Skipping initialization on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS',
+      );
       return;
     }
-    
+
     // Initialize workmanager for mobile platforms (Android and iOS)
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
   }
@@ -27,10 +29,12 @@ class BackgroundSyncService {
   /// Frequency: Every 1 hour
   static Future<void> registerPeriodicSync() async {
     if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      debugPrint('BackgroundSyncService: Periodic sync not supported on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
+      debugPrint(
+        'BackgroundSyncService: Periodic sync not supported on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS',
+      );
       return;
     }
-    
+
     // Register periodic task for mobile platforms (Android and iOS)
     await Workmanager().registerPeriodicTask(
       syncTaskName,
@@ -48,10 +52,12 @@ class BackgroundSyncService {
   /// Register one-time background sync
   static Future<void> registerOneTimeSync({Duration delay = Duration.zero}) async {
     if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      debugPrint('BackgroundSyncService: One-time sync not supported on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
+      debugPrint(
+        'BackgroundSyncService: One-time sync not supported on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS',
+      );
       return;
     }
-    
+
     // Register one-time task for mobile platforms (Android and iOS)
     await Workmanager().registerOneOffTask(
       "$syncTaskName-onetime",
@@ -66,10 +72,12 @@ class BackgroundSyncService {
   /// Cancel all background sync tasks
   static Future<void> cancelAll() async {
     if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      debugPrint('BackgroundSyncService: Cancel not applicable on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
+      debugPrint(
+        'BackgroundSyncService: Cancel not applicable on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS',
+      );
       return;
     }
-    
+
     // Cancel tasks for mobile platforms (Android and iOS)
     await Workmanager().cancelAll();
     debugPrint('BackgroundSyncService: Cancelled all background sync tasks');
@@ -78,10 +86,12 @@ class BackgroundSyncService {
   /// Cancel periodic sync only
   static Future<void> cancelPeriodicSync() async {
     if (kIsWeb || Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      debugPrint('BackgroundSyncService: Cancel not applicable on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS');
+      debugPrint(
+        'BackgroundSyncService: Cancel not applicable on ${kIsWeb ? 'web' : Platform.operatingSystem} platform - workmanager only supports Android and iOS',
+      );
       return;
     }
-    
+
     // Cancel periodic sync for mobile platforms (Android and iOS)
     await Workmanager().cancelByUniqueName(syncTaskName);
     debugPrint('BackgroundSyncService: Cancelled periodic sync');
@@ -101,7 +111,7 @@ void callbackDispatcher() {
         // Initialize PowerSync database
         final db = await openDatabase();
 
-        // Check if already connected
+        // Check if already connected (foreground app may still be running)
         var status = db.currentStatus;
         debugPrint(
           'BackgroundSyncService: Initial status - connected: ${status.connected}, hasSynced: ${status.hasSynced}, lastSyncedAt: ${status.lastSyncedAt}',
@@ -115,32 +125,41 @@ void callbackDispatcher() {
           return Future.value(true);
         }
 
-        // If not connected, try to connect PowerSync
-        if (!status.connected) {
-          debugPrint('BackgroundSyncService: Attempting to connect PowerSync...');
-
-          // Create connector and connect
-          final connector = SupabaseConnector();
-          await db.connect(connector: connector);
-
-          debugPrint('BackgroundSyncService: Connection initiated, waiting for sync...');
-
-          // Wait for sync to complete (with timeout)
-          final syncCompleted = await _waitForSync(db, timeout: const Duration(seconds: 45));
-
-          if (syncCompleted) {
-            debugPrint('BackgroundSyncService: Sync completed successfully');
-          } else {
-            debugPrint('BackgroundSyncService: Sync timeout - may still be in progress');
-          }
-
-          // Disconnect after sync
-          await db.disconnect();
-          debugPrint('BackgroundSyncService: Disconnected PowerSync');
-        } else {
-          debugPrint('BackgroundSyncService: Already connected, waiting for sync activity...');
-          await Future.delayed(const Duration(seconds: 10));
+        // Skip if a recent sync occurred (foreground is likely handling it)
+        final timeSinceLastSync = DateTime.now().difference(status.lastSyncedAt!);
+        if (timeSinceLastSync.inMinutes < 5) {
+          debugPrint(
+            'BackgroundSyncService: Skipping - recent sync ${timeSinceLastSync.inSeconds}s ago. Foreground is likely active.',
+          );
+          return Future.value(true);
         }
+
+        // If already connected, the foreground is still running — don't interfere
+        if (status.connected) {
+          debugPrint('BackgroundSyncService: Already connected (foreground active), skipping.');
+          return Future.value(true);
+        }
+
+        // Not connected and no recent sync — app is likely backgrounded, do a sync
+        debugPrint('BackgroundSyncService: Attempting to connect PowerSync...');
+
+        final connector = SupabaseConnector();
+        await db.connect(connector: connector);
+
+        debugPrint('BackgroundSyncService: Connection initiated, waiting for sync...');
+
+        // Wait for sync to complete (with timeout)
+        final syncCompleted = await _waitForSync(db, timeout: const Duration(seconds: 45));
+
+        if (syncCompleted) {
+          debugPrint('BackgroundSyncService: Sync completed successfully');
+        } else {
+          debugPrint('BackgroundSyncService: Sync timeout - may still be in progress');
+        }
+
+        // Disconnect after sync
+        await db.disconnect();
+        debugPrint('BackgroundSyncService: Disconnected PowerSync');
 
         status = db.currentStatus;
         debugPrint(

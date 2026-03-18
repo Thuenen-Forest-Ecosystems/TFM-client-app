@@ -109,8 +109,8 @@ class Profile extends StatelessWidget {
                   ? null
                   : () async {
                       // Disconnect and clear PowerSync database
-                      //await db.disconnectAndClear();
-                      await db.disconnect();
+                      await db.disconnectAndClear();
+                      //await db.disconnect();
                       // Logout from Supabase
                       await authProvider.logout();
                       if (context.mounted) {
@@ -124,7 +124,7 @@ class Profile extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.logout),
-              label: Text(authProvider.loggingIn ? 'Abmelden...' : 'Abmelden'),
+              label: Text(authProvider.loggingIn ? 'Abmelden...' : 'Abmelden und Daten löschen!!'),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.red,
                 padding: const EdgeInsets.symmetric(vertical: 16),

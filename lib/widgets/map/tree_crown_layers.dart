@@ -28,15 +28,18 @@ class TreeCrownLayers {
           final lat = tree['lat'] as double;
           final lng = tree['lng'] as double;
           final dbh = (tree['dbh'] as num).toDouble(); // DBH in mm (already corrected)
+          final dbhHeight = (tree['dbh_height'] as num?)?.toDouble() ?? 130.0;
 
           // Calculate Grenzkreisradius (boundary circle radius) for WZP in meters
           // Formula result in cm: ((dbh / 10) / 4 * 100) * 1.02 = (dbh * 2.5) * 1.02 = dbh * 2.55
           // Convert cm to meters: (dbh * 2.55) / 100 = dbh * 0.0255
-          final grenzkreisRadiusMeters = dbh * 0.0255;
+          final grenzkreisRadiusMeters =
+              ((dbh * (1.0 + (0.0011 * (dbhHeight - 130)))) / 10 / 4 * 100) *
+              (dbhHeight != 130 ? 1.02 : 1.0);
 
           return CircleMarker(
             point: LatLng(lat, lng),
-            radius: grenzkreisRadiusMeters,
+            radius: grenzkreisRadiusMeters / 100, // Convert cm to meters for map rendering
             useRadiusInMeter: true,
             color: withOpacity
                 ? (crownColor ?? Colors.green.withOpacity(0.15))
