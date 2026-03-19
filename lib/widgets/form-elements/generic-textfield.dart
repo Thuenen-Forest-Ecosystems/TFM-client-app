@@ -125,8 +125,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
   /// Whether this field is boolean but also has enum values (needs both
   /// _boolValue and _controller for the enum picker path).
   bool get _isBooleanWithEnum =>
-      _getType() == 'boolean' &&
-      (widget.fieldSchema['enum'] as List?)?.isNotEmpty == true;
+      _getType() == 'boolean' && (widget.fieldSchema['enum'] as List?)?.isNotEmpty == true;
 
   void _initializeControllers() {
     final type = _getType();
