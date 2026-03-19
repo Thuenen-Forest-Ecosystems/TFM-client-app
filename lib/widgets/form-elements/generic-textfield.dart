@@ -122,6 +122,12 @@ class _GenericTextFieldState extends State<GenericTextField> {
     return null;
   }
 
+  /// Whether this field is boolean but also has enum values (needs both
+  /// _boolValue and _controller for the enum picker path).
+  bool get _isBooleanWithEnum =>
+      _getType() == 'boolean' &&
+      (widget.fieldSchema['enum'] as List?)?.isNotEmpty == true;
+
   void _initializeControllers() {
     final type = _getType();
     dynamic effectiveValue = widget.value;
@@ -137,6 +143,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     if (type == 'boolean') {
       _boolValue = effectiveValue == true;
+      // Boolean fields with enum values are rendered as enum pickers and
+      // need a TextEditingController as well.
+      if (_isBooleanWithEnum) {
+        _controller = TextEditingController(text: effectiveValue?.toString() ?? '');
+      }
     } else {
       _controller = TextEditingController(text: effectiveValue?.toString() ?? '');
       if (widget.autofocus) {
@@ -164,6 +175,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     if (type == 'boolean') {
       _boolValue = effectiveValue == true;
+      if (_isBooleanWithEnum && _controller.text != newValue) {
+        _controller.text = newValue;
+      }
     } else {
       // Only update controller text if it's different to avoid cursor position reset
       if (_controller.text != newValue) {
@@ -184,7 +198,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
   @override
   void dispose() {
     _focusNode.dispose();
-    if (_getType() != 'boolean') {
+    if (_getType() != 'boolean' || _isBooleanWithEnum) {
       _controller.dispose();
     }
     super.dispose();
@@ -714,69 +728,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
       return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
     }
 
-    // Handle boolean with Switch
-    if (type == 'boolean') {
-      final child = Opacity(
-        opacity: isReadonly ? 0.6 : 1.0,
-        child: Column(
-          crossAxisAlignment: widget.compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: widget.compact
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.start,
-              children: [
-                if (!widget.compact)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _getLabel() ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: hasErrors ? Colors.red : null,
-                          ),
-                        ),
-                        if (_getDescription() != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _getDescription()!,
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                Switch(
-                  focusNode: _focusNode,
-                  value: _boolValue,
-                  activeThumbColor: Theme.of(context).colorScheme.primary,
-                  activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                  inactiveThumbColor: Colors.grey[400],
-                  onChanged: isReadonly
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _boolValue = value;
-                          });
-                          widget.onChanged?.call(value);
-                        },
-                ),
-              ],
-            ),
-            if (hasErrors) ...[
-              const SizedBox(height: 4),
-              Text(_getErrorText() ?? '', style: const TextStyle(fontSize: 12, color: Colors.red)),
-            ],
-          ],
-        ),
-      );
-      return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
-    }
-
-    // Handle enum with Dialog picker
+    // Handle enum with Dialog picker (checked before boolean so that boolean
+    // fields with explicit enum + name_de render as enum picker, not a switch)
     final enumValues = widget.fieldSchema['enum'] as List?;
     if (enumValues != null && enumValues.isNotEmpty) {
       // Get the $tfm metadata if available
@@ -856,6 +809,68 @@ class _GenericTextFieldState extends State<GenericTextField> {
         ),
       );
 
+      return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
+    }
+
+    // Handle boolean with Switch
+    if (type == 'boolean') {
+      final child = Opacity(
+        opacity: isReadonly ? 0.6 : 1.0,
+        child: Column(
+          crossAxisAlignment: widget.compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: widget.compact
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
+              children: [
+                if (!widget.compact)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getLabel() ?? '',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: hasErrors ? Colors.red : null,
+                          ),
+                        ),
+                        if (_getDescription() != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _getDescription()!,
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                Switch(
+                  focusNode: _focusNode,
+                  value: _boolValue,
+                  activeThumbColor: Theme.of(context).colorScheme.primary,
+                  activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                  inactiveThumbColor: Colors.grey[400],
+                  onChanged: isReadonly
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _boolValue = value;
+                          });
+                          widget.onChanged?.call(value);
+                        },
+                ),
+              ],
+            ),
+            if (hasErrors) ...[
+              const SizedBox(height: 4),
+              Text(_getErrorText() ?? '', style: const TextStyle(fontSize: 12, color: Colors.red)),
+            ],
+          ],
+        ),
+      );
       return widget.width != null ? SizedBox(width: widget.width, child: child) : child;
     }
 
