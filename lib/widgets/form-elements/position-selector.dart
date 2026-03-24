@@ -23,6 +23,7 @@ class PositionSelector extends StatelessWidget {
   final ValueChanged<String?>? onSetAsCenter; // Callback to set position as center
   final bool showGpsOptions; // Whether to show GPS and map-tap position options
   final LatLng? lockedGpsPosition; // Stored position when GPS was locked
+  final Future<void> Function(LatLng coords, String mode)? onOpenNavigation; // Opens native nav app
 
   static const String gpsLiveKey = '__GPS_LIVE__';
   static const String gpsLockedKey = '__GPS_LOCKED__';
@@ -51,6 +52,7 @@ class PositionSelector extends StatelessWidget {
     this.onSetAsCenter,
     this.showGpsOptions = true,
     this.lockedGpsPosition,
+    this.onOpenNavigation,
   });
 
   @override
@@ -72,6 +74,30 @@ class PositionSelector extends StatelessWidget {
     }
 
     return ExpansionTile(
+      shape: const Border(),
+      collapsedShape: const Border(),
+      trailing: onOpenNavigation != null && selectedCoordinates != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.directions_car, size: 20),
+                  tooltip: 'Mit Auto navigieren',
+                  onPressed: () => onOpenNavigation!(selectedCoordinates!, 'd'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.directions_walk, size: 20),
+                  tooltip: 'Zu Fuß navigieren',
+                  onPressed: () => onOpenNavigation!(selectedCoordinates!, 'w'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            )
+          : null,
       title: Row(
         children: [
           if (selectedPositionKey != null && onFocusPosition != null && selectedCoordinates != null)
@@ -350,11 +376,29 @@ class PositionSelector extends StatelessWidget {
                           style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                         )
                       : null,
-                  trailing: onFocusPosition != null && coordinate != null
-                      ? IconButton(
-                          icon: const Icon(Icons.my_location, size: 20),
-                          tooltip: 'Auf Karte anzeigen',
-                          onPressed: () => onFocusPosition!(coordinate),
+                  trailing: coordinate != null
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (onFocusPosition != null)
+                              IconButton(
+                                icon: const Icon(Icons.my_location, size: 20),
+                                tooltip: 'Auf Karte anzeigen',
+                                onPressed: () => onFocusPosition!(coordinate),
+                              ),
+                            /*if (onOpenNavigation != null) ...[
+                              IconButton(
+                                icon: const Icon(Icons.directions_car, size: 20),
+                                tooltip: 'Mit Auto navigieren',
+                                onPressed: () => onOpenNavigation!(coordinate, 'd'),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.directions_walk, size: 20),
+                                tooltip: 'Zu Fuß navigieren',
+                                onPressed: () => onOpenNavigation!(coordinate, 'w'),
+                              ),
+                            ],*/
+                          ],
                         )
                       : null,
                   onTap: () => onPositionSelected(isSelected ? null : key),
@@ -424,11 +468,29 @@ class PositionSelector extends StatelessWidget {
                   subtitle: note.isNotEmpty
                       ? Text(note)
                       : (isCenterPosition ? const Text('Als Zentrum gesetzt') : null),
-                  trailing: onFocusPosition != null && coordinate != null
-                      ? IconButton(
-                          icon: const Icon(Icons.my_location, size: 20),
-                          tooltip: 'Auf Karte anzeigen',
-                          onPressed: () => onFocusPosition!(coordinate),
+                  trailing: coordinate != null
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (onFocusPosition != null)
+                              IconButton(
+                                icon: const Icon(Icons.my_location, size: 20),
+                                tooltip: 'Auf Karte anzeigen',
+                                onPressed: () => onFocusPosition!(coordinate),
+                              ),
+                            if (onOpenNavigation != null) ...[
+                              IconButton(
+                                icon: const Icon(Icons.directions_car, size: 20),
+                                tooltip: 'Mit Auto navigieren',
+                                onPressed: () => onOpenNavigation!(coordinate, 'd'),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.directions_walk, size: 20),
+                                tooltip: 'Zu Fuß navigieren',
+                                onPressed: () => onOpenNavigation!(coordinate, 'w'),
+                              ),
+                            ],
+                          ],
                         )
                       : null,
                   onTap: () => onPositionSelected(isSelected ? null : key),

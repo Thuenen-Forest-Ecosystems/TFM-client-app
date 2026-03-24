@@ -533,14 +533,13 @@ class _RecordPositionState extends State<RecordPosition> {
 
                               // NMEA data if available
                               if (gpsProvider.currentNMEA != null) ...[
-                                if (gpsProvider.currentNMEA!.fixQuality != null)
-                                  _buildDataRow(
-                                    'Quality',
-                                    gpsProvider.currentNMEA!.fixQuality.toString(),
-                                    qualityLevel: GpsQualityCriteria.evaluateCorrectionSignal(
-                                      gpsProvider.currentNMEA!.fixQuality,
-                                    ),
+                                _buildDataRow(
+                                  'Korrektursignal',
+                                  _getCorrectionSignalText(gpsProvider.currentNMEA!.fixQuality),
+                                  qualityLevel: GpsQualityCriteria.evaluateCorrectionSignal(
+                                    gpsProvider.currentNMEA!.fixQuality,
                                   ),
+                                ),
                                 if (gpsProvider.currentNMEA!.satellites != null)
                                   _buildDataRow(
                                     'Satelliten',
@@ -642,20 +641,6 @@ class _RecordPositionState extends State<RecordPosition> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              _buildDataRow(
-                                'Quality',
-                                _getQualityText((_initialSavedData!['quality'] as int?) ?? 0),
-                                qualityLevel: _initialSavedData!['aggregation_quality_code'] != null
-                                    ? GpsQualityCriteria.evaluateCorrectionSignal(
-                                        _initialSavedData!['aggregation_quality_code'],
-                                      )
-                                    : null,
-                              ),
-                              if (_initialSavedData!['position_mean'] != null)
-                                _buildDataRow(
-                                  'mittlere Position',
-                                  '${(_initialSavedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_initialSavedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
-                                ),
                               if (_initialSavedData!['measurement_count'] != null)
                                 _buildDataRow(
                                   'Messungen',
@@ -664,20 +649,28 @@ class _RecordPositionState extends State<RecordPosition> {
                                     _initialSavedData!['measurement_count'] as int,
                                   ),
                                 ),
+                              if (_initialSavedData!['position_mean'] != null)
+                                _buildDataRow(
+                                  'Position (mean)',
+                                  '${(_initialSavedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_initialSavedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
+                                ),
+                              _buildDataRow(
+                                'Korrektursignal',
+                                _getCorrectionSignalText(
+                                  _initialSavedData!['aggregation_quality_code'],
+                                ),
+                                qualityLevel: _initialSavedData!['aggregation_quality_code'] != null
+                                    ? GpsQualityCriteria.evaluateCorrectionSignal(
+                                        _initialSavedData!['aggregation_quality_code'],
+                                      )
+                                    : null,
+                              ),
                               if (_initialSavedData!['satellites_count_mean'] != null)
                                 _buildDataRow(
-                                  'Satellites (avg)',
+                                  'Satelliten (avg)',
                                   '${_initialSavedData!['satellites_count_mean'].toStringAsFixed(1)}',
                                   qualityLevel: _qualityCriteria.satellites.evaluate(
                                     (_initialSavedData!['satellites_count_mean'] as num).round(),
-                                  ),
-                                ),
-                              if (_initialSavedData!['pdop_mean'] != null)
-                                _buildDataRow(
-                                  'PDOP (avg)',
-                                  '${_initialSavedData!['pdop_mean'].toStringAsFixed(2)}',
-                                  qualityLevel: _qualityCriteria.pdop.evaluate(
-                                    (_initialSavedData!['pdop_mean'] as num).toDouble(),
                                   ),
                                 ),
                               if (_initialSavedData!['hdop_mean'] != null)
@@ -688,6 +681,15 @@ class _RecordPositionState extends State<RecordPosition> {
                                     (_initialSavedData!['hdop_mean'] as num).toDouble(),
                                   ),
                                 ),
+                              if (_initialSavedData!['pdop_mean'] != null)
+                                _buildDataRow(
+                                  'PDOP (avg)',
+                                  '${_initialSavedData!['pdop_mean'].toStringAsFixed(2)}',
+                                  qualityLevel: _qualityCriteria.pdop.evaluate(
+                                    (_initialSavedData!['pdop_mean'] as num).toDouble(),
+                                  ),
+                                ),
+
                               if (_initialSavedData!['start_measurement'] != null)
                                 _buildDataRow(
                                   'Start Time',
@@ -835,20 +837,6 @@ class _RecordPositionState extends State<RecordPosition> {
 
                             // Show data when available
                             if (_aggregatedData != null) ...[
-                              _buildDataRow(
-                                'Quality',
-                                _getQualityText((_aggregatedData!['quality'] as int?) ?? 0),
-                                qualityLevel: _aggregatedData!['aggregation_quality_code'] != null
-                                    ? GpsQualityCriteria.evaluateCorrectionSignal(
-                                        _aggregatedData!['aggregation_quality_code'],
-                                      )
-                                    : null,
-                              ),
-                              if (_aggregatedData!['position_mean'] != null)
-                                _buildDataRow(
-                                  'mittlere Position',
-                                  '${(_aggregatedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_aggregatedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
-                                ),
                               if (_aggregatedData!['measurement_count'] != null)
                                 _buildDataRow(
                                   'Messungen',
@@ -857,20 +845,29 @@ class _RecordPositionState extends State<RecordPosition> {
                                     _aggregatedData!['measurement_count'] as int,
                                   ),
                                 ),
+                              if (_aggregatedData!['position_mean'] != null)
+                                _buildDataRow(
+                                  'Position (mean)',
+                                  '${(_aggregatedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_aggregatedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
+                                ),
+                              _buildDataRow(
+                                'Korrektursignal',
+                                _getCorrectionSignalText(
+                                  _aggregatedData!['aggregation_quality_code'],
+                                ),
+                                qualityLevel: _aggregatedData!['aggregation_quality_code'] != null
+                                    ? GpsQualityCriteria.evaluateCorrectionSignal(
+                                        _aggregatedData!['aggregation_quality_code'],
+                                      )
+                                    : null,
+                              ),
+
                               if (_aggregatedData!['satellites_count_mean'] != null)
                                 _buildDataRow(
-                                  'Satellites (avg)',
+                                  'Satelliten (avg)',
                                   '${_aggregatedData!['satellites_count_mean'].toStringAsFixed(1)}',
                                   qualityLevel: _qualityCriteria.satellites.evaluate(
                                     (_aggregatedData!['satellites_count_mean'] as num).round(),
-                                  ),
-                                ),
-                              if (_aggregatedData!['pdop_mean'] != null)
-                                _buildDataRow(
-                                  'PDOP (avg)',
-                                  '${_aggregatedData!['pdop_mean'].toStringAsFixed(2)}',
-                                  qualityLevel: _qualityCriteria.pdop.evaluate(
-                                    (_aggregatedData!['pdop_mean'] as num).toDouble(),
                                   ),
                                 ),
                               if (_aggregatedData!['hdop_mean'] != null)
@@ -881,6 +878,15 @@ class _RecordPositionState extends State<RecordPosition> {
                                     (_aggregatedData!['hdop_mean'] as num).toDouble(),
                                   ),
                                 ),
+                              if (_aggregatedData!['pdop_mean'] != null)
+                                _buildDataRow(
+                                  'PDOP (avg)',
+                                  '${_aggregatedData!['pdop_mean'].toStringAsFixed(2)}',
+                                  qualityLevel: _qualityCriteria.pdop.evaluate(
+                                    (_aggregatedData!['pdop_mean'] as num).toDouble(),
+                                  ),
+                                ),
+
                               if (_aggregatedData!['start_measurement'] != null)
                                 _buildDataRow(
                                   'Start Time',
@@ -922,15 +928,6 @@ class _RecordPositionState extends State<RecordPosition> {
                                       padding: const EdgeInsets.only(top: 16.0),
                                       child: Column(
                                         children: [
-                                          if (isOverwriting)
-                                            Padding(
-                                              padding: const EdgeInsets.only(bottom: 8.0),
-                                              child: Text(
-                                                'Vorhandene Messung wird überschrieben',
-                                                style: Theme.of(context).textTheme.bodySmall
-                                                    ?.copyWith(color: Colors.orange),
-                                              ),
-                                            ),
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [

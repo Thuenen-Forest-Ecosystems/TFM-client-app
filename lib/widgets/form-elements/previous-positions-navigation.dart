@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math' as math;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
@@ -205,23 +206,27 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     // Load support points
     _loadSupportPoints();
 
-    // Set SOLL Position as default center for relative calculations
-    if (_positionKeys.contains('SOLL Position')) {
+    // Default-select the most precise position and use it as center
+    if (_selectedPositionKey == null && _positionKeys.isNotEmpty) {
+      final bestKey = _getMostPrecisePositionKey();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _setCenterPosition(bestKey);
+          final coords = _positionCoordinates[bestKey];
+          if (coords != null) {
+            _focusMapOnPosition(coords);
+          }
+          setState(() {
+            _selectedPositionKey = bestKey;
+          });
+          _updateNavigationPath();
+        }
+      });
+    } else if (_positionKeys.contains('SOLL Position')) {
+      // Fallback: set SOLL Position as center if no selection needed
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _setCenterPosition('SOLL Position');
-        }
-      });
-    }
-
-    // Set current position as default selection if available
-    if (_positionKeys.contains('SOLL Position') && _selectedPositionKey == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _selectedPositionKey = 'SOLL Position';
-          });
-          _updateNavigationPath();
         }
       });
     }
@@ -257,6 +262,32 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         }
       }
     }
+  }
+
+  /// Returns the position key with the best precision based on metadata.
+  /// Ranks by quality (higher = better, e.g. 4=RTK fix) then by hdop_mean (lower = better).
+  /// Falls back to 'SOLL Position' if no metadata is available.
+  String _getMostPrecisePositionKey() {
+    String? bestKey;
+    int bestQuality = -1;
+    double bestHdop = double.infinity;
+
+    for (final key in _positionKeys) {
+      if (!_positionCoordinates.containsKey(key)) continue;
+      final meta = _positionMetadata[key];
+      final quality = (meta != null) ? (_extractDouble(meta['quality'])?.toInt() ?? -1) : -1;
+      final hdop = (meta != null)
+          ? (_extractDouble(meta['hdop_mean']) ?? double.infinity)
+          : double.infinity;
+
+      if (quality > bestQuality || (quality == bestQuality && hdop < bestHdop)) {
+        bestQuality = quality;
+        bestHdop = hdop;
+        bestKey = key;
+      }
+    }
+
+    return bestKey ?? _positionKeys.first;
   }
 
   Future<void> _loadSupportPoints() async {
@@ -645,6 +676,30 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     return null;
   }
 
+  /// [mode]: 'd' = driving, 'w' = walking
+  Future<void> _openNativeNavigation(LatLng target, {String mode = 'd'}) async {
+    final lat = target.latitude;
+    final lng = target.longitude;
+    // Try native map URI schemes first
+    final schemes = [
+      'geo:$lat,$lng?q=$lat,$lng&mode=$mode', // Android / Google Maps
+      'maps:?daddr=$lat,$lng&dirflg=${mode == 'w' ? 'w' : 'd'}', // iOS Apple Maps
+    ];
+    for (final scheme in schemes) {
+      final uri = Uri.parse(scheme);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+    // Fallback to web URL
+    final travelMode = mode == 'w' ? 'walking' : 'driving';
+    final webUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=$travelMode',
+    );
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
   void _enableMapTapModeForStart() {
     final mapProvider = context.read<MapControllerProvider>();
     // Enable map tap mode and listen for tap events
@@ -824,18 +879,25 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               onSelectFromMap: _enableMapTapModeForTarget,
               mapTappedPosition: _targetMapTappedPosition,
               centerPositionKey: mapControllerProvider.centerPositionKey,
+              onOpenNavigation: (coords, mode) => _openNativeNavigation(coords, mode: mode),
               subtitle: _selectedPositionKey != null
                   ? () {
+                      final targetCoords = _getCoordinatesForKey(_selectedPositionKey);
+                      final coordStr = targetCoords != null
+                          ? '\nLat: ${targetCoords.latitude.toStringAsFixed(6)}, Lon: ${targetCoords.longitude.toStringAsFixed(6)}'
+                          : '';
                       // Use calculated navigation from steps if available
                       if (_calculatedNavigation != null) {
                         final calcDistance = _calculatedNavigation!['distance']!;
                         final calcBearing = _calculatedNavigation!['azimuth']!;
-                        return 'Distanz: ${_formatDistance(calcDistance)}, Azimut: ${calcBearing.toStringAsFixed(1)} gon';
+                        return 'Distanz: ${_formatDistance(calcDistance)}, Azimut: ${calcBearing.toStringAsFixed(1)} gon$coordStr';
                       }
                       // Otherwise use direct distance/bearing
                       if (distance != null && bearing != null) {
-                        return 'Distanz: ${_formatDistance(distance)}, Azimut: ${bearing.toStringAsFixed(1)} gon';
+                        return 'Distanz: ${_formatDistance(distance)}, Azimut: ${bearing.toStringAsFixed(1)} gon$coordStr';
                       }
+                      // Only coordinates available
+                      if (coordStr.isNotEmpty) return coordStr.trim();
                       return null;
                     }()
                   : null,

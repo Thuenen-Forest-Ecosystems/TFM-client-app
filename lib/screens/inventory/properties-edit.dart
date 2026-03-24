@@ -1411,10 +1411,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     rootSchema: _rootSchema,
                     tooltip: 'Informationen',
                   ),
-                  IconButton(
+                  /*IconButton(
                     icon: const Icon(Icons.map, size: 20),
                     onPressed: () => _focusRecord(context),
-                  ),
+                  ),*/
                   //const SizedBox(width: 8),
                   Expanded(
                     child: Column(
