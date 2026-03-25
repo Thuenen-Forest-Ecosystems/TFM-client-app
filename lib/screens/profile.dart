@@ -4,6 +4,7 @@ import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
+import 'package:terrestrial_forest_monitor/widgets/settings/gnss-test-btn.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/download-schemas-btn.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';

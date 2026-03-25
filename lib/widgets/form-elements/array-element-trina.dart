@@ -2465,7 +2465,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                             _rows = _stateManager?.rows ?? _rows;
                           },
                           configuration: TrinaGridConfiguration(
-                            scrollbar: const TrinaGridScrollbarConfig(isAlwaysShown: true),
+                            scrollbar: const TrinaGridScrollbarConfig(
+                              showVertical: false,
+                              showHorizontal: false,
+                            ),
                             columnSize: const TrinaGridColumnSizeConfig(
                               resizeMode: TrinaResizeMode.normal,
                             ),
