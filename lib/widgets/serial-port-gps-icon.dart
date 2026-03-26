@@ -473,3 +473,349 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
     );
   }
 }
+
+// ─── Standalone bottom-sheet widget (mirrors BluetoothDeviceMenuSheet) ────────
+
+class SerialPortMenuSheet extends StatefulWidget {
+  const SerialPortMenuSheet({super.key});
+
+  @override
+  State<SerialPortMenuSheet> createState() => _SerialPortMenuSheetState();
+}
+
+class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
+  List<SerialPortDevice> _availablePorts = [];
+  bool _isScanning = false;
+  String? _connectedPort;
+  SerialPort? _activePort;
+  SerialPortReader? _reader;
+  StreamSubscription? _readerSubscription;
+  String? _serialPortError;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-scan when sheet opens
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _scanPorts();
+    });
+  }
+
+  Future<void> _scanPorts() async {
+    setState(() {
+      _availablePorts = [];
+      _isScanning = true;
+      _serialPortError = null;
+    });
+
+    try {
+      final ports =
+          await Future.delayed(
+            const Duration(milliseconds: 100),
+            () => SerialPort.availablePorts,
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('Serial port scan timeout');
+              throw TimeoutException('Serial port scan timed out');
+            },
+          );
+
+      final devices = <SerialPortDevice>[];
+      for (final portName in ports) {
+        try {
+          final port = SerialPort(portName);
+          final description = port.description ?? 'Unknown Device';
+          devices.add(
+            SerialPortDevice(
+              name: portName,
+              description: description.isEmpty ? 'Serial Device' : description,
+            ),
+          );
+          port.dispose();
+        } catch (e) {
+          debugPrint('Error reading port $portName: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _availablePorts = devices;
+          _isScanning = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error scanning ports: $e');
+      final errorMessage = e.toString().contains('TimeoutException')
+          ? 'Serial port scan timed out. Try disabling VPN or closing other apps that use COM ports.'
+          : 'Failed to scan serial ports: $e';
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+          _serialPortError = errorMessage;
+        });
+      }
+    }
+  }
+
+  Future<void> _connectToSerialPort(String portName) async {
+    try {
+      final gpsProvider = context.read<GpsPositionProvider>();
+      gpsProvider.stopAll();
+      await _disconnectSerialPort();
+
+      _activePort = SerialPort(portName);
+      if (!_activePort!.openReadWrite()) {
+        throw Exception('Failed to open port: ${SerialPort.lastError}');
+      }
+
+      final config = SerialPortConfig();
+      config.baudRate = 9600;
+      config.bits = 8;
+      config.stopBits = 1;
+      config.parity = SerialPortParity.none;
+      _activePort!.config = config;
+
+      _reader = SerialPortReader(_activePort!);
+      _readerSubscription = _reader!.stream.listen(
+        (data) => gpsProvider.processSerialPortData(data),
+        onError: (error) {
+          debugPrint('Serial port read error: $error');
+          _disconnectSerialPort();
+        },
+        onDone: () {
+          debugPrint('Serial port connection closed');
+          _disconnectSerialPort();
+        },
+      );
+
+      setState(() {
+        _connectedPort = portName;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Connecting to GPS on $portName...')));
+      }
+    } catch (e) {
+      debugPrint('Error connecting to serial port: $e');
+      await _disconnectSerialPort();
+    }
+  }
+
+  Future<void> _disconnectSerialPort() async {
+    await _readerSubscription?.cancel();
+    _readerSubscription = null;
+    _reader = null;
+    _activePort?.close();
+    _activePort?.dispose();
+    _activePort = null;
+    if (mounted) {
+      setState(() {
+        _connectedPort = null;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _disconnectSerialPort();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'GPS Devices',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              if (_isScanning)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              if (!_isScanning)
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _scanPorts,
+                  tooltip: 'Scan for serial ports',
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Connected device info
+          Consumer<GpsPositionProvider>(
+            builder: (context, gpsProvider, child) {
+              final nmea = gpsProvider.currentNMEA;
+              final isInternalGPS = gpsProvider.listeningPosition && _connectedPort == null;
+              final lastPos = gpsProvider.lastPosition;
+
+              if (_connectedPort != null) {
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.usb, color: Colors.green),
+                    title: Text(_connectedPort!),
+                    subtitle: nmea != null && nmea.latitude != null
+                        ? Text(
+                            'Position: ${nmea.latitude!.toStringAsFixed(6)}, ${nmea.longitude!.toStringAsFixed(6)}\n'
+                            'Satellites: ${nmea.satellites ?? 0}',
+                          )
+                        : const Text('Waiting for GPS signal...'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () async {
+                        await _disconnectSerialPort();
+                        gpsProvider.stopAll();
+                      },
+                      tooltip: 'Disconnect',
+                    ),
+                  ),
+                );
+              } else if (isInternalGPS) {
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.smartphone),
+                    title: const Text('Internal GPS'),
+                    subtitle: lastPos != null
+                        ? Text(
+                            'Position: ${lastPos.latitude.toStringAsFixed(6)}, ${lastPos.longitude.toStringAsFixed(6)}\n'
+                            'Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m',
+                          )
+                        : const Text('Acquiring position...'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => gpsProvider.stopAll(),
+                      tooltip: 'Stop GPS',
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+
+          const SizedBox(height: 16),
+          const Text(
+            'Available Serial Ports',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+
+          if (_serialPortError != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _serialPortError!,
+                      style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          Expanded(
+            child: _availablePorts.isEmpty
+                ? Center(
+                    child: _isScanning
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Scanning serial ports...'),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _serialPortError != null ? Icons.error_outline : Icons.info_outline,
+                                size: 48,
+                                color: _serialPortError != null ? Colors.orange : Colors.grey,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _serialPortError != null
+                                    ? 'Unable to scan serial ports'
+                                    : 'No serial ports found',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              if (_serialPortError == null)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'Click refresh to scan',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                ),
+                            ],
+                          ),
+                  )
+                : ListView.builder(
+                    itemCount: _availablePorts.length,
+                    itemBuilder: (context, index) {
+                      final device = _availablePorts[index];
+                      final isConnected = device.name == _connectedPort;
+                      return Card(
+                        child: ListTile(
+                          leading: Icon(Icons.usb, color: isConnected ? Colors.green : null),
+                          title: Text(device.name),
+                          subtitle: Text(device.description),
+                          trailing: isConnected
+                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              : ElevatedButton(
+                                  onPressed: () => _connectToSerialPort(device.name),
+                                  child: const Text('Connect'),
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Consumer<GpsPositionProvider>(
+            builder: (context, gpsProvider, child) {
+              final isInternalGPS = gpsProvider.listeningPosition && _connectedPort == null;
+              return SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _connectedPort == null && !isInternalGPS
+                      ? () => gpsProvider.startInternalGps()
+                      : null,
+                  icon: const Icon(Icons.smartphone),
+                  label: const Text('Use Internal GPS'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}

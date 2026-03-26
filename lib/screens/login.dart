@@ -8,6 +8,7 @@ import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
+import 'package:terrestrial_forest_monitor/widgets/serial-port-gps-icon.dart';
 import 'package:terrestrial_forest_monitor/widgets/network-wrapper.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -523,8 +524,9 @@ class _LoginState extends State<Login> {
                                       isDismissible: true,
                                       enableDrag: true,
                                       isScrollControlled: true,
-                                      builder: (context) =>
-                                          const BluetoothDeviceMenuSheet(popOnConnect: false),
+                                      builder: (context) => !kIsWeb && Platform.isWindows
+                                          ? const SerialPortMenuSheet()
+                                          : const BluetoothDeviceMenuSheet(popOnConnect: false),
                                     );
                                   },
                                   icon: const Icon(Icons.satellite_alt, size: 16),

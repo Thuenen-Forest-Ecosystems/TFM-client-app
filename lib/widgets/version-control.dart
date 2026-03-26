@@ -181,6 +181,27 @@ class _VersionControlState extends State<VersionControl> {
               ),
 
               if (hasUpdate) Icon(Icons.open_in_new, color: textColor, size: 20),
+              const Spacer(),
+              IconButton(
+                icon: _isChecking
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: textColor),
+                      )
+                    : Icon(Icons.refresh, color: textColor, size: 20),
+                onPressed: _isChecking
+                    ? null
+                    : () {
+                        setState(() {
+                          _hasChecked = false;
+                          _latestVersion = null;
+                          _releaseUrl = null;
+                        });
+                        _checkForUpdates();
+                      },
+                tooltip: 'Nach Updates suchen',
+              ),
             ],
           ),
         ),
