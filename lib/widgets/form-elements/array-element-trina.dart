@@ -89,6 +89,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   Set<int> _activeFilterIndices = {};
   bool _filtersLoaded = false;
 
+  // Maps field name -> layout item config for calculated columns (used to pre-compute sortable cell values)
+  final Map<String, Map<String, dynamic>> _calculatedColumnConfigs = {};
+
   @override
   void initState() {
     super.initState();
@@ -338,6 +341,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       debugPrint('🔒 Array ${widget.propertyName} is READONLY - row operations disabled');
     }
 
+    _calculatedColumnConfigs.clear();
     _columns = _buildColumns();
     _originalColumnWidths.clear();
     for (final col in _columns) {
@@ -452,6 +456,45 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return isDark ? Colors.grey.withAlpha(30) : Colors.grey.withAlpha(25);
     }
     return null;
+  }
+
+  /// Evaluate a calculated column's expression to get a sortable/storable value.
+  /// Only handles expression-based calculated fields (not calculatedFunction).
+  /// Returns a numeric value if the expression resolves to a number, otherwise a string.
+  dynamic _resolveCalculatedValue(
+    Map<String, dynamic> config,
+    Map<String, dynamic> currentRowData,
+    Map<String, dynamic>? previousRowData,
+  ) {
+    final expression = config['expression'] as String?;
+    if (expression == null || expression.isEmpty) return null;
+
+    final variables = config['variables'] as List?;
+    if (variables == null || variables.isEmpty) return null;
+
+    String processedExpression = expression;
+    for (final variable in variables) {
+      if (variable is! Map<String, dynamic>) continue;
+      final varName = variable['name'] as String?;
+      final source = variable['source'] as String?;
+      if (varName == null || source == null) continue;
+
+      final dataSource = source == 'previousData' ? previousRowData : currentRowData;
+      if (dataSource == null) {
+        processedExpression = processedExpression.replaceAll(RegExp('\\b$varName\\b'), '0');
+        continue;
+      }
+
+      final fieldKey = varName.startsWith('previous_') ? varName.substring(9) : varName;
+      final value = dataSource[fieldKey];
+      final numVal = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
+      processedExpression = processedExpression.replaceAll(
+        RegExp('\\b$varName\\b'),
+        (numVal ?? 0.0).toString(),
+      );
+    }
+
+    return double.tryParse(processedExpression.trim());
   }
 
   /// Check if current row has matching data in previous inventory (by identifier)
@@ -726,6 +769,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         bool isCalculated = type == 'calculated';
         bool isNestedArray = false;
         Map<String, dynamic>? nestedArrayConfig;
+
+        if (isCalculated) {
+          _calculatedColumnConfigs[fieldName] = itemConfig;
+        }
 
         if (type == 'array' && itemConfig['component'] == 'datagrid') {
           isNestedArray = true;
@@ -1182,6 +1229,32 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               rowData[column.field] = cellValue;
               debugPrint('  ⚙️ Applied default for ${column.field} = $cellValue during grid init');
             }
+          }
+
+          // For calculated columns, pre-compute a sortable value
+          if (cellValue == null && _calculatedColumnConfigs.containsKey(column.field)) {
+            Map<String, dynamic>? previousRowData;
+            if (widget.previousData != null) {
+              final identifierFields = widget.identifierField != null
+                  ? [widget.identifierField!]
+                  : ['tree_number', 'edge_number', 'row_number', 'id'];
+              for (final idField in identifierFields) {
+                if (rowData.containsKey(idField) && rowData[idField] != null) {
+                  previousRowData = (widget.previousData as List)
+                      .cast<Map<String, dynamic>?>()
+                      .firstWhere(
+                        (prevRow) => prevRow != null && prevRow[idField] == rowData[idField],
+                        orElse: () => null,
+                      );
+                  if (previousRowData != null) break;
+                }
+              }
+            }
+            cellValue = _resolveCalculatedValue(
+              _calculatedColumnConfigs[column.field]!,
+              rowData,
+              previousRowData,
+            );
           }
 
           cells[column.field] = TrinaCell(value: cellValue);
