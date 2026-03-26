@@ -472,7 +472,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
   String _calculateHeightMeasurementSuitability() {
     // Helper function to evaluate suitability from an arbitrary data map
     String _evaluate(Map<String, dynamic>? data) {
-      if (data == null) return "-----";
+      if (data == null) return "-";
 
       num? getVal(String key) {
         final value = data[key];
@@ -490,7 +490,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final standLayer = getVal('stand_layer');
 
       if (treeStatus == null || (treeStatus != 0 && treeStatus != 1)) {
-        return "-----";
+        return "-";
       }
 
       bool unsuitable = false;
@@ -558,7 +558,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
       Widget displayWidget;
       if (isBooleanIcon && displayMode != 'text') {
         // Show icon for true (1), nothing for false (0)
-        if (numericValue == 1) {
+        if (numericValue == 1 && widget.fieldOptions?['icon'] != null) {
           // Get icon from field schema or options
           final iconName =
               widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
@@ -601,7 +601,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
         if (calculatedValue == '+' || calculatedValue == '++') {
           final iconName =
               widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
-          IconData iconData;
+          IconData? iconData;
           switch (iconName) {
             case 'height':
               iconData = Icons.height;
@@ -617,10 +617,12 @@ class _GenericTextFieldState extends State<GenericTextField> {
               iconData = Icons.flag;
               break;
             default:
-              iconData = Icons.check_circle;
+              iconData = null;
           }
-          rowChildren.add(Icon(iconData, color: suitabilityColor, size: widget.compact ? 18 : 20));
-          rowChildren.add(const SizedBox(width: 4));
+          if (iconData != null) {
+            rowChildren.add(Icon(iconData, color: suitabilityColor, size: widget.compact ? 18 : 20));
+            rowChildren.add(const SizedBox(width: 4));
+          }
         }
 
         rowChildren.add(
@@ -634,7 +636,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
           ),
         );
 
-        displayWidget = Row(mainAxisSize: MainAxisSize.min, children: rowChildren);
+        displayWidget = Row(mainAxisSize: MainAxisSize.max, mainAxisAlignment: MainAxisAlignment.center, children: rowChildren);
       } else if (calculatedValue.isEmpty ||
           calculatedValue == '0' ||
           calculatedValue.startsWith('Error') ||
