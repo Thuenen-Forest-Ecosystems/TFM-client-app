@@ -468,70 +468,53 @@ class _GenericTextFieldState extends State<GenericTextField> {
   }
 
   /// Calculate height measurement tree suitability
-  /// Returns: "-----" (not in sample), "-" (unsuitable), "?" (unclear), "+" (suitable)
+  /// Returns: "-----" (not in sample), "-" (unsuitable), "?" (unclear), "+" (suitable), "++" (suitable + was suitable in previous survey)
   String _calculateHeightMeasurementSuitability() {
-    String suitability = "?????";
+    // Helper function to evaluate suitability from an arbitrary data map
+    String _evaluate(Map<String, dynamic>? data) {
+      if (data == null) return "-----";
 
-    // Helper function to safely get numeric value from dynamic data
-    num? getNumValue(String key) {
-      final value = widget.currentData?[key];
-      if (value == null) return null;
-      if (value is num) return value;
-      if (value is bool) return value ? 1 : 0;
-      if (value is String) return num.tryParse(value);
-      return null;
+      num? getVal(String key) {
+        final value = data[key];
+        if (value == null) return null;
+        if (value is num) return value;
+        if (value is bool) return value ? 1 : 0;
+        if (value is String) return num.tryParse(value);
+        return null;
+      }
+
+      final treeStatus = getVal('tree_status');
+      final stemForm = getVal('stem_form');
+      final stemBreakage = getVal('stem_breakage');
+      final damageDead = getVal('damage_dead');
+      final standLayer = getVal('stand_layer');
+
+      if (treeStatus == null || (treeStatus != 0 && treeStatus != 1)) {
+        return "-----";
+      }
+
+      bool unsuitable = false;
+      if (stemForm == 2 || stemForm == 3) unsuitable = true;
+      if (stemBreakage == 1 || stemBreakage == 2) unsuitable = true;
+      if (damageDead == 1 || damageDead == true) unsuitable = true;
+      if (standLayer == 9) unsuitable = true;
+      if (unsuitable) return "-";
+
+      bool dataIncomplete = false;
+      if (stemForm == null) dataIncomplete = true;
+      if (stemBreakage == null) dataIncomplete = true;
+      if (damageDead == null) dataIncomplete = true;
+      if (standLayer == null) dataIncomplete = true;
+      if (dataIncomplete) return "?";
+
+      return "+";
     }
 
-    // Get current data fields
-    final treeStatus = getNumValue('tree_status');
-    final stemForm = getNumValue('stem_form');
-    final stemBreakage = getNumValue('stem_breakage');
-    final damageDead = getNumValue('damage_dead');
-    final standLayer = getNumValue('stand_layer');
-    final distance = getNumValue('distance');
-
-    // Check: Not in sample (tree_status != 0 and != 1)
-    // Pk = 0 (lebend stehend) or 1 (liegend tot)
-    if (treeStatus == null || (treeStatus != 0 && treeStatus != 1)) {
-      return "-----";
+    final current = _evaluate(widget.currentData);
+    if (current == "+" && _evaluate(widget.previousData) == "+") {
+      return "++";
     }
-
-    // TODO: GrenzToleranz check - where does this value come from?
-    // Original: if (GrenzToleranz < distance) return "-----";
-    // This might need to come from plot/position data
-
-    // Now check for unsuitability based on tree properties
-    bool unsuitable = false;
-
-    // Kst (stem_form): 2 = Zwiesel, 3 = Kein Einzelstamm
-    if (stemForm == 2 || stemForm == 3) unsuitable = true;
-
-    // Kh (stem_breakage): 1 = Wipfelbruch, 2 = Kronenbruch
-    if (stemBreakage == 1 || stemBreakage == 2) unsuitable = true;
-
-    // Tot (damage_dead): 1 = Ja (dead) - could be boolean or numeric
-    if (damageDead == 1 || damageDead == true) unsuitable = true;
-
-    // Bs (stand_layer): 9 = ? (unclear layer)
-    if (standLayer == 9) unsuitable = true;
-
-    if (unsuitable) {
-      return "-";
-    }
-
-    // Check if data is complete (for "?" unclear status)
-    bool dataIncomplete = false;
-    if (stemForm == null) dataIncomplete = true;
-    if (stemBreakage == null) dataIncomplete = true;
-    if (damageDead == null) dataIncomplete = true;
-    if (standLayer == null) dataIncomplete = true;
-
-    if (dataIncomplete) {
-      return "?";
-    }
-
-    // All checks passed and data complete -> suitable
-    return "+";
+    return current;
   }
 
   @override
@@ -604,36 +587,54 @@ class _GenericTextFieldState extends State<GenericTextField> {
         } else {
           displayWidget = const SizedBox.shrink(); // Empty for false
         }
-      } else if (displayMode == 'text' && calculatedValue == '+') {
-        // Special case: For suitability functions, show icon if suitable ("+")
-        final iconName =
-            widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
+      } else if (displayMode == 'text' &&
+          (calculatedValue == '++' ||
+              calculatedValue == '+' ||
+              calculatedValue == '-' ||
+              calculatedValue == '?' ||
+              calculatedValue == '-----')) {
+        // Suitability result - show icon (for '+' / '++') and the text value
+        const Color suitabilityColor = Colors.white;
 
-        // Map icon name to Flutter IconData
-        IconData iconData;
-        switch (iconName) {
-          case 'height':
-            iconData = Icons.height;
-            break;
-          case 'check':
-          case 'check_circle':
-            iconData = Icons.check_circle;
-            break;
-          case 'star':
-            iconData = Icons.star;
-            break;
-          case 'flag':
-            iconData = Icons.flag;
-            break;
-          default:
-            iconData = Icons.check_circle; // Fallback
+        final List<Widget> rowChildren = [];
+
+        if (calculatedValue == '+' || calculatedValue == '++') {
+          final iconName =
+              widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
+          IconData iconData;
+          switch (iconName) {
+            case 'height':
+              iconData = Icons.height;
+              break;
+            case 'check':
+            case 'check_circle':
+              iconData = Icons.check_circle;
+              break;
+            case 'star':
+              iconData = Icons.star;
+              break;
+            case 'flag':
+              iconData = Icons.flag;
+              break;
+            default:
+              iconData = Icons.check_circle;
+          }
+          rowChildren.add(Icon(iconData, color: suitabilityColor, size: widget.compact ? 18 : 20));
+          rowChildren.add(const SizedBox(width: 4));
         }
 
-        displayWidget = Icon(iconData, size: widget.compact ? 20 : 24);
-      } else if (displayMode == 'text' &&
-          (calculatedValue == '-' || calculatedValue == '?' || calculatedValue == '-----')) {
-        // Not suitable, unclear, or not in sample - show nothing
-        displayWidget = const SizedBox.shrink();
+        rowChildren.add(
+          Text(
+            calculatedValue,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: suitabilityColor,
+            ),
+          ),
+        );
+
+        displayWidget = Row(mainAxisSize: MainAxisSize.min, children: rowChildren);
       } else if (calculatedValue.isEmpty ||
           calculatedValue == '0' ||
           calculatedValue.startsWith('Error') ||
