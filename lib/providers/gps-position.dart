@@ -105,6 +105,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   CurrentNMEA? get currentNMEA => _currentNMEA;
   String get headingSource => _headingSource;
 
+  // Serial port (USB/COM) connection name
+  String? connectedSerialPortName;
+
   /// Whether position data comes from an external GNSS device (BLE or Classic Bluetooth).
   /// When true, compass heading is unreliable (phone orientation != walking direction).
   bool get isUsingExternalGnss => connectedDevice != null || connectedClassicDevice != null;

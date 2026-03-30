@@ -556,6 +556,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         enableSorting: false,
         enableColumnDrag: false,
         enableContextMenu: false,
+        enableDropToResize: false,
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
@@ -652,6 +653,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         enableSorting: false,
         enableColumnDrag: false,
         enableContextMenu: false,
+        enableDropToResize: false,
         readOnly: true,
         enableEditingMode: false,
         renderer: (rendererContext) {
@@ -680,6 +682,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableSorting: false,
           enableColumnDrag: false,
           enableContextMenu: false,
+          enableDropToResize: false,
           readOnly: true,
           enableEditingMode: false,
           renderer: (rendererContext) {
@@ -801,6 +804,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableSorting: true,
           enableColumnDrag: false,
           enableContextMenu: false,
+          enableDropToResize: frozen == TrinaColumnFrozen.none,
           readOnly: isReadOnly || isCalculated,
           enableEditingMode: false,
           renderer: isNestedArray
@@ -1018,6 +1022,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableSorting: true,
           enableColumnDrag: false,
           enableContextMenu: false,
+          enableDropToResize: frozen == TrinaColumnFrozen.none,
           readOnly: isReadOnly || isCalculated,
           enableEditingMode: false,
           // Custom renderer for calculated, enum, numeric, boolean, nested array, or grouped columns
@@ -2551,7 +2556,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                             tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
                             style: TrinaGridStyleConfig(
                               rowHeight: 60,
-                              iconSize: 0,
+                              iconSize: 18,
                               gridBorderRadius: BorderRadius.zero,
                               enableGridBorderShadow: false,
                               gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,

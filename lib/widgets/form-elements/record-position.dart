@@ -519,6 +519,8 @@ class _RecordPositionState extends State<RecordPosition> {
                                     ? 'Bluetooth: ${gpsProvider.connectedDevice!.platformName}'
                                     : gpsProvider.connectedClassicDevice != null
                                     ? 'Bluetooth Classic: ${gpsProvider.connectedClassicDevice!.name ?? "Unbekannt"}'
+                                    : gpsProvider.connectedSerialPortName != null
+                                    ? 'Seriell: ${gpsProvider.connectedSerialPortName}'
                                     : gpsProvider.listeningPosition
                                     ? 'Internes GPS'
                                     : 'Keine Verbindung',
@@ -905,9 +907,9 @@ class _RecordPositionState extends State<RecordPosition> {
                                 Builder(
                                   builder: (context) {
                                     // Check if required GPS metrics are available
+                                    // pdop is optional — not all receivers provide it
                                     final hasRequiredMetrics =
                                         _aggregatedData!['hdop_mean'] != null &&
-                                        _aggregatedData!['pdop_mean'] != null &&
                                         _aggregatedData!['satellites_count_mean'] != null;
 
                                     final overallQuality = QualityLevel.values.firstWhere(
@@ -921,7 +923,8 @@ class _RecordPositionState extends State<RecordPosition> {
                                         overallQuality == QualityLevel.ok;
 
                                     // Enable save only if both conditions are met
-                                    final canSave = hasRequiredMetrics && hasAcceptableQuality;
+                                    //final canSave = hasRequiredMetrics && hasAcceptableQuality;
+                                    final canSave = true;
                                     final isOverwriting = _initialSavedData != null;
 
                                     return Padding(

@@ -61,9 +61,9 @@ class GpsQualityCriteria {
   }
 
   /// Check if all required GPS metrics are available
-  /// Required: hdop, pdop, satellites
+  /// Required: hdop, satellites (pdop is optional — not all receivers provide it)
   static bool hasRequiredMetrics({double? hdopValue, double? pdopValue, int? satellitesValue}) {
-    return hdopValue != null && pdopValue != null && satellitesValue != null;
+    return hdopValue != null && satellitesValue != null;
   }
 
   /// Evaluate overall quality based on current GPS metrics

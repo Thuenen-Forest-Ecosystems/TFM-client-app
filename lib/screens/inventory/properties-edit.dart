@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
-import 'package:universal_io/io.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -241,7 +239,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       try {
         Map<String, dynamic>? validationSchema;
         String? tfmValidationCode;
-        final directory = latestSchema.directory;
 
         // First try: Use data from schema table columns (regardless of directory)
         if (latestSchema.schemaData != null) {
@@ -277,67 +274,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           tfmValidationCode = latestSchema.plausabilityScript;
         }
 
-        // Fallback: Load from downloaded files if not in database
-        if (directory != null) {
-          final appDirectory = await getApplicationDocumentsDirectory();
-
-          if (validationSchema == null) {
-            debugPrint('⚠️ Falling back to loading validation.json from file: $directory');
-            final validationFilePath =
-                '${appDirectory.path}/TFM/validation/$directory/validation.json';
-            final validationFile = File(validationFilePath);
-
-            if (await validationFile.exists()) {
-              final validationContent = await validationFile.readAsString();
-              final Map<String, dynamic> validationJson = jsonDecode(validationContent);
-              debugPrint('Validation file keys: ${validationJson.keys.toList()}');
-
-              // Safely navigate nested structure with debugging
-              if (validationJson.containsKey('properties')) {
-                final properties = validationJson['properties'] as Map<String, dynamic>?;
-                debugPrint('Properties keys from file: ${properties?.keys.toList()}');
-
-                if (properties != null && properties.containsKey('plot')) {
-                  final plot = properties['plot'] as Map<String, dynamic>?;
-                  debugPrint('Plot keys from file: ${plot?.keys.toList()}');
-
-                  if (plot != null && plot.containsKey('items')) {
-                    validationSchema = plot['items'] as Map<String, dynamic>?;
-                    debugPrint('✅ Loaded validation schema from file');
-                  } else {
-                    debugPrint('❌ "items" key not found in plot object from file');
-                  }
-                } else {
-                  debugPrint('❌ "plot" key not found in properties object from file');
-                }
-              } else {
-                debugPrint('❌ "properties" key not found in validation file');
-              }
-            } else {
-              debugPrint('❌ validation.json not found at: $validationFilePath');
-            }
-          }
-
-          if (tfmValidationCode == null) {
-            debugPrint('⚠️ Falling back to loading bundle.umd.js from file: $directory');
-            final tfmFilePath = '${appDirectory.path}/TFM/validation/$directory/bundle.umd.js';
-            final tfmFile = File(tfmFilePath);
-
-            if (await tfmFile.exists()) {
-              tfmValidationCode = await tfmFile.readAsString();
-              debugPrint('✅ Loaded plausability script from file');
-            } else {
-              debugPrint('❌ bundle.umd.js not found at: $tfmFilePath');
-            }
-          }
-        }
+        // File-based fallback is deprecated and disabled.
+        // Schema data and plausibility scripts must come from the database.
 
         // Check if we have the required validation schema
         if (validationSchema == null) {
           debugPrint('❌ No validation schema available');
           if (mounted) {
             setState(() {
-              _error = 'Validation schema not available in database or files';
+              _error = 'Validation schema not available in database';
               _isLoading = false;
             });
           }
@@ -1195,18 +1140,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
         debugPrint('✅ Loaded $styleColumn from database');
       }
-      // Fallback: Load from file
-      else if (_schemaDirectory != null) {
-        debugPrint('⚠️ Falling back to loading style from file');
-        final appDirectory = await getApplicationDocumentsDirectory();
-        final stylePath = '${appDirectory.path}/TFM/validation/$_schemaDirectory/style.json';
-        final styleFile = File(stylePath);
-
-        if (await styleFile.exists()) {
-          final styleContent = await styleFile.readAsString();
-          styleJson = jsonDecode(styleContent);
-        }
-      }
+      // File-based style fallback is deprecated and disabled.
+      // Style data must come from the database.
 
       if (styleJson == null) {
         if (mounted) {

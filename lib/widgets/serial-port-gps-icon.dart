@@ -142,6 +142,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
       setState(() {
         _connectedPort = portName;
       });
+      gpsProvider.connectedSerialPortName = portName;
 
       if (mounted && context.mounted) {
         try {
@@ -175,6 +176,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
       setState(() {
         _connectedPort = null;
       });
+      context.read<GpsPositionProvider>().connectedSerialPortName = null;
     }
   }
 
@@ -592,6 +594,7 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
       setState(() {
         _connectedPort = portName;
       });
+      gpsProvider.connectedSerialPortName = portName;
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -615,6 +618,7 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
       setState(() {
         _connectedPort = null;
       });
+      context.read<GpsPositionProvider>().connectedSerialPortName = null;
     }
   }
 
