@@ -74,11 +74,21 @@ class _GenericFormState extends State<GenericForm> {
         ? '/${widget.propertyName}/$fieldName'
         : '/$fieldName';
 
-    return widget.validationResult!.ajvErrors.where((error) {
+    final errors = widget.validationResult!.ajvErrors.where((error) {
       final path = error.instancePath ?? '';
       // Match exact field or nested within field
       return path == propertyPath || path.startsWith('$propertyPath/');
     }).toList();
+
+    // Also check TFM plausibility errors
+    for (final tfmError in widget.validationResult!.tfmErrors) {
+      final path = tfmError.instancePath ?? '';
+      if (path == propertyPath || path.startsWith('$propertyPath/')) {
+        errors.add(ValidationError(instancePath: tfmError.instancePath, message: tfmError.message));
+      }
+    }
+
+    return errors;
   }
 
   @override

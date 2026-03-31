@@ -44,6 +44,7 @@ class ArrayRowFormDialog extends StatefulWidget {
   }) async {
     return await showDialog<Map<String, dynamic>>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => ArrayRowFormDialog(
         itemSchema: itemSchema,
         initialData: initialData,

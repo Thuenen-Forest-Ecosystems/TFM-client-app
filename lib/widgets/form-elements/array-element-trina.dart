@@ -433,13 +433,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final originalIndex = row.cells['__original_index__']?.value as int?;
     if (originalIndex == null) return false;
 
-    final errors = widget.validationResult!.ajvErrors;
-
-    // Check for errors like: "/propertyName/0/fieldKey" or "/propertyName/0"
+    // Only match field-specific errors like: "/propertyName/0/fieldKey"
+    // Row-level errors ("/propertyName/0") should NOT cascade to individual cells
     final cellPath = '/${widget.propertyName}/$originalIndex/$fieldKey';
-    final rowPath = '/${widget.propertyName}/$originalIndex';
 
-    return errors.any((error) => error.instancePath == cellPath || error.instancePath == rowPath);
+    // Check AJV validation errors
+    final ajvErrors = widget.validationResult!.ajvErrors;
+    if (ajvErrors.any((error) => error.instancePath == cellPath)) {
+      return true;
+    }
+
+    // Check TFM plausibility errors
+    final tfmErrors = widget.validationResult!.tfmErrors;
+    return tfmErrors.any((error) => error.instancePath == cellPath);
   }
 
   /// Get background color for cell based on validation state or readonly status
@@ -707,6 +713,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       TrinaColumn? createColumnFromItem(Map<String, dynamic> itemConfig) {
         final fieldName = itemConfig['name'] as String?;
         if (fieldName == null) return null;
+        if (itemConfig['display'] == false) return null;
 
         // Get schema for this field (or create synthetic for calculated)
         Map<String, dynamic> propertySchema;
@@ -1265,6 +1272,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           cells[column.field] = TrinaCell(value: cellValue);
         }
       }
+
+      // Preserve hidden fields (display: false) as orphan cells so they survive _notifyDataChanged
+      rowData.forEach((key, value) {
+        if (!cells.containsKey(key)) cells[key] = TrinaCell(value: value);
+      });
 
       // Store original data array index for validation lookup (survives sorting/filtering)
       cells['__original_index__'] = TrinaCell(value: originalIndex);
@@ -1975,6 +1987,31 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return fields;
   }
 
+  /// Collect default values defined in columnItems (and nested groups).
+  /// Returns a map of fieldName → defaultValue.
+  Map<String, dynamic> _getColumnItemDefaultsMap() {
+    final defaults = <String, dynamic>{};
+    if (widget.columnItems == null) return defaults;
+
+    void processItem(Map<String, dynamic> item) {
+      final name = item['name'] as String?;
+      if (name != null && item.containsKey('default')) {
+        defaults[name] = item['default'];
+      }
+      final children = item['items'] as List?;
+      if (children != null) {
+        for (final child in children) {
+          if (child is Map<String, dynamic>) processItem(child);
+        }
+      }
+    }
+
+    for (final item in widget.columnItems!) {
+      if (item is Map<String, dynamic>) processItem(item);
+    }
+    return defaults;
+  }
+
   /// Compute the next auto-increment value for a field given current rows.
   int _computeNextAutoIncrementValue(String key, Map<String, dynamic> propertySchema) {
     final existingValues = _rows
@@ -1997,6 +2034,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Pre-compute auto-increment values so the form opens with correct defaults.
     // Checks both schema ($tfm.form.autoIncrement) and columnItems/columnConfig.
     final autoIncrementInitialData = <String, dynamic>{};
+
+    // Apply defaults from columnItems first (lowest priority)
+    autoIncrementInitialData.addAll(_getColumnItemDefaultsMap());
+
     if (properties != null) {
       final autoIncrFields = _getAutoIncrementFields(properties);
       for (final key in autoIncrFields) {
@@ -2058,6 +2099,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           cells[column.field] = TrinaCell(value: newRow[column.field]);
         }
       }
+      // Preserve hidden fields (display: false) as orphan cells so they survive _notifyDataChanged
+      newRow.forEach((key, value) {
+        if (!cells.containsKey(key)) cells[key] = TrinaCell(value: value);
+      });
 
       // Set original index for new row (will be the current data length after adding)
       cells['__original_index__'] = TrinaCell(value: widget.data?.length ?? 0);
@@ -2101,6 +2146,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     final newRow = <String, dynamic>{};
 
+    // Seed with defaults from columnItems (overridden below by schema defaults / autoIncrement)
+    newRow.addAll(_getColumnItemDefaultsMap());
+
     debugPrint('🆕 Adding new row for ${widget.propertyName}');
 
     properties.forEach((key, value) {
@@ -2135,7 +2183,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
         debugPrint('  ✅ $key = ${newRow[key]} (default from schema)');
-      } else {
+      } else if (!newRow.containsKey(key)) {
+        // Only apply type-based default if not already seeded (e.g. from columnItems default)
         switch (type) {
           case 'string':
             newRow[key] = '';
@@ -2170,6 +2219,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         cells[column.field] = TrinaCell(value: newRow[column.field]);
       }
     }
+    // Preserve hidden fields (display: false) as orphan cells so they survive _notifyDataChanged
+    newRow.forEach((key, value) {
+      if (!cells.containsKey(key)) cells[key] = TrinaCell(value: value);
+    });
 
     // Set original index for new row (will be the current data length after adding)
     cells['__original_index__'] = TrinaCell(value: widget.data?.length ?? 0);
@@ -2445,16 +2498,28 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                 ),
                 child: Row(
                   children: [
-                    TextButton(
-                      onPressed: _isArrayReadOnly ? null : addRow,
-                      child: Text('Zeile hinzufügen'),
+                    Builder(
+                      builder: (context) {
+                        final maxRows = (widget.layoutOptions?['maxRows'] as num?)?.toInt();
+                        final atMax = maxRows != null && _rows.length >= maxRows;
+                        return TextButton(
+                          onPressed: (_isArrayReadOnly || atMax) ? null : addRow,
+                          child: Text('Zeile hinzufügen'),
+                        );
+                      },
                     ),
                     Container(width: 1, height: 24, color: Colors.white54),
-                    IconButton(
-                      onPressed: _addRowAsFormDialog,
-                      icon: const Icon(Icons.playlist_add),
-                      tooltip: 'Zeile über Formular hinzufügen',
-                      color: Theme.of(context).colorScheme.primary,
+                    Builder(
+                      builder: (context) {
+                        final maxRows = (widget.layoutOptions?['maxRows'] as num?)?.toInt();
+                        final atMax = maxRows != null && _rows.length >= maxRows;
+                        return IconButton(
+                          onPressed: atMax ? null : _addRowAsFormDialog,
+                          icon: const Icon(Icons.playlist_add),
+                          tooltip: 'Zeile über Formular hinzufügen',
+                          color: Theme.of(context).colorScheme.primary,
+                        );
+                      },
                     ),
                   ],
                 ),

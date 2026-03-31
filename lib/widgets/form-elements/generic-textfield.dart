@@ -468,53 +468,30 @@ class _GenericTextFieldState extends State<GenericTextField> {
   }
 
   /// Calculate height measurement tree suitability
-  /// Returns: "-----" (not in sample), "-" (unsuitable), "?" (unclear), "+" (suitable), "++" (suitable + was suitable in previous survey)
+  /// Returns: "-" (unsuitable), "⇕" (suitable), "⇕+" (suitable + was measured previously, or stem_breakage = 2)
   String _calculateHeightMeasurementSuitability() {
-    // Helper function to evaluate suitability from an arbitrary data map
-    String _evaluate(Map<String, dynamic>? data) {
-      if (data == null) return "-";
-
-      num? getVal(String key) {
-        final value = data[key];
-        if (value == null) return null;
-        if (value is num) return value;
-        if (value is bool) return value ? 1 : 0;
-        if (value is String) return num.tryParse(value);
-        return null;
-      }
-
-      final treeStatus = getVal('tree_status');
-      final stemForm = getVal('stem_form');
-      final stemBreakage = getVal('stem_breakage');
-      final damageDead = getVal('damage_dead');
-      final standLayer = getVal('stand_layer');
-
-      if (treeStatus == null || (treeStatus != 0 && treeStatus != 1)) {
-        return "-";
-      }
-
-      bool unsuitable = false;
-      if (stemForm == 2 || stemForm == 3) unsuitable = true;
-      if (stemBreakage == 1 || stemBreakage == 2) unsuitable = true;
-      if (damageDead == 1 || damageDead == true) unsuitable = true;
-      if (standLayer == 9) unsuitable = true;
-      if (unsuitable) return "-";
-
-      bool dataIncomplete = false;
-      if (stemForm == null) dataIncomplete = true;
-      if (stemBreakage == null) dataIncomplete = true;
-      if (damageDead == null) dataIncomplete = true;
-      if (standLayer == null) dataIncomplete = true;
-      if (dataIncomplete) return "?";
-
-      return "+";
+    num? getVal(String key) {
+      final value = widget.currentData?[key];
+      if (value == null) return null;
+      if (value is num) return value;
+      if (value is bool) return value ? 1 : 0;
+      if (value is String) return num.tryParse(value);
+      return null;
     }
 
-    final current = _evaluate(widget.currentData);
-    if (current == "+" && _evaluate(widget.previousData) == "+") {
-      return "++";
-    }
-    return current;
+    final treeStatus = getVal('tree_status');
+    final stemForm = getVal('stem_form');
+    final stemBreakage = getVal('stem_breakage');
+
+    // Only trees with tree_status = (0|1) and stem_form < 2 are suitable
+    if (treeStatus != 0 && treeStatus != 1) return '-';
+    if (stemForm == null || stemForm >= 2) return '-';
+
+    // Upgrade to "⇕+" if previously measured or stem_breakage = 2
+    final previousTreeHeight = widget.previousData?['tree_height'];
+    if (previousTreeHeight != null || stemBreakage == 2) return '+';
+
+    return '⇕'; // Icon only
   }
 
   @override
@@ -522,9 +499,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
     final type = _getType();
     final hasErrors = widget.errors.isNotEmpty;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final errorBgColor = hasErrors
-        ? (isDark ? const Color(0xFF5A1F1F) : const Color(0xFFFFCDD2))
-        : null;
 
     // Check if field is readonly (support both 'readOnly' camelCase and 'readonly' lowercase)
     final isReadonly =
@@ -590,15 +564,23 @@ class _GenericTextFieldState extends State<GenericTextField> {
       } else if (displayMode == 'text' &&
           (calculatedValue == '++' ||
               calculatedValue == '+' ||
+              calculatedValue == '⇕+' ||
+              calculatedValue == '⇕' ||
               calculatedValue == '-' ||
               calculatedValue == '?' ||
               calculatedValue == '-----')) {
-        // Suitability result - show icon (for '+' / '++') and the text value
+        // Suitability result - show icon and/or text label
         const Color suitabilityColor = Colors.white;
 
         final List<Widget> rowChildren = [];
 
-        if (calculatedValue == '+' || calculatedValue == '++') {
+        final bool showIcon =
+            calculatedValue == '+' ||
+            calculatedValue == '++' ||
+            calculatedValue == '⇕' ||
+            calculatedValue == '⇕+';
+
+        if (showIcon) {
           final iconName =
               widget.fieldSchema['icon'] as String? ?? widget.fieldOptions?['icon'] as String?;
           IconData? iconData;
@@ -620,23 +602,32 @@ class _GenericTextFieldState extends State<GenericTextField> {
               iconData = null;
           }
           if (iconData != null) {
-            rowChildren.add(Icon(iconData, color: suitabilityColor, size: widget.compact ? 18 : 20));
-            rowChildren.add(const SizedBox(width: 4));
+            rowChildren.add(
+              Icon(iconData, color: suitabilityColor, size: widget.compact ? 18 : 20),
+            );
           }
         }
 
-        rowChildren.add(
-          Text(
-            calculatedValue,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: suitabilityColor,
+        // '⇕' = icon only, no text label
+        if (calculatedValue != '⇕') {
+          if (rowChildren.isNotEmpty) rowChildren.add(const SizedBox(width: 4));
+          rowChildren.add(
+            Text(
+              calculatedValue,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: suitabilityColor,
+              ),
             ),
-          ),
-        );
+          );
+        }
 
-        displayWidget = Row(mainAxisSize: MainAxisSize.max, mainAxisAlignment: MainAxisAlignment.center, children: rowChildren);
+        displayWidget = Row(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: rowChildren,
+        );
       } else if (calculatedValue.isEmpty ||
           calculatedValue == '0' ||
           calculatedValue.startsWith('Error') ||
@@ -766,8 +757,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                   suffixIcon: const Icon(Icons.arrow_drop_down, size: 20),
                   isDense: true,
-                  filled: hasErrors,
-                  fillColor: errorBgColor,
                 )
               : InputDecoration(
                   labelText: _getLabel(),
@@ -930,8 +919,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                   suffixText: !hasSpinner && unit != null && unit.isNotEmpty ? ' $unit' : null,
                   isDense: true,
-                  filled: hasErrors,
-                  fillColor: errorBgColor,
                   prefixIcon: hasSpinner
                       ? SizedBox(
                           width: 20,
@@ -998,7 +985,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   ),
                   filled: true,
                   isDense: widget.dense,
-                  fillColor: hasErrors ? errorBgColor : Colors.grey.withOpacity(0.1),
+                  fillColor: Colors.grey.withOpacity(0.1),
                   suffixText: !hasSpinner && unit != null && unit.isNotEmpty ? ' $unit' : null,
                   prefixIcon: hasSpinner
                       ? ExcludeFocus(
@@ -1089,8 +1076,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 isDense: true,
-                filled: hasErrors,
-                fillColor: errorBgColor,
               )
             : InputDecoration(
                 labelText: _getLabel(),
@@ -1101,7 +1086,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 ),
                 filled: true,
                 isDense: widget.dense,
-                fillColor: hasErrors ? errorBgColor : Colors.white.withOpacity(0.1),
+                fillColor: Colors.white.withOpacity(0.1),
                 /*suffixIcon: SpeechToTextButton(
                   controller: _controller,
                   fieldType: 'string',

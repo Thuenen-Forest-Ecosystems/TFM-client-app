@@ -24,10 +24,20 @@ class CardDialog extends StatelessWidget {
 
   List<ValidationError> _getErrorsForField(String fieldName) {
     if (validationResult == null) return [];
-    return validationResult!.ajvErrors.where((error) {
+    final errors = validationResult!.ajvErrors.where((error) {
       final path = error.instancePath ?? '';
       return path == '/$fieldName' || path.startsWith('/$fieldName/');
     }).toList();
+
+    // Also check TFM plausibility errors
+    for (final tfmError in validationResult!.tfmErrors) {
+      final path = tfmError.instancePath ?? '';
+      if (path == '/$fieldName' || path.startsWith('/$fieldName/')) {
+        errors.add(ValidationError(instancePath: tfmError.instancePath, message: tfmError.message));
+      }
+    }
+
+    return errors;
   }
 
   List<MapEntry<String, Map<String, dynamic>>> _getFieldsToShow() {

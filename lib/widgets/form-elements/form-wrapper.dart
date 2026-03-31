@@ -5,6 +5,7 @@ import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
 import 'package:terrestrial_forest_monitor/services/layout_service.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-cardlist.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
@@ -569,12 +570,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         children: layoutItem.items.map((child) {
           Widget childWidget = _buildWidgetFromLayout(child, schemaProperties);
 
-          // Wrap array layouts in fixed height container since Column has unbounded height
-          if (child is ArrayLayout) {
-            childWidget = SizedBox(
-              height: 400, // Fixed height for arrays in column layout
-              child: childWidget,
-            );
+          // Wrap datagrid arrays in fixed height container since TrinaGrid requires bounded height
+          if (child is ArrayLayout && child.component != 'cardlist') {
+            final height = (child.options?['height'] as num?)?.toDouble() ?? 400.0;
+            childWidget = SizedBox(height: height, child: childWidget);
           }
 
           return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: childWidget);
@@ -811,19 +810,35 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       }
 
       if (layoutItem.component == 'datagrid') {
-        final arrayLayout = layoutItem as ArrayLayout;
         return ArrayElementTrina(
           key: key,
           jsonSchema: propertySchema,
           data: propertyData,
           previousData: previousPropertyData,
           propertyName: propertyName,
-          identifierField: arrayLayout.identifierField,
+          identifierField: layoutItem.identifierField,
           validationResult: widget.validationResult,
-          columnConfig: arrayLayout.columns,
-          columnItems: arrayLayout.items, // NEW STRUCTURE
-          layoutOptions: arrayLayout.options,
-          filterConfig: arrayLayout.filter, // Filter configuration
+          columnConfig: layoutItem.columns,
+          columnItems: layoutItem.items, // NEW STRUCTURE
+          layoutOptions: layoutItem.options,
+          filterConfig: layoutItem.filter, // Filter configuration
+          onDataChanged: (updatedData) {
+            LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          },
+        );
+      }
+
+      if (layoutItem.component == 'cardlist') {
+        return ArrayElementCardList(
+          key: key,
+          jsonSchema: propertySchema,
+          data: propertyData,
+          propertyName: propertyName,
+          columnItems: layoutItem.items,
+          layoutOptions: layoutItem.options,
+          label: layoutItem.label,
+          validationResult: widget.validationResult,
           onDataChanged: (updatedData) {
             LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
             widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
@@ -1059,10 +1074,13 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
                 child: Text(cardLayout.label!, style: Theme.of(context).textTheme.titleMedium),
               ),
             ...cardLayout.children!.map((child) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: _buildWidgetFromLayout(child, schemaProperties),
-              );
+              Widget childWidget = _buildWidgetFromLayout(child, schemaProperties);
+              // Wrap datagrid arrays in fixed height container since TrinaGrid requires bounded height
+              if (child is ArrayLayout && child.component != 'cardlist') {
+                final height = (child.options?['height'] as num?)?.toDouble() ?? 400.0;
+                childWidget = SizedBox(height: height, child: childWidget);
+              }
+              return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: childWidget);
             }).toList(),
           ],
         ),
