@@ -67,11 +67,13 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     String organizationId, {
     bool isAdmin = false,
     String? troopId,
+    String? troopName,
   }) async {
     await _selectionService.setSelectedPermissionId(permissionId);
     await _selectionService.setSelectedOrganizationId(organizationId);
     await _selectionService.setIsOrganizationAdmin(isAdmin);
     await _selectionService.setSelectedTroopId(troopId);
+    await _selectionService.setSelectedTroopName(troopName);
 
     if (mounted) {
       //setState(() {
@@ -270,6 +272,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                   permission.organizationId,
                   isAdmin: permission.isOrganizationAdmin,
                   troopId: troop.id,
+                  troopName: troop.name,
                 );
               },
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),

@@ -96,6 +96,21 @@ class OrganizationSelectionService {
     return prefs.getString('selected_troop_id');
   }
 
+  /// Set the selected troop name
+  Future<bool> setSelectedTroopName(String? troopName) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (troopName == null) {
+      return prefs.remove('selected_troop_name');
+    }
+    return prefs.setString('selected_troop_name', troopName);
+  }
+
+  /// Get the currently selected troop name
+  Future<String?> getSelectedTroopName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('selected_troop_name');
+  }
+
   /// Set whether the selected permission is organization admin
   Future<bool> setIsOrganizationAdmin(bool isAdmin) async {
     final prefs = await SharedPreferences.getInstance();

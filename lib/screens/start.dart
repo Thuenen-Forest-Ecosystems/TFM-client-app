@@ -18,6 +18,7 @@ import 'package:terrestrial_forest_monitor/screens/inventory/properties-edit.dar
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 //import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
@@ -36,6 +37,8 @@ class _StartState extends State<Start> {
   bool _isLoadingData = true;
   bool _wasKeyboardVisible = false;
   StreamSubscription? _recordsWatchSubscription;
+  final OrganizationSelectionService _selectionService = OrganizationSelectionService();
+  String? _selectedTroopName;
 
   // Initial position of bottom sheet (25% of screen height)
   final double _initialChildSize = 0.25;
@@ -64,6 +67,13 @@ class _StartState extends State<Start> {
 
         // Start watching records and cache in provider
         _startWatchingRecords();
+
+        // Load initial troop name
+        _loadSelectedTroopName();
+
+        // Re-subscribe when permission/troop changes
+        _selectionService.addPermissionChangeListener(_onPermissionChangedResubscribe);
+        _selectionService.addPermissionChangeListener(_onPermissionChangedLoadTroop);
       }
     });
 
@@ -191,6 +201,24 @@ class _StartState extends State<Start> {
     }
   }
 
+  void _onPermissionChangedResubscribe(String _) {
+    debugPrint('Start: Permission changed, re-subscribing to watchAllRecords');
+    _startWatchingRecords();
+  }
+
+  void _onPermissionChangedLoadTroop(String _) {
+    _loadSelectedTroopName();
+  }
+
+  Future<void> _loadSelectedTroopName() async {
+    final name = await _selectionService.getSelectedTroopName();
+    if (mounted) {
+      setState(() {
+        _selectedTroopName = name;
+      });
+    }
+  }
+
   Future<void> _startWatchingRecords() async {
     // Wait for provider to initialize and load permission ID
     if (!mounted) return;
@@ -254,6 +282,9 @@ class _StartState extends State<Start> {
 
   @override
   void dispose() {
+    _selectionService.removePermissionChangeListener(_onPermissionChangedResubscribe);
+    _selectionService.removePermissionChangeListener(_onPermissionChangedLoadTroop);
+    _recordsWatchSubscription?.cancel();
     _sheetController.removeListener(_onSheetChanged);
 
     // Remove map navigation listener
@@ -356,6 +387,17 @@ class _StartState extends State<Start> {
                     onPressed: _handleCloseButtonPressed,
                   ),
                 ),
+                if (_selectedTroopName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Chip(
+                        label: Text(_selectedTroopName!, style: const TextStyle(fontSize: 12)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
                 const Expanded(child: SizedBox()),
                 _buildTopBar(),
                 SizedBox(width: 16),

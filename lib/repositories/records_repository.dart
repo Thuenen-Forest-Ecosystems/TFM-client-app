@@ -339,14 +339,14 @@ class RecordsRepository {
     final orgFilter =
         "(responsible_administration = '$orgId' OR responsible_provider = '$orgId' OR responsible_state = '$orgId')";
 
-    // If user is organization admin, show all records for the organization
-    if (isAdmin) {
-      return orgFilter;
-    }
-
-    // If user is troop member, only show records assigned to their troop
+    // Always apply troop filter when a specific troop is selected
     if (troopId != null && troopId.isNotEmpty) {
       return "$orgFilter AND responsible_troop = '$troopId'";
+    }
+
+    // If user is organization admin and no specific troop selected, show all records for the organization
+    if (isAdmin) {
+      return orgFilter;
     }
 
     // If no troop assigned, show no records (user has permission but no troop membership)
