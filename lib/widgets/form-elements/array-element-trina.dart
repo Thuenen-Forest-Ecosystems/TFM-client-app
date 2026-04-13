@@ -335,8 +335,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   void _initializeGrid() {
-    // Check if the entire array is readonly
-    _isArrayReadOnly = widget.jsonSchema['readonly'] as bool? ?? false;
+    // Check if the entire array is readonly (support both 'readOnly' and 'readonly')
+    _isArrayReadOnly =
+        widget.jsonSchema['readOnly'] as bool? ?? widget.jsonSchema['readonly'] as bool? ?? false;
     if (_isArrayReadOnly) {
       debugPrint('🔒 Array ${widget.propertyName} is READONLY - row operations disabled');
     }
@@ -416,7 +417,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     config['display'] ??= uiOptions?['display'] ?? true;
     config['autoIncrement'] ??= form?['autoIncrement'];
     config['groupBy'] ??= form?['groupBy'];
-    config['readonly'] ??= propertySchema['readonly'];
+    config['readonly'] ??= propertySchema['readOnly'] ?? propertySchema['readonly'];
 
     return config;
   }
@@ -747,7 +748,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         final width = (itemConfig['width'] as num?)?.toDouble() ?? 150.0;
         final pinnedValue = itemConfig['pinned'] as String?;
         final isReadOnly =
-            itemConfig['readonly'] as bool? ?? propertySchema['readonly'] as bool? ?? false;
+            itemConfig['readonly'] as bool? ??
+            propertySchema['readOnly'] as bool? ??
+            propertySchema['readonly'] as bool? ??
+            false;
 
         // Determine frozen position
         final frozen = pinnedValue == 'left'
@@ -1376,7 +1380,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Check if field is readonly
-    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+    final isReadOnly =
+        propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false;
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
       fieldKey,
@@ -1550,8 +1555,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final boolValue = value == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Check if field is readonly
-    final isReadOnly = propertySchema['readonly'] as bool? ?? false;
+    // Check if field is readonly (support both 'readOnly' and 'readonly')
+    final isReadOnly =
+        propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false;
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
       fieldKey,
@@ -1660,7 +1666,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final displayText = itemCount == 0 ? 'Leer' : '$itemCount Einträge';
 
     // Check if parent array or this field is readonly
-    final isReadOnly = _isArrayReadOnly || (propertySchema['readonly'] as bool? ?? false);
+    final isReadOnly =
+        _isArrayReadOnly ||
+        (propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false);
 
     return Container(
       color: bgColor,

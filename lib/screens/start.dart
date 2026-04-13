@@ -389,10 +389,14 @@ class _StartState extends State<Start> {
                 ),
                 if (_selectedTroopName != null)
                   Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.only(left: 5),
                     child: Material(
                       color: Colors.transparent,
                       child: Chip(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide.none,
+                        ),
                         label: Text(_selectedTroopName!, style: const TextStyle(fontSize: 12)),
                         visualDensity: VisualDensity.compact,
                       ),

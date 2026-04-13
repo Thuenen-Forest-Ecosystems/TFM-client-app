@@ -206,20 +206,36 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     final List<Widget> tiles = [];
 
     if (permission.isOrganizationAdmin) {
-      // Show admin role (disabled, not selectable)
+      // Show admin role (clickable, shows all org records)
       tiles.add(
-        ListTile(
-          dense: true,
-          enabled: false,
-          leading: const Icon(Icons.shield, size: 20),
-          title: const Text(
-            'Administrator',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
-          subtitle: Text(
-            'Berechtigung seit ${_formatDate(permission.createdAt)}',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
+        StreamBuilder<int>(
+          stream: _repository.watchRecordCountForOrganization(permission.organizationId),
+          builder: (context, countSnapshot) {
+            final recordCount = countSnapshot.data ?? 0;
+
+            return ListTile(
+              dense: true,
+              leading: const Icon(Icons.shield, size: 20),
+              title: const Text(
+                'Administrator',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              subtitle: Text(
+                'Eckenanzahl: $recordCount',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              onTap: () {
+                _selectePermissionAndRoute(
+                  permission.id,
+                  permission.organizationId,
+                  isAdmin: true,
+                  troopId: null,
+                  troopName: 'Administrator',
+                );
+              },
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            );
+          },
         ),
       );
     }

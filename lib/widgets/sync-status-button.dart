@@ -224,6 +224,32 @@ void _showStatusDialog(BuildContext context, SyncStatus status) {
                 ),
                 const SizedBox(height: 4),
                 Text(status.anyError.toString(), style: const TextStyle(fontSize: 12)),
+                if (status.anyError.toString().contains('Handshake') ||
+                    status.anyError.toString().contains('CERTIFICATE_VERIFY_FAILED')) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.lightbulb_outline, size: 20, color: Colors.orange.shade700),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Haben Sie bereits die Anwendung "Install SSL Certificates" ausgeführt? '
+                            'Wenn nicht, bitte suchen Sie die Anwendung und führen Diese aus.',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
               const Divider(),
               const SizedBox(height: 8),

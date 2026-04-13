@@ -24,6 +24,7 @@ import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/new_record_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/submission_success_dialog.dart';
 import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.dart';
+import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 
 import 'package:beamer/beamer.dart';
 
@@ -59,6 +60,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   late final GlobalKey<FormWrapperState> _formWrapperKey;
   List<ConditionalRule> _conditionalRules = [];
   Timer? _validationDebounceTimer;
+  bool _isAdminView = false;
 
   /// Whether the form data has been modified since last load/save.
   bool get _hasUnsavedChanges {
@@ -67,12 +69,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     return jsonEncode(_formData) != jsonEncode(_initialFormData);
   }
 
+  Future<void> _checkAdminView() async {
+    final selectionService = OrganizationSelectionService();
+    final isAdmin = await selectionService.getIsOrganizationAdmin();
+    final troopId = await selectionService.getSelectedTroopId();
+    if (mounted) {
+      setState(() {
+        _isAdminView = isAdmin && (troopId == null || troopId.isEmpty);
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
     _formWrapperKey = GlobalKey<FormWrapperState>();
     schemaRepository = SchemaRepository();
+    _checkAdminView();
 
     _loadRecord().then((_) {
       // Load schema after record is loaded to get the interval name
@@ -1388,7 +1402,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                               (_isSaving ||
                                   !_hasCompletedInitialValidation ||
                                   !_hasUnsavedChanges ||
-                                  isPlayground)
+                                  isPlayground ||
+                                  _isAdminView)
                               ? null
                               : () => save('save'),
                           color: Theme.of(context).colorScheme.primary,
@@ -1414,7 +1429,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                             onPressed:
                                 (_jsonSchema != null &&
                                     _hasCompletedInitialValidation &&
-                                    !isPlayground)
+                                    !isPlayground &&
+                                    !_isAdminView)
                                 ? saveRecord
                                 : null,
                             child: const Text('FERTIG'),

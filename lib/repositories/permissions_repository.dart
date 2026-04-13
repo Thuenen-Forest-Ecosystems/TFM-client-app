@@ -99,6 +99,17 @@ class PermissionsRepository {
         )
         .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
   }
+
+  // Watch count of all records for an organization (for admins)
+  Stream<int> watchRecordCountForOrganization(String organizationId) {
+    return db
+        .watch(
+          '''SELECT COUNT(*) as count FROM records 
+             WHERE (responsible_administration = ? OR responsible_provider = ? OR responsible_state = ?)''',
+          parameters: [organizationId, organizationId, organizationId],
+        )
+        .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
+  }
 }
 
 // Permission Model

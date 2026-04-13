@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 
@@ -70,6 +71,9 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   /// Parsed grouped layout from columnItems: list of { label, fields }
   List<_FieldGroup>? _fieldGroups;
 
+  /// Array-type fields with their schema and column config
+  final Map<String, _ArrayFieldInfo> _arrayFields = {};
+
   @override
   void initState() {
     super.initState();
@@ -118,6 +122,27 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
           if (subItem['type'] == 'calculated') continue;
           if (subItem['display'] == false) continue;
 
+          // Track array-type fields
+          final propSchema = properties[fieldName] as Map<String, dynamic>;
+          final schemaType = propSchema['type'];
+          final isArray =
+              schemaType == 'array' ||
+              (schemaType is List && schemaType.contains('array')) ||
+              subItem['type'] == 'array';
+          if (isArray) {
+            _arrayFields[fieldName] = _ArrayFieldInfo(
+              fieldName: fieldName,
+              propertySchema: propSchema,
+              nestedColumns: subItem['columns'] as Map<String, dynamic>?,
+              nestedOptions: subItem['options'] as Map<String, dynamic>?,
+              isReadOnly:
+                  widget.readOnly ||
+                  subItem['readonly'] == true ||
+                  propSchema['readOnly'] == true ||
+                  propSchema['readonly'] == true,
+            );
+          }
+
           _applyFieldConfig(fieldName, subItem, properties, modifiedProperties);
           groupFields.add(fieldName);
           allIncludeProps.add(fieldName);
@@ -138,6 +163,27 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         if (!properties.containsKey(fieldName)) continue;
         if (item['type'] == 'calculated') continue;
         if (item['display'] == false) continue;
+
+        // Track array-type fields
+        final propSchema = properties[fieldName] as Map<String, dynamic>;
+        final schemaType = propSchema['type'];
+        final isArray =
+            schemaType == 'array' ||
+            (schemaType is List && schemaType.contains('array')) ||
+            item['type'] == 'array';
+        if (isArray) {
+          _arrayFields[fieldName] = _ArrayFieldInfo(
+            fieldName: fieldName,
+            propertySchema: propSchema,
+            nestedColumns: item['columns'] as Map<String, dynamic>?,
+            nestedOptions: item['options'] as Map<String, dynamic>?,
+            isReadOnly:
+                widget.readOnly ||
+                item['readonly'] == true ||
+                propSchema['readOnly'] == true ||
+                propSchema['readonly'] == true,
+          );
+        }
 
         _applyFieldConfig(fieldName, item, properties, modifiedProperties);
         ungroupedFields.add(fieldName);
@@ -165,7 +211,10 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     final propertySchema = Map<String, dynamic>.from(properties[fieldName] as Map<String, dynamic>);
 
     // Apply readonly
-    if (widget.readOnly || itemConfig['readonly'] == true || propertySchema['readonly'] == true) {
+    if (widget.readOnly ||
+        itemConfig['readonly'] == true ||
+        propertySchema['readOnly'] == true ||
+        propertySchema['readonly'] == true) {
       propertySchema['readonly'] = true;
     }
 
@@ -183,21 +232,54 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     final includeProps = <String>[];
     final fieldOpts = <String, Map<String, dynamic>>{};
 
-    properties.forEach((key, value) {
-      final propertySchema = Map<String, dynamic>.from(value as Map<String, dynamic>);
+    // Use columnConfig key order (style-map.json position) when available,
+    // otherwise fall back to schema property order.
+    final fieldsToProcess = widget.columnConfig != null
+        ? widget.columnConfig!.keys
+        : properties.keys;
+
+    for (final key in fieldsToProcess) {
+      if (!properties.containsKey(key)) continue;
+      final propertySchema = Map<String, dynamic>.from(properties[key] as Map<String, dynamic>);
 
       // Get column configuration
       final columnConfig = widget.columnConfig?[key] as Map<String, dynamic>?;
       final display = columnConfig?['display'] ?? true;
 
       // Skip if display is false
-      if (display == false) return;
+      if (display == false) continue;
+
+      // Detect array-type fields (from schema type or column config type)
+      final schemaType = propertySchema['type'];
+      final isArray =
+          schemaType == 'array' ||
+          (schemaType is List && schemaType.contains('array')) ||
+          columnConfig?['type'] == 'array';
+
+      if (isArray) {
+        final isReadOnly =
+            widget.readOnly ||
+            columnConfig?['readonly'] == true ||
+            propertySchema['readOnly'] == true ||
+            propertySchema['readonly'] == true;
+        _arrayFields[key] = _ArrayFieldInfo(
+          fieldName: key,
+          propertySchema: propertySchema,
+          nestedColumns: columnConfig?['columns'] as Map<String, dynamic>?,
+          nestedOptions: columnConfig?['options'] as Map<String, dynamic>?,
+          isReadOnly: isReadOnly,
+        );
+        includeProps.add(key);
+        modifiedProperties[key] = propertySchema;
+        continue;
+      }
 
       includeProps.add(key);
 
       // Make field readonly if dialog is in readOnly mode or field is marked readonly
       if (widget.readOnly ||
           columnConfig?['readonly'] == true ||
+          propertySchema['readOnly'] == true ||
           propertySchema['readonly'] == true) {
         propertySchema['readonly'] = true;
       }
@@ -218,7 +300,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       }
 
       modifiedProperties[key] = propertySchema;
-    });
+    }
 
     _effectiveSchema = {...widget.itemSchema, 'properties': modifiedProperties};
 
@@ -265,7 +347,18 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                 .map((fieldName) {
                   final fieldSchema = properties[fieldName] as Map<String, dynamic>;
 
-                  // Only show primitive types
+                  // Check if this is an array field
+                  if (_arrayFields.containsKey(fieldName)) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: _buildArrayFieldWidget(fieldName, _arrayFields[fieldName]!),
+                      ),
+                    );
+                  }
+
+                  // Only show primitive types for text fields
                   final typeValue = fieldSchema['type'];
                   String? type;
                   if (typeValue is String) {
@@ -344,18 +437,30 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                 padding: const EdgeInsets.all(16),
                 child: useGroupedLayout
                     ? _buildGroupedForm(properties)
-                    : GenericForm(
-                        jsonSchema: _effectiveSchema,
-                        data: _formData,
-                        layout: 'responsive-wrap',
-                        includeProperties: _includeProperties,
-                        fieldOptions: _fieldOptions,
-                        layoutOptions: widget.layoutOptions,
-                        onDataChanged: (updatedData) {
-                          setState(() {
-                            _formData = updatedData;
-                          });
-                        },
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GenericForm(
+                            jsonSchema: _effectiveSchema,
+                            data: _formData,
+                            layout: 'responsive-wrap',
+                            includeProperties: _includeProperties,
+                            fieldOptions: _fieldOptions,
+                            layoutOptions: widget.layoutOptions,
+                            onDataChanged: (updatedData) {
+                              setState(() {
+                                _formData = updatedData;
+                              });
+                            },
+                          ),
+                          // Render array fields below the primitive form fields
+                          for (final entry in _arrayFields.entries)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: _buildArrayFieldWidget(entry.key, entry.value),
+                            ),
+                        ],
                       ),
               ),
             ),
@@ -380,6 +485,53 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       ),
     );
   }
+
+  /// Build a widget for a nested array field - shows item count and edit button
+  Widget _buildArrayFieldWidget(String fieldName, _ArrayFieldInfo info) {
+    final data = _formData[fieldName];
+    final itemCount = data is List ? data.length : 0;
+    final title = info.propertySchema['title'] as String? ?? fieldName;
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        title: Text(title),
+        subtitle: Text(
+          itemCount == 0 ? 'Leer' : '$itemCount Einträge',
+          style: TextStyle(color: itemCount == 0 ? Colors.grey : null),
+        ),
+        trailing: IconButton(
+          icon: Icon(info.isReadOnly ? Icons.visibility : Icons.edit),
+          tooltip: info.isReadOnly ? 'Anzeigen' : 'Bearbeiten',
+          onPressed: () => _openNestedArrayDialog(fieldName, info),
+        ),
+        dense: true,
+        tileColor: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  Future<void> _openNestedArrayDialog(String fieldName, _ArrayFieldInfo info) async {
+    final currentData = _formData[fieldName] is List ? _formData[fieldName] as List<dynamic> : null;
+
+    final result = await ArrayGridDialog.show(
+      context: context,
+      nestedArraySchema: info.propertySchema,
+      data: currentData,
+      title: info.propertySchema['title'] as String? ?? fieldName,
+      columnConfig: info.nestedColumns,
+      layoutOptions: info.nestedOptions,
+      parentReadOnly: info.isReadOnly,
+    );
+
+    if (result != null) {
+      setState(() {
+        _formData[fieldName] = result;
+      });
+    }
+  }
 }
 
 /// Internal model for a group of fields
@@ -388,4 +540,21 @@ class _FieldGroup {
   final List<String> fields;
 
   _FieldGroup({this.label, required this.fields});
+}
+
+/// Internal model for array-type field info
+class _ArrayFieldInfo {
+  final String fieldName;
+  final Map<String, dynamic> propertySchema;
+  final Map<String, dynamic>? nestedColumns;
+  final Map<String, dynamic>? nestedOptions;
+  final bool isReadOnly;
+
+  _ArrayFieldInfo({
+    required this.fieldName,
+    required this.propertySchema,
+    this.nestedColumns,
+    this.nestedOptions,
+    this.isReadOnly = false,
+  });
 }
