@@ -489,7 +489,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     // Upgrade to "⇕+" if previously measured or stem_breakage = 2
     final previousTreeHeight = widget.previousData?['tree_height'];
-    if (previousTreeHeight != null || stemBreakage == 2) return '+';
+    if (previousTreeHeight != null || stemBreakage == 2) return '⇕+';
 
     return '⇕'; // Icon only
   }
@@ -570,7 +570,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
               calculatedValue == '?' ||
               calculatedValue == '-----')) {
         // Suitability result - show icon and/or text label
-        const Color suitabilityColor = Colors.white;
+        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
         final List<Widget> rowChildren = [];
 
@@ -603,17 +603,25 @@ class _GenericTextFieldState extends State<GenericTextField> {
           }
           if (iconData != null) {
             rowChildren.add(
-              Icon(iconData, color: suitabilityColor, size: widget.compact ? 18 : 20),
+              Icon(
+                iconData,
+                color: isDarkMode ? Colors.white : Colors.black87,
+                size: widget.compact ? 18 : 20,
+              ),
             );
           }
         }
 
         // '⇕' = icon only, no text label
+        // '⇕+' = icon + "+" text (strip the ⇕ since icon replaces it)
         if (calculatedValue != '⇕') {
-          if (rowChildren.isNotEmpty) rowChildren.add(const SizedBox(width: 4));
-          rowChildren.add(
-            Text(calculatedValue, style: const TextStyle(fontWeight: FontWeight.bold)),
-          );
+          final displayLabel = calculatedValue.replaceAll('⇕', '');
+          if (displayLabel.isNotEmpty) {
+            if (rowChildren.isNotEmpty) rowChildren.add(const SizedBox(width: 4));
+            rowChildren.add(
+              Text(displayLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+            );
+          }
         }
 
         displayWidget = Row(
