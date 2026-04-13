@@ -612,14 +612,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
         if (calculatedValue != '⇕') {
           if (rowChildren.isNotEmpty) rowChildren.add(const SizedBox(width: 4));
           rowChildren.add(
-            Text(
-              calculatedValue,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: suitabilityColor,
-              ),
-            ),
+            Text(calculatedValue, style: const TextStyle(fontWeight: FontWeight.bold)),
           );
         }
 

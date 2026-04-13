@@ -324,7 +324,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
           Container(width: 1, height: 40, color: Colors.green.shade300),
           _buildMetricColumn(
             label: 'Entfernung',
-            value: '${(_remainingDistance! * 100).toStringAsFixed(0)} cm',
+            value: '${_remainingDistance!.toStringAsFixed(1)} m',
           ),
         ],
       ),

@@ -2266,7 +2266,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   void _copyRow(int rowIndex) {
-    final rowToCopy = _rows[rowIndex];
+    final rowToCopy = (_stateManager?.rows ?? _rows)[rowIndex];
     final newCells = <String, TrinaCell>{};
 
     // Get schema to check for autoIncrement fields
@@ -2282,7 +2282,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           key == '__row_menu__' ||
           key == '__original_index__' ||
           key == '__validation_status__') {
-        if (key == '__row_number__' || key == '__row_menu__') {
+        if (key == '__row_number__' || key == '__row_menu__' || key == '__validation_status__') {
           newCells[key] = TrinaCell(value: null);
         }
         return;

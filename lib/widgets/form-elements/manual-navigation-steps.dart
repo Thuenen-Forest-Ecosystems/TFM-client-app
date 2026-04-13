@@ -154,7 +154,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     }
 
     setState(() {
-      _steps.add(NavigationStep(azimuth: azimuth.toDouble(), distance: distanceValue));
+      _steps.add(NavigationStep(azimuth: azimuth.toDouble(), distance: distanceValue / 100));
       _azimuthController.clear();
       _distanceController.clear();
     });
@@ -217,7 +217,9 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                     ),
                     title: Row(
                       children: [
-                        Text('${step.distance ?? "?"} m'),
+                        Text(
+                          '${step.distance != null ? (step.distance! * 100).toStringAsFixed(0) : "?"} cm',
+                        ),
                         const SizedBox(width: 16),
                         Text('${step.azimuth?.toInt() ?? "?"} gon'),
                       ],
@@ -311,7 +313,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                             isDense: true,
                             labelText: 'Entfernung',
                             //hintText: 'Meter',
-                            suffix: Text(' m'),
+                            suffix: Text(' cm'),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(40)),
                             ),
@@ -325,9 +327,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                           focusNode: _azimuthFocusNode,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.right,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           decoration: const InputDecoration(
                             isDense: true,
                             labelText: 'Azimut',
