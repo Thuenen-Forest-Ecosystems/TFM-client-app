@@ -253,8 +253,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             key: ValueKey('row_fallback_$index'),
             jsonSchema: schemaForForm,
             data: rowData,
-            propertyName:
-                widget.propertyName != null ? '${widget.propertyName}/$index' : null,
+            propertyName: widget.propertyName != null ? '${widget.propertyName}/$index' : null,
             validationResult: widget.validationResult,
             onDataChanged: (updatedData) => _updateRow(index, updatedData),
           ),
@@ -282,8 +281,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             key: ValueKey('row_${index}_fields_${fields.first}'),
             jsonSchema: schemaForForm,
             data: rowData,
-            propertyName:
-                widget.propertyName != null ? '${widget.propertyName}/$index' : null,
+            propertyName: widget.propertyName != null ? '${widget.propertyName}/$index' : null,
             validationResult: widget.validationResult,
             includeProperties: fields,
             fieldOptions: fieldOptions.isNotEmpty ? fieldOptions : null,
@@ -453,21 +451,21 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
                 ),
               ),
             );
-            }),
+          }),
 
-            // ── Add button ─────────────────────────────────────────────────────
-            Padding(
-              padding: EdgeInsets.only(top: 4, left: margin, right: margin, bottom: margin),
-              child: TextButton.icon(
-                onPressed: atMax ? null : _addRow,
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(
-                  atMax ? 'Maximal $maxRows Einträge' : '${widget.label ?? 'Eintrag'} hinzufügen',
-                ),
+          // ── Add button ─────────────────────────────────────────────────────
+          Padding(
+            padding: EdgeInsets.only(top: 4, left: margin, right: margin, bottom: margin),
+            child: TextButton.icon(
+              onPressed: atMax ? null : _addRow,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(
+                atMax ? 'Maximal $maxRows Einträge' : '${widget.label ?? 'Eintrag'} hinzufügen',
               ),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
   }
 }
