@@ -10,12 +10,17 @@ class ManualNavigationSteps extends StatefulWidget {
   final ValueChanged<Map<String, double>?>? onNavigationCalculated;
   final ValueChanged<List<LatLng>?>? onStepPositionsCalculated;
 
+  /// Called whenever the calculated end position changes (after steps are added/removed).
+  /// Reports the total azimuth (gon) and distance (m) from start to calculated position.
+  final ValueChanged<Map<String, double>?>? onCalculatedPositionChanged;
+
   const ManualNavigationSteps({
     super.key,
     this.startPosition,
     this.targetPosition,
     this.onNavigationCalculated,
     this.onStepPositionsCalculated,
+    this.onCalculatedPositionChanged,
   });
 
   @override
@@ -107,6 +112,26 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     if (widget.onStepPositionsCalculated != null) {
       widget.onStepPositionsCalculated!(_calculateAllStepPositions());
     }
+    if (widget.onCalculatedPositionChanged != null) {
+      widget.onCalculatedPositionChanged!(_calculateTotalFromStart());
+    }
+  }
+
+  /// Calculate total azimuth (gon) and distance (m) from startPosition to the
+  /// calculated end position after all navigation steps.
+  Map<String, double>? _calculateTotalFromStart() {
+    final endPos = _calculateCurrentPosition();
+    if (widget.startPosition == null || endPos == null || _steps.isEmpty) {
+      return null;
+    }
+    if (endPos == widget.startPosition) return null;
+
+    final dist = Distance();
+    final distanceMeters = dist.as(LengthUnit.Meter, widget.startPosition!, endPos);
+    final azimuthDegrees = dist.bearing(widget.startPosition!, endPos);
+    final azimuthGon = (azimuthDegrees < 0 ? azimuthDegrees + 360 : azimuthDegrees) * (400 / 360);
+
+    return {'azimuth': azimuthGon, 'distance': distanceMeters};
   }
 
   List<LatLng>? _calculateAllStepPositions() {
@@ -182,6 +207,9 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     if (currentPos != null && widget.targetPosition != null) {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.showDistanceLine(currentPos, widget.targetPosition!);
+    } else if (currentPos != null && widget.startPosition != null && _steps.isNotEmpty) {
+      final mapProvider = context.read<MapControllerProvider>();
+      mapProvider.showDistanceLine(widget.startPosition!, currentPos);
     }
   }
 
@@ -193,7 +221,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
 
   @override
   Widget build(BuildContext context) {
-    final canNavigate = widget.startPosition != null && widget.targetPosition != null;
+    final canNavigate = widget.startPosition != null;
 
     return Column(
       mainAxisSize: MainAxisSize.min,

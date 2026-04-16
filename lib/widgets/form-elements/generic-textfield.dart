@@ -159,16 +159,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
   void _updateControllers() {
     final type = _getType();
-    dynamic effectiveValue = widget.value;
-
-    // If value is null, use schema default if available
-    if (effectiveValue == null && widget.fieldSchema.containsKey('default')) {
-      effectiveValue = widget.fieldSchema['default'];
-      // Notify parent immediately about the default value
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onChanged?.call(effectiveValue);
-      });
-    }
+    final dynamic effectiveValue = widget.value;
 
     final newValue = effectiveValue?.toString() ?? '';
 
@@ -895,11 +886,25 @@ class _GenericTextFieldState extends State<GenericTextField> {
       void adjustValue(int delta) {
         if (isReadonly) return;
 
+        // If field is empty/null: + starts from minimum/0, - does nothing
+        if (_controller.text.isEmpty) {
+          if (delta > 0) {
+            final startValue = minimum?.toInt() ?? 0;
+            _controller.text = startValue.toString();
+            widget.onChanged?.call(startValue);
+          }
+          return;
+        }
+
         final currentValue = int.tryParse(_controller.text) ?? (minimum?.toInt() ?? 0);
         final newValue = currentValue + delta;
 
-        // Respect min/max bounds
-        if (minimum != null && newValue < minimum.toInt()) return;
+        // Pressing - below minimum clears to null
+        if (minimum != null && newValue < minimum.toInt()) {
+          _controller.text = '';
+          widget.onChanged?.call(null);
+          return;
+        }
         if (maximum != null && newValue > maximum.toInt()) return;
 
         _controller.text = newValue.toString();

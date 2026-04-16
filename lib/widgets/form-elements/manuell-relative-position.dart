@@ -166,13 +166,13 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
     _updatePositions();
   }
 
-  void _clearAllSteps() {
+  /*void _clearAllSteps() {
     setState(() {
       _steps.clear();
     });
     _saveStepsToFormData();
     _updatePositions();
-  }
+  }*/
 
   void _focusLocation(LatLng? position, String positionLabel) {
     if (position == null) {
