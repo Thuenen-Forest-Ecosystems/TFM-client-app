@@ -1,30 +1,39 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:terrestrial_forest_monitor/main.dart';
+import 'package:terrestrial_forest_monitor/widgets/version_control_logic.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('version control logic', () {
+    test('detects a newer build with the same semantic version', () {
+      expect(isNewerVersion('v1.0.21+89', 'v1.0.21+88'), isTrue);
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('detects a newer semantic version even without a build number', () {
+      expect(isNewerVersion('v1.1.0', 'v1.0.21+89'), isTrue);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('does not report an update for an older release', () {
+      expect(isNewerVersion('v1.0.20+88', 'v1.0.21+89'), isFalse);
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('returns null for invalid versions', () {
+      expect(parseVersion('main'), isNull);
+    });
+
+    test('parses the latest release API response', () {
+      const responseBody = '{"tag_name":"v1.0.21+89","html_url":"https://example.invalid/release"}';
+
+      final release = parseLatestReleaseResponse(responseBody);
+
+      expect(release, isNotNull);
+      expect(release!.tagName, 'v1.0.21+89');
+      expect(release.htmlUrl, 'https://example.invalid/release');
+    });
+
+    test('exposes the all releases fallback URL', () {
+      expect(
+        allReleasesUrl,
+        'https://github.com/Thuenen-Forest-Ecosystems/TFM-client-app/releases',
+      );
+    });
   });
 }

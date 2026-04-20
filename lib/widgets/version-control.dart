@@ -1,8 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:terrestrial_forest_monitor/widgets/version_control_logic.dart';
 
 /// Widget that checks for new app versions on GitHub releases
 /// Shows nothing if on latest version, displays update notification if newer version available
@@ -16,7 +17,7 @@ class VersionControl extends StatefulWidget {
 class _VersionControlState extends State<VersionControl> {
   String? _currentVersion;
   String? _latestVersion;
-  String? _releaseUrl;
+  String _releaseUrl = allReleasesUrl;
   bool _isChecking = false;
   bool _hasChecked = false;
 
@@ -29,6 +30,8 @@ class _VersionControlState extends State<VersionControl> {
   Future<void> _checkForUpdates() async {
     if (_hasChecked || _isChecking) return;
 
+    if (!mounted) return;
+
     setState(() {
       _isChecking = true;
     });
@@ -38,95 +41,56 @@ class _VersionControlState extends State<VersionControl> {
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = 'v${packageInfo.version}+${packageInfo.buildNumber}';
 
-      setState(() {
-        _currentVersion = currentVersion;
-      });
+      if (mounted) {
+        setState(() {
+          _currentVersion = currentVersion;
+        });
+      }
 
-      // Fetch latest release from GitHub
+      // Fetch the latest stable release from GitHub.
       final response = await http
           .get(
             Uri.parse(
-              'https://api.github.com/repos/Thuenen-Forest-Ecosystems/TFM-client-app/releases',
+              'https://api.github.com/repos/Thuenen-Forest-Ecosystems/TFM-client-app/releases/latest',
             ),
             headers: {
               'Accept': 'application/vnd.github+json',
               'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'TFM-client-app-version-check',
             },
           )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final List<dynamic> releases = json.decode(response.body);
+        final latestRelease = parseLatestReleaseResponse(response.body);
+        final latestTag = latestRelease?.tagName;
+        final htmlUrl = latestRelease?.htmlUrl;
 
-        // Find the latest non-prerelease version
-        final latestRelease = releases.firstWhere(
-          (release) => release['prerelease'] == false && release['draft'] == false,
-          orElse: () => null,
-        );
-
-        if (latestRelease != null) {
-          final latestTag = latestRelease['tag_name'] as String;
-          final htmlUrl = latestRelease['html_url'] as String;
-
-          // Compare versions
-          if (_isNewerVersion(latestTag, currentVersion)) {
-            setState(() {
-              _latestVersion = latestTag;
-              _releaseUrl = htmlUrl;
-            });
-          }
+        if (mounted &&
+            latestTag != null &&
+            htmlUrl != null &&
+            isNewerVersion(latestTag, currentVersion)) {
+          setState(() {
+            _latestVersion = latestTag;
+            _releaseUrl = htmlUrl;
+          });
         }
       }
     } catch (e) {
       // Silently fail - no internet connection or API error
       debugPrint('Failed to check for updates: $e');
     } finally {
-      setState(() {
-        _isChecking = false;
-        _hasChecked = true;
-      });
-    }
-  }
-
-  /// Compare version strings in format v1.0.0+50
-  /// Returns true if latestVersion is newer than currentVersion
-  bool _isNewerVersion(String latestVersion, String currentVersion) {
-    try {
-      // Remove 'v' prefix if present
-      final latest = latestVersion.startsWith('v') ? latestVersion.substring(1) : latestVersion;
-      final current = currentVersion.startsWith('v') ? currentVersion.substring(1) : currentVersion;
-
-      // Split by '+' to separate version from build number
-      final latestParts = latest.split('+');
-      final currentParts = current.split('+');
-
-      // Compare semantic version (1.0.0)
-      final latestSemVer = latestParts[0].split('.').map(int.parse).toList();
-      final currentSemVer = currentParts[0].split('.').map(int.parse).toList();
-
-      for (int i = 0; i < 3; i++) {
-        if (latestSemVer[i] > currentSemVer[i]) return true;
-        if (latestSemVer[i] < currentSemVer[i]) return false;
+      if (mounted) {
+        setState(() {
+          _isChecking = false;
+          _hasChecked = true;
+        });
       }
-
-      // If semantic versions are equal, compare build numbers
-      if (latestParts.length > 1 && currentParts.length > 1) {
-        final latestBuild = int.parse(latestParts[1]);
-        final currentBuild = int.parse(currentParts[1]);
-        return latestBuild > currentBuild;
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint('Error comparing versions: $e');
-      return false;
     }
   }
 
   Future<void> _openReleaseUrl() async {
-    if (_releaseUrl == null) return;
-
-    final uri = Uri.parse(_releaseUrl!);
+    final uri = Uri.parse(_releaseUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -150,7 +114,7 @@ class _VersionControlState extends State<VersionControl> {
     return Card(
       color: cardColor,
       child: InkWell(
-        onTap: hasUpdate ? _openReleaseUrl : null,
+        onTap: _openReleaseUrl,
         borderRadius: BorderRadius.circular(0),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -180,8 +144,13 @@ class _VersionControlState extends State<VersionControl> {
                 ],
               ),
 
-              if (hasUpdate) Icon(Icons.open_in_new, color: textColor, size: 20),
+              //Icon(Icons.open_in_new, color: textColor, size: 20),
               const Spacer(),
+              IconButton(
+                icon: Icon(Icons.launch, color: textColor, size: 20),
+                onPressed: _openReleaseUrl,
+                tooltip: hasUpdate ? 'Release der neuen Version öffnen' : 'Alle Releases öffnen',
+              ),
               IconButton(
                 icon: _isChecking
                     ? SizedBox(
@@ -196,7 +165,7 @@ class _VersionControlState extends State<VersionControl> {
                         setState(() {
                           _hasChecked = false;
                           _latestVersion = null;
-                          _releaseUrl = null;
+                          _releaseUrl = allReleasesUrl;
                         });
                         _checkForUpdates();
                       },

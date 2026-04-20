@@ -24,11 +24,13 @@ class SerialPortGpsIcon extends StatefulWidget {
 class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
   List<SerialPortDevice> _availablePorts = [];
   bool _isScanning = false;
+  bool _scanCancelled = false;
   String? _connectedPort;
   SerialPort? _activePort;
   SerialPortReader? _reader;
   StreamSubscription? _readerSubscription;
   String? _serialPortError; // Track serial port error messages
+  void Function(void Function())? _modalStateCallback; // Callback to update modal state
 
   @override
   void initState() {
@@ -37,12 +39,22 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
     // Ports will be scanned only when user opens the device menu
   }
 
+  void _cancelScan() {
+    _scanCancelled = true;
+    setState(() {
+      _isScanning = false;
+    });
+    _modalStateCallback?.call(() {});
+  }
+
   Future<void> _scanPorts() async {
+    _scanCancelled = false;
     setState(() {
       _availablePorts = [];
       _isScanning = true;
       _serialPortError = null;
     });
+    _modalStateCallback?.call(() {});
 
     try {
       // Add timeout to prevent hanging
@@ -61,6 +73,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
       final devices = <SerialPortDevice>[];
 
       for (final portName in ports) {
+        if (_scanCancelled) break;
         try {
           final port = SerialPort(portName);
           final description = port.description ?? 'Unknown Device';
@@ -81,6 +94,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           _availablePorts = devices;
           _isScanning = false;
         });
+        _modalStateCallback?.call(() {});
       }
     } catch (e) {
       debugPrint('Error scanning ports: $e');
@@ -93,6 +107,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           _isScanning = false;
           _serialPortError = errorMessage;
         });
+        _modalStateCallback?.call(() {});
       }
     }
   }
@@ -198,6 +213,8 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
+          // Store callback so _scanPorts can update modal
+          _modalStateCallback = setModalState;
           return Container(
             constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
             padding: const EdgeInsets.all(16),
@@ -213,10 +230,13 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     if (_isScanning)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      TextButton.icon(
+                        onPressed: () {
+                          _cancelScan();
+                          setModalState(() {});
+                        },
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text('Abbrechen'),
                       ),
                     if (!_isScanning)
                       IconButton(
@@ -364,21 +384,19 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                             final device = _availablePorts[index];
                             final isConnected = device.name == _connectedPort;
 
-                            return Card(
-                              child: ListTile(
-                                leading: Icon(Icons.usb, color: isConnected ? Colors.green : null),
-                                title: Text(device.name),
-                                subtitle: Text(device.description),
-                                trailing: isConnected
-                                    ? const Icon(Icons.check_circle, color: Colors.green)
-                                    : ElevatedButton(
-                                        onPressed: () {
-                                          _connectToSerialPort(device.name, context);
-                                          setModalState(() {});
-                                        },
-                                        child: const Text('Connect'),
-                                      ),
-                              ),
+                            return ListTile(
+                              leading: Icon(Icons.usb, color: isConnected ? Colors.green : null),
+                              title: Text(device.name),
+                              subtitle: Text(device.description),
+                              trailing: isConnected
+                                  ? const Icon(Icons.check_circle, color: Colors.green)
+                                  : const Icon(Icons.chevron_right),
+                              onTap: isConnected
+                                  ? null
+                                  : () {
+                                      _connectToSerialPort(device.name, context);
+                                      setModalState(() {});
+                                    },
                             );
                           },
                         ),
@@ -413,6 +431,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
       ),
     ).whenComplete(() {
       // Cleanup when modal is closed
+      _modalStateCallback = null;
     });
   }
 
@@ -488,6 +507,7 @@ class SerialPortMenuSheet extends StatefulWidget {
 class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
   List<SerialPortDevice> _availablePorts = [];
   bool _isScanning = false;
+  bool _scanCancelled = false;
   String? _connectedPort;
   SerialPort? _activePort;
   SerialPortReader? _reader;
@@ -503,7 +523,15 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
     });
   }
 
+  void _cancelScan() {
+    _scanCancelled = true;
+    setState(() {
+      _isScanning = false;
+    });
+  }
+
   Future<void> _scanPorts() async {
+    _scanCancelled = false;
     setState(() {
       _availablePorts = [];
       _isScanning = true;
@@ -525,6 +553,7 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
 
       final devices = <SerialPortDevice>[];
       for (final portName in ports) {
+        if (_scanCancelled) break;
         try {
           final port = SerialPort(portName);
           final description = port.description ?? 'Unknown Device';
@@ -645,10 +674,10 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               if (_isScanning)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                TextButton.icon(
+                  onPressed: _cancelScan,
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Abbrechen'),
                 ),
               if (!_isScanning)
                 IconButton(
@@ -784,18 +813,14 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
                     itemBuilder: (context, index) {
                       final device = _availablePorts[index];
                       final isConnected = device.name == _connectedPort;
-                      return Card(
-                        child: ListTile(
-                          leading: Icon(Icons.usb, color: isConnected ? Colors.green : null),
-                          title: Text(device.name),
-                          subtitle: Text(device.description),
-                          trailing: isConnected
-                              ? const Icon(Icons.check_circle, color: Colors.green)
-                              : ElevatedButton(
-                                  onPressed: () => _connectToSerialPort(device.name),
-                                  child: const Text('Connect'),
-                                ),
-                        ),
+                      return ListTile(
+                        leading: Icon(Icons.usb, color: isConnected ? Colors.green : null),
+                        title: Text(device.name),
+                        subtitle: Text(device.description),
+                        trailing: isConnected
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : const Icon(Icons.chevron_right),
+                        onTap: isConnected ? null : () => _connectToSerialPort(device.name),
                       );
                     },
                   ),
