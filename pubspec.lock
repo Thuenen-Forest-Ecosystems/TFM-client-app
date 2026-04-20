@@ -1821,10 +1821,9 @@ packages:
   trina_grid:
     dependency: "direct main"
     description:
-      name: trina_grid
-      sha256: eefd6c6d079dc0988ba1da82a82689b5d87ed6580f970e701688e79be457798c
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/trina_grid"
+      relative: true
+    source: path
     version: "2.1.0"
   turf:
     dependency: "direct main"

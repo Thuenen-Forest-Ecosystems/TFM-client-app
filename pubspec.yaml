@@ -115,7 +115,8 @@ dependencies:
   local_auth: ^2.3.0 # Optional: for biometric authentication
   workmanager: ^0.9.0+3
   wakelock_plus: ^1.4.0
-  trina_grid: 2.1.0
+  trina_grid:
+    path: packages/trina_grid
 
   #pluto_grid: ^8.0.0
   sqflite_common_ffi_web: ^1.0.2
@@ -173,7 +174,6 @@ flutter:
     - assets/schema/
     - assets/certs/
     - assets/pdf/
-
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 
@@ -221,6 +221,7 @@ flutter_launcher_icons:
     min_deployment_target: "10.14"
     generate: true
     image_path: "assets/logo/tfm.png"
+
 #msix_config:
 #  display_name: Terrestrial Forest Monitor
 #  publisher: CN=36C12301-AD65-4721-A104-94EB08618727

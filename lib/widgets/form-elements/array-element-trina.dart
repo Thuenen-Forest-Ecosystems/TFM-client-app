@@ -92,6 +92,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   // Maps field name -> layout item config for calculated columns (used to pre-compute sortable cell values)
   final Map<String, Map<String, dynamic>> _calculatedColumnConfigs = {};
 
+  // Track which column groups are currently collapsed (by group title)
+  final Set<String> _collapsedGroups = {};
+
   @override
   void initState() {
     super.initState();
@@ -353,8 +356,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   /// Scale non-frozen column widths so the total fills at least [availableWidth].
-  /// Frozen columns keep their original size; only the scrollable body columns
-  /// are proportionally widened when their total is narrower than the viewport.
+  /// Frozen columns keep their current size (which may have been resized by the
+  /// user); only the scrollable body columns are proportionally widened when
+  /// their total is narrower than the viewport.
   void _adjustColumnsToFitWidth(double availableWidth) {
     if (_columns.isEmpty || availableWidth <= 0) return;
 
@@ -362,11 +366,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     double nonFrozenOriginalWidth = 0;
 
     for (final col in _columns) {
-      final original = _originalColumnWidths[col.field] ?? col.width;
       if (col.frozen != TrinaColumnFrozen.none) {
-        frozenWidth += original;
+        // Use current width for frozen columns (may have been resized by user)
+        frozenWidth += col.width;
       } else {
-        nonFrozenOriginalWidth += original;
+        nonFrozenOriginalWidth += _originalColumnWidths[col.field] ?? col.width;
       }
     }
 
@@ -381,10 +385,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         }
       }
     } else {
-      // Restore original widths (columns already fill or exceed available width)
+      // Restore original widths for non-frozen columns only;
+      // frozen columns keep their current (possibly user-resized) width.
       for (final col in _columns) {
-        final original = _originalColumnWidths[col.field];
-        if (original != null) col.width = original;
+        if (col.frozen == TrinaColumnFrozen.none) {
+          final original = _originalColumnWidths[col.field];
+          if (original != null) col.width = original;
+        }
       }
     }
   }
@@ -815,7 +822,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableSorting: true,
           enableColumnDrag: false,
           enableContextMenu: false,
-          enableDropToResize: frozen == TrinaColumnFrozen.none,
+          enableDropToResize: true,
           readOnly: isReadOnly || isCalculated,
           enableEditingMode: false,
           renderer: isNestedArray
@@ -1033,7 +1040,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           enableSorting: true,
           enableColumnDrag: false,
           enableContextMenu: false,
-          enableDropToResize: frozen == TrinaColumnFrozen.none,
+          enableDropToResize: true,
           readOnly: isReadOnly || isCalculated,
           enableEditingMode: false,
           // Custom renderer for calculated, enum, numeric, boolean, nested array, or grouped columns
@@ -1061,6 +1068,78 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return columns;
   }
 
+  /// Determine which fields in a group should remain visible when collapsed.
+  /// Fields with "columnGroupShow": "open" stay visible; otherwise the first field does.
+  Set<String> _getAlwaysVisibleFields(String groupTitle, List<String> fields) {
+    final alwaysVisible = <String>{};
+
+    // Check columnItems for columnGroupShow config
+    if (widget.columnItems != null) {
+      for (final item in widget.columnItems!) {
+        final itemMap = item as Map<String, dynamic>;
+        if (itemMap['type'] == 'group' && itemMap['label'] == groupTitle) {
+          final groupItems = itemMap['items'] as List?;
+          if (groupItems != null) {
+            for (final groupItem in groupItems) {
+              final gi = groupItem as Map<String, dynamic>;
+              if (gi['columnGroupShow'] == 'open') {
+                final name = gi['name'] as String?;
+                if (name != null) alwaysVisible.add(name);
+              }
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    // Fallback: if nothing marked, keep the first field visible
+    if (alwaysVisible.isEmpty && fields.isNotEmpty) {
+      alwaysVisible.add(fields.first);
+    }
+
+    return alwaysVisible;
+  }
+
+  /// Check if any row has a validation error for the given field.
+  bool _fieldHasAnyValidationError(String fieldKey) {
+    if (widget.validationResult == null || widget.propertyName == null) return false;
+    final rows = _stateManager?.rows ?? _rows;
+    for (final row in rows) {
+      if (_hasValidationError(row, fieldKey)) return true;
+    }
+    return false;
+  }
+
+  /// Toggle column group visibility: hide all columns in the group, or show them again.
+  /// Columns with columnGroupShow "open" (or the first column) always stay visible.
+  /// Columns with validation errors are never hidden.
+  void _toggleColumnGroup(TrinaColumnGroup group, TrinaGridStateManager stateManager) {
+    final fields = group.fields;
+    if (fields == null || fields.isEmpty) return;
+
+    final isCollapsed = _collapsedGroups.contains(group.title);
+    // Use originalList because refColumns filters out hidden columns
+    final allColumns = stateManager.refColumns.originalList;
+    final columnsInGroup = allColumns.where((c) => fields.contains(c.field)).toList();
+
+    if (isCollapsed) {
+      // Expand: show all columns in this group
+      stateManager.hideColumns(columnsInGroup, false);
+      _collapsedGroups.remove(group.title);
+      group.isCollapsed = false;
+    } else {
+      // Collapse: hide columns except those that should stay visible or have errors
+      final alwaysVisible = _getAlwaysVisibleFields(group.title, fields);
+      final columnsToHide = columnsInGroup
+          .where((c) => !alwaysVisible.contains(c.field) && !_fieldHasAnyValidationError(c.field))
+          .toList();
+      stateManager.hideColumns(columnsToHide, true);
+      _collapsedGroups.add(group.title);
+      group.isCollapsed = true;
+    }
+  }
+
   List<TrinaColumnGroup> _buildColumnGroups() {
     // NEW STRUCTURE: Extract groups from columnItems
     if (widget.columnItems != null && widget.columnItems!.isNotEmpty) {
@@ -1086,7 +1165,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             if (fields.isNotEmpty) {
               final canExpand = fields.length == 1;
               groups.add(
-                TrinaColumnGroup(title: groupLabel, fields: fields, expandedColumn: canExpand),
+                TrinaColumnGroup(
+                  title: groupLabel,
+                  fields: fields,
+                  expandedColumn: canExpand,
+                  titleTextAlign: TrinaColumnTextAlign.left,
+                  onTap: _toggleColumnGroup,
+                ),
               );
             }
           }
@@ -1167,7 +1252,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     return groups.entries.map((entry) {
       final fields = entry.value.map((col) => col.field).toList();
       final canExpand = fields.length == 1;
-      return TrinaColumnGroup(title: entry.key, fields: fields, expandedColumn: canExpand);
+      return TrinaColumnGroup(
+        title: entry.key,
+        fields: fields,
+        expandedColumn: canExpand,
+        titleTextAlign: TrinaColumnTextAlign.left,
+        onTap: _toggleColumnGroup,
+      );
     }).toList();
   }
 
