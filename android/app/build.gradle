@@ -63,7 +63,7 @@ android {
         applicationId = "de.thuenen.terrestrial_forest_monitor"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdk = 24  // Android 7.0+ required for modern SSL/TLS support
+        minSdk = 26  // Android 8.0+ required for modern SSL/TLS support
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
@@ -71,37 +71,43 @@ android {
 
     signingConfigs {
         release {
-            try {
-                storeFile file("keystore.jks")
-                storePassword System.getenv("storePassword")
-                keyAlias System.getenv("keyAlias")
-                keyPassword System.getenv("keyPassword")
-            } catch (Exception ignored) {
-                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+            // Check environment variables first
+            def envStorePassword = System.getenv("storePassword")
+            def envKeyAlias = System.getenv("keyAlias")
+            def envKeyPassword = System.getenv("keyPassword")
+            
+            if (envStorePassword && envKeyAlias && envKeyPassword) {
+                // Use environment variables
+                def keystoreFile = file("keystore.jks")
+                if (keystoreFile.exists()) {
+                    storeFile keystoreFile
+                    storePassword envStorePassword
+                    keyAlias envKeyAlias
+                    keyPassword envKeyPassword
+                }
+            } else if (keystoreProperties['storeFile']) {
+                // Fallback to key.properties
+                def keystoreFile = file(keystoreProperties['storeFile'])
+                if (keystoreFile.exists()) {
+                    storeFile keystoreFile
+                    storePassword keystoreProperties['storePassword']
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                }
             }
-            //storeFile = file("${project.rootDir}/app/keystore.jks")
-            //storePassword = keystorePassword
-            //keyAlias = keystoreAlias
-            //keyPassword = keyPassword
-            //storeType = "jks"
-            //println "DEBUG: Assigned storePassword, keyAlias, keyPassword, storeType"
         }
     }
 
     buildTypes {
         release {
-             println "DEBUG: Inside buildTypes.release"
-            // Check file existence
-            if (!signingConfigs.release.storeFile?.exists()) {
-                 logger.warn("Keystore file specified but not found at path: ${signingConfigs.release.storeFile?.absolutePath}")
+            println "DEBUG: Inside buildTypes.release"
+            // Only assign signing config if storeFile was set
+            if (signingConfigs.release.storeFile?.exists()) {
+                signingConfig signingConfigs.release
+                println "DEBUG: Assigned signingConfig = signingConfigs.release"
+            } else {
+                logger.warn("No valid keystore found - building unsigned release APK")
             }
-            // Assign the release signing config.
-            signingConfig signingConfigs.release
-            println "DEBUG: Assigned signingConfig = signingConfigs.release"
-            // ...
         }
     }
 }

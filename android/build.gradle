@@ -23,6 +23,11 @@ subprojects {
                     sourceCompatibility JavaVersion.VERSION_21
                     targetCompatibility JavaVersion.VERSION_21
                 }
+                
+                // Fix flutter_bluetooth_serial compatibility with SDK 36
+                if (project.name == 'flutter_bluetooth_serial') {
+                    compileSdkVersion 33
+                }
             }
         }
     }

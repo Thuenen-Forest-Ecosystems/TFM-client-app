@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- Restrict system CA trust to Thuenen domains only -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">thuenen.de</domain>
+        <trust-anchors>
+            <!-- System certificates for *.thuenen.de -->
+            <certificates src="system" />
+            <!-- Bundled GEANT TLS certificate for ci.thuenen.de -->
+            <certificates src="@raw/geant_tls_rsa_1" />
+        </trust-anchors>
+    </domain-config>
+    <!-- Default: no cleartext, no system CA trust for all other domains -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
-            <!-- System certificates (default Android trust store) -->
             <certificates src="system" />
-            <!-- Custom GEANT TLS certificate for ci.thuenen.de -->
-            <certificates src="@raw/geant_tls_rsa_1" />
         </trust-anchors>
     </base-config>
 </network-security-config>

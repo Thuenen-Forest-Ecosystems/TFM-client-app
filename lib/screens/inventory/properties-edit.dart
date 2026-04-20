@@ -1532,20 +1532,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     )
                   : _record == null
                   ? const Center(child: Text('No record found'))
-                  : !_hasCompletedInitialValidation
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text(
-                            'Formular wird erstellt',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    )
                   : FormWrapper(
                       key: _formWrapperKey,
                       jsonSchema: _jsonSchema,

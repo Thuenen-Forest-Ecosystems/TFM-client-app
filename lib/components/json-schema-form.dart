@@ -15,7 +15,19 @@ class JsonSchemaForm extends StatefulWidget {
   final void Function()? onCancel;
   final void Function(Map<String, dynamic>) onSubmit;
 
-  const JsonSchemaForm({super.key, required this.schema, required this.validationErrors, this.initialData, this.uiSchema, this.formData, this.onChanged, this.onError, this.onReset, this.onCancel, required this.onSubmit});
+  const JsonSchemaForm({
+    super.key,
+    required this.schema,
+    required this.validationErrors,
+    this.initialData,
+    this.uiSchema,
+    this.formData,
+    this.onChanged,
+    this.onError,
+    this.onReset,
+    this.onCancel,
+    required this.onSubmit,
+  });
 
   @override
   State<JsonSchemaForm> createState() => _JsonSchemaFormState();
@@ -293,7 +305,14 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.center, mainAxisSize: MainAxisSize.max, children: [..._buildFormFields()]));
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.max,
+        children: [..._buildFormFields()],
+      ),
+    );
   }
 
   List<Widget> _buildFormFields() {
@@ -327,12 +346,27 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         fields.add(_buildField(fieldName, fieldSchema, isRequired));
       } else {
         double? maxWidth = 400.0;
-        wrapChildren.add(Container(padding: EdgeInsets.only(bottom: 16), constraints: BoxConstraints(minWidth: 100, maxWidth: maxWidth), child: _buildField(fieldName, fieldSchema, isRequired)));
+        wrapChildren.add(
+          Container(
+            padding: EdgeInsets.only(bottom: 16),
+            constraints: BoxConstraints(minWidth: 100, maxWidth: maxWidth),
+            child: _buildField(fieldName, fieldSchema, isRequired),
+          ),
+        );
       }
     }
 
     if (!fullSize) {
-      fields.add(Wrap(spacing: 16, runSpacing: 16, alignment: WrapAlignment.start, runAlignment: WrapAlignment.start, crossAxisAlignment: WrapCrossAlignment.center, children: wrapChildren));
+      fields.add(
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.start,
+          runAlignment: WrapAlignment.start,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: wrapChildren,
+        ),
+      );
     }
 
     return fields;
@@ -388,14 +422,25 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           enumNames = List<String>.from(fieldSchema['enumNames'] as List);
         }
         // Check TFM-specific extension for enum names
-        else if (fieldSchema['\$tfm'] != null && fieldSchema['\$tfm'] is Map && fieldSchema['\$tfm']['name_de'] is List) {
+        else if (fieldSchema['\$tfm'] != null &&
+            fieldSchema['\$tfm'] is Map &&
+            fieldSchema['\$tfm']['name_de'] is List) {
           final tempList = List<String?>.from(fieldSchema['\$tfm']['name_de'] as List);
           // if all values are null add "kein wert"
-          enumNames = tempList.every((element) => element == null) ? ['kein wert'] : tempList.map((e) => e ?? 'kein wert').toList();
+          enumNames = tempList.every((element) => element == null)
+              ? ['kein wert']
+              : tempList.map((e) => e ?? 'kein wert').toList();
         }
 
         // Use the dedicated enum field builder
-        return _buildEnumField(fieldName, fieldTitle, description, enumValues, enumNames, fieldSchema);
+        return _buildEnumField(
+          fieldName,
+          fieldTitle,
+          description,
+          enumValues,
+          enumNames,
+          fieldSchema,
+        );
       }
     }
 
@@ -407,7 +452,14 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     // Rest of your field type handling
     switch (fieldType) {
       case 'string':
-        return _buildTextField(fieldName, fieldTitle, description, fieldSchema, isRequired, fieldUiOptions);
+        return _buildTextField(
+          fieldName,
+          fieldTitle,
+          description,
+          fieldSchema,
+          isRequired,
+          fieldUiOptions,
+        );
       case 'integer':
       case 'number':
         return _buildNumberField(fieldName, fieldTitle, description, fieldSchema, isRequired);
@@ -422,7 +474,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     }
   }
 
-  Widget _buildTabsObjectField(String fieldName, String fieldTitle, Map<String, dynamic> fieldSchema, bool isRequired) {
+  Widget _buildTabsObjectField(
+    String fieldName,
+    String fieldTitle,
+    Map<String, dynamic> fieldSchema,
+    bool isRequired,
+  ) {
     // Get object properties
     final properties = _typeSafeMap<String, dynamic>(fieldSchema['properties']) ?? {};
     final required = List<String>.from(fieldSchema['required'] ?? {});
@@ -444,41 +501,56 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Field title
-          if (fieldTitle.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(fieldTitle + (isRequired ? ' *' : ''), style: TextStyle(fontWeight: FontWeight.bold))),
+          if (fieldTitle.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                fieldTitle + (isRequired ? ' *' : ''),
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
 
           // Tab bar
           TabBar(
             isScrollable: tabType == 'scrollable',
             labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Theme.of(context).textTheme.bodyLarge?.color,
-            tabs:
-                properties.entries.map((entry) {
-                  final propName = entry.key;
-                  final propSchema = _typeSafeMap<String, dynamic>(entry.value) ?? {};
-                  final propTitle = propSchema['title'] as String? ?? propName;
+            tabs: properties.entries.map((entry) {
+              final propName = entry.key;
+              final propSchema = _typeSafeMap<String, dynamic>(entry.value) ?? {};
+              final propTitle = propSchema['title'] as String? ?? propName;
 
-                  // Get custom tab label and icon if specified
-                  final propUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[fieldName]?[propName]) ?? {};
-                  final tabLabel = propUiOptions['ui:tabLabel'] as String? ?? propTitle;
-                  final tabIcon = propUiOptions['ui:tabIcon'];
+              // Get custom tab label and icon if specified
+              final propUiOptions =
+                  _typeSafeMap<String, dynamic>(widget.uiSchema?[fieldName]?[propName]) ?? {};
+              final tabLabel = propUiOptions['ui:tabLabel'] as String? ?? propTitle;
+              final tabIcon = propUiOptions['ui:tabIcon'];
 
-                  return Tab(icon: tabIcon != null ? Icon(tabIcon) : null, text: tabLabel);
-                }).toList(),
+              return Tab(icon: tabIcon != null ? Icon(tabIcon) : null, text: tabLabel);
+            }).toList(),
           ),
 
           // Tab content
           SizedBox(
             height: 300, // You may want to adjust this or make it configurable
             child: TabBarView(
-              children:
-                  properties.entries.map((entry) {
-                    final propName = entry.key;
-                    final propSchema = _typeSafeMap<String, dynamic>(entry.value) ?? {};
-                    final isPropRequired = required.contains(propName);
+              children: properties.entries.map((entry) {
+                final propName = entry.key;
+                final propSchema = _typeSafeMap<String, dynamic>(entry.value) ?? {};
+                final isPropRequired = required.contains(propName);
 
-                    // For each property, build a single field editor
-                    return Padding(padding: const EdgeInsets.all(16.0), child: _buildPropertyField('$fieldName.$propName', propName, propSchema, isPropRequired, objectValue[propName]));
-                  }).toList(),
+                // For each property, build a single field editor
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _buildPropertyField(
+                    '$fieldName.$propName',
+                    propName,
+                    propSchema,
+                    isPropRequired,
+                    objectValue[propName],
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -486,7 +558,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildPropertyField(String path, String propName, Map<String, dynamic> propSchema, bool isRequired, dynamic value) {
+  Widget _buildPropertyField(
+    String path,
+    String propName,
+    Map<String, dynamic> propSchema,
+    bool isRequired,
+    dynamic value,
+  ) {
     // Similar to your existing field building logic but adapted for nested properties
     final propType = _getEffectiveType(propSchema['type']);
     final propTitle = propSchema['title'] as String? ?? propName;
@@ -495,17 +573,32 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     final pathParts = path.split('.');
     final objectName = pathParts[0];
     final propertyName = pathParts[1];
-    final propUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[objectName]?[propertyName]);
+    final propUiOptions = _typeSafeMap<String, dynamic>(
+      widget.uiSchema?[objectName]?[propertyName],
+    );
 
     // This ensures consistent field generation between regular and tabbed views
     Widget field;
     switch (propType) {
       case 'string':
         // Create a controller for this nested field
-        field = _buildTextField(path, propTitle, propSchema['description'], propSchema, isRequired, propUiOptions);
+        field = _buildTextField(
+          path,
+          propTitle,
+          propSchema['description'],
+          propSchema,
+          isRequired,
+          propUiOptions,
+        );
       case 'integer':
       case 'number':
-        field = _buildNumberField(path, propTitle, propSchema['description'], propSchema, isRequired);
+        field = _buildNumberField(
+          path,
+          propTitle,
+          propSchema['description'],
+          propSchema,
+          isRequired,
+        );
       case 'boolean':
         field = _buildBooleanField(path, propTitle, propSchema['description'], propSchema);
       default:
@@ -521,7 +614,14 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return field;
   }
 
-  Widget _buildTextField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired, [Map<String, dynamic> uiOptions = const {}]) {
+  Widget _buildTextField(
+    String name,
+    String title,
+    String? description,
+    Map<String, dynamic> schema,
+    bool isRequired, [
+    Map<String, dynamic> uiOptions = const {},
+  ]) {
     final controller = _controllers[name] ?? TextEditingController();
     _controllers[name] = controller;
 
@@ -557,7 +657,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
               keyboardType: keyboardType,
               maxLines: isMultiline ? options['rows'] ?? 5 : 1,
               obscureText: isObscure,
-              decoration: InputDecoration(labelText: '$title${isRequired ? ' *' : ''}', border: const OutlineInputBorder(), hintText: schema['example']?.toString(), errorText: fieldError, helperText: description),
+              decoration: InputDecoration(
+                labelText: '$title${isRequired ? ' *' : ''}',
+                border: const OutlineInputBorder(),
+                hintText: schema['example']?.toString(),
+                errorText: fieldError,
+                helperText: description,
+              ),
 
               onChanged: (value) {
                 print('SAVED: $name = $value');
@@ -570,7 +676,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildNumberField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired) {
+  Widget _buildNumberField(
+    String name,
+    String title,
+    String? description,
+    Map<String, dynamic> schema,
+    bool isRequired,
+  ) {
     final controller = _controllers[name] ?? TextEditingController();
     _controllers[name] = controller;
 
@@ -590,13 +702,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
             border: const OutlineInputBorder(),
             hintText: schema['example']?.toString(),
             errorText: fieldError,
-            suffixIcon: SpeechToTextButton(
+            /*suffixIcon: SpeechToTextButton(
               onChanged: (value) {
                 if (value != null && value.isNotEmpty) {
                   _updateField(name, value);
                 }
               },
-            ),
+            ),*/
           ),
           onChanged: (value) {
             if (value.isNotEmpty) {
@@ -614,7 +726,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildBooleanField(String name, String title, String? description, Map<String, dynamic> schema) {
+  Widget _buildBooleanField(
+    String name,
+    String title,
+    String? description,
+    Map<String, dynamic> schema,
+  ) {
     // Get current value - prefer widget.formData if available
     bool isChecked = _getFieldValue(name) ?? schema['default'] ?? false;
 
@@ -646,11 +763,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           value: currentValue,
           hint: Text(title),
           isExpanded: true,
-          validator: isRequired ? (value) => value == null || value.isEmpty ? '$title is required' : null : null,
-          items:
-              options.map<DropdownMenuItem<String>>((dynamic value) {
-                return DropdownMenuItem<String>(value: value.toString(), child: Text(value.toString()));
-              }).toList(),
+          validator: isRequired
+              ? (value) => value == null || value.isEmpty ? '$title is required' : null
+              : null,
+          items: options.map<DropdownMenuItem<String>>((dynamic value) {
+            return DropdownMenuItem<String>(value: value.toString(), child: Text(value.toString()));
+          }).toList(),
           onChanged: (String? newValue) {
             _updateField(name, newValue);
           },
@@ -659,7 +777,14 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildEnumField(String name, String title, String? description, List<dynamic> enumValues, List<String>? enumNames, Map<String, dynamic> fieldSchema) {
+  Widget _buildEnumField(
+    String name,
+    String title,
+    String? description,
+    List<dynamic> enumValues,
+    List<String>? enumNames,
+    Map<String, dynamic> fieldSchema,
+  ) {
     // Get UI options for this field
     final fieldUiOptions = _typeSafeMap<String, dynamic>(widget.uiSchema?[name]) ?? {};
     final fieldLayoutOptions = _typeSafeMap<String, dynamic>(fieldUiOptions['ui:layout']) ?? {};
@@ -679,12 +804,11 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     final fieldError = _getFieldError(name);
 
     // Build the display names list
-    final List<String> displayNames =
-        stringOptions.asMap().entries.map((entry) {
-          final int idx = entry.key;
-          final String value = entry.value;
-          return enumNames != null && idx < enumNames.length ? '$value | ${enumNames[idx]}' : value;
-        }).toList();
+    final List<String> displayNames = stringOptions.asMap().entries.map((entry) {
+      final int idx = entry.key;
+      final String value = entry.value;
+      return enumNames != null && idx < enumNames.length ? '$value | ${enumNames[idx]}' : value;
+    }).toList();
     // Use autocomplete if specified, otherwise use dropdown
     if (!useDropdown) {
       return Column(
@@ -695,52 +819,61 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
               if (textEditingValue.text == '') {
                 return displayNames;
               }
-              return displayNames.where((option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase())).toList();
+              return displayNames
+                  .where(
+                    (option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()),
+                  )
+                  .toList();
             },
-            fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
-              // Set initial text if value exists
-              if (currentStringValue != null && textEditingController.text.isEmpty) {
-                final idx = stringOptions.indexOf(currentStringValue);
-                if (idx >= 0) {
-                  Future.delayed(Duration.zero, () {
-                    textEditingController.text = displayNames[idx];
-                  });
-                }
-              }
-              return TextFormField(
-                controller: textEditingController,
-                focusNode: focusNode,
-                decoration: InputDecoration(
-                  labelText: title,
-                  helperText: description,
-                  errorText: fieldError,
-                  border: OutlineInputBorder(),
-                  suffixIcon:
-                      textEditingController.text.isNotEmpty
+            fieldViewBuilder:
+                (
+                  BuildContext context,
+                  TextEditingController textEditingController,
+                  FocusNode focusNode,
+                  VoidCallback onFieldSubmitted,
+                ) {
+                  // Set initial text if value exists
+                  if (currentStringValue != null && textEditingController.text.isEmpty) {
+                    final idx = stringOptions.indexOf(currentStringValue);
+                    if (idx >= 0) {
+                      Future.delayed(Duration.zero, () {
+                        textEditingController.text = displayNames[idx];
+                      });
+                    }
+                  }
+                  return TextFormField(
+                    controller: textEditingController,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: title,
+                      helperText: description,
+                      errorText: fieldError,
+                      border: OutlineInputBorder(),
+                      suffixIcon: textEditingController.text.isNotEmpty
                           ? IconButton(
-                            icon: Icon(Icons.clear),
-                            onPressed: () {
-                              // Clear the text field
-                              Future.delayed(Duration.zero, () {
-                                textEditingController.clear();
-                                // Reset the form value
+                              icon: Icon(Icons.clear),
+                              onPressed: () {
+                                // Clear the text field
                                 Future.delayed(Duration.zero, () {
-                                  _updateField(name, null);
-                                  // Focus
+                                  textEditingController.clear();
+                                  // Reset the form value
                                   Future.delayed(Duration.zero, () {
-                                    focusNode.requestFocus();
+                                    _updateField(name, null);
+                                    // Focus
+                                    Future.delayed(Duration.zero, () {
+                                      focusNode.requestFocus();
+                                    });
                                   });
                                 });
-                              });
-                            },
-                          )
+                              },
+                            )
                           : Icon(Icons.arrow_drop_down),
-                ),
-                onFieldSubmitted: (String value) {
-                  onFieldSubmitted();
+                    ),
+                    onFieldSubmitted: (String value) {
+                      onFieldSubmitted();
+                    },
+                  );
                 },
-              );
-            },
             onSelected: (String selection) {
               // Find the original value from the selection
               int selectedIdx = -1;
@@ -759,30 +892,37 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
                 }
               }
             },
-            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
-              return Align(
-                alignment: Alignment.topLeft,
-                child: Material(
-                  elevation: 4.0,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.9), // maxHeight: 200,
-                    child: ListView.builder(
-                      padding: EdgeInsets.all(8.0),
-                      itemCount: options.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final String option = options.elementAt(index);
-                        return ListTile(
-                          title: Text(option),
-                          onTap: () {
-                            onSelected(option);
+            optionsViewBuilder:
+                (
+                  BuildContext context,
+                  AutocompleteOnSelected<String> onSelected,
+                  Iterable<String> options,
+                ) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 4.0,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.9,
+                        ), // maxHeight: 200,
+                        child: ListView.builder(
+                          padding: EdgeInsets.all(8.0),
+                          itemCount: options.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final String option = options.elementAt(index);
+                            return ListTile(
+                              title: Text(option),
+                              onTap: () {
+                                onSelected(option);
+                              },
+                            );
                           },
-                        );
-                      },
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
+                  );
+                },
           ),
         ],
       );
@@ -792,7 +932,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         children: [
           //if (description != null) Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(description, style: Theme.of(context).textTheme.bodySmall)),
           DropdownButtonFormField<String>(
-            decoration: InputDecoration(labelText: title, border: const OutlineInputBorder(), errorText: fieldError, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), helperText: description),
+            decoration: InputDecoration(
+              labelText: title,
+              border: const OutlineInputBorder(),
+              errorText: fieldError,
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              helperText: description,
+            ),
             value: currentStringValue,
             isExpanded: true,
             menuMaxHeight: 300,
@@ -800,20 +946,29 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
             selectedItemBuilder: (BuildContext context) {
               return stringOptions.map<Widget>((String value) {
                 final idx = stringOptions.indexOf(value);
-                String displayName = enumNames != null && idx < enumNames.length ? enumNames[idx] : value;
+                String displayName = enumNames != null && idx < enumNames.length
+                    ? enumNames[idx]
+                    : value;
                 // add value to dispay name
                 displayName = '$value | $displayName';
                 return Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 1);
               }).toList();
             },
-            items:
-                stringOptions.asMap().entries.map((entry) {
-                  final int idx = entry.key;
-                  final String value = entry.value;
-                  final String displayName = enumNames != null && idx < enumNames.length ? '$value | ${enumNames[idx]}' : value;
+            items: stringOptions.asMap().entries.map((entry) {
+              final int idx = entry.key;
+              final String value = entry.value;
+              final String displayName = enumNames != null && idx < enumNames.length
+                  ? '$value | ${enumNames[idx]}'
+                  : value;
 
-                  return DropdownMenuItem<String>(value: value, child: Container(constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8), child: Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 2)));
-                }).toList(),
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+                  child: Text(displayName, overflow: TextOverflow.ellipsis, maxLines: 2),
+                ),
+              );
+            }).toList(),
             onChanged: (String? newValue) {
               if (newValue != null && isIntegerEnum) {
                 // Convert back to integer when needed
@@ -836,7 +991,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     }
   }
 
-  Widget _buildArrayField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired) {
+  Widget _buildArrayField(
+    String name,
+    String title,
+    String? description,
+    Map<String, dynamic> schema,
+    bool isRequired,
+  ) {
     // Get current values - prefer widget.formData if available
     final List<dynamic> values = List<dynamic>.from(_getFieldValue(name) ?? []);
 
@@ -859,7 +1020,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildObjectField(String name, String title, String? description, Map<String, dynamic> schema, bool isRequired) {
+  Widget _buildObjectField(
+    String name,
+    String title,
+    String? description,
+    Map<String, dynamic> schema,
+    bool isRequired,
+  ) {
     // Ensure the object exists in form data
     if (_localFormData[name] == null) {
       setState(() {
@@ -875,7 +1042,12 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       final String nestedPath = '$name.$propName';
       final bool isPropRequired = requiredFields.contains(propName);
 
-      fieldWidgets.add(Padding(padding: EdgeInsets.only(bottom: 16.0), child: _buildField(nestedPath, propSchema, isPropRequired)));
+      fieldWidgets.add(
+        Padding(
+          padding: EdgeInsets.only(bottom: 16.0),
+          child: _buildField(nestedPath, propSchema, isPropRequired),
+        ),
+      );
     });
 
     return Wrap(children: fieldWidgets);

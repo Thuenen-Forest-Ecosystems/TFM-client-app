@@ -11,7 +11,12 @@ class SecureStorageService {
   static const String _keyTokenExpiry = 'cached_token_expiry';
   static const String _keyLastOnlineLogin = 'last_online_login';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  // v10: default cipher is AES-GCM (was CBC in v9 — fixes MobSF HIGH finding).
+  // migrateOnAlgorithmChange: true re-encrypts existing data on first access.
+  // resetOnError: false keeps explicit control (v10 changed default to true).
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(migrateOnAlgorithmChange: true, resetOnError: false),
+  );
 
   /// Store user credentials securely after successful online login
   Future<void> cacheCredentials({
@@ -41,7 +46,6 @@ class SecureStorageService {
 
       await _storage.write(key: _keyLastOnlineLogin, value: DateTime.now().toIso8601String());
     } catch (e) {
-      print('SecureStorageService: Error caching credentials - $e');
       rethrow;
     }
   }
@@ -51,7 +55,6 @@ class SecureStorageService {
     try {
       return await _storage.read(key: _keyEmail);
     } catch (e) {
-      print('SecureStorageService: Error reading cached email - $e');
       return null;
     }
   }
@@ -61,7 +64,6 @@ class SecureStorageService {
     try {
       return await _storage.read(key: _keyPassword);
     } catch (e) {
-      print('SecureStorageService: Error reading cached password - $e');
       return null;
     }
   }
@@ -71,7 +73,6 @@ class SecureStorageService {
     try {
       return await _storage.read(key: _keyUserId);
     } catch (e) {
-      print('SecureStorageService: Error reading cached user ID - $e');
       return null;
     }
   }
@@ -81,7 +82,6 @@ class SecureStorageService {
     try {
       return await _storage.read(key: _keyAccessToken);
     } catch (e) {
-      print('SecureStorageService: Error reading cached access token - $e');
       return null;
     }
   }
@@ -91,7 +91,6 @@ class SecureStorageService {
     try {
       return await _storage.read(key: _keyRefreshToken);
     } catch (e) {
-      print('SecureStorageService: Error reading cached refresh token - $e');
       return null;
     }
   }
@@ -105,7 +104,6 @@ class SecureStorageService {
       }
       return null;
     } catch (e) {
-      print('SecureStorageService: Error reading last online login - $e');
       return null;
     }
   }
@@ -115,14 +113,8 @@ class SecureStorageService {
     try {
       final email = await getCachedEmail();
       final password = await getCachedPassword();
-      final hasEmail = email != null;
-      final hasPassword = password != null;
-      print(
-        'SecureStorageService: hasCredentials check - email: $hasEmail, password: $hasPassword',
-      );
-      return hasEmail && hasPassword;
+      return email != null && password != null;
     } catch (e) {
-      print('SecureStorageService: Error checking credentials - $e');
       return false;
     }
   }
@@ -134,21 +126,11 @@ class SecureStorageService {
       final cachedPassword = await getCachedPassword();
 
       if (cachedEmail == null || cachedPassword == null) {
-        print('SecureStorageService: No cached credentials found');
         return false;
       }
 
-      final isValid = cachedEmail == email && cachedPassword == password;
-
-      if (isValid) {
-        print('SecureStorageService: Offline credentials validated successfully');
-      } else {
-        print('SecureStorageService: Offline credentials validation failed');
-      }
-
-      return isValid;
+      return cachedEmail == email && cachedPassword == password;
     } catch (e) {
-      print('SecureStorageService: Error validating offline credentials - $e');
       return false;
     }
   }
@@ -159,22 +141,12 @@ class SecureStorageService {
       final lastOnlineLogin = await getLastOnlineLogin();
 
       if (lastOnlineLogin == null) {
-        print('SecureStorageService: No last online login found');
         return false;
       }
 
       final daysSinceLastOnline = DateTime.now().difference(lastOnlineLogin).inDays;
-      final allowed = daysSinceLastOnline <= maxDaysOffline;
-
-      if (!allowed) {
-        print(
-          'SecureStorageService: Offline login expired (${daysSinceLastOnline} days since last online login)',
-        );
-      }
-
-      return allowed;
+      return daysSinceLastOnline <= maxDaysOffline;
     } catch (e) {
-      print('SecureStorageService: Error checking offline login allowed - $e');
       return false;
     }
   }
@@ -192,7 +164,6 @@ class SecureStorageService {
 
       print('SecureStorageService: All credentials cleared');
     } catch (e) {
-      print('SecureStorageService: Error clearing credentials - $e');
       rethrow;
     }
   }
@@ -201,9 +172,7 @@ class SecureStorageService {
   Future<void> clearAll() async {
     try {
       await _storage.deleteAll();
-      print('SecureStorageService: All secure storage cleared');
     } catch (e) {
-      print('SecureStorageService: Error clearing all storage - $e');
       rethrow;
     }
   }
@@ -222,9 +191,7 @@ class SecureStorageService {
       }
       // Update last online login since we just connected to Supabase
       await _storage.write(key: _keyLastOnlineLogin, value: DateTime.now().toIso8601String());
-      print('SecureStorageService: Tokens updated successfully');
     } catch (e) {
-      print('SecureStorageService: Error updating tokens - $e');
       rethrow;
     }
   }
