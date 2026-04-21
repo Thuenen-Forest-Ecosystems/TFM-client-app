@@ -12,6 +12,7 @@ class MapSettingsModal extends StatefulWidget {
   final bool showCrownCircles;
   final bool showClusterPolygons;
   final bool showProbekreise;
+  final bool showRettungspunkte;
   final Function(Set<String>) onBasemapsChanged;
   final Function(double) onTreeDiameterMultiplierChanged;
   final Function(bool) onShowTreeLabelsChanged;
@@ -20,6 +21,7 @@ class MapSettingsModal extends StatefulWidget {
   final Function(bool) onShowCrownCirclesChanged;
   final Function(bool) onShowClusterPolygonsChanged;
   final Function(bool) onShowProbekreiseChanged;
+  final Function(bool) onShowRettungspunkteChanged;
 
   const MapSettingsModal({
     super.key,
@@ -31,6 +33,7 @@ class MapSettingsModal extends StatefulWidget {
     required this.showCrownCircles,
     required this.showClusterPolygons,
     required this.showProbekreise,
+    required this.showRettungspunkte,
     required this.onBasemapsChanged,
     required this.onTreeDiameterMultiplierChanged,
     required this.onShowTreeLabelsChanged,
@@ -39,6 +42,7 @@ class MapSettingsModal extends StatefulWidget {
     required this.onShowCrownCirclesChanged,
     required this.onShowClusterPolygonsChanged,
     required this.onShowProbekreiseChanged,
+    required this.onShowRettungspunkteChanged,
   });
 
   /// Show the map settings modal
@@ -52,6 +56,7 @@ class MapSettingsModal extends StatefulWidget {
     required bool showCrownCircles,
     required bool showClusterPolygons,
     required bool showProbekreise,
+    required bool showRettungspunkte,
     required Function(Set<String>) onBasemapsChanged,
     required Function(double) onTreeDiameterMultiplierChanged,
     required Function(bool) onShowTreeLabelsChanged,
@@ -60,6 +65,7 @@ class MapSettingsModal extends StatefulWidget {
     required Function(bool) onShowCrownCirclesChanged,
     required Function(bool) onShowClusterPolygonsChanged,
     required Function(bool) onShowProbekreiseChanged,
+    required Function(bool) onShowRettungspunkteChanged,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -72,6 +78,7 @@ class MapSettingsModal extends StatefulWidget {
         showCrownCircles: showCrownCircles,
         showClusterPolygons: showClusterPolygons,
         showProbekreise: showProbekreise,
+        showRettungspunkte: showRettungspunkte,
         onBasemapsChanged: onBasemapsChanged,
         onTreeDiameterMultiplierChanged: onTreeDiameterMultiplierChanged,
         onShowTreeLabelsChanged: onShowTreeLabelsChanged,
@@ -80,6 +87,7 @@ class MapSettingsModal extends StatefulWidget {
         onShowCrownCirclesChanged: onShowCrownCirclesChanged,
         onShowClusterPolygonsChanged: onShowClusterPolygonsChanged,
         onShowProbekreiseChanged: onShowProbekreiseChanged,
+        onShowRettungspunkteChanged: onShowRettungspunkteChanged,
       ),
     );
   }
@@ -97,6 +105,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
   late bool _showCrownCircles;
   late bool _showClusterPolygons;
   late bool _showProbekreise;
+  late bool _showRettungspunkte;
 
   @override
   void initState() {
@@ -109,6 +118,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
     _showCrownCircles = widget.showCrownCircles;
     _showClusterPolygons = widget.showClusterPolygons;
     _showProbekreise = widget.showProbekreise;
+    _showRettungspunkte = widget.showRettungspunkte;
   }
 
   void _toggleBasemap(String basemap, bool? value) {
@@ -277,6 +287,15 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     onChanged: (value) {
                       setState(() => _showProbekreise = value ?? true);
                       widget.onShowProbekreiseChanged(_showProbekreise);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Rettungspunkte'),
+                    subtitle: const Text('Nur in hohen Zoom-Stufen sichtbar'),
+                    value: _showRettungspunkte,
+                    onChanged: (value) {
+                      setState(() => _showRettungspunkte = value ?? true);
+                      widget.onShowRettungspunkteChanged(_showRettungspunkte);
                     },
                   ),
                 ],

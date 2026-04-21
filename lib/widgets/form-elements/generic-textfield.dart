@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
 import 'package:math_expressions/math_expressions.dart';
 //import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 
@@ -51,6 +52,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
     _initializeControllers();
 
     if (widget.autofocus && !_hasRequestedInitialFocus) {
@@ -62,7 +64,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
           // trigger the on-screen keyboard because the tap was consumed by
           // the parent grid gesture detector. Explicitly ask the platform
           // to show the soft keyboard after focus is established.
-          if (!kIsWeb && Platform.isWindows) {
+          // Skip this for numeric/integer fields – they use the floating keyboard.
+          final type = _getType();
+          final isNumeric = type == 'integer' || type == 'number';
+          if (!kIsWeb && Platform.isWindows && !isNumeric) {
             Future.delayed(const Duration(milliseconds: 50), () {
               if (mounted) {
                 SystemChannels.textInput.invokeMethod('TextInput.show');
@@ -185,9 +190,42 @@ class _GenericTextFieldState extends State<GenericTextField> {
     }
   }
 
+  /// True on Android, iOS, and Windows – platforms where the system on-screen
+  /// keyboard should be replaced by the custom floating numeric keyboard.
+  bool get _shouldUseFloatingKeyboard => shouldUseFloatingNumKeyboard;
+
+  /// Called whenever [_focusNode] changes focus state.
+  /// Shows the floating keyboard when a numeric field gains focus on touch
+  /// platforms (handles both tap-to-focus and autofocus from grid cells).
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) return;
+    final type = _getType();
+    if (type != 'integer' && type != 'number') return;
+    if (!_shouldUseFloatingKeyboard) return;
+    final isReadonly =
+        widget.fieldSchema['readOnly'] as bool? ?? widget.fieldSchema['readonly'] as bool? ?? false;
+    if (isReadonly) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_focusNode.hasFocus) return;
+      FloatingNumKeyboard.show(
+        context: context,
+        textController: _controller,
+        onChanged: (v) => widget.onChanged?.call(v),
+        isDecimal: type == 'number',
+      );
+    });
+  }
+
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
+    // Dismiss the keyboard if it was connected to this field's controller.
+    final type = _getType();
+    if (type == 'integer' || type == 'number') {
+      FloatingNumKeyboard.hideIfOwner(_controller);
+    }
     if (_getType() != 'boolean' || _isBooleanWithEnum) {
       _controller.dispose();
     }
@@ -916,9 +954,21 @@ class _GenericTextFieldState extends State<GenericTextField> {
         child: TextField(
           focusNode: _focusNode,
           controller: _controller,
-          readOnly: isReadonly,
+          // On touch platforms suppress the system keyboard; input comes from
+          // the floating numeric keyboard launched via the focus listener.
+          readOnly: isReadonly || _shouldUseFloatingKeyboard,
           autofocus: widget.autofocus,
           textAlign: hasSpinner ? TextAlign.center : TextAlign.right,
+          // Re-open floating keyboard if user taps a field that already has
+          // focus (keyboard may have been dismissed without losing focus).
+          onTap: (!isReadonly && _shouldUseFloatingKeyboard)
+              ? () => FloatingNumKeyboard.show(
+                  context: context,
+                  textController: _controller,
+                  onChanged: (v) => widget.onChanged?.call(v),
+                  isDecimal: type == 'number',
+                )
+              : null,
           decoration: widget.compact
               ? InputDecoration(
                   border: InputBorder.none,

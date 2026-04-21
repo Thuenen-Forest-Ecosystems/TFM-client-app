@@ -1,19 +1,151 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/gnss-test-btn.dart';
+import 'package:terrestrial_forest_monitor/widgets/settings/keyboard-settings.dart';
+import 'package:terrestrial_forest_monitor/widgets/settings/density-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
-import 'package:terrestrial_forest_monitor/widgets/download-schemas-btn.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
-class Profile extends StatelessWidget {
+class Profile extends StatefulWidget {
   const Profile({super.key});
+
+  @override
+  State<Profile> createState() => _ProfileState();
+}
+
+class _ProfileState extends State<Profile> {
+  bool _isOnline = true;
+  late final StreamSubscription<List<ConnectivityResult>> _connectivitySub;
+  int _resetKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed with current state
+    Connectivity().checkConnectivity().then(_updateConnectivity);
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(_updateConnectivity);
+  }
+
+  void _updateConnectivity(List<ConnectivityResult> results) {
+    if (!mounted) return;
+    setState(() {
+      _isOnline = results.any((r) => r != ConnectivityResult.none);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub.cancel();
+    super.dispose();
+  }
+
+  Future<void> _clearLocalSettings() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.delete_sweep, size: 36),
+        title: const Text('Einstellungen zurücksetzen?'),
+        content: const Text(
+          'Folgende lokale Einstellungen werden gelöscht:\n\n'
+          '• Kompakter Modus\n'
+          '• Tastatur-Einstellung\n'
+          '• Spaltenbreiten in Tabellen\n'
+          '• Filter-Zustände\n'
+          '• Zuletzt genutzte Enum-Werte\n'
+          '• Karteneinstellungen\n\n'
+          'Server-, Organisations- und Proxy-Einstellungen bleiben erhalten.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Zurücksetzen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+
+    // Prefixes covering dynamic per-property keys
+    const dynamicPrefixes = ['col_widths_', 'array_filter_', 'enum_chips_view_', 'enum_recent_'];
+
+    // Fixed UI/layout keys (excludes selectedServer, proxy_*, selected_*, is_organization_admin, pinned_records)
+    const fixedKeys = {
+      'grid_dense_mode',
+      'floating_num_keyboard_enabled',
+      'map_basemaps',
+      'tree_diameter_multiplier',
+      'show_tree_labels',
+      'tree_label_fields',
+      'show_edges',
+      'show_crown_circles',
+      'show_cluster_polygons',
+      'show_probekreise',
+    };
+
+    for (final key in allKeys) {
+      if (fixedKeys.contains(key) || dynamicPrefixes.any((prefix) => key.startsWith(prefix))) {
+        await prefs.remove(key);
+      }
+    }
+
+    // Reload services so the app reflects the reset values immediately
+    await GridDensityService.loadPreference();
+    await FloatingNumKeyboard.loadPreference();
+
+    if (!mounted) return;
+    context.read<ThemeModeProvider>().setTheme(ThemeMode.dark);
+    setState(() => _resetKey++);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Einstellungen wurden zurückgesetzt.')));
+  }
+
+  Future<void> _confirmAndLogout(AuthProvider authProvider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
+        title: const Text('Abmelden und Daten löschen?'),
+        content: const Text(
+          'Alle lokalen Daten werden unwiderruflich gelöscht.\n\n'
+          'Nicht synchronisierte Einträge gehen verloren und können nicht wiederhergestellt werden.\n\n'
+          'Bitte stellen Sie sicher, dass alle Daten synchronisiert wurden, bevor Sie fortfahren.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Löschen und abmelden'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await db.disconnectAndClear();
+    await authProvider.logout();
+    if (mounted) context.beamToNamed('/login');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,8 +178,25 @@ class Profile extends StatelessWidget {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            Card(child: ThemeSettings()),
-
+            Card(child: ThemeSettings(key: ValueKey(_resetKey))),
+            const SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
+                'Keyboard-Einstellungen',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Card(child: KeyboardSettings(key: ValueKey(_resetKey))),
+            const SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
+                'Kompakter Modus',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Card(child: DensitySettings(key: ValueKey(_resetKey))),
             /*const SizedBox(height: 16),
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
@@ -101,23 +250,22 @@ class Profile extends StatelessWidget {
               child: const Text('Test TrinaGrid'),
             ),*/
 
-            // User Information Card
+            // Reset LocalStorage Button
+            const SizedBox(height: 32),
+
+            ElevatedButton.icon(
+              onPressed: _clearLocalSettings,
+              icon: const Icon(Icons.delete_sweep),
+              label: const Text('Einstellungen zurücksetzen'),
+            ),
+
             const SizedBox(height: 32),
 
             // Logout Button
             TextButton.icon(
-              onPressed: authProvider.loggingIn
+              onPressed: (authProvider.loggingIn || !_isOnline)
                   ? null
-                  : () async {
-                      // Disconnect and clear PowerSync database
-                      await db.disconnectAndClear();
-                      //await db.disconnect();
-                      // Logout from Supabase
-                      await authProvider.logout();
-                      if (context.mounted) {
-                        context.beamToNamed('/login');
-                      }
-                    },
+                  : () => _confirmAndLogout(authProvider),
               icon: authProvider.loggingIn
                   ? const SizedBox(
                       width: 20,
@@ -125,7 +273,13 @@ class Profile extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.logout),
-              label: Text(authProvider.loggingIn ? 'Abmelden...' : 'Abmelden und Daten löschen!!'),
+              label: Text(
+                authProvider.loggingIn
+                    ? 'Abmelden...'
+                    : !_isOnline
+                    ? 'Abmelden (offline nicht möglich)'
+                    : 'Abmelden und Daten löschen',
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.red,
                 padding: const EdgeInsets.symmetric(vertical: 16),

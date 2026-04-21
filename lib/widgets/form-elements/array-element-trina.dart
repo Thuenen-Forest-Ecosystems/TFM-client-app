@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
@@ -95,6 +97,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   // Track which column groups are currently collapsed (by group title)
   final Set<String> _collapsedGroups = {};
 
+  // Persisted column widths
+  Map<String, double> _savedColumnWidths = {};
+  bool _savedWidthsLoaded = false;
+  Map<String, double> _lastKnownWidths = {};
+  Timer? _widthSaveTimer;
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +110,70 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     print('Initial data: ${widget.data}');
     _initializeFilters();
     _initializeGrid();
+    GridDensityService.notifier.addListener(_onDensityChanged);
+    _loadColumnWidths();
+  }
+
+  void _onDensityChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Load persisted column widths from SharedPreferences.
+  /// Applies widths directly to column objects BEFORE the grid builds,
+  /// then calls setState so the grid is built for the first time with
+  /// the correct widths — no post-build corrections needed.
+  Future<void> _loadColumnWidths() async {
+    if (widget.propertyName != null) {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('col_widths_${widget.propertyName}');
+      if (raw != null) {
+        try {
+          final decoded = jsonDecode(raw) as Map<String, dynamic>;
+          _savedColumnWidths = decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+        } catch (_) {}
+      }
+      for (final col in _columns) {
+        final saved = _savedColumnWidths[col.field];
+        if (saved != null && saved > 0) col.width = saved;
+      }
+    }
+    if (mounted) setState(() => _savedWidthsLoaded = true);
+  }
+
+  /// Called whenever the state manager notifies. Detects column width changes
+  /// and debounces a save to SharedPreferences.
+  void _onColumnWidthChanged() {
+    if (_stateManager == null) return;
+    bool changed = false;
+    for (final col in _stateManager!.columns) {
+      if ((_lastKnownWidths[col.field] ?? -1.0) != col.width) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return;
+    for (final col in _stateManager!.columns) {
+      _lastKnownWidths[col.field] = col.width;
+      // Immediately update the in-memory cache so _adjustColumnsToFitWidth
+      // returns early on the very next build, preserving the user's resize.
+      // Without this, the 600ms debounce window leaves _savedColumnWidths stale
+      // and _adjustColumnsToFitWidth overwrites the user's new width.
+      if (!col.field.startsWith('__')) {
+        _savedColumnWidths[col.field] = col.width;
+        _originalColumnWidths[col.field] = col.width;
+      }
+    }
+    _widthSaveTimer?.cancel();
+    _widthSaveTimer = Timer(const Duration(milliseconds: 600), _saveColumnWidths);
+  }
+
+  /// Persist the in-memory _savedColumnWidths to SharedPreferences.
+  /// In-memory cache is already up-to-date (written in _onColumnWidthChanged)
+  /// so we just flush it to disk here.
+  Future<void> _saveColumnWidths() async {
+    if (widget.propertyName == null || _savedColumnWidths.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('col_widths_${widget.propertyName}', jsonEncode(_savedColumnWidths));
   }
 
   void _initializeFilters() {
@@ -361,6 +433,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   /// their total is narrower than the viewport.
   void _adjustColumnsToFitWidth(double availableWidth) {
     if (_columns.isEmpty || availableWidth <= 0) return;
+    // Skip auto-fit when the user has explicitly saved column widths.
+    // Their saved widths take precedence; the grid will scroll horizontally if needed.
+    if (_savedWidthsLoaded && _savedColumnWidths.isNotEmpty) return;
 
     double frozenWidth = 0;
     double nonFrozenOriginalWidth = 0;
@@ -702,7 +777,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           renderer: (rendererContext) {
             return Container(
               alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: GridDensityService.cellVerticalPadding,
+              ),
               child: Text(
                 '${rendererContext.rowIdx + 1}',
                 style: const TextStyle(fontWeight: FontWeight.w500),
@@ -1498,7 +1576,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       onTap: isReadOnly ? null : () => _openEnumDialog(rendererContext, propertySchema, fieldKey),
       child: Container(
         color: bgColor,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: GridDensityService.cellVerticalPadding,
+        ),
         alignment: Alignment.centerLeft,
         child: Text(displayText, overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
@@ -1621,7 +1702,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     return Container(
       color: bgColor,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: GridDensityService.cellVerticalPadding,
+      ),
       alignment: hasSpinner ? Alignment.center : Alignment.centerRight,
       child: showAttention
           ? Row(
@@ -1715,7 +1799,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     return Container(
       color: bgColor,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: GridDensityService.cellVerticalPadding,
+      ),
       alignment: Alignment.center,
       child: Text(displayText),
     );
@@ -2509,6 +2596,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       _mapControllerProvider!.removeListener(_onMapControllerChanged);
       debugPrint('${widget.propertyName}: Listener removed from MapControllerProvider');
     }
+    GridDensityService.notifier.removeListener(_onDensityChanged);
+    // Flush any pending debounced save before tearing down.
+    if (_widthSaveTimer?.isActive == true) {
+      _widthSaveTimer!.cancel();
+      _saveColumnWidths();
+    }
+    _widthSaveTimer?.cancel();
+    _stateManager?.resizingChangeNotifier.removeListener(_onColumnWidthChanged);
     super.dispose();
   }
 
@@ -2633,6 +2728,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             builder: (context, isExpanded, child) {
               return LayoutBuilder(
                 builder: (context, constraints) {
+                  // Wait for the async column-width load to complete so the
+                  // grid is built exactly once with the correct col.width values.
+                  // SharedPreferences is fast (<5 ms), so the blank is invisible.
+                  if (!_savedWidthsLoaded) return const SizedBox.shrink();
                   _adjustColumnsToFitWidth(constraints.maxWidth);
                   return Stack(
                     children: [
@@ -2665,10 +2764,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                           onLoaded: (TrinaGridOnLoadedEvent event) {
                             _stateManager = event.stateManager;
                             _rows = event.stateManager.rows;
-                            // Auto-size columns to fit headers
-                            /*for (final column in event.stateManager.columns) {
-                    event.stateManager.autoFitColumn(context, column);
-                  }*/
+                            // Seed baseline widths from live column objects.
+                            for (final col in event.stateManager.columns) {
+                              _lastKnownWidths[col.field] = col.width;
+                            }
+                            // resizingChangeNotifier is the notifier that
+                            // resizeColumn() fires (via notifyResizingListeners).
+                            // The main stateManager notifier is NOT called on
+                            // column resize, so we must listen here instead.
+                            event.stateManager.resizingChangeNotifier.addListener(
+                              _onColumnWidthChanged,
+                            );
                           },
                           onChanged: (TrinaGridOnChangedEvent event) {
                             // Sync _rows from state manager
@@ -2719,7 +2825,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                             enableMoveHorizontalInEditing: true,
                             tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
                             style: TrinaGridStyleConfig(
-                              rowHeight: 60,
+                              rowHeight: GridDensityService.rowHeight,
+                              columnHeight: GridDensityService.columnHeight,
                               iconSize: 18,
                               gridBorderRadius: BorderRadius.zero,
                               enableGridBorderShadow: false,

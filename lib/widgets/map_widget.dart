@@ -19,6 +19,8 @@ import 'package:terrestrial_forest_monitor/widgets/map/tree_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/tree_crown_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/subplot_layers.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/heading_layer.dart';
+import 'package:terrestrial_forest_monitor/widgets/map/rettungspunkte_layer.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -77,6 +79,9 @@ class _MapWidgetState extends State<MapWidget> {
   bool _showCrownCircles = true;
   bool _showClusterPolygons = true;
   bool _showProbekreise = true;
+  bool _showRettungspunkte = false;
+  List<RettungspunktePoint> _rettungspunkte = [];
+  List<RettungspunktePoint> _visibleRettungspunkte = [];
   Map<int, String> _treeSpeciesLookup = {}; // Maps species code to species name
   String? _lastRecordsFingerprint; // Guard against redundant reloads
 
@@ -107,6 +112,9 @@ class _MapWidgetState extends State<MapWidget> {
 
     // Load tree species lookup
     _loadTreeSpeciesLookup();
+
+    // Load Rettungspunkte from CSV asset
+    _loadRettungspunkte();
 
     // Register map controller with provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -852,6 +860,10 @@ class _MapWidgetState extends State<MapWidget> {
 
       final savedShowProbekreise = prefs.getBool('show_probekreise');
       if (savedShowProbekreise != null) setState(() => _showProbekreise = savedShowProbekreise);
+
+      final savedShowRettungspunkte = prefs.getBool('show_rettungspunkte');
+      if (savedShowRettungspunkte != null)
+        setState(() => _showRettungspunkte = savedShowRettungspunkte);
     } catch (e) {
       debugPrint('Error loading map settings: $e');
     }
@@ -868,8 +880,24 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setBool('show_crown_circles', _showCrownCircles);
       await prefs.setBool('show_cluster_polygons', _showClusterPolygons);
       await prefs.setBool('show_probekreise', _showProbekreise);
+      await prefs.setBool('show_rettungspunkte', _showRettungspunkte);
     } catch (e) {
       debugPrint('Error saving map settings: $e');
+    }
+  }
+
+  Future<void> _loadRettungspunkte() async {
+    try {
+      final csv = await rootBundle.loadString('assets/rettungspunkte.csv');
+      final points = await compute(RettungspunkteLayers.parseCsv, csv);
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _rettungspunkte = points;
+        });
+        debugPrint('Loaded ${points.length} Rettungspunkte');
+      }
+    } catch (e) {
+      debugPrint('Error loading Rettungspunkte: $e');
     }
   }
 
@@ -1140,9 +1168,18 @@ class _MapWidgetState extends State<MapWidget> {
       'east': bounds.east,
     });
 
+    final visibleRettungspunkte = await compute(_filterVisibleRettungspunkte, {
+      'points': _rettungspunkte,
+      'south': bounds.south,
+      'north': bounds.north,
+      'west': bounds.west,
+      'east': bounds.east,
+    });
+
     if (!_isDisposed && mounted) {
       setState(() {
         _visibleRecords = visibleRecords;
+        _visibleRettungspunkte = visibleRettungspunkte;
       });
       debugPrint('Updated visible records: ${_visibleRecords.length} out of ${_records.length}');
     }
@@ -1165,6 +1202,18 @@ class _MapWidgetState extends State<MapWidget> {
 
       return lat >= south && lat <= north && lng >= west && lng <= east;
     }).toList();
+  }
+
+  static List<RettungspunktePoint> _filterVisibleRettungspunkte(Map<String, dynamic> params) {
+    final points = params['points'] as List<RettungspunktePoint>;
+    final south = params['south'] as double;
+    final north = params['north'] as double;
+    final west = params['west'] as double;
+    final east = params['east'] as double;
+
+    return points
+        .where((p) => p.lat >= south && p.lat <= north && p.lng >= west && p.lng <= east)
+        .toList();
   }
 
   void _fitCameraToMarkers() {
@@ -1527,6 +1576,11 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() => _showProbekreise = value);
         _saveMapSettings();
       },
+      showRettungspunkte: _showRettungspunkte,
+      onShowRettungspunkteChanged: (value) {
+        setState(() => _showRettungspunkte = value);
+        _saveMapSettings();
+      },
     );
   }
 
@@ -1687,6 +1741,12 @@ class _MapWidgetState extends State<MapWidget> {
               }
             },
           ),
+
+        // Rettungspunkte layer (just above basemaps)
+        if (_showRettungspunkte && _visibleRettungspunkte.isNotEmpty && _currentZoom >= 10)
+          RettungspunkteLayers.buildCircleLayer(_visibleRettungspunkte),
+        if (_showRettungspunkte && _visibleRettungspunkte.isNotEmpty && _currentZoom >= 13)
+          RettungspunkteLayers.buildLabelLayer(_visibleRettungspunkte),
 
         // Clustered Markers from records
         if (markers.isNotEmpty)

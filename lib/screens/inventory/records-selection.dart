@@ -60,6 +60,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       _listenToMapBoundsChanges();
       // Listen to GPS position provider for position updates
       _listenToGpsPositionChanges();
+      // Listen to records provider for real-time updates (registered once here)
+      final provider = context.read<RecordsListProvider>();
+      provider.removeListener(_onProviderChanged);
+      provider.addListener(_onProviderChanged);
     });
   }
 
@@ -164,9 +168,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     try {
       // Load records from provider cache (populated by start.dart)
       final provider = context.read<RecordsListProvider>();
-
-      // Add listener for real-time updates
-      provider.addListener(_onProviderChanged);
 
       final cachedData = provider.getCachedRecords('all', ClusterOrderBy.clusterName);
 

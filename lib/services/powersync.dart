@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:powersync/powersync.dart';
 import 'package:powersync/sqlite3_common.dart';
@@ -206,76 +205,6 @@ Future downloadFile(fileName, {force = false}) async {
   return downloadFileImpl(fileName, force: force);
 }
 
-/// Download all validation files from a specific directory in Supabase storage
-/// Returns a map with {success: bool, downloadedFiles: List<String>, errors: List<String>}
-Future<Map<String, dynamic>> downloadValidationFiles(
-  String directory, {
-  force = false,
-  Function(int, int)? onProgress,
-}) async {
-  return downloadValidationFilesImpl(directory, force: force, onProgress: onProgress);
-}
-
-/// Download validation files for all schemas with directories
-/// This should be called after sync completes to ensure all validation files are available
-Future<Map<String, dynamic>> downloadAllValidationFiles({force = false}) async {
-  List<String> successfulDirectories = [];
-  List<String> failedDirectories = [];
-  int totalFilesDownloaded = 0;
-
-  try {
-    // Get all schemas with non-null directories from the database
-    final results = await db.getAll(
-      "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' AND is_visible = 1",
-    );
-
-    if (results.isEmpty) {
-      print('No schemas with directories found');
-      return {
-        'success': true,
-        'successfulDirectories': [],
-        'failedDirectories': [],
-        'totalFilesDownloaded': 0,
-        'message': 'No validation directories to download',
-      };
-    }
-
-    final directories = results.map((row) => row['directory'] as String).toSet().toList();
-    print('Found ${directories.length} unique validation directories to download');
-
-    for (var directory in directories) {
-      //print('Downloading validation files for directory: $directory');
-      final result = await downloadValidationFiles(directory, force: force);
-
-      if (result['success']) {
-        successfulDirectories.add(directory);
-        totalFilesDownloaded += (result['downloadedCount'] as int?) ?? 0;
-        //print('Successfully downloaded ${result['downloadedCount']} files for $directory');
-      } else {
-        failedDirectories.add(directory);
-        print('Failed to download files for $directory: ${result['errors']}');
-      }
-    }
-
-    return {
-      'success': failedDirectories.isEmpty,
-      'successfulDirectories': successfulDirectories,
-      'failedDirectories': failedDirectories,
-      'totalFilesDownloaded': totalFilesDownloaded,
-      'totalDirectories': directories.length,
-    };
-  } catch (e) {
-    print('Error downloading all validation files: $e');
-    return {
-      'success': false,
-      'successfulDirectories': successfulDirectories,
-      'failedDirectories': failedDirectories,
-      'totalFilesDownloaded': totalFilesDownloaded,
-      'error': e.toString(),
-    };
-  }
-}
-
 Future<PowerSyncDatabase> openDatabase() async {
   bool isSyncMode = true;
 
@@ -353,83 +282,6 @@ Future<PowerSyncDatabase> openDatabase() async {
   // The local SQLite database remains accessible, but no sync will occur until
   // the user logs in online again
   print('PowerSync: Database ready for offline-first operation');
-
-  // Listen to sync status and download validation files when schemas table is updated
-  bool _isDownloadingValidation = false;
-  bool _hasDownloadedValidationFiles = false; // One-time flag per app session
-  SyncStatus? _previousStatus;
-
-  db.statusStream.listen((status) async {
-    // Check if sync just completed (was downloading, now not downloading)
-    final syncJustCompleted = _previousStatus?.downloading == true && !status.downloading;
-    _previousStatus = status;
-
-    // Only download validation files ONCE per app session after first sync completes
-    // Files already exist on disk from previous sessions, so we only need to download on first install
-    // or when schemas are actually updated (which is rare)
-    if (syncJustCompleted &&
-        !_isDownloadingValidation &&
-        !_hasDownloadedValidationFiles &&
-        (status.hasSynced ?? false)) {
-      _isDownloadingValidation = true;
-
-      try {
-        // Check if there are validation directories in schemas
-        final results = await db.getAll(
-          "SELECT DISTINCT directory FROM schemas WHERE directory IS NOT NULL AND directory != '' AND is_visible = 1",
-        );
-
-        if (results.isEmpty) {
-          print('No schemas with directories found, skipping validation download');
-          _hasDownloadedValidationFiles = true; // Mark as done to avoid repeated checks
-          return;
-        }
-
-        final currentDirectories = results.map((row) => row['directory'] as String).toSet();
-
-        print('Checking validation files for ${currentDirectories.length} schema directories...');
-
-        // Download validation files (will skip existing files automatically)
-        int actuallyDownloaded = 0;
-        int skipped = 0;
-
-        for (var directory in currentDirectories) {
-          final result = await downloadValidationFiles(directory, force: false);
-
-          // Count files that were actually downloaded vs skipped
-          final downloadedCount = (result['downloadedCount'] as int?) ?? 0;
-          final downloadedFiles = (result['downloadedFiles'] as List<String>?) ?? [];
-
-          // Files are "skipped" if they already exist - we check by comparing files actually written
-          final actualNewFiles = downloadedFiles
-              .where(
-                (f) =>
-                    result['errors'] == null ||
-                    !(result['errors'] as List).any((e) => e.toString().contains(f)),
-              )
-              .length;
-
-          if (actualNewFiles < downloadedCount) {
-            skipped += (downloadedCount - actualNewFiles);
-          }
-          actuallyDownloaded += actualNewFiles;
-        }
-
-        if (actuallyDownloaded > 0) {
-          print('Downloaded $actuallyDownloaded new validation files (skipped $skipped existing)');
-        } else {
-          print('All validation files already exist (skipped $skipped files)');
-        }
-
-        _hasDownloadedValidationFiles = true; // Mark as done
-      } catch (e) {
-        print('Error during automatic validation file download: $e');
-        // Don't set _hasDownloadedValidationFiles so it can retry on next sync
-      } finally {
-        _isDownloadingValidation = false;
-      }
-    }
-  });
 
   // Demo using SQLite Full-Text Search with PowerSync.
   // See https://docs.powersync.com/usage-examples/full-text-search for more details

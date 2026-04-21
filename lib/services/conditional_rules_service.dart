@@ -1,8 +1,4 @@
-import 'dart:convert';
-import 'package:universal_io/io.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:terrestrial_forest_monitor/services/utils.dart';
 
 /// Service for loading and applying conditional rules to JSON schemas
 /// based on form data state
@@ -14,10 +10,10 @@ class ConditionalRulesService {
   List<ConditionalRule>? _cachedRules;
   String? _cachedDirectory;
 
-  /// Load conditional rules from schema data or file
+  /// Load conditional rules from schema data
   ///
-  /// [styleData] - Optional style data from schema table
-  /// [directory] - Directory name for file fallback
+  /// [styleData] - Style data from schema table
+  /// [directory] - Directory name (used only for cache key)
   Future<List<ConditionalRule>> loadRules({
     Map<String, dynamic>? styleData,
     String? directory,
@@ -28,33 +24,12 @@ class ConditionalRulesService {
     }
 
     try {
-      Map<String, dynamic>? styleMapJson;
-
-      // First try: Use provided style data from schema table
-      if (styleData != null) {
-        debugPrint('✓ Loading conditional rules from schema table data');
-        styleMapJson = styleData;
-      }
-      // Fallback: Load from file if directory is provided
-      else if (directory != null) {
-        debugPrint('⚠️ Falling back to loading conditional rules from file: $directory');
-        final appDirectory = await getApplicationDocumentsDirectory();
-        final styleMapPath = '${appDirectory.path}/TFM/validation/$directory/style.json';
-
-        final styleMapFile = File(styleMapPath);
-
-        if (await styleMapFile.exists()) {
-          final styleMapContent = await styleMapFile.readAsString();
-          styleMapJson = jsonDecode(styleMapContent);
-        } else {
-          debugPrint('❌ style.json not found at: $styleMapPath');
-        }
-      }
-
-      if (styleMapJson == null) {
+      if (styleData == null) {
         debugPrint('❌ No style data available for conditional rules');
         return [];
       }
+
+      final styleMapJson = styleData;
 
       // Extract conditional rules from style data
       final rules =

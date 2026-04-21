@@ -43,6 +43,8 @@ import 'package:terrestrial_forest_monitor/screens/records-raw.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
 import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
+import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
 
 BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
   return BeamerDelegate(
@@ -144,6 +146,12 @@ void main() async {
   // Initialize proxy service (must be done early, before any HTTP requests)
   await ProxyService.initialize();
   print('Proxy service initialized');
+
+  // Load floating numeric keyboard user preference
+  await FloatingNumKeyboard.loadPreference();
+
+  // Load grid density preference
+  await GridDensityService.loadPreference();
 
   // set default Locale to Language provider
   final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
@@ -344,6 +352,18 @@ class _LayoutState extends State<Layout> with WindowListener {
             trackOutlineColor: WidgetStateProperty.resolveWith((states) {
               if (!states.contains(WidgetState.selected)) {
                 return Colors.grey[400];
+              }
+              return null;
+            }),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              if (!states.contains(WidgetState.selected)) {
+                return Colors.grey[300];
+              }
+              return null; // default green when selected
+            }),
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              if (!states.contains(WidgetState.selected)) {
+                return Colors.grey[600];
               }
               return null;
             }),

@@ -1,23 +1,15 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
-import 'package:terrestrial_forest_monitor/services/utils.dart';
 
 /// Service for loading and managing layout configurations
-///
-/// Loads layout JSON files (style.json) from downloaded directories
-/// provided by PowerSync sync.
 class LayoutService {
   static LayoutConfig? _cachedLayout;
   static String? _cachedDirectory;
 
-  /// Load a layout configuration from schema data or downloaded directory
+  /// Load a layout configuration from schema data
   ///
-  /// [styleData] - Optional style data from schema table
-  /// [directory] - Directory name containing the style.json file (e.g., 'v73'), used as fallback
+  /// [styleData] - Style data from schema table
+  /// [directory] - Directory name (used only for cache key)
   /// Returns null if the layout cannot be loaded
   static Future<LayoutConfig?> loadLayout({
     Map<String, dynamic>? styleData,
@@ -33,39 +25,13 @@ class LayoutService {
 
     debugPrint('📥 Loading FRESH layout for directory: $directory');
 
+    if (styleData == null) {
+      print('No layout data available');
+      return null;
+    }
+
     try {
-      Map<String, dynamic>? jsonData;
-
-      // First try: Use provided style data from schema table
-      if (styleData != null) {
-        print('Loading layout from schema table data');
-        jsonData = styleData;
-      }
-      // Fallback: Load from file if directory is provided
-      else if (directory != null) {
-        print('Falling back to loading layout from file: $directory');
-        final appDirectory = await getApplicationDocumentsDirectory();
-        final stylePath = path.join(
-          appDirectory.path,
-          'TFM',
-          'validation',
-          directory,
-          'style.json',
-        );
-
-        final file = File(stylePath);
-        if (await file.exists()) {
-          final jsonString = await file.readAsString();
-          jsonData = json.decode(jsonString) as Map<String, dynamic>;
-        } else {
-          print('Style file not found: $stylePath');
-        }
-      }
-
-      if (jsonData == null) {
-        print('No layout data available');
-        return null;
-      }
+      final jsonData = styleData;
 
       _cachedLayout = LayoutConfig.fromJson(jsonData);
       _cachedDirectory = directory;
