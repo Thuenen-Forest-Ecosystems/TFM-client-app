@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart' hide Column;
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
@@ -103,22 +102,9 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
       return _buildOfflineStatusChip(context, _isNetworkAvailable);
     }
 
-    // For online mode, check Supabase auth
-    return StreamBuilder(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          User? user = getCurrentUser();
-
-          if (user == null) {
-            return const SizedBox();
-          }
-          return _buildStatusChip(context, _connectionState);
-        } else {
-          return const SizedBox();
-        }
-      },
-    );
+    // For online mode — authProvider.isAuthenticated already confirmed above,
+    // so always show the chip regardless of stream state.
+    return _buildStatusChip(context, _connectionState);
   }
 }
 

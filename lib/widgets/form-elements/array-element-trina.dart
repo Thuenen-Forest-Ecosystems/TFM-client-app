@@ -2067,6 +2067,24 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     });
 
+    // Find matching previous row by identifier so calculated fields can display
+    // values that depend on previous inventory data (e.g. dbh_previous).
+    Map<String, dynamic>? previousRowData;
+    if (widget.previousData != null) {
+      final identifierFields = widget.identifierField != null
+          ? [widget.identifierField!]
+          : ['tree_number', 'edge_number', 'row_number', 'id'];
+      for (final idField in identifierFields) {
+        if (currentData.containsKey(idField) && currentData[idField] != null) {
+          previousRowData = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
+            (prevRow) => prevRow != null && prevRow[idField] == currentData[idField],
+            orElse: () => null,
+          );
+          if (previousRowData != null) break;
+        }
+      }
+    }
+
     final result = await ArrayRowFormDialog.show(
       context: context,
       itemSchema: itemSchema,
@@ -2076,6 +2094,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       layoutOptions: widget.layoutOptions,
       title: 'Zeile bearbeiten',
       readOnly: _isArrayReadOnly,
+      previousRowData: previousRowData,
     );
 
     if (result != null) {

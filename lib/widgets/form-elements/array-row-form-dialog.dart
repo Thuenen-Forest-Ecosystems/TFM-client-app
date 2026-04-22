@@ -23,6 +23,9 @@ class ArrayRowFormDialog extends StatefulWidget {
   final String title;
   final bool readOnly;
 
+  /// Optional previous row data for computed fields that depend on previous inventory
+  final Map<String, dynamic>? previousRowData;
+
   const ArrayRowFormDialog({
     super.key,
     required this.itemSchema,
@@ -32,6 +35,7 @@ class ArrayRowFormDialog extends StatefulWidget {
     this.layoutOptions,
     this.title = 'Neue Zeile hinzufügen',
     this.readOnly = false,
+    this.previousRowData,
   });
 
   /// Show the dialog and return the result
@@ -44,6 +48,7 @@ class ArrayRowFormDialog extends StatefulWidget {
     Map<String, dynamic>? layoutOptions,
     String? title,
     bool readOnly = false,
+    Map<String, dynamic>? previousRowData,
   }) async {
     return await showDialog<Map<String, dynamic>>(
       context: context,
@@ -56,6 +61,7 @@ class ArrayRowFormDialog extends StatefulWidget {
         layoutOptions: layoutOptions,
         title: title ?? 'Neue Zeile hinzufügen',
         readOnly: readOnly,
+        previousRowData: previousRowData,
       ),
     );
   }
@@ -76,6 +82,16 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   /// Array-type fields with their schema and column config
   final Map<String, _ArrayFieldInfo> _arrayFields = {};
 
+  /// Fields with a 'pinned' attribute in the column item config (top-level, not in a group)
+  final Set<String> _pinnedFields = {};
+
+  /// Fixed widths for ungrouped (top-level) fields, captured from column item config
+  final Map<String, double> _fieldWidths = {};
+
+  /// Item configs for calculated fields (type: 'calculated'), used as fieldOptions
+  /// in GenericTextField so it can evaluate calculatedFunction/expression.
+  final Map<String, Map<String, dynamic>> _calculatedFieldConfigs = {};
+
   /// Live AJV validation result for in-dialog feedback
   TFMValidationResult? _validationResult;
   Timer? _validationDebounce;
@@ -85,10 +101,8 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     super.initState();
     _formData = Map<String, dynamic>.from(widget.initialData ?? {});
     _prepareSchemaAndLayout();
-    // Run initial validation for edit mode so errors are visible immediately
-    if (widget.initialData != null && widget.initialData!.isNotEmpty) {
-      _scheduleValidation();
-    }
+    // Run initial validation so required fields are highlighted immediately
+    _scheduleValidation();
   }
 
   @override
@@ -104,7 +118,17 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
 
   Future<void> _validateFormData() async {
     try {
-      final result = await ValidationService.instance.validate(_effectiveSchema, _formData);
+      // Exclude calculated fields from the validation schema: they are computed
+      // display-only values not stored in _formData, so AJV would incorrectly
+      // flag them as missing/wrong-type.
+      final allProperties = (_effectiveSchema['properties'] as Map<String, dynamic>? ?? {});
+      final validationProperties = <String, dynamic>{
+        for (final entry in allProperties.entries)
+          if (!_calculatedFieldConfigs.containsKey(entry.key)) entry.key: entry.value,
+      };
+      final validationSchema = {..._effectiveSchema, 'properties': validationProperties};
+
+      final result = await ValidationService.instance.validate(validationSchema, _formData);
       if (mounted) {
         setState(() {
           _validationResult = TFMValidationResult(
@@ -163,33 +187,39 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
           if (subItem is! Map<String, dynamic>) continue;
           final fieldName = subItem['name'] as String?;
           if (fieldName == null) continue;
-          if (!properties.containsKey(fieldName)) continue;
+          // Allow calculated fields even if not in the JSON schema (they are virtual/computed)
+          if (!properties.containsKey(fieldName) && subItem['type'] != 'calculated') continue;
 
-          // Skip calculated/display-only fields
-          if (subItem['type'] == 'calculated') continue;
+          // Skip display-only fields; calculated fields are kept but shown read-only
           if (subItem['display'] == false) continue;
 
-          // Track array-type fields
-          final propSchema = properties[fieldName] as Map<String, dynamic>;
-          final schemaType = propSchema['type'];
-          final isArray =
-              schemaType == 'array' ||
-              (schemaType is List && schemaType.contains('array')) ||
-              subItem['type'] == 'array';
-          if (isArray) {
-            _arrayFields[fieldName] = _ArrayFieldInfo(
-              fieldName: fieldName,
-              propertySchema: propSchema,
-              nestedColumns: subItem['columns'] as Map<String, dynamic>?,
-              nestedOptions: subItem['options'] as Map<String, dynamic>?,
-              isReadOnly:
-                  widget.readOnly ||
-                  subItem['readonly'] == true ||
-                  propSchema['readOnly'] == true ||
-                  propSchema['readonly'] == true,
-            );
+          // Track array-type fields (skip for calculated-only fields not in the schema)
+          final propSchema = properties[fieldName] as Map<String, dynamic>?;
+          if (propSchema != null) {
+            final schemaType = propSchema['type'];
+            final isArray =
+                schemaType == 'array' ||
+                (schemaType is List && schemaType.contains('array')) ||
+                subItem['type'] == 'array';
+            if (isArray) {
+              _arrayFields[fieldName] = _ArrayFieldInfo(
+                fieldName: fieldName,
+                propertySchema: propSchema,
+                nestedColumns: subItem['columns'] as Map<String, dynamic>?,
+                nestedOptions: subItem['options'] as Map<String, dynamic>?,
+                isReadOnly:
+                    widget.readOnly ||
+                    subItem['readonly'] == true ||
+                    propSchema['readOnly'] == true ||
+                    propSchema['readonly'] == true,
+              );
+            }
           }
 
+          // Store item config for reactive computed display in GenericTextField
+          if (subItem['type'] == 'calculated') {
+            _calculatedFieldConfigs[fieldName] = Map<String, dynamic>.from(subItem);
+          }
           _applyFieldConfig(fieldName, subItem, properties, modifiedProperties);
           groupFields.add(fieldName);
           allIncludeProps.add(fieldName);
@@ -207,8 +237,9 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         // Top-level item (not in a group)
         final fieldName = item['name'] as String?;
         if (fieldName == null) continue;
-        if (!properties.containsKey(fieldName)) continue;
-        if (item['type'] == 'calculated') continue;
+        // Allow calculated fields even if not in the JSON schema (they are virtual/computed)
+        if (!properties.containsKey(fieldName) && item['type'] != 'calculated') continue;
+        // Calculated top-level fields are kept but shown read-only
         if (item['display'] == false) continue;
 
         // Track array-type fields
@@ -232,7 +263,14 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
           );
         }
 
+        // Store item config for reactive computed display in GenericTextField
+        if (item['type'] == 'calculated') {
+          _calculatedFieldConfigs[fieldName] = Map<String, dynamic>.from(item);
+        }
         _applyFieldConfig(fieldName, item, properties, modifiedProperties);
+        if (item['pinned'] != null) _pinnedFields.add(fieldName);
+        final _w = (item['width'] as num?)?.toDouble();
+        if (_w != null) _fieldWidths[fieldName] = _w;
         ungroupedFields.add(fieldName);
         allIncludeProps.add(fieldName);
       }
@@ -255,10 +293,37 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     Map<String, dynamic> properties,
     Map<String, dynamic> modifiedProperties,
   ) {
-    final propertySchema = Map<String, dynamic>.from(properties[fieldName] as Map<String, dynamic>);
+    // Use the existing schema property, or create a synthetic entry for calculated
+    // fields that are not actual JSON schema properties (e.g. dbh_previous).
+    final existing = properties[fieldName] as Map<String, dynamic>?;
+    final propertySchema = existing != null
+        ? Map<String, dynamic>.from(existing)
+        : <String, dynamic>{'type': 'string'};
 
-    // Apply readonly
+    // Stamp type: 'calculated' so GenericTextField enters the calculation branch.
+    // This is needed for fields that exist in the JSON schema (where the schema
+    // type is e.g. 'number') and for purely virtual fields (synthetic 'string').
+    if (itemConfig['type'] == 'calculated') {
+      propertySchema['type'] = 'calculated';
+      // Forward calculatedFunction / expression / variables into the schema so
+      // GenericTextField can evaluate them via fieldSchema lookups.
+      if (itemConfig['calculatedFunction'] != null) {
+        propertySchema['calculatedFunction'] = itemConfig['calculatedFunction'];
+      }
+      if (itemConfig['expression'] != null) {
+        propertySchema['expression'] = itemConfig['expression'];
+      }
+      if (itemConfig['variables'] != null) {
+        propertySchema['variables'] = itemConfig['variables'];
+      }
+      if (itemConfig['unit_short'] != null) {
+        propertySchema['unit_short'] = itemConfig['unit_short'];
+      }
+    }
+
+    // Apply readonly (calculated fields are always read-only)
     if (widget.readOnly ||
+        itemConfig['type'] == 'calculated' ||
         itemConfig['readonly'] == true ||
         propertySchema['readOnly'] == true ||
         propertySchema['readonly'] == true) {
@@ -370,9 +435,13 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     _scheduleValidation();
   }
 
-  /// Build grouped form content from columnItems layout
+  /// Build grouped form content from columnItems layout.
+  /// Labeled groups are rendered as collapsible [ExpansionTile]s.
+  /// Ungrouped top-level fields are shown in a sticky row via [_buildPinnedRow].
   Widget _buildGroupedForm(Map<String, dynamic> properties) {
-    final groups = _fieldGroups!;
+    final labeledGroups = _fieldGroups!
+        .where((g) => g.label != null && g.label!.isNotEmpty)
+        .toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -386,109 +455,183 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
           columns = 1;
         }
 
+        // Returns the input widget for [fieldName], or null if the field should
+        // be skipped (unsupported type, not in schema, etc.).
+        Widget? buildFieldWidget(String fieldName) {
+          if (!properties.containsKey(fieldName)) return null;
+
+          if (_arrayFields.containsKey(fieldName)) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: _buildArrayFieldWidget(fieldName, _arrayFields[fieldName]!),
+            );
+          }
+
+          final fieldSchema = properties[fieldName] as Map<String, dynamic>;
+          final typeValue = fieldSchema['type'];
+          String? type;
+          if (typeValue is String) {
+            type = typeValue;
+          } else if (typeValue is List) {
+            type = typeValue.firstWhere((t) => t != 'null', orElse: () => null) as String?;
+          }
+          if (type != 'string' &&
+              type != 'number' &&
+              type != 'integer' &&
+              type != 'boolean' &&
+              type != 'calculated') {
+            return null;
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(8),
+            child: GenericTextField(
+              fieldName: fieldName,
+              fieldSchema: fieldSchema,
+              value: _formData[fieldName],
+              errors: _getErrorsForField(fieldName),
+              onChanged: (value) => _updateField(fieldName, value),
+              currentData: _formData,
+              fieldOptions: _calculatedFieldConfigs[fieldName],
+              previousData: widget.previousRowData,
+            ),
+          );
+        }
+
+        // Lays out [fields] in a responsive grid.  Array fields always occupy a
+        // full-width row; primitive fields are batched into [columns] per row.
+        Widget buildGroupGrid(List<String> fields) {
+          final items = <({bool isArray, Widget widget})>[];
+          for (final fieldName in fields) {
+            final w = buildFieldWidget(fieldName);
+            if (w == null) continue;
+            items.add((isArray: _arrayFields.containsKey(fieldName), widget: w));
+          }
+          if (items.isEmpty) return const SizedBox.shrink();
+
+          final rows = <Widget>[];
+          final batch = <Widget>[];
+
+          void flushBatch() {
+            if (batch.isEmpty) return;
+            for (var i = 0; i < batch.length; i += columns) {
+              final chunk = batch.sublist(i, (i + columns).clamp(0, batch.length));
+              rows.add(
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: chunk.map((w) => Expanded(child: w)).toList(),
+                  ),
+                ),
+              );
+            }
+            batch.clear();
+          }
+
+          for (final item in items) {
+            if (item.isArray) {
+              flushBatch();
+              rows.add(item.widget);
+            } else {
+              batch.add(item.widget);
+            }
+          }
+          flushBatch();
+
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: groups.map((group) {
-            // Collect (isArray, widget) pairs for this group
-            final items = <({bool isArray, Widget widget})>[];
-            for (final fieldName in group.fields) {
-              if (!properties.containsKey(fieldName)) continue;
-
-              if (_arrayFields.containsKey(fieldName)) {
-                items.add((
-                  isArray: true,
-                  widget: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _buildArrayFieldWidget(fieldName, _arrayFields[fieldName]!),
-                  ),
-                ));
-                continue;
-              }
-
-              final fieldSchema = properties[fieldName] as Map<String, dynamic>;
-              final typeValue = fieldSchema['type'];
-              String? type;
-              if (typeValue is String) {
-                type = typeValue;
-              } else if (typeValue is List) {
-                type = typeValue.firstWhere((t) => t != 'null', orElse: () => null) as String?;
-              }
-              if (type != 'string' && type != 'number' && type != 'integer' && type != 'boolean') {
-                continue;
-              }
-
-              items.add((
-                isArray: false,
-                widget: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: GenericTextField(
-                    fieldName: fieldName,
-                    fieldSchema: fieldSchema,
-                    value: _formData[fieldName],
-                    errors: _getErrorsForField(fieldName),
-                    onChanged: (value) => _updateField(fieldName, value),
-                    currentData: _formData,
-                  ),
-                ),
-              ));
-            }
-
-            if (items.isEmpty) return const SizedBox.shrink();
-
-            // Build rows: regular fields are batched into 'columns' per row using
-            // Row + Expanded so every field fills its grid cell to the full width.
-            // Array fields always get their own full-width row.
-            final rows = <Widget>[];
-            final batch = <Widget>[];
-
-            void flushBatch() {
-              if (batch.isEmpty) return;
-              for (var i = 0; i < batch.length; i += columns) {
-                final chunk = batch.sublist(i, (i + columns).clamp(0, batch.length));
-                rows.add(
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: chunk.map((w) => Expanded(child: w)).toList(),
-                    ),
-                  ),
-                );
-              }
-              batch.clear();
-            }
-
-            for (final item in items) {
-              if (item.isArray) {
-                flushBatch();
-                rows.add(item.widget);
-              } else {
-                batch.add(item.widget);
-              }
-            }
-            flushBatch();
-
-            final content = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
-
-            if (group.label != null && group.label!.isNotEmpty) {
-              return ExpansionTile(
-                title: Text(
-                  group.label!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                initiallyExpanded: false,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-                childrenPadding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-                children: [content],
-              );
-            } else {
-              return Padding(padding: const EdgeInsets.only(bottom: 12), child: content);
-            }
+          children: labeledGroups.map((group) {
+            final content = buildGroupGrid(group.fields);
+            return ExpansionTile(
+              title: Text(
+                group.label!,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+              childrenPadding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+              children: [content],
+            );
           }).toList(),
         );
       },
+    );
+  }
+
+  /// Sticky horizontally-scrollable row for ungrouped top-level fields
+  /// (e.g. tree_number, tree_status, tree_species).
+  /// Rendered above the vertically scrollable group area and stays visible while scrolling.
+  Widget _buildPinnedRow(Map<String, dynamic> properties) {
+    final unlabeledGroups = _fieldGroups!
+        .where((g) => g.label == null || g.label!.isEmpty)
+        .toList();
+    if (unlabeledGroups.isEmpty) return const SizedBox.shrink();
+
+    const defaultFieldWidth = 200.0;
+    final fieldWidgets = <Widget>[];
+
+    for (final group in unlabeledGroups) {
+      for (final fieldName in group.fields) {
+        if (!properties.containsKey(fieldName)) continue;
+        if (_arrayFields.containsKey(fieldName)) continue;
+
+        final fieldSchema = properties[fieldName] as Map<String, dynamic>;
+        final typeValue = fieldSchema['type'];
+        String? type;
+        if (typeValue is String) {
+          type = typeValue;
+        } else if (typeValue is List) {
+          type = typeValue.firstWhere((t) => t != 'null', orElse: () => null) as String?;
+        }
+        if (type != 'string' &&
+            type != 'number' &&
+            type != 'integer' &&
+            type != 'boolean' &&
+            type != 'calculated') {
+          continue;
+        }
+
+        final width = (_fieldWidths[fieldName] ?? defaultFieldWidth).clamp(200.0, 400.0);
+        fieldWidgets.add(
+          SizedBox(
+            width: width,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: GenericTextField(
+                fieldName: fieldName,
+                fieldSchema: fieldSchema,
+                value: _formData[fieldName],
+                errors: _getErrorsForField(fieldName),
+                onChanged: (value) => _updateField(fieldName, value),
+                currentData: _formData,
+                fieldOptions: _calculatedFieldConfigs[fieldName],
+                previousData: widget.previousRowData,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (fieldWidgets.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+        child: Row(children: fieldWidgets),
+      ),
     );
   }
 
@@ -507,6 +650,8 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Sticky row: ungrouped top-level fields (tree_number, tree_status, …)
+            if (useGroupedLayout) _buildPinnedRow(properties),
             // Form content
             Expanded(
               child: SingleChildScrollView(
