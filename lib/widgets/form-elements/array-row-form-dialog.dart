@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
@@ -74,11 +76,56 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   /// Array-type fields with their schema and column config
   final Map<String, _ArrayFieldInfo> _arrayFields = {};
 
+  /// Live AJV validation result for in-dialog feedback
+  TFMValidationResult? _validationResult;
+  Timer? _validationDebounce;
+
   @override
   void initState() {
     super.initState();
     _formData = Map<String, dynamic>.from(widget.initialData ?? {});
     _prepareSchemaAndLayout();
+    // Run initial validation for edit mode so errors are visible immediately
+    if (widget.initialData != null && widget.initialData!.isNotEmpty) {
+      _scheduleValidation();
+    }
+  }
+
+  @override
+  void dispose() {
+    _validationDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleValidation() {
+    _validationDebounce?.cancel();
+    _validationDebounce = Timer(const Duration(milliseconds: 400), _validateFormData);
+  }
+
+  Future<void> _validateFormData() async {
+    try {
+      final result = await ValidationService.instance.validate(_effectiveSchema, _formData);
+      if (mounted) {
+        setState(() {
+          _validationResult = TFMValidationResult(
+            ajvValid: result.isValid,
+            ajvErrors: result.errors,
+            tfmAvailable: false,
+            tfmErrors: const [],
+          );
+        });
+      }
+    } catch (_) {
+      // Validation service may not be initialized; silently skip
+    }
+  }
+
+  List<ValidationError> _getErrorsForField(String fieldName) {
+    if (_validationResult == null) return const [];
+    return _validationResult!.ajvErrors.where((e) {
+      final path = e.instancePath ?? '';
+      return path == '/$fieldName' || path.startsWith('/$fieldName/');
+    }).toList();
   }
 
   void _prepareSchemaAndLayout() {
@@ -320,6 +367,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     setState(() {
       _formData[key] = value;
     });
+    _scheduleValidation();
   }
 
   /// Build grouped form content from columnItems layout
@@ -337,63 +385,90 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         } else {
           columns = 1;
         }
-        final fieldWidth = columns > 1 ? (screenWidth / columns - 12) : double.infinity;
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: groups.map((group) {
-            final fieldWidgets = group.fields
-                .where((f) => properties.containsKey(f))
-                .map((fieldName) {
-                  final fieldSchema = properties[fieldName] as Map<String, dynamic>;
+            // Collect (isArray, widget) pairs for this group
+            final items = <({bool isArray, Widget widget})>[];
+            for (final fieldName in group.fields) {
+              if (!properties.containsKey(fieldName)) continue;
 
-                  // Check if this is an array field
-                  if (_arrayFields.containsKey(fieldName)) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: _buildArrayFieldWidget(fieldName, _arrayFields[fieldName]!),
-                      ),
-                    );
-                  }
+              if (_arrayFields.containsKey(fieldName)) {
+                items.add((
+                  isArray: true,
+                  widget: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: _buildArrayFieldWidget(fieldName, _arrayFields[fieldName]!),
+                  ),
+                ));
+                continue;
+              }
 
-                  // Only show primitive types for text fields
-                  final typeValue = fieldSchema['type'];
-                  String? type;
-                  if (typeValue is String) {
-                    type = typeValue;
-                  } else if (typeValue is List) {
-                    type = typeValue.firstWhere((t) => t != 'null', orElse: () => null) as String?;
-                  }
-                  if (type != 'string' &&
-                      type != 'number' &&
-                      type != 'integer' &&
-                      type != 'boolean') {
-                    return null;
-                  }
+              final fieldSchema = properties[fieldName] as Map<String, dynamic>;
+              final typeValue = fieldSchema['type'];
+              String? type;
+              if (typeValue is String) {
+                type = typeValue;
+              } else if (typeValue is List) {
+                type = typeValue.firstWhere((t) => t != 'null', orElse: () => null) as String?;
+              }
+              if (type != 'string' && type != 'number' && type != 'integer' && type != 'boolean') {
+                continue;
+              }
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                    child: SizedBox(
-                      width: fieldWidth,
-                      child: GenericTextField(
-                        fieldName: fieldName,
-                        fieldSchema: fieldSchema,
-                        value: _formData[fieldName],
-                        errors: const [],
-                        onChanged: (value) => _updateField(fieldName, value),
-                        currentData: _formData,
-                      ),
+              items.add((
+                isArray: false,
+                widget: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: GenericTextField(
+                    fieldName: fieldName,
+                    fieldSchema: fieldSchema,
+                    value: _formData[fieldName],
+                    errors: _getErrorsForField(fieldName),
+                    onChanged: (value) => _updateField(fieldName, value),
+                    currentData: _formData,
+                  ),
+                ),
+              ));
+            }
+
+            if (items.isEmpty) return const SizedBox.shrink();
+
+            // Build rows: regular fields are batched into 'columns' per row using
+            // Row + Expanded so every field fills its grid cell to the full width.
+            // Array fields always get their own full-width row.
+            final rows = <Widget>[];
+            final batch = <Widget>[];
+
+            void flushBatch() {
+              if (batch.isEmpty) return;
+              for (var i = 0; i < batch.length; i += columns) {
+                final chunk = batch.sublist(i, (i + columns).clamp(0, batch.length));
+                rows.add(
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: chunk.map((w) => Expanded(child: w)).toList(),
                     ),
-                  );
-                })
-                .whereType<Widget>()
-                .toList();
+                  ),
+                );
+              }
+              batch.clear();
+            }
 
-            if (fieldWidgets.isEmpty) return const SizedBox.shrink();
+            for (final item in items) {
+              if (item.isArray) {
+                flushBatch();
+                rows.add(item.widget);
+              } else {
+                batch.add(item.widget);
+              }
+            }
+            flushBatch();
 
-            final wrappedFields = Wrap(spacing: 4, runSpacing: 4, children: fieldWidgets);
+            final content = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
 
             if (group.label != null && group.label!.isNotEmpty) {
               return ExpansionTile(
@@ -404,12 +479,12 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 initiallyExpanded: false,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-                children: [wrappedFields],
+                tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+                childrenPadding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                children: [content],
               );
             } else {
-              return Padding(padding: const EdgeInsets.only(bottom: 8), child: wrappedFields);
+              return Padding(padding: const EdgeInsets.only(bottom: 12), child: content);
             }
           }).toList(),
         );
@@ -423,10 +498,11 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
     final useGroupedLayout = _fieldGroups != null && _fieldGroups!.isNotEmpty;
 
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: 1000,
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxWidth: MediaQuery.of(context).size.width * 0.92,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -448,10 +524,12 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                             includeProperties: _includeProperties,
                             fieldOptions: _fieldOptions,
                             layoutOptions: widget.layoutOptions,
+                            validationResult: _validationResult,
                             onDataChanged: (updatedData) {
                               setState(() {
                                 _formData = updatedData;
                               });
+                              _scheduleValidation();
                             },
                           ),
                           // Render array fields below the primitive form fields

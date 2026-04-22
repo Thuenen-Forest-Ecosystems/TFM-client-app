@@ -835,55 +835,81 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     // Handle boolean with Switch
     if (type == 'boolean') {
+      void toggle() {
+        if (isReadonly) return;
+        setState(() => _boolValue = !_boolValue);
+        widget.onChanged?.call(_boolValue);
+      }
+
       final child = Opacity(
         opacity: isReadonly ? 0.6 : 1.0,
         child: Column(
           crossAxisAlignment: widget.compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: widget.compact
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.start,
-              children: [
-                if (!widget.compact)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _getLabel() ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: hasErrors ? Colors.red : null,
-                          ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isReadonly ? null : toggle,
+                borderRadius: BorderRadius.circular(12),
+                child: Ink(
+                  decoration: widget.compact
+                      ? null
+                      : BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.07)
+                              : Colors.black.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        if (_getDescription() != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _getDescription()!,
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  child: Padding(
+                    padding: widget.compact
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: widget.compact
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.start,
+                      children: [
+                        if (!widget.compact)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getLabel() ?? '',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: hasErrors ? Colors.red : null,
+                                  ),
+                                ),
+                                if (_getDescription() != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getDescription()!,
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                        ],
+                        Switch(
+                          focusNode: _focusNode,
+                          value: _boolValue,
+                          activeThumbColor: Theme.of(context).colorScheme.primary,
+                          activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                          inactiveThumbColor: Colors.grey[400],
+                          onChanged: isReadonly
+                              ? null
+                              : (value) {
+                                  setState(() => _boolValue = value);
+                                  widget.onChanged?.call(value);
+                                },
+                        ),
                       ],
                     ),
                   ),
-                Switch(
-                  focusNode: _focusNode,
-                  value: _boolValue,
-                  activeThumbColor: Theme.of(context).colorScheme.primary,
-                  activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                  inactiveThumbColor: Colors.grey[400],
-                  onChanged: isReadonly
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _boolValue = value;
-                          });
-                          widget.onChanged?.call(value);
-                        },
                 ),
-              ],
+              ),
             ),
             if (hasErrors) ...[
               const SizedBox(height: 4),
