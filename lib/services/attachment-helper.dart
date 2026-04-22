@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:powersync_attachments_helper/powersync_attachments_helper.dart';
 import 'package:powersync_core/powersync_core.dart';
@@ -50,26 +51,52 @@ class AttachmentQueue extends AbstractAttachmentQueue {
   StreamSubscription<void> watchIds({String fileExtension = 'json'}) {
     return db
         .watch('''
-      SELECT bucket_schema_file_name, bucket_plausability_file_name FROM schemas WHERE bucket_schema_file_name IS NOT NULL
+      SELECT bucket_schema_file_name, bucket_plausability_file_name
+      FROM schemas
+      WHERE bucket_schema_file_name IS NOT NULL OR bucket_plausability_file_name IS NOT NULL
     ''')
         .map((results) {
           List<String> idsList = [];
           for (var row in results) {
-            idsList.add(row['bucket_schema_file_name'] as String);
-            idsList.add(row['bucket_plausability_file_name'] as String);
+            final schemaFileName = row['bucket_schema_file_name'] as String?;
+            final plausabilityFileName = row['bucket_plausability_file_name'] as String?;
+
+            if (schemaFileName != null && schemaFileName.isNotEmpty) {
+              idsList.add(schemaFileName);
+            }
+
+            if (plausabilityFileName != null && plausabilityFileName.isNotEmpty) {
+              idsList.add(plausabilityFileName);
+            }
           }
-          return idsList;
-          return results.map((row) => row['bucket_schema_file_name'] as String).toList();
+          return idsList.toSet().toList();
         })
         .listen((ids) async {
-          List<String> idsInQueue = await attachmentsService.getAttachmentIds();
-          List<String> relevantIds = ids.where((element) => !idsInQueue.contains(element)).toList();
-          print('watchIds');
-          print(relevantIds);
-          print(idsInQueue);
-          relevantIds = idsInQueue;
+          final idsInQueue = await attachmentsService.getAttachmentIds();
+          final attachments = <Attachment>[];
 
-          syncingService.processIds(ids, fileExtension);
+          for (final id in ids) {
+            if (idsInQueue.contains(id)) {
+              continue;
+            }
+
+            final localPath = await getLocalUri(id);
+            if (await File(localPath).exists()) {
+              continue;
+            }
+
+            attachments.add(
+              Attachment(
+                id: id,
+                filename: id,
+                state: AttachmentState.queuedDownload.index,
+              ),
+            );
+          }
+
+          if (attachments.isNotEmpty) {
+            await attachmentsService.saveAttachments(attachments);
+          }
         });
   }
 }

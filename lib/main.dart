@@ -48,7 +48,11 @@ import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
 
 BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
   return BeamerDelegate(
-    notFoundPage: BeamPage(key: ValueKey('not-found'), title: 'Not Found', child: Error404()),
+    notFoundPage: BeamPage(
+      key: ValueKey('not-found'),
+      title: 'Not Found',
+      child: Error404(),
+    ),
     //transitionDelegate: const NoAnimationTransitionDelegate(),
     updateListenable: authProvider,
     guards: [
@@ -154,8 +158,10 @@ void main() async {
   await GridDensityService.loadPreference();
 
   // set default Locale to Language provider
-  final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
-  final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
+  final String defaultLocale =
+      Intl.getCurrentLocale(); // = Platform.localeName;
+  final Brightness brightness =
+      SchedulerBinding.instance.platformDispatcher.platformBrightness;
   final ThemeMode initialThemeMode = brightness == Brightness.dark
       ? ThemeMode.dark
       : ThemeMode.light;
@@ -220,7 +226,9 @@ void main() async {
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => DatabaseProvider()),
         ChangeNotifierProvider(create: (_) => languageProvider),
-        ChangeNotifierProvider(create: (_) => ThemeModeProvider(initialThemeMode)),
+        ChangeNotifierProvider(
+          create: (_) => ThemeModeProvider(initialThemeMode),
+        ),
         ChangeNotifierProvider(create: (_) => MapState()),
         ChangeNotifierProvider(create: (_) => gpsProvider),
         ChangeNotifierProvider(create: (_) => RecordsListProvider()),
@@ -247,6 +255,8 @@ class Layout extends StatefulWidget {
 }
 
 class _LayoutState extends State<Layout> with WindowListener {
+  bool _isClosing = false;
+
   @override
   void initState() {
     super.initState();
@@ -265,6 +275,10 @@ class _LayoutState extends State<Layout> with WindowListener {
 
   @override
   void onWindowClose() async {
+    if (_isClosing) {
+      return;
+    }
+
     bool isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
       // Access navigator through the router delegate
@@ -287,7 +301,16 @@ class _LayoutState extends State<Layout> with WindowListener {
                   child: Text('Ja'),
                   onPressed: () async {
                     Navigator.of(navigator.context).pop();
-                    await windowManager.destroy();
+                    _isClosing = true;
+                    try {
+                      await ValidationService.instance.dispose();
+                    } catch (e) {
+                      print(
+                        'Error disposing validation service during shutdown: $e',
+                      );
+                    }
+                    await windowManager.setPreventClose(false);
+                    await windowManager.close();
                   },
                 ),
               ],
@@ -301,11 +324,15 @@ class _LayoutState extends State<Layout> with WindowListener {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    final String languageProvider = Provider.of<Language>(context).locale.toString();
+    final String languageProvider = Provider.of<Language>(
+      context,
+    ).locale.toString();
     String selectedLanguage = languageProvider.split('_')[0];
 
     final themeProvider = Provider.of<ThemeModeProvider>(context);
-    final isPlayground = context.watch<PlaygroundModeProvider>().isPlaygroundMode;
+    final isPlayground = context
+        .watch<PlaygroundModeProvider>()
+        .isPlaygroundMode;
 
     //context.watch<MapState>().mapOpen
 
@@ -401,7 +428,9 @@ class _LayoutState extends State<Layout> with WindowListener {
       return Directionality(
         textDirection: TextDirection.ltr,
         child: Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.orange, width: 4)),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.orange, width: 4),
+          ),
           child: app,
         ),
       );
@@ -429,14 +458,19 @@ class _WindowsCertificateOverride extends HttpOverrides {
       logger.log('🔧 Windows Platform Detection:', level: LogLevel.info);
       logger.log('   OS Version: $osVersion', level: LogLevel.info);
       logger.log('   Executable: $executable', level: LogLevel.debug);
-      logger.log('   Environment: ${Platform.environment}', level: LogLevel.debug);
+      logger.log(
+        '   Environment: ${Platform.environment}',
+        level: LogLevel.debug,
+      );
 
       // Detect architecture
       final isARM =
           executable.contains('arm') ||
-          Platform.environment['PROCESSOR_ARCHITECTURE']?.contains('ARM') == true;
+          Platform.environment['PROCESSOR_ARCHITECTURE']?.contains('ARM') ==
+              true;
       final isX86 =
-          executable.contains('x86') || Platform.environment['PROCESSOR_ARCHITECTURE'] == 'x86';
+          executable.contains('x86') ||
+          Platform.environment['PROCESSOR_ARCHITECTURE'] == 'x86';
 
       logger.log(
         '   Architecture: ${isARM
@@ -451,21 +485,33 @@ class _WindowsCertificateOverride extends HttpOverrides {
       final certData = await rootBundle.load('assets/certs/ca-bundle.pem');
       final certBytes = certData.buffer.asUint8List();
 
-      logger.log('📄 CA Bundle loaded: ${certBytes.length} bytes', level: LogLevel.info);
+      logger.log(
+        '📄 CA Bundle loaded: ${certBytes.length} bytes',
+        level: LogLevel.info,
+      );
 
       // Create SecurityContext with the proper CA chain
       try {
         _customContext = SecurityContext(withTrustedRoots: true);
         _customContext!.setTrustedCertificatesBytes(certBytes);
-        logger.log('✅ CA certificates loaded into SecurityContext', level: LogLevel.info);
+        logger.log(
+          '✅ CA certificates loaded into SecurityContext',
+          level: LogLevel.info,
+        );
       } catch (e) {
         logger.log('⚠️ Failed to load CA bundle: $e', level: LogLevel.warning);
         _customContext = SecurityContext(withTrustedRoots: true);
       }
     } catch (e, stackTrace) {
-      logger.log('❌ ERROR: Certificate setup failed - $e', level: LogLevel.error);
+      logger.log(
+        '❌ ERROR: Certificate setup failed - $e',
+        level: LogLevel.error,
+      );
       logger.log('   Stack trace: $stackTrace', level: LogLevel.error);
-      logger.log('   Will rely on badCertificateCallback only', level: LogLevel.warning);
+      logger.log(
+        '   Will rely on badCertificateCallback only',
+        level: LogLevel.warning,
+      );
       _customContext = null;
     }
   }
@@ -487,7 +533,9 @@ class _WindowsCertificateOverride extends HttpOverrides {
 
     // CRITICAL: If proxy is disabled, don't use custom SecurityContext
     // This allows Windows isolates to serialize the HttpClient
-    final SecurityContext? contextToUse = useCustomContext ? (_customContext ?? context) : null;
+    final SecurityContext? contextToUse = useCustomContext
+        ? (_customContext ?? context)
+        : null;
 
     // CRITICAL: Use super.createHttpClient() to avoid infinite recursion
     final client = super.createHttpClient(contextToUse);
@@ -505,28 +553,35 @@ class _WindowsCertificateOverride extends HttpOverrides {
     // Enhanced certificate callback with detailed logging
     // CRITICAL: PowerSync WebSocket may bypass SecurityContext, so this callback
     // is our last line of defense
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      final isTrusted =
-          host.contains('ci.thuenen.de') ||
-          host.contains('geodatenzentrum.de'); // For WMS tile downloads
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
+          final isTrusted =
+              host.contains('ci.thuenen.de') ||
+              host.contains('geodatenzentrum.de'); // For WMS tile downloads
 
-      if (isTrusted) {
-        logger.log(
-          '🔓 Accepting certificate for trusted host: $host:$port',
-          level: LogLevel.warning,
-        );
-        logger.log('   Issuer: ${cert.issuer}', level: LogLevel.debug);
-        logger.log('   Subject: ${cert.subject}', level: LogLevel.debug);
-      } else {
-        logger.log('🔒 Rejecting certificate for: $host:$port', level: LogLevel.warning);
-      }
+          if (isTrusted) {
+            logger.log(
+              '🔓 Accepting certificate for trusted host: $host:$port',
+              level: LogLevel.warning,
+            );
+            logger.log('   Issuer: ${cert.issuer}', level: LogLevel.debug);
+            logger.log('   Subject: ${cert.subject}', level: LogLevel.debug);
+          } else {
+            logger.log(
+              '🔒 Rejecting certificate for: $host:$port',
+              level: LogLevel.warning,
+            );
+          }
 
-      return isTrusted;
-    };
+          return isTrusted;
+        };
 
     client.connectionTimeout = const Duration(seconds: 30);
 
-    logger.log('✅ HttpClient configured with 30s timeout and proxy support', level: LogLevel.debug);
+    logger.log(
+      '✅ HttpClient configured with 30s timeout and proxy support',
+      level: LogLevel.debug,
+    );
 
     return client;
   }

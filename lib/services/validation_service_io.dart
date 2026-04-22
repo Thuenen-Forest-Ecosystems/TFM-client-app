@@ -10,6 +10,7 @@ class ValidationService {
   InAppWebViewController? _webViewController;
   bool _isInitialized = false;
   bool _isTFMLoaded = false;
+  bool _isDisposing = false;
   Completer<void>? _initCompleter;
 
   ValidationService._();
@@ -22,7 +23,9 @@ class ValidationService {
   Future<void> initialize({String? tfmValidationCode}) async {
     // Allow reinitialization only if TFM code is provided and not already loaded
     if (_isInitialized && (tfmValidationCode == null || _isTFMLoaded)) {
-      print('ValidationService already initialized (TFM loaded: $_isTFMLoaded)');
+      print(
+        'ValidationService already initialized (TFM loaded: $_isTFMLoaded)',
+      );
       return;
     }
 
@@ -49,7 +52,9 @@ class ValidationService {
       // Load AJV i18n library from assets
       String ajvI18nCode = '';
       try {
-        ajvI18nCode = await rootBundle.loadString('assets/html/ajv-i18n.min.js');
+        ajvI18nCode = await rootBundle.loadString(
+          'assets/html/ajv-i18n.min.js',
+        );
       } catch (e) {
         print('AJV i18n library not found: $e');
       }
@@ -95,12 +100,16 @@ class ValidationService {
           print('Headless WebView loaded: $url');
 
           // Verify AJV is loaded
-          final ajvCheck = await controller.evaluateJavascript(source: 'typeof window.ajv7');
+          final ajvCheck = await controller.evaluateJavascript(
+            source: 'typeof window.ajv7',
+          );
           print('AJV type check: $ajvCheck');
 
           // Verify TFM is loaded (if provided)
           if (tfmValidationCode != null) {
-            final tfmCheck = await controller.evaluateJavascript(source: 'typeof window.TFM');
+            final tfmCheck = await controller.evaluateJavascript(
+              source: 'typeof window.TFM',
+            );
             print('TFM type check: $tfmCheck');
             _isTFMLoaded = tfmCheck == 'function';
           }
@@ -109,10 +118,16 @@ class ValidationService {
             _isInitialized = true;
             print('Setting _isTFMLoaded to: $_isTFMLoaded before completing');
             _initCompleter?.complete();
-            print('Validation service initialized successfully (TFM: $_isTFMLoaded)');
-            print('_initCompleter completed, _isTFMLoaded is now: $_isTFMLoaded');
+            print(
+              'Validation service initialized successfully (TFM: $_isTFMLoaded)',
+            );
+            print(
+              '_initCompleter completed, _isTFMLoaded is now: $_isTFMLoaded',
+            );
           } else {
-            final error = Exception('AJV library not loaded properly. Type: $ajvCheck');
+            final error = Exception(
+              'AJV library not loaded properly. Type: $ajvCheck',
+            );
             _initCompleter?.completeError(error);
             throw error;
           }
@@ -135,9 +150,14 @@ class ValidationService {
     }
   }
 
-  Future<ValidationResult> validate(Map<String, dynamic> schema, Map<String, dynamic> data) async {
+  Future<ValidationResult> validate(
+    Map<String, dynamic> schema,
+    Map<String, dynamic> data,
+  ) async {
     if (!_isInitialized || _webViewController == null) {
-      throw Exception('Validation service not initialized. Call initialize() first.');
+      throw Exception(
+        'Validation service not initialized. Call initialize() first.',
+      );
     }
 
     try {
@@ -178,7 +198,9 @@ class ValidationService {
         })();
       ''';
 
-      final result = await _webViewController!.evaluateJavascript(source: jsCode);
+      final result = await _webViewController!.evaluateJavascript(
+        source: jsCode,
+      );
 
       if (result == null) {
         return ValidationResult(
@@ -204,7 +226,10 @@ class ValidationService {
           .map((e) => ValidationError.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      return ValidationResult(isValid: resultMap['valid'] ?? false, errors: parsedErrors);
+      return ValidationResult(
+        isValid: resultMap['valid'] ?? false,
+        errors: parsedErrors,
+      );
     } catch (e) {
       print('Validation error: $e');
       return ValidationResult(
@@ -223,7 +248,9 @@ class ValidationService {
     List<Map<String, dynamic>>? treeSpeciesLookup,
   }) async {
     if (!_isInitialized || _webViewController == null) {
-      throw Exception('Validation service not initialized. Call initialize() first.');
+      throw Exception(
+        'Validation service not initialized. Call initialize() first.',
+      );
     }
 
     try {
@@ -246,7 +273,9 @@ class ValidationService {
       // Wrap data in array as runPlots expects: [plotData, ...]
       final dataJson = jsonEncode([data]);
       // Pass empty array instead of null when no previous data to avoid undefined errors in TFM
-      final previousDataJson = previousData != null ? jsonEncode([previousData]) : '[]';
+      final previousDataJson = previousData != null
+          ? jsonEncode([previousData])
+          : '[]';
 
       // Prepare lookup tables object for TFM constructor
       final lookupTablesJson = treeSpeciesLookup != null
@@ -367,7 +396,9 @@ class ValidationService {
 
       final tfmErrors =
           (resultMap['tfmErrors'] as List?)
-              ?.map((e) => TFMValidationError.fromJson(e as Map<String, dynamic>))
+              ?.map(
+                (e) => TFMValidationError.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [];
 
@@ -375,7 +406,9 @@ class ValidationService {
         ajvValid: resultMap['ajvValid'] ?? false,
         ajvErrors:
             (resultMap['ajvErrors'] as List?)
-                ?.map((e) => ValidationError.fromJson(e as Map<String, dynamic>))
+                ?.map(
+                  (e) => ValidationError.fromJson(e as Map<String, dynamic>),
+                )
                 .toList() ??
             [],
         tfmAvailable: resultMap['tfmAvailable'] ?? false,
@@ -392,10 +425,28 @@ class ValidationService {
     }
   }
 
-  void dispose() {
-    _headlessWebView?.dispose();
+  Future<void> dispose() async {
+    if (_isDisposing) {
+      return;
+    }
+
+    _isDisposing = true;
+
+    try {
+      final headlessWebView = _headlessWebView;
+      _headlessWebView = null;
+      _webViewController = null;
+
+      if (headlessWebView != null) {
+        await headlessWebView.dispose();
+      }
+    } finally {
+      _isDisposing = false;
+    }
+
     _isInitialized = false;
     _isTFMLoaded = false;
+    _initCompleter = null;
   }
 }
 
@@ -465,10 +516,12 @@ class TFMValidationResult {
   bool get hasTFMErrors => tfmErrors.any((e) => e.isError);
 
   /// Get only TFM errors (not warnings)
-  List<TFMValidationError> get tfmOnlyErrors => tfmErrors.where((e) => e.isError).toList();
+  List<TFMValidationError> get tfmOnlyErrors =>
+      tfmErrors.where((e) => e.isError).toList();
 
   /// Get only TFM warnings
-  List<TFMValidationError> get tfmWarnings => tfmErrors.where((e) => e.isWarning).toList();
+  List<TFMValidationError> get tfmWarnings =>
+      tfmErrors.where((e) => e.isWarning).toList();
 
   /// Get all errors (AJV + TFM errors, excluding warnings)
   List<dynamic> get allErrors => [...ajvErrors, ...tfmOnlyErrors];
