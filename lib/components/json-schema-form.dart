@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:terrestrial_forest_monitor/components/array-field-editor.dart';
 import 'package:terrestrial_forest_monitor/components/stt-button.dart';
+import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 
 class JsonSchemaForm extends StatefulWidget {
   final Map<String, dynamic> schema;
@@ -430,6 +431,16 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           enumNames = tempList.every((element) => element == null)
               ? ['kein wert']
               : tempList.map((e) => e ?? 'kein wert').toList();
+        }
+        // Fall back to lookup table cache when name_de is absent
+        else {
+          final lookupTable =
+              (fieldSchema['\$tfm'] as Map<String, dynamic>?)?['lookup_table'] as String? ??
+              'lookup_$fieldName';
+          final rawList = LookupService.instance.getNameDeList(lookupTable, enumValues);
+          if (rawList.any((e) => e != null)) {
+            enumNames = rawList.map((e) => e ?? 'kein wert').toList();
+          }
         }
 
         // Use the dedicated enum field builder

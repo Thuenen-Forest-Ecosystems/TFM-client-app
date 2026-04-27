@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
@@ -757,7 +758,15 @@ class _GenericTextFieldState extends State<GenericTextField> {
     if (enumValues != null && enumValues.isNotEmpty) {
       // Get the $tfm metadata if available
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
-      final nameDe = tfmData?['name_de'] as List?;
+      // Prefer inline name_de; fall back to lookup table cache when absent.
+      List? nameDe = tfmData?['name_de'] as List?;
+      if (nameDe == null) {
+        // Explicit lookup_table takes precedence; otherwise try the convention
+        // lookup_{fieldName} which is consistent across all lookup-backed fields.
+        final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
+        final resolved = LookupService.instance.getNameDeList(lookupTable, enumValues);
+        if (resolved.any((e) => e != null)) nameDe = resolved;
+      }
       final interval = tfmData?['interval'] as List?;
 
       // Get display text for current value

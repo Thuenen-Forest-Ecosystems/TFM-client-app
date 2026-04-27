@@ -335,6 +335,12 @@ class _ProfileState extends State<Profile> {
               },
               child: const Text('Records anzeigen'),
             ),
+            ElevatedButton(
+              onPressed: () {
+                context.beamToNamed('/synced_tables');
+              },
+              child: const Text('Synced Tables anzeigen'),
+            ),
             /*ElevatedButton(
               onPressed: () {
                 db.getAll('SELECT * FROM lookup_tree_species').then((value) {
