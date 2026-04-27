@@ -233,6 +233,12 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       }
     }
 
+    // Capture the ID of the currently visible tab so we can restore it after
+    // the layout reload instead of jumping back to the default tab.
+    final previousTabId = (_tabController != null && _tabs.isNotEmpty)
+        ? _tabs[_tabController!.index.clamp(0, _tabs.length - 1)].id
+        : null;
+
     setState(() {
       _layoutLoaded = true;
       // Rebuild tabs with layout configuration
@@ -253,11 +259,21 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
         final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
 
-        final initialIndex =
+        final fallbackIndex =
             (defaultTabIndex != null && defaultTabIndex >= 0 && defaultTabIndex < _tabs.length)
             ? defaultTabIndex
             : (positionTabIndex >= 0 ? positionTabIndex : 0);
 
+        // Prefer restoring the previously visible tab; fall back to the
+        // layout-defined default only when a layout change adds/removes tabs.
+        final restoredIndex = previousTabId != null
+            ? _tabs.indexWhere((tab) => tab.id == previousTabId)
+            : -1;
+
+        final initialIndex = restoredIndex >= 0 ? restoredIndex : fallbackIndex;
+
+        _tabController?.removeListener(_onTabChanged);
+        _tabController?.dispose();
         _tabController = TabController(
           length: _tabs.length,
           vsync: this,
@@ -398,6 +414,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     if (widget.jsonSchema != oldWidget.jsonSchema) {
       final newTabs = _buildTabsList();
       if (newTabs.length != _tabs.length) {
+        // Preserve the currently visible tab id before swapping controllers
+        final previousTabId = (_tabController != null && _tabs.isNotEmpty)
+            ? _tabs[_tabController!.index.clamp(0, _tabs.length - 1)].id
+            : null;
+
         _tabs = newTabs;
         _tabController?.removeListener(_onTabChanged);
         _tabController?.dispose();
@@ -410,10 +431,16 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
           final positionTabIndex = _tabs.indexWhere((tab) => tab.id == 'position');
 
-          final initialIndex =
+          final fallbackIndex =
               (defaultTabIndex != null && defaultTabIndex >= 0 && defaultTabIndex < _tabs.length)
               ? defaultTabIndex
               : (positionTabIndex >= 0 ? positionTabIndex : 0);
+
+          final restoredIndex = previousTabId != null
+              ? _tabs.indexWhere((tab) => tab.id == previousTabId)
+              : -1;
+
+          final initialIndex = restoredIndex >= 0 ? restoredIndex : fallbackIndex;
 
           _tabController = TabController(
             length: _tabs.length,

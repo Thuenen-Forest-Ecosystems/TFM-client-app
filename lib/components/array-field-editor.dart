@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:pluto_grid/pluto_grid.dart';
+import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 
 import 'package:terrestrial_forest_monitor/components/stt-button.dart';
 
@@ -43,9 +44,23 @@ class _ArrayFieldEditorState extends State<ArrayFieldEditor> {
   @override
   Widget build(BuildContext context) {
     if (_editorType == ArrayEditorType.form) {
-      return Expanded(child: Row(children: [Expanded(child: SingleChildScrollView(child: _buildFormEditor())), ConstrainedBox(constraints: BoxConstraints(maxWidth: 50), child: _configNavigation())]));
+      return Expanded(
+        child: Row(
+          children: [
+            Expanded(child: SingleChildScrollView(child: _buildFormEditor())),
+            ConstrainedBox(constraints: BoxConstraints(maxWidth: 50), child: _configNavigation()),
+          ],
+        ),
+      );
     } else {
-      return Expanded(child: Row(children: [Expanded(child: _buildGridEditor()), ConstrainedBox(constraints: BoxConstraints(maxWidth: 50), child: _configNavigation())]));
+      return Expanded(
+        child: Row(
+          children: [
+            Expanded(child: _buildGridEditor()),
+            ConstrainedBox(constraints: BoxConstraints(maxWidth: 50), child: _configNavigation()),
+          ],
+        ),
+      );
     }
   }
 
@@ -87,7 +102,9 @@ class _ArrayFieldEditorState extends State<ArrayFieldEditor> {
           icon: Icon(_editorType == ArrayEditorType.form ? Icons.view_list : Icons.grid_on),
           onPressed: () {
             setState(() {
-              _editorType = _editorType == ArrayEditorType.form ? ArrayEditorType.grid : ArrayEditorType.form;
+              _editorType = _editorType == ArrayEditorType.form
+                  ? ArrayEditorType.grid
+                  : ArrayEditorType.form;
             });
           },
         ),
@@ -105,12 +122,23 @@ class _ArrayFieldEditorState extends State<ArrayFieldEditor> {
   Widget _buildFormEditor() {
     // Implementation of your existing form editor for arrays
     // This is similar to your _buildArrayField method
-    return _ArrayFormEditor(name: widget.name, schema: widget.schema, value: widget.value, onChanged: _onChanged);
+    return _ArrayFormEditor(
+      name: widget.name,
+      schema: widget.schema,
+      value: widget.value,
+      onChanged: _onChanged,
+    );
   }
 
   Widget _buildGridEditor() {
     // Grid implementation using PlutoGrid
-    return _ArrayGridEditor(name: widget.name, schema: widget.schema, value: widget.value, onChanged: _onChanged, validationErrors: widget.validationErrors);
+    return _ArrayGridEditor(
+      name: widget.name,
+      schema: widget.schema,
+      value: widget.value,
+      onChanged: _onChanged,
+      validationErrors: widget.validationErrors,
+    );
   }
 }
 
@@ -120,7 +148,12 @@ class _ArrayFormEditor extends StatefulWidget {
   final List<dynamic> value;
   final Function(List<dynamic>) onChanged;
 
-  const _ArrayFormEditor({required this.name, required this.schema, required this.value, required this.onChanged});
+  const _ArrayFormEditor({
+    required this.name,
+    required this.schema,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   State<_ArrayFormEditor> createState() => _ArrayFormEditorState();
@@ -130,10 +163,13 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
   @override
   Widget build(BuildContext context) {
     // Check if array items are objects
-    final bool itemsAreObjects = widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
+    final bool itemsAreObjects =
+        widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
 
     // Get the item schema for object items
-    final Map<String, dynamic>? itemSchema = itemsAreObjects ? _typeSafeMap<String, dynamic>(widget.schema['items']) : null;
+    final Map<String, dynamic>? itemSchema = itemsAreObjects
+        ? _typeSafeMap<String, dynamic>(widget.schema['items'])
+        : null;
 
     return Column(
       children: [
@@ -173,7 +209,12 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
                       // Header row with title and delete button
                       Row(
                         children: [
-                          Expanded(child: Text('Item ${index + 1}', style: Theme.of(context).textTheme.titleMedium)),
+                          Expanded(
+                            child: Text(
+                              'Item ${index + 1}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                             onPressed: () {
@@ -187,7 +228,10 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
                       const Divider(),
 
                       // Different rendering based on item type
-                      if (itemsAreObjects && itemSchema != null) _buildObjectItem(index, itemValue, itemSchema) else _buildSimpleItem(index, itemValue),
+                      if (itemsAreObjects && itemSchema != null)
+                        _buildObjectItem(index, itemValue, itemSchema)
+                      else
+                        _buildSimpleItem(index, itemValue),
                     ],
                   ),
                 ),
@@ -221,23 +265,41 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children:
-          properties.entries.map<Widget>((entry) {
-            final propertyName = entry.key;
-            final propertySchema = _typeSafeMap<String, dynamic>(entry.value);
-            final isPropertyRequired = required.contains(propertyName);
-            final propertyType = _getEffectiveType(propertySchema['type']);
-            final propertyTitle = propertySchema['title'] as String? ?? propertyName;
+      children: properties.entries.map<Widget>((entry) {
+        final propertyName = entry.key;
+        final propertySchema = _typeSafeMap<String, dynamic>(entry.value);
+        final isPropertyRequired = required.contains(propertyName);
+        final propertyType = _getEffectiveType(propertySchema['type']);
+        final propertyTitle = propertySchema['title'] as String? ?? propertyName;
 
-            // Get the current property value
-            final propertyValue = objectValue[propertyName];
+        // Get the current property value
+        final propertyValue = objectValue[propertyName];
 
-            return Padding(padding: const EdgeInsets.only(bottom: 12.0), child: _buildObjectProperty(index, propertyName, propertyTitle, propertySchema, propertyType, propertyValue, isPropertyRequired));
-          }).toList(),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: _buildObjectProperty(
+            index,
+            propertyName,
+            propertyTitle,
+            propertySchema,
+            propertyType,
+            propertyValue,
+            isPropertyRequired,
+          ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildObjectProperty(int index, String propertyName, String propertyTitle, Map<String, dynamic> propertySchema, String propertyType, dynamic propertyValue, bool isRequired) {
+  Widget _buildObjectProperty(
+    int index,
+    String propertyName,
+    String propertyTitle,
+    Map<String, dynamic> propertySchema,
+    String propertyType,
+    dynamic propertyValue,
+    bool isRequired,
+  ) {
     // Create appropriate field based on property type
     final effectiveType = _getEffectiveType(propertyType);
 
@@ -245,7 +307,10 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
       case 'string':
         return TextFormField(
           initialValue: propertyValue?.toString() ?? '',
-          decoration: InputDecoration(labelText: '$propertyTitle${isRequired ? ' *' : ''}', border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+            labelText: '$propertyTitle${isRequired ? ' *' : ''}',
+            border: const OutlineInputBorder(),
+          ),
           onChanged: (newValue) {
             _updateObjectProperty(index, propertyName, newValue);
           },
@@ -256,7 +321,10 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
         return TextFormField(
           initialValue: propertyValue?.toString() ?? '',
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(labelText: '$propertyTitle${isRequired ? ' *' : ''}', border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+            labelText: '$propertyTitle${isRequired ? ' *' : ''}',
+            border: const OutlineInputBorder(),
+          ),
           onChanged: (newValue) {
             if (newValue.isNotEmpty) {
               if (propertyType == 'integer') {
@@ -311,7 +379,8 @@ class _ArrayFormEditorState extends State<_ArrayFormEditor> {
     final updatedValues = List<dynamic>.from(widget.value);
 
     // Add empty object for object items or empty string for simple items
-    final bool itemsAreObjects = widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
+    final bool itemsAreObjects =
+        widget.schema['items'] != null && widget.schema['items']['type'] == 'object';
     if (itemsAreObjects) {
       updatedValues.add({});
     } else {
@@ -351,7 +420,13 @@ class _ArrayGridEditor extends StatefulWidget {
   final Function(List<dynamic>) onChanged;
   final List<ValidationError> validationErrors;
 
-  const _ArrayGridEditor({required this.name, required this.schema, required this.value, required this.onChanged, required this.validationErrors});
+  const _ArrayGridEditor({
+    required this.name,
+    required this.schema,
+    required this.value,
+    required this.onChanged,
+    required this.validationErrors,
+  });
 
   @override
   State<_ArrayGridEditor> createState() => _ArrayGridEditorState();
@@ -400,114 +475,149 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
     }
 
     // Create columns based on object properties
-    columns =
-        properties.entries.map<PlutoColumn>((entry) {
-          final key = entry.key;
-          final propSchema = _typeSafeMap<String, dynamic>(entry.value);
-          final title = propSchema['title'] as String? ?? key;
-          final type = _getEffectiveType(propSchema['type']);
+    columns = properties.entries.map<PlutoColumn>((entry) {
+      final key = entry.key;
+      final propSchema = _typeSafeMap<String, dynamic>(entry.value);
+      final title = propSchema['title'] as String? ?? key;
+      final type = _getEffectiveType(propSchema['type']);
 
-          if (propSchema['enum'] != null) {
-            List enumColumns = [];
-            for (var i = 0; i < propSchema['enum'].length; i++) {
-              String enumKey = propSchema['enum'][i].toString();
-              if (propSchema['\$tfm'] != null && propSchema['\$tfm']['name_de'] != null && propSchema['\$tfm']['name_de'][i] != null) {
-                // Handle translation if available
-                String translatedValue = propSchema['\$tfm']['name_de'][i];
-                enumKey += '- $translatedValue';
-              }
-              enumColumns.add(enumKey);
+      if (propSchema['enum'] != null) {
+        List enumColumns = [];
+        final tfmData = propSchema['\$tfm'] as Map<String, dynamic>?;
+        final inlineNameDe = tfmData?['name_de'] as List?;
+        final lookupTable = inlineNameDe == null
+            ? (tfmData?['lookup_table'] as String? ?? 'lookup_$key')
+            : null;
+        final resolvedLookup = lookupTable != null
+            ? LookupService.instance.getNameDeList(lookupTable, propSchema['enum'] as List)
+            : null;
+        final lookupNameDe = (resolvedLookup != null && resolvedLookup.any((e) => e != null))
+            ? resolvedLookup
+            : null;
+        for (var i = 0; i < propSchema['enum'].length; i++) {
+          String enumKey = propSchema['enum'][i].toString();
+          final nameDe = inlineNameDe != null && i < inlineNameDe.length
+              ? inlineNameDe[i]
+              : (lookupNameDe != null && i < lookupNameDe.length ? lookupNameDe[i] : null);
+          if (nameDe != null) {
+            enumKey += '- $nameDe';
+          }
+          enumColumns.add(enumKey);
+        }
+
+        // Handle enum type
+        final List<dynamic> enumValues = List<dynamic>.from(enumColumns);
+        return PlutoColumn(
+          title: title,
+          field: key,
+          type: PlutoColumnType.select(enumValues, enableColumnFilter: true),
+          width: 150,
+          minWidth: 80,
+          enableEditingMode: true,
+          enableSorting: true,
+          enableDropToResize: true,
+          enableFilterMenuItem: false,
+          enableContextMenu: false,
+        );
+      }
+
+      // Determine column type based on property type
+      PlutoColumnType columnType;
+      switch (type) {
+        case 'number':
+          columnType = PlutoColumnType.number();
+        case 'integer':
+          columnType = PlutoColumnType.number(format: '#,###');
+        case 'boolean':
+          columnType = PlutoColumnType.select([true, false]);
+        default:
+          columnType = PlutoColumnType.text();
+      }
+
+      // Ensure column field is not null or empty
+      // PlutoGrid requires unique, non-empty field identifiers
+      final String safeKey = key.isNotEmpty ? key : 'column_$title';
+      if (key.isEmpty) {
+        print('!!!!Column key is empty, using default: $safeKey');
+      }
+
+      // https://pluto.weblaze.dev/columns
+      PlutoColumn column = PlutoColumn(
+        title: title,
+        field: safeKey,
+        type: columnType,
+        width: 150,
+        minWidth: 80,
+        enableEditingMode: true,
+        enableSorting: true,
+        enableDropToResize: true,
+        enableFilterMenuItem: false,
+        enableContextMenu: false,
+      );
+
+      if (key == 'tree_number') {
+        //column.enableEditingMode = false; // Disable editing for ID column
+        column.frozen = PlutoColumnFrozen.start; // Freeze ID column
+      }
+
+      // Add custom renderer to show validation errors
+      column.renderer = (rendererContext) {
+        // Check if there's an error for this field
+        bool hasError = false;
+        String? errorMessage;
+
+        // Process validation errors for this cell
+        if (widget.validationErrors.isNotEmpty) {
+          // Look for errors related to this array item
+          final String instancePath = "/${widget.name}/${rendererContext.rowIdx}/$key";
+          for (final error in widget.validationErrors) {
+            // Match errors by instance path
+            if (error.instancePath == instancePath) {
+              hasError = true;
+              errorMessage = error.message;
+              break;
             }
-
-            // Handle enum type
-            final List<dynamic> enumValues = List<dynamic>.from(enumColumns);
-            return PlutoColumn(
-              title: title,
-              field: key,
-              type: PlutoColumnType.select(enumValues, enableColumnFilter: true),
-              width: 150,
-              minWidth: 80,
-              enableEditingMode: true,
-              enableSorting: true,
-              enableDropToResize: true,
-              enableFilterMenuItem: false,
-              enableContextMenu: false,
-            );
           }
+        }
 
-          // Determine column type based on property type
-          PlutoColumnType columnType;
-          switch (type) {
-            case 'number':
-              columnType = PlutoColumnType.number();
-            case 'integer':
-              columnType = PlutoColumnType.number(format: '#,###');
-            case 'boolean':
-              columnType = PlutoColumnType.select([true, false]);
-            default:
-              columnType = PlutoColumnType.text();
-          }
-
-          // Ensure column field is not null or empty
-          // PlutoGrid requires unique, non-empty field identifiers
-          final String safeKey = key.isNotEmpty ? key : 'column_$title';
-          if (key.isEmpty) {
-            print('!!!!Column key is empty, using default: $safeKey');
-          }
-
-          // https://pluto.weblaze.dev/columns
-          PlutoColumn column = PlutoColumn(title: title, field: safeKey, type: columnType, width: 150, minWidth: 80, enableEditingMode: true, enableSorting: true, enableDropToResize: true, enableFilterMenuItem: false, enableContextMenu: false);
-
-          if (key == 'tree_number') {
-            //column.enableEditingMode = false; // Disable editing for ID column
-            column.frozen = PlutoColumnFrozen.start; // Freeze ID column
-          }
-
-          // Add custom renderer to show validation errors
-          column.renderer = (rendererContext) {
-            // Check if there's an error for this field
-            bool hasError = false;
-            String? errorMessage;
-
-            // Process validation errors for this cell
-            if (widget.validationErrors.isNotEmpty) {
-              // Look for errors related to this array item
-              final String instancePath = "/${widget.name}/${rendererContext.rowIdx}/$key";
-              for (final error in widget.validationErrors) {
-                // Match errors by instance path
-                if (error.instancePath == instancePath) {
-                  hasError = true;
-                  errorMessage = error.message;
-                  break;
-                }
-              }
-            }
-
-            return Container(
-              decoration: BoxDecoration(border: hasError ? Border.all(color: Colors.red, width: 2) : null),
-              child: Row(
-                children: [
-                  Expanded(child: Text(rendererContext.cell.value?.toString() ?? '', style: TextStyle(color: hasError ? Colors.red : null))),
-                  if (type != 'boolean')
-                    SpeechToTextButton(
-                      onChanged: (value) {
-                        print('SpeechToTextButton value: $value');
-                        // Update the cell value with the recognized text
-                        //rendererContext.stateManager.setCellValue(rendererContext.rowIdx, rendererContext.column.field, value);
-                      },
-                    ),
-                  if (hasError) Tooltip(message: errorMessage ?? 'Invalid value', child: Icon(Icons.error_outline, color: Colors.red, size: 16)),
-                ],
+        return Container(
+          decoration: BoxDecoration(
+            border: hasError ? Border.all(color: Colors.red, width: 2) : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  rendererContext.cell.value?.toString() ?? '',
+                  style: TextStyle(color: hasError ? Colors.red : null),
+                ),
               ),
-            );
-          };
+              if (type != 'boolean')
+                SpeechToTextButton(
+                  onChanged: (value) {
+                    print('SpeechToTextButton value: $value');
+                    // Update the cell value with the recognized text
+                    //rendererContext.stateManager.setCellValue(rendererContext.rowIdx, rendererContext.column.field, value);
+                  },
+                ),
+              if (hasError)
+                Tooltip(
+                  message: errorMessage ?? 'Invalid value',
+                  child: Icon(Icons.error_outline, color: Colors.red, size: 16),
+                ),
+            ],
+          ),
+        );
+      };
 
-          return column;
-        }).toList();
+      return column;
+    }).toList();
 
     // Safety check - ensure we have generated columns
     if (columns.isEmpty) {
-      columns = [PlutoColumn(title: 'No Fields', field: 'placeholder', type: PlutoColumnType.text())];
+      columns = [
+        PlutoColumn(title: 'No Fields', field: 'placeholder', type: PlutoColumnType.text()),
+      ];
     }
 
     // Create rows from existing data
@@ -537,7 +647,12 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
 
     // Safety check - handle empty columns case
     if (columns.isEmpty) {
-      return Card(child: Padding(padding: const EdgeInsets.all(16.0), child: Center(child: Text('No fields defined for array items'))));
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Center(child: Text('No fields defined for array items')),
+        ),
+      );
     }
 
     print('BUILD GRID ${rows.length}');
@@ -619,12 +734,11 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
 
           // Convert value based on column type
           if (columnType is PlutoColumnTypeNumber) {
-            item[key] =
-                cell.value is num
-                    ? cell.value
-                    : cell.value is String && (cell.value as String).isNotEmpty
-                    ? num.tryParse(cell.value.toString()) ?? 0
-                    : 0;
+            item[key] = cell.value is num
+                ? cell.value
+                : cell.value is String && (cell.value as String).isNotEmpty
+                ? num.tryParse(cell.value.toString()) ?? 0
+                : 0;
           } else {
             item[key] = cell.value;
           }

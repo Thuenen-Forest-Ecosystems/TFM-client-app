@@ -26,7 +26,6 @@ const listOfLookupTables = [
   'lookup_harvest_method',
   'lookup_harvest_reason',
   'lookup_harvest_restriction',
-  'lookup_harvesting_method',
   'lookup_id_stand_differences_rows',
   'lookup_interval',
   'lookup_land_use',
@@ -53,7 +52,6 @@ const listOfLookupTables = [
   'lookup_trees_less_4meter_layer',
   'lookup_trees_less_4meter_mirrored',
   'lookup_trees_less_4meter_origin',
-  'lookup_usage_type',
   'lookup_natur_schutzgebiet',
   'lookup_vogel_schutzgebiet',
   'lookup_natur_park',
@@ -207,7 +205,6 @@ Schema schema = Schema(([
     Column.text('responsible_provider'),
     Column.text('responsible_troop'),
   ]),
-  //...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),
 ]));

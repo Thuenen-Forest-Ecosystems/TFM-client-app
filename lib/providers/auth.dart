@@ -38,39 +38,9 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider() {
     // Safely listen to auth state changes only if Supabase is initialized
     try {
-      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-        print(
-          'AuthProvider: Auth state changed - event: ${data.event}, user: ${data.session?.user.email}',
-        );
-        _loggingIn = false;
-
-        // When Supabase fires signedOut due to a failed token refresh while the
-        // device is offline, we must NOT log the user out — the app is
-        // offline-first and the session will be restored once connectivity
-        // returns. Switch to offline mode using cached credentials instead.
-        if (data.event == AuthChangeEvent.signedOut &&
-            _isAuthenticated &&
-            !_isOfflineMode &&
-            !_isExplicitLogout) {
-          final isOnline = await _offlineAuthService.isOnline();
-          if (!isOnline && await _offlineAuthService.hasPreviousLogin()) {
-            print('AuthProvider: Offline signedOut detected — switching to offline mode');
-            final cachedEmail = await _offlineAuthService.getCachedEmail();
-            _isOfflineMode = true;
-            // Keep _isAuthenticated = true; preserve userId/email from current
-            // state or fall back to cached values.
-            _userEmail = _userEmail ?? cachedEmail;
-            _isExplicitLogout = false;
-            notifyListeners();
-            return; // Do not call _getUser() — it would clear auth
-          }
-          // Device is online but session was rejected — real session expiry.
-          _sessionExpiredError = true;
-        }
-
-        _isExplicitLogout = false;
-        _getUser();
-      });
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+        _onAuthStateChange,
+      );
       _getUser();
     } catch (e) {
       // Supabase not yet initialized - will be called later via checkAuthStatus
@@ -79,6 +49,64 @@ class AuthProvider extends ChangeNotifier {
 
     // Listen for connectivity changes to transition from offline to online
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+  }
+
+  /// Shared handler for all onAuthStateChange events.
+  Future<void> _onAuthStateChange(AuthState data) async {
+    print(
+      'AuthProvider: Auth state changed - event: ${data.event}, user: ${data.session?.user.email}',
+    );
+    _loggingIn = false;
+
+    // Always persist refreshed tokens so that offline-mode session
+    // restoration uses the latest (valid) refresh token. Supabase uses
+    // rolling refresh-token rotation: every auto-refresh invalidates the
+    // previous token. Without this update the stored token becomes stale
+    // and _upgradeToOnlineMode() would fail after even a single refresh
+    // cycle, locking the user out after coming back from days offline.
+    if ((data.event == AuthChangeEvent.tokenRefreshed || data.event == AuthChangeEvent.signedIn) &&
+        data.session != null &&
+        data.session!.refreshToken != null) {
+      try {
+        await _offlineAuthService.updateTokens(
+          accessToken: data.session!.accessToken,
+          refreshToken: data.session!.refreshToken!,
+          tokenExpiry: data.session!.expiresAt != null
+              ? DateTime.fromMillisecondsSinceEpoch(data.session!.expiresAt! * 1000)
+              : null,
+        );
+        print('AuthProvider: Stored tokens updated on ${data.event}');
+      } catch (e) {
+        print('AuthProvider: Failed to persist refreshed tokens - $e');
+      }
+    }
+
+    // When Supabase fires signedOut due to a failed token refresh while the
+    // device is offline, we must NOT log the user out — the app is
+    // offline-first and the session will be restored once connectivity
+    // returns. Switch to offline mode using cached credentials instead.
+    if (data.event == AuthChangeEvent.signedOut &&
+        _isAuthenticated &&
+        !_isOfflineMode &&
+        !_isExplicitLogout) {
+      final isOnline = await _offlineAuthService.isOnline();
+      if (!isOnline && await _offlineAuthService.hasPreviousLogin()) {
+        print('AuthProvider: Offline signedOut detected — switching to offline mode');
+        final cachedEmail = await _offlineAuthService.getCachedEmail();
+        _isOfflineMode = true;
+        // Keep _isAuthenticated = true; preserve userId/email from current
+        // state or fall back to cached values.
+        _userEmail = _userEmail ?? cachedEmail;
+        _isExplicitLogout = false;
+        notifyListeners();
+        return; // Do not call _getUser() — it would clear auth
+      }
+      // Device is online but session was rejected — real session expiry.
+      _sessionExpiredError = true;
+    }
+
+    _isExplicitLogout = false;
+    _getUser();
   }
 
   Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
@@ -292,30 +320,9 @@ class AuthProvider extends ChangeNotifier {
     // Set up auth subscription if it wasn't initialized in constructor
     if (_authSubscription == null) {
       try {
-        _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-          _loggingIn = false;
-
-          // Same offline-first guard as in the constructor listener.
-          if (data.event == AuthChangeEvent.signedOut &&
-              _isAuthenticated &&
-              !_isOfflineMode &&
-              !_isExplicitLogout) {
-            final isOnline = await _offlineAuthService.isOnline();
-            if (!isOnline && await _offlineAuthService.hasPreviousLogin()) {
-              print('AuthProvider(checkAuthStatus): Offline signedOut — switching to offline mode');
-              final cachedEmail = await _offlineAuthService.getCachedEmail();
-              _isOfflineMode = true;
-              _userEmail = _userEmail ?? cachedEmail;
-              _isExplicitLogout = false;
-              notifyListeners();
-              return;
-            }
-            _sessionExpiredError = true;
-          }
-
-          _isExplicitLogout = false;
-          _getUser();
-        });
+        _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+          _onAuthStateChange,
+        );
       } catch (e) {
         print('checkAuthStatus: Error setting up auth subscription: $e');
       }

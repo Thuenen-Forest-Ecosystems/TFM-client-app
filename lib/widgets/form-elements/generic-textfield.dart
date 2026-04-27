@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
@@ -22,6 +23,13 @@ class GenericTextField extends StatefulWidget {
   final Map<String, dynamic>? currentData; // For calculated fields
   final Map<String, dynamic>? fieldOptions; // Layout configuration (upDownBtn, etc.)
 
+  /// Optional callback invoked when the user confirms the value (floating
+  /// keyboard ✓ button or soft-keyboard Done/Enter). Useful in Trina Grid
+  /// cells to call [TrinaGridStateManager.clearCurrentCell()] so the cell
+  /// exits edit mode before validation rebuilds can remount the autofocus
+  /// widget and reopen the keyboard.
+  final VoidCallback? onConfirm;
+
   const GenericTextField({
     super.key,
     required this.fieldName,
@@ -36,6 +44,7 @@ class GenericTextField extends StatefulWidget {
     this.previousData,
     this.currentData,
     this.fieldOptions,
+    this.onConfirm,
   });
 
   @override
@@ -53,6 +62,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
     super.initState();
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChange);
+    LookupService.versionNotifier.addListener(_onLookupReloaded);
     _initializeControllers();
 
     if (widget.autofocus && !_hasRequestedInitialFocus) {
@@ -199,6 +209,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
   /// platforms (handles both tap-to-focus and autofocus from grid cells).
   void _onFocusChange() {
     if (!_focusNode.hasFocus) return;
+    // Check suppress flag synchronously here. The flag is set before the enum
+    // dialog opens and cleared (deferred) after it closes, so this runs while
+    // the flag is still true when focus is restored by Flutter.
+    if (FloatingNumKeyboard.autoShowSuppressed) return;
     final type = _getType();
     if (type != 'integer' && type != 'number') return;
     if (!_shouldUseFloatingKeyboard) return;
@@ -208,17 +222,24 @@ class _GenericTextFieldState extends State<GenericTextField> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_focusNode.hasFocus) return;
+      if (FloatingNumKeyboard.autoShowSuppressed) return;
       FloatingNumKeyboard.show(
         context: context,
         textController: _controller,
         onChanged: (v) => widget.onChanged?.call(v),
         isDecimal: type == 'number',
+        onConfirm: widget.onConfirm,
       );
     });
   }
 
+  void _onLookupReloaded() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    LookupService.versionNotifier.removeListener(_onLookupReloaded);
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     // Dismiss the keyboard if it was connected to this field's controller.
@@ -757,8 +778,20 @@ class _GenericTextFieldState extends State<GenericTextField> {
     if (enumValues != null && enumValues.isNotEmpty) {
       // Get the $tfm metadata if available
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
-      final nameDe = tfmData?['name_de'] as List?;
-      final interval = tfmData?['interval'] as List?;
+      // Prefer inline name_de; fall back to lookup table cache when absent.
+      List? nameDe = tfmData?['name_de'] as List?;
+      if (nameDe == null) {
+        // Explicit lookup_table takes precedence; otherwise try the convention
+        // lookup_{fieldName} which is consistent across all lookup-backed fields.
+        final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
+        final resolved = LookupService.instance.getNameDeList(lookupTable, enumValues);
+        if (resolved.any((e) => e != null)) nameDe = resolved;
+      }
+      List? interval = tfmData?['interval'] as List?;
+      if (interval == null) {
+        final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
+        interval = LookupService.instance.getIntervalList(lookupTable, enumValues);
+      }
 
       // Get display text for current value
       String getDisplayText(dynamic value) {
@@ -804,6 +837,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
           onTap: isReadonly
               ? null
               : () async {
+                  // Hide floating keyboard and suppress focus-triggered auto-show
+                  // while the dialog is open, to prevent it from reappearing when
+                  // Flutter restores focus to a numeric field after dialog close.
+                  FloatingNumKeyboard.hide();
+                  FloatingNumKeyboard.setAutoShowSuppressed(true);
                   final selected = await GenericEnumDialog.show(
                     context: context,
                     fieldName: widget.fieldName,
@@ -814,6 +852,16 @@ class _GenericTextFieldState extends State<GenericTextField> {
                     interval: interval,
                     fullscreen: true,
                   );
+                  // Clear suppress flag after two frames. Focus restoration happens
+                  // in the next frame and triggers _onFocusChange synchronously —
+                  // the suppress check there fires before any post-frame callbacks.
+                  // Waiting one extra frame ensures the flag stays true through
+                  // the entire focus-restore cycle before being cleared.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      FloatingNumKeyboard.setAutoShowSuppressed(false);
+                    });
+                  });
 
                   // Handle different return values:
                   // - null: dialog was dismissed, don't update
@@ -993,6 +1041,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   textController: _controller,
                   onChanged: (v) => widget.onChanged?.call(v),
                   isDecimal: type == 'number',
+                  onConfirm: widget.onConfirm,
                 )
               : null,
           decoration: widget.compact
@@ -1122,6 +1171,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
           keyboardType: type == 'integer'
               ? TextInputType.number
               : const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            widget.onConfirm?.call();
+            _focusNode.unfocus();
+          },
           inputFormatters: type == 'integer'
               ? [FilteringTextInputFormatter.digitsOnly]
               : [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],

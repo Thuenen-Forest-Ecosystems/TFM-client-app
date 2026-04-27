@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trina_grid/trina_grid.dart';
+import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
@@ -111,7 +112,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     _initializeFilters();
     _initializeGrid();
     GridDensityService.notifier.addListener(_onDensityChanged);
+    LookupService.versionNotifier.addListener(_onLookupReloaded);
     _loadColumnWidths();
+  }
+
+  void _onLookupReloaded() {
+    // Only refresh cell renders — do NOT reinitialize the grid, as that would
+    // reset scroll position and disrupt in-progress edits.
+    _stateManager?.notifyListeners();
   }
 
   void _onDensityChanged() {
@@ -1544,7 +1552,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-    final nameDe = tfm?['name_de'] as List?;
+    // Prefer inline name_de; fall back to lookup table cache when absent.
+    List? nameDe = tfm?['name_de'] as List?;
+    if (nameDe == null) {
+      final enumVals = propertySchema['enum'] as List? ?? [];
+      final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
+      final resolved = LookupService.instance.getNameDeList(lookupTable, enumVals);
+      if (resolved.any((e) => e != null)) nameDe = resolved;
+    }
     final enumValues = propertySchema['enum'] as List?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -1674,6 +1689,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           errors: const [],
           compact: true,
           fieldOptions: fieldOptions,
+          // When the user confirms (floating ✓ or soft-keyboard Done), clear
+          // Trina's current cell so the cell exits edit mode BEFORE validation
+          // rebuilds the grid. Without this, the rebuild remounts the
+          // GenericTextField (autofocus: true), which reopens the keyboard.
+          onConfirm: () => _stateManager?.clearCurrentCell(),
           onChanged: (newValue) {
             rendererContext.cell.value = newValue;
             _stateManager?.notifyListeners();
@@ -2018,8 +2038,18 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   ) async {
     final enumValues = propertySchema['enum'] as List? ?? [];
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-    final nameDe = tfm?['name_de'] as List?;
-    final interval = tfm?['interval'] as List?;
+    // Prefer inline name_de; fall back to lookup table cache when absent.
+    List? nameDe = tfm?['name_de'] as List?;
+    if (nameDe == null) {
+      final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
+      final resolved = LookupService.instance.getNameDeList(lookupTable, enumValues);
+      if (resolved.any((e) => e != null)) nameDe = resolved;
+    }
+    List? interval = tfm?['interval'] as List?;
+    if (interval == null) {
+      final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
+      interval = LookupService.instance.getIntervalList(lookupTable, enumValues);
+    }
 
     final result = await GenericEnumDialog.show(
       context: context,
@@ -2616,6 +2646,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       debugPrint('${widget.propertyName}: Listener removed from MapControllerProvider');
     }
     GridDensityService.notifier.removeListener(_onDensityChanged);
+    LookupService.versionNotifier.removeListener(_onLookupReloaded);
     // Flush any pending debounced save before tearing down.
     if (_widthSaveTimer?.isActive == true) {
       _widthSaveTimer!.cancel();

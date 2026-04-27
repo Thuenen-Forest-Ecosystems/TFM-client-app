@@ -447,9 +447,9 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         int columns;
-        if (screenWidth >= 900) {
+        if (screenWidth >= 600) {
           columns = 3;
-        } else if (screenWidth >= 500) {
+        } else if (screenWidth >= 400) {
           columns = 2;
         } else {
           columns = 1;
@@ -655,7 +655,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
             // Form content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                //padding: const EdgeInsets.all(16),
                 child: useGroupedLayout
                     ? _buildGroupedForm(properties)
                     : Column(
