@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/schema.dart';
@@ -24,8 +26,15 @@ class LookupService {
 
   static final LookupService instance = LookupService._();
 
+  /// Increments every time [load] completes successfully.
+  /// Widgets can listen to this to rebuild when lookup labels become available.
+  static final versionNotifier = ValueNotifier<int>(0);
+
   // table_name → { code_value → name_de }
   final Map<String, Map<dynamic, String>> _cache = {};
+
+  // table_name → { code_value → parsed interval List }
+  final Map<String, Map<dynamic, dynamic>> _intervalCache = {};
 
   bool _loaded = false;
   bool get isLoaded => _loaded;
@@ -42,24 +51,37 @@ class LookupService {
 
     for (final tableName in tableNames) {
       try {
-        final rows = await db.getAll('SELECT code, name_de FROM "$tableName"');
-        final map = <dynamic, String>{};
+        final rows = await db.getAll('SELECT code, name_de, interval FROM "$tableName"');
+        final nameMap = <dynamic, String>{};
+        final intervalMap = <dynamic, dynamic>{};
         for (final row in rows) {
           final code = row['code'];
+          if (code == null) continue;
+          final asInt = int.tryParse(code.toString());
+          final asDouble = double.tryParse(code.toString());
+
           final nameDe = row['name_de'];
-          if (code != null && nameDe != null) {
-            // Store with the natural type of the code column (String in SQLite,
-            // but enum values in schemas can be int/double).  Store both so we
-            // match regardless of how the caller passes the code.
-            map[code] = nameDe as String;
-            // Also store as int/double for numeric codes
-            final asInt = int.tryParse(code.toString());
-            if (asInt != null) map[asInt] = nameDe;
-            final asDouble = double.tryParse(code.toString());
-            if (asDouble != null && asDouble != asInt) map[asDouble] = nameDe;
+          if (nameDe != null) {
+            nameMap[code] = nameDe as String;
+            if (asInt != null) nameMap[asInt] = nameDe;
+            if (asDouble != null && asDouble != asInt) nameMap[asDouble] = nameDe;
+          }
+
+          final intervalRaw = row['interval'];
+          if (intervalRaw != null) {
+            dynamic parsed;
+            try {
+              parsed = json.decode(intervalRaw as String);
+            } catch (_) {
+              parsed = [intervalRaw.toString()];
+            }
+            intervalMap[code] = parsed;
+            if (asInt != null) intervalMap[asInt] = parsed;
+            if (asDouble != null && asDouble != asInt) intervalMap[asDouble] = parsed;
           }
         }
-        _cache[tableName] = map;
+        _cache[tableName] = nameMap;
+        if (intervalMap.isNotEmpty) _intervalCache[tableName] = intervalMap;
       } catch (e) {
         debugPrint('LookupService: failed to load $tableName: $e');
       }
@@ -89,6 +111,9 @@ class LookupService {
         'LookupService WARNING: all lookup tables are empty! Enum labels will not be shown.',
       );
     }
+
+    // Notify listeners (e.g. widgets) that lookup data has been (re)loaded.
+    versionNotifier.value++;
   }
 
   /// Return the German display name for [code] in [tableName], or null if
@@ -106,18 +131,20 @@ class LookupService {
     return enumValues.map((v) => v == null ? null : getNameDe(tableName, v)).toList();
   }
 
-  /// Return the interval string for [code] in [tableName], or null if unknown.
-  /// (Interval data is not cached separately – kept for API symmetry; callers
-  /// that previously used `$tfm.interval` can migrate to this.)
-  Future<String?> getInterval(String tableName, dynamic code) async {
-    try {
-      final row = await db.get('SELECT interval FROM "$tableName" WHERE code = ?', [
-        code.toString(),
-      ]);
-      return row['interval'] as String?;
-    } catch (_) {
-      return null;
-    }
+  /// Build an interval list parallel to [enumValues] from the given lookup table.
+  /// Returns null if no interval data is cached for this table, so callers can
+  /// treat a null result as "show all values".
+  /// Each entry is a parsed List (from the DB's JSON interval column) or null.
+  List? getIntervalList(String tableName, List enumValues) {
+    if (!_loaded) return null;
+    final table = _intervalCache[tableName];
+    if (table == null) return null;
+    final result = enumValues
+        .map((v) => v == null ? null : (table[v] ?? table[v.toString()]))
+        .toList();
+    // Return null if nothing matched (table has interval data but not for these values)
+    if (result.every((e) => e == null)) return null;
+    return result;
   }
 
   /// Retrieve all rows for a lookup table as a list of {code, name_de} maps.

@@ -13,13 +13,17 @@ class PlaygroundModeButton extends StatelessWidget {
     final isActive = provider.isPlaygroundMode;
 
     if (isActive) {
-      return Chip(
-        avatar: const Icon(Icons.science, size: 18, color: Colors.white),
-        label: const Text('Playground', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.orange,
-        deleteIcon: const Icon(Icons.close, size: 18, color: Colors.white),
-        onDeleted: () => provider.toggle(),
-        side: BorderSide.none,
+      return InkWell(
+        onTap: () => provider.toggle(),
+        child: Chip(
+          avatar: const Icon(Icons.science, size: 18, color: Colors.white),
+          label: const Text('Playground', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.orange,
+          shape: const StadiumBorder(),
+          deleteIcon: const Icon(Icons.close, size: 18, color: Colors.white),
+          onDeleted: () => provider.toggle(),
+          side: BorderSide.none,
+        ),
       );
     }
 

@@ -119,17 +119,16 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     return enumValue.toString();
   }
 
+  /// Returns true if the value at [index] is enabled for the current interval.
+  /// When no interval data is provided, all values are enabled.
+  bool _isIndexEnabled(int index) {
+    if (widget.interval == null || index >= widget.interval!.length) return true;
+    final intervalValue = widget.interval![index];
+    return intervalValue is List && intervalValue.contains('ci2027');
+  }
+
   List<int> _getFilteredIndices() {
     final indices = <int>[];
-
-    // Debug: Check if interval data is provided
-    if (widget.interval != null) {
-      debugPrint(
-        'GenericEnumDialog: Filtering with interval data (${widget.interval!.length} entries)',
-      );
-    } else {
-      debugPrint('GenericEnumDialog: No interval data provided - showing all values');
-    }
 
     for (int i = 0; i < widget.enumValues.length; i++) {
       final enumValue = widget.enumValues[i];
@@ -137,28 +136,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
       // Skip null values
       if (enumValue == null) continue;
 
-      // Apply interval filter if provided
-      // Only show values where interval[i] is null, empty, or contains "ci2027"
-      if (widget.interval != null && i < widget.interval!.length) {
-        final intervalValue = widget.interval![i];
-        debugPrint('  Enum[$i] = $enumValue, interval = $intervalValue');
-
-        // If intervalValue is a non-empty list, check if it contains "ci2027"
-        if (intervalValue != null && intervalValue is List && intervalValue.isNotEmpty) {
-          if (!intervalValue.contains('ci2027')) {
-            // Skip this value - it's restricted to other inventory periods
-            debugPrint('    -> FILTERED OUT (no ci2027)');
-            continue;
-          } else {
-            debugPrint('    -> SHOWN (contains ci2027)');
-          }
-        } else {
-          debugPrint('    -> SHOWN (unrestricted)');
-        }
-        // If intervalValue is null or empty list, show it (unrestricted)
-      }
-
-      // Apply text filter if active
+      // Apply text filter if active (only filter enabled values when searching)
       if (_filterText.isNotEmpty) {
         final filterLower = _filterText.toLowerCase();
         final displayText = _getDisplayText(enumValue, i);
@@ -287,14 +265,20 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                         final enumValue = widget.enumValues[index];
                         final displayText = _getDisplayText(enumValue, index);
                         final isSelected = widget.currentValue == enumValue;
+                        final isEnabled = _isIndexEnabled(index);
 
-                        return ChoiceChip(
-                          label: Text(displayText),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            _addToRecent(enumValue);
-                            Navigator.of(context).pop(enumValue);
-                          },
+                        return Opacity(
+                          opacity: isEnabled ? 1.0 : 0.4,
+                          child: ChoiceChip(
+                            label: Text(displayText),
+                            selected: isSelected,
+                            onSelected: isEnabled
+                                ? (_) {
+                                    _addToRecent(enumValue);
+                                    Navigator.of(context).pop(enumValue);
+                                  }
+                                : null,
+                          ),
                         );
                       },
                     ),
@@ -316,14 +300,20 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                             final enumValue = widget.enumValues[index];
                             final displayText = _getDisplayText(enumValue, index);
                             final isSelected = widget.currentValue == enumValue;
+                            final isEnabled = _isIndexEnabled(index);
 
-                            return ChoiceChip(
-                              label: Text(displayText),
-                              selected: isSelected,
-                              onSelected: (_) {
-                                _addToRecent(enumValue);
-                                Navigator.of(context).pop(enumValue);
-                              },
+                            return Opacity(
+                              opacity: isEnabled ? 1.0 : 0.4,
+                              child: ChoiceChip(
+                                label: Text(displayText),
+                                selected: isSelected,
+                                onSelected: isEnabled
+                                    ? (_) {
+                                        _addToRecent(enumValue);
+                                        Navigator.of(context).pop(enumValue);
+                                      }
+                                    : null,
+                              ),
                             );
                           }).toList(),
                         ),
@@ -337,16 +327,25 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                         final enumValue = widget.enumValues[index];
                         final displayText = _getDisplayText(enumValue, index);
                         final isSelected = widget.currentValue == enumValue;
+                        final isEnabled = _isIndexEnabled(index);
 
                         return ListTile(
                           contentPadding: const EdgeInsets.all(5),
-                          title: Text(displayText),
+                          title: Text(
+                            displayText,
+                            style: isEnabled
+                                ? null
+                                : TextStyle(color: Theme.of(context).disabledColor),
+                          ),
                           selected: isSelected,
                           trailing: isSelected ? const Icon(Icons.check) : null,
-                          onTap: () {
-                            _addToRecent(enumValue);
-                            Navigator.of(context).pop(enumValue);
-                          },
+                          enabled: isEnabled,
+                          onTap: isEnabled
+                              ? () {
+                                  _addToRecent(enumValue);
+                                  Navigator.of(context).pop(enumValue);
+                                }
+                              : null,
                         );
                       },
                     ),

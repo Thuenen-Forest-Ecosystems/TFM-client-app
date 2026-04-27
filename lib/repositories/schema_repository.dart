@@ -142,6 +142,29 @@ class SchemaRepository {
         .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
   }
 
+  // Watch unique intervals – lightweight variant (no JSON blobs) using an
+  // optimised GROUP BY join instead of a correlated subquery.  Use this for
+  // list views where schemaData / styleDefault are not needed.
+  Stream<List<SchemaModel>> watchUniqueByIntervalLite() {
+    return db
+        .watch('''
+          SELECT s1.id, s1.interval_name, s1.title, s1.description,
+                 s1.is_visible, s1.is_deprecated, s1.version,
+                 s1.created_at, s1.directory,
+                 s1.bucket_schema_file_name, s1.bucket_plausability_file_name
+          FROM schemas s1
+          INNER JOIN (
+            SELECT interval_name, MAX(created_at) AS max_created_at
+            FROM schemas
+            WHERE is_visible = 1
+            GROUP BY interval_name
+          ) g ON s1.interval_name = g.interval_name
+                 AND s1.created_at = g.max_created_at
+          WHERE s1.is_visible = 1
+          ORDER BY s1.interval_name DESC''')
+        .map((results) => results.map((row) => SchemaModel.fromJsonLite(row)).toList());
+  }
+
   // Watch unique intervals with their latest schema (including hidden ones for admins)
   Stream<List<SchemaModel>> watchUniqueByIntervalAll() {
     return db
@@ -153,6 +176,25 @@ class SchemaRepository {
            )
          ORDER BY s1.interval_name DESC''')
         .map((results) => results.map((row) => SchemaModel.fromJson(row)).toList());
+  }
+
+  // Admin variant of watchUniqueByIntervalLite – includes hidden schemas.
+  Stream<List<SchemaModel>> watchUniqueByIntervalAllLite() {
+    return db
+        .watch('''
+          SELECT s1.id, s1.interval_name, s1.title, s1.description,
+                 s1.is_visible, s1.is_deprecated, s1.version,
+                 s1.created_at, s1.directory,
+                 s1.bucket_schema_file_name, s1.bucket_plausability_file_name
+          FROM schemas s1
+          INNER JOIN (
+            SELECT interval_name, MAX(created_at) AS max_created_at
+            FROM schemas
+            GROUP BY interval_name
+          ) g ON s1.interval_name = g.interval_name
+                 AND s1.created_at = g.max_created_at
+          ORDER BY s1.interval_name DESC''')
+        .map((results) => results.map((row) => SchemaModel.fromJsonLite(row)).toList());
   }
 
   // Get list of unique interval names
@@ -234,6 +276,24 @@ class SchemaModel {
                 : json['style_control'] as Map<String, dynamic>)
           : null,
       plausabilityScript: json['plausability_script'] as String?,
+      version: json['version'] as int?,
+      directory: json['directory'] as String?,
+    );
+  }
+
+  /// Lite constructor – does not parse heavy JSON columns (schema, style_*).
+  /// Use for list views where only metadata is needed.
+  factory SchemaModel.fromJsonLite(Map<String, dynamic> json) {
+    return SchemaModel(
+      id: json['id'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      intervalName: json['interval_name'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String?,
+      isVisible: (json['is_visible'] as int?) == 1,
+      isDeprecated: (json['is_deprecated'] as int?) == 1,
+      bucketSchemaFileName: json['bucket_schema_file_name'] as String?,
+      bucketPlausabilityFileName: json['bucket_plausability_file_name'] as String?,
       version: json['version'] as int?,
       directory: json['directory'] as String?,
     );

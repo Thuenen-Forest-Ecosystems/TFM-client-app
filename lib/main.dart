@@ -67,7 +67,6 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           '/synced_tables',
         ],
         check: (context, location) {
-          final authProvider = context.read<AuthProvider>();
           return authProvider.isAuthenticated;
         },
         beamToNamed: (origin, target) => '/login',
@@ -195,6 +194,16 @@ void main() async {
 
     // Load lookup table cache for enum label resolution
     await LookupService.instance.load();
+
+    // Reload the lookup cache after each sync cycle completes so that labels
+    // appear even when tables were empty on the first boot (pre-sync).
+    bool _wasDownloading = db.currentStatus.downloading;
+    db.statusStream.listen((status) {
+      if (_wasDownloading && !status.downloading) {
+        LookupService.instance.load();
+      }
+      _wasDownloading = status.downloading;
+    });
 
     // Skip attachment queue on web (uses file system)
     if (!kIsWeb) {

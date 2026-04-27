@@ -394,10 +394,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             }
           });
 
-          // Validate initial form data
-          if (_formData != null) {
-            _onFormDataChanged(_formData!);
-          }
+          // Initial validation is triggered by _loadSchema after the schema
+          // is fully loaded (including the plausibility script). Calling it
+          // here a second time would start a duplicate debounce cycle before
+          // the schema is ready, so it is intentionally omitted.
         }
       }
     } catch (e) {

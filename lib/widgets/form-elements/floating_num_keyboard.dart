@@ -59,17 +59,33 @@ class FloatingNumKeyboard {
     if (!value) hide();
   }
 
+  /// When true, focus-triggered auto-show is suppressed (e.g. while a dialog is open).
+  /// Set via [setAutoShowSuppressed]; read via [autoShowSuppressed].
+  static bool _suppressAutoShow = false;
+  static bool get autoShowSuppressed => _suppressAutoShow;
+
+  /// Enable/disable focus-triggered keyboard auto-show.
+  /// Call with `true` before opening a modal dialog and `false` after it closes
+  /// to prevent the floating keyboard from appearing when focus is restored.
+  static void setAutoShowSuppressed(bool value) => _suppressAutoShow = value;
+
   /// The last position the user dragged the keyboard to.
   /// Persists between show() calls so the keyboard stays where users put it.
   static Offset _lastPosition = const Offset(20, 300);
 
   /// Show the keyboard connected to [textController].
   /// If the keyboard is already visible for the same controller, this is a no-op.
+  ///
+  /// [onConfirm] is called when the user taps the confirm (✓) button. Use this
+  /// to perform additional cleanup, e.g. clearing Trina Grid's current cell
+  /// selection so the cell exits edit mode before a validation rebuild can
+  /// remount the cell widget and re-trigger autofocus.
   static void show({
     required BuildContext context,
     required TextEditingController textController,
     required void Function(dynamic) onChanged,
     bool isDecimal = false,
+    VoidCallback? onConfirm,
   }) {
     // Already showing for this exact controller – do nothing.
     if (_activeController == textController && _entry != null) return;
@@ -88,6 +104,7 @@ class FloatingNumKeyboard {
         initialPosition: _lastPosition,
         onPositionChanged: (pos) => _lastPosition = pos,
         onDismiss: hide,
+        onConfirm: onConfirm,
       ),
     );
 
@@ -119,6 +136,7 @@ class _FloatingKeyboardPanel extends StatefulWidget {
   final Offset initialPosition;
   final void Function(Offset) onPositionChanged;
   final VoidCallback onDismiss;
+  final VoidCallback? onConfirm;
 
   const _FloatingKeyboardPanel({
     required this.textController,
@@ -127,6 +145,7 @@ class _FloatingKeyboardPanel extends StatefulWidget {
     required this.initialPosition,
     required this.onPositionChanged,
     required this.onDismiss,
+    this.onConfirm,
   });
 
   @override
@@ -216,7 +235,7 @@ class _FloatingKeyboardPanelState extends State<_FloatingKeyboardPanel> {
                         widget.onPositionChanged(_position);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         color: handleColor,
                         child: Row(
                           children: [
@@ -249,7 +268,17 @@ class _FloatingKeyboardPanelState extends State<_FloatingKeyboardPanel> {
                       rightButtonLongPressFn: _onClearAll,
                       rightIcon: Icon(Icons.backspace_outlined, color: iconColor),
                       // Integer: left button = confirm/close  |  Decimal: left button = '.'
-                      leftButtonFn: widget.isDecimal ? _onDecimalTap : widget.onDismiss,
+                      leftButtonFn: widget.isDecimal
+                          ? _onDecimalTap
+                          : () {
+                              // onConfirm runs first (e.g. clearCurrentCell in
+                              // Trina Grid) so the cell exits edit mode BEFORE
+                              // the focus loss triggers a Trina rebuild that
+                              // would otherwise remount the autofocus widget.
+                              widget.onConfirm?.call();
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              widget.onDismiss();
+                            },
                       leftIcon: widget.isDecimal
                           ? Text(
                               '.',

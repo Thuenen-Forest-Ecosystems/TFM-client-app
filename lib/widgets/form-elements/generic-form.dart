@@ -172,6 +172,7 @@ class _GenericFormState extends State<GenericForm> {
           final maxWidth = (fieldConfig?['maxWidth'] as num?)?.toDouble() ?? double.infinity;
 
           final textField = GenericTextField(
+            key: ValueKey(fieldName),
             fieldName: fieldName,
             fieldSchema: fieldSchema,
             value: _localData[fieldName],
@@ -186,6 +187,7 @@ class _GenericFormState extends State<GenericForm> {
           // If fixed width is specified, use SizedBox
           if (width != null) {
             return Padding(
+              key: ValueKey(fieldName),
               padding: const EdgeInsets.all(10),
               child: SizedBox(width: width, child: textField),
             );
@@ -194,6 +196,7 @@ class _GenericFormState extends State<GenericForm> {
           // If flexible layout, use Expanded with constraints
           if (isFlexible) {
             return Expanded(
+              key: ValueKey(fieldName),
               child: Padding(
                 padding: const EdgeInsets.all(10),
                 child: ConstrainedBox(
@@ -206,6 +209,7 @@ class _GenericFormState extends State<GenericForm> {
 
           // Default: fixed width of 200
           return Padding(
+            key: ValueKey(fieldName),
             padding: const EdgeInsets.all(10),
             child: SizedBox(child: textField),
           );
@@ -246,10 +250,12 @@ class _GenericFormState extends State<GenericForm> {
             final fieldConfig = widget.fieldOptions?[fieldName] as Map<String, dynamic>?;
 
             return Padding(
+              key: ValueKey(fieldName),
               padding: const EdgeInsets.all(5),
               child: SizedBox(
                 width: columnWidth - 10, // Account for padding
                 child: GenericTextField(
+                  key: ValueKey(fieldName),
                   fieldName: fieldName,
                   fieldSchema: fieldSchema,
                   value: _localData[fieldName],

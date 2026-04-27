@@ -64,8 +64,8 @@ class _SchemaSelectionState extends State<SchemaSelection> {
 
     return StreamBuilder<List<SchemaModel>>(
       stream: _isDatabaseAdmin
-          ? repository.watchUniqueByIntervalAll()
-          : repository.watchUniqueByInterval(),
+          ? repository.watchUniqueByIntervalAllLite()
+          : repository.watchUniqueByIntervalLite(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

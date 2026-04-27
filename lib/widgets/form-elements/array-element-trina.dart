@@ -112,7 +112,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     _initializeFilters();
     _initializeGrid();
     GridDensityService.notifier.addListener(_onDensityChanged);
+    LookupService.versionNotifier.addListener(_onLookupReloaded);
     _loadColumnWidths();
+  }
+
+  void _onLookupReloaded() {
+    // Only refresh cell renders — do NOT reinitialize the grid, as that would
+    // reset scroll position and disrupt in-progress edits.
+    _stateManager?.notifyListeners();
   }
 
   void _onDensityChanged() {
@@ -1682,6 +1689,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           errors: const [],
           compact: true,
           fieldOptions: fieldOptions,
+          // When the user confirms (floating ✓ or soft-keyboard Done), clear
+          // Trina's current cell so the cell exits edit mode BEFORE validation
+          // rebuilds the grid. Without this, the rebuild remounts the
+          // GenericTextField (autofocus: true), which reopens the keyboard.
+          onConfirm: () => _stateManager?.clearCurrentCell(),
           onChanged: (newValue) {
             rendererContext.cell.value = newValue;
             _stateManager?.notifyListeners();
@@ -2033,7 +2045,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final resolved = LookupService.instance.getNameDeList(lookupTable, enumValues);
       if (resolved.any((e) => e != null)) nameDe = resolved;
     }
-    final interval = tfm?['interval'] as List?;
+    List? interval = tfm?['interval'] as List?;
+    if (interval == null) {
+      final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
+      interval = LookupService.instance.getIntervalList(lookupTable, enumValues);
+    }
 
     final result = await GenericEnumDialog.show(
       context: context,
@@ -2630,6 +2646,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       debugPrint('${widget.propertyName}: Listener removed from MapControllerProvider');
     }
     GridDensityService.notifier.removeListener(_onDensityChanged);
+    LookupService.versionNotifier.removeListener(_onLookupReloaded);
     // Flush any pending debounced save before tearing down.
     if (_widthSaveTimer?.isActive == true) {
       _widthSaveTimer!.cancel();
