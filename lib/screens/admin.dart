@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/widgets/admin/storage-list.dart';
 import 'package:terrestrial_forest_monitor/widgets/admin/database-list.dart';
 import 'package:terrestrial_forest_monitor/config.dart';
@@ -31,10 +32,7 @@ class _AdminScreenState extends State<AdminScreen> {
       }
 
       _servers.add(
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(AppConfig.servers[i]['name']!),
-        ),
+        Padding(padding: const EdgeInsets.all(8.0), child: Text(AppConfig.servers[i]['name']!)),
       );
     }
     setState(() {});
@@ -50,13 +48,17 @@ class _AdminScreenState extends State<AdminScreen> {
         await prefs.setString('selectedServer', AppConfig.servers[i]['supabaseUrl']!);
       }
     }
+    invalidateServerConfigCache();
     _updateServerSelection();
   }
 
   _getServerName() {
     for (int i = 0; i < _selectedServer.length; i++) {
       if (_selectedServer[i]) {
-        var config = AppConfig.servers.firstWhere((element) => element['supabaseUrl'] == AppConfig.servers[i]['supabaseUrl'], orElse: () => AppConfig.servers[0]);
+        var config = AppConfig.servers.firstWhere(
+          (element) => element['supabaseUrl'] == AppConfig.servers[i]['supabaseUrl'],
+          orElse: () => AppConfig.servers[0],
+        );
         return config['supabaseUrl'] ?? '';
       }
     }
@@ -74,68 +76,44 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          automaticallyImplyLeading: true,
-          title: Text('Admin'),
-        ),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 800,
-              minWidth: 300,
-            ),
-            child: ListView(
-              children: <Widget>[
-                Container(
-                  margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
-                  child: Text(
-                    'Server',
-                    style: TextStyle(fontSize: 15),
+      appBar: AppBar(centerTitle: false, automaticallyImplyLeading: true, title: Text('Admin')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
+          child: ListView(
+            children: <Widget>[
+              Container(
+                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                child: Text('Server', style: TextStyle(fontSize: 15)),
+              ),
+              Card(
+                margin: EdgeInsets.all(10.0),
+                child: ListTile(
+                  title: Text('Selected Server'),
+                  subtitle: Text(_getServerName()),
+                  trailing: ToggleButtons(
+                    onPressed: _updateServer,
+                    isSelected: _selectedServer,
+                    borderRadius: const BorderRadius.all(Radius.circular(8)),
+                    constraints: const BoxConstraints(minHeight: 40.0, minWidth: 80.0),
+                    children: _servers,
                   ),
                 ),
-                Card(
-                  margin: EdgeInsets.all(10.0),
-                  child: ListTile(
-                    title: Text('Selected Server'),
-                    subtitle: Text(_getServerName()),
-                    trailing: ToggleButtons(
-                      onPressed: _updateServer,
-                      isSelected: _selectedServer,
-                      borderRadius: const BorderRadius.all(Radius.circular(8)),
-                      constraints: const BoxConstraints(
-                        minHeight: 40.0,
-                        minWidth: 80.0,
-                      ),
-                      children: _servers,
-                    ),
-                  ),
-                ),
-                Container(
-                  margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
-                  child: Text(
-                    'Local Files',
-                    style: TextStyle(fontSize: 15),
-                  ),
-                ),
-                Card(
-                  margin: EdgeInsets.all(10.0),
-                  child: StorageList(),
-                ),
-                Container(
-                  margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
-                  child: Text(
-                    'Local Database',
-                    style: TextStyle(fontSize: 15),
-                  ),
-                ),
-                Card(
-                  margin: EdgeInsets.all(10.0),
-                  child: DatabaseList(),
-                )
-              ],
-            ),
+              ),
+              Container(
+                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                child: Text('Local Files', style: TextStyle(fontSize: 15)),
+              ),
+              Card(margin: EdgeInsets.all(10.0), child: StorageList()),
+              Container(
+                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                child: Text('Local Database', style: TextStyle(fontSize: 15)),
+              ),
+              Card(margin: EdgeInsets.all(10.0), child: DatabaseList()),
+            ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 }

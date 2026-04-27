@@ -24,16 +24,26 @@ String degreeToGon(double degree) {
   return '${(degree * 200 / 180).toStringAsFixed(0)} gon';
 }
 
+Map<String, String>? _cachedServerConfig;
+
 Future<Map<String, String>> getServerConfig() async {
+  if (_cachedServerConfig != null) return _cachedServerConfig!;
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   String? serverName = prefs.getString('selectedServer');
   if (serverName != null) {
-    return AppConfig.servers.firstWhere(
+    _cachedServerConfig = AppConfig.servers.firstWhere(
       (element) => serverName == element['supabaseUrl'],
       orElse: () => AppConfig.servers[0],
     );
+  } else {
+    _cachedServerConfig = AppConfig.servers[0];
   }
-  return AppConfig.servers[0];
+  return _cachedServerConfig!;
+}
+
+/// Call this when the user switches servers so the cache is invalidated.
+void invalidateServerConfigCache() {
+  _cachedServerConfig = null;
 }
 
 void launchStringExternal(String url) async {

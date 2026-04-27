@@ -372,21 +372,28 @@ class SupabaseConnector extends PowerSyncBackendConnector {
       return null;
     }
 
+    // If the token is already expired, return null so PowerSync stops retrying
+    // with stale credentials (avoids the auth-error loop when invalidateCredentials
+    // timed out before the refresh actually completed).
+    final tokenExpiry = session.expiresAt == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
+    if (tokenExpiry != null && DateTime.now().isAfter(tokenExpiry)) {
+      return null;
+    }
+
     // Use the access token to authenticate against PowerSync
     final token = session.accessToken;
 
-    // userId and expiresAt are for debugging purposes only
+    // userId and tokenExpiry are for debugging purposes only
     final userId = session.user.id;
-    final expiresAt = session.expiresAt == null
-        ? null
-        : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
 
     var config = await getServerConfig();
     return PowerSyncCredentials(
       endpoint: config['powersyncUrl'] ?? '',
       token: token,
       userId: userId,
-      expiresAt: expiresAt,
+      expiresAt: tokenExpiry,
     );
   }
 
@@ -403,9 +410,13 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     //
     // Timeout the refresh call to avoid waiting for long retries,
     // and ignore any errors. Errors will surface as expired tokens.
+    // Use a generous timeout: 5 s was too short on slow mobile networks,
+    // causing premature TimeoutExceptions whose swallowed errors left
+    // fetchCredentials() returning the still-expired old token to PowerSync
+    // and creating a perpetual auth-error loop.
     _refreshFuture = Supabase.instance.client.auth
         .refreshSession()
-        .timeout(const Duration(seconds: 5))
+        .timeout(const Duration(seconds: 30))
         .then((response) => null, onError: (error) => null);
   }
 }

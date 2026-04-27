@@ -207,6 +207,7 @@ Schema schema = Schema(([
     Column.text('responsible_provider'),
     Column.text('responsible_troop'),
   ]),
+  //...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   ...listOfLookupTables.map((tableName) => Table(tableName, List.from(lookupTemplate))),
   AttachmentsQueueTable(attachmentsQueueTableName: defaultAttachmentsQueueTableName),
 ]));

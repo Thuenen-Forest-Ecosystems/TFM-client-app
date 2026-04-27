@@ -81,6 +81,22 @@ class _LoginState extends State<Login> {
   }
 
   void _onAuthStateChanged() {
+    // Show a banner when the user was silently signed out by Supabase
+    // (token expiry / failed refresh) rather than by an explicit logout.
+    if (_authProvider.sessionExpiredError && mounted) {
+      _authProvider.clearSessionExpiredError();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.'),
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
+      });
+    }
+
     if (_authProvider.isAuthenticated && mounted) {
       // Dismiss keyboard and close text input connections through the
       // framework BEFORE the widget tree changes.

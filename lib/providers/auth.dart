@@ -12,6 +12,8 @@ class AuthProvider extends ChangeNotifier {
   String? _userId;
   bool _loggingIn = false;
   bool _isOfflineMode = false;
+  bool _isExplicitLogout = false;
+  bool _sessionExpiredError = false;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   final OfflineAuthService _offlineAuthService = OfflineAuthService();
@@ -22,6 +24,17 @@ class AuthProvider extends ChangeNotifier {
   bool get loggingIn => _loggingIn;
   bool get isOfflineMode => _isOfflineMode;
 
+  /// True when the user was signed out by Supabase (token expiry / refresh
+  /// failure) rather than by an explicit logout action.
+  bool get sessionExpiredError => _sessionExpiredError;
+
+  void clearSessionExpiredError() {
+    if (_sessionExpiredError) {
+      _sessionExpiredError = false;
+      // no notifyListeners needed — caller redraws on its own
+    }
+  }
+
   AuthProvider() {
     // Safely listen to auth state changes only if Supabase is initialized
     try {
@@ -30,6 +43,32 @@ class AuthProvider extends ChangeNotifier {
           'AuthProvider: Auth state changed - event: ${data.event}, user: ${data.session?.user.email}',
         );
         _loggingIn = false;
+
+        // When Supabase fires signedOut due to a failed token refresh while the
+        // device is offline, we must NOT log the user out — the app is
+        // offline-first and the session will be restored once connectivity
+        // returns. Switch to offline mode using cached credentials instead.
+        if (data.event == AuthChangeEvent.signedOut &&
+            _isAuthenticated &&
+            !_isOfflineMode &&
+            !_isExplicitLogout) {
+          final isOnline = await _offlineAuthService.isOnline();
+          if (!isOnline && await _offlineAuthService.hasPreviousLogin()) {
+            print('AuthProvider: Offline signedOut detected — switching to offline mode');
+            final cachedEmail = await _offlineAuthService.getCachedEmail();
+            _isOfflineMode = true;
+            // Keep _isAuthenticated = true; preserve userId/email from current
+            // state or fall back to cached values.
+            _userEmail = _userEmail ?? cachedEmail;
+            _isExplicitLogout = false;
+            notifyListeners();
+            return; // Do not call _getUser() — it would clear auth
+          }
+          // Device is online but session was rejected — real session expiry.
+          _sessionExpiredError = true;
+        }
+
+        _isExplicitLogout = false;
         _getUser();
       });
       _getUser();
@@ -219,6 +258,9 @@ class AuthProvider extends ChangeNotifier {
         _userId = null;
         notifyListeners();
       } else {
+        // Mark as explicit so the signedOut event is not misread as a session
+        // expiry by the onAuthStateChange listener.
+        _isExplicitLogout = true;
         // If online, sign out from Supabase
         await Supabase.instance.client.auth.signOut();
         // User will be cleared via the auth state listener
@@ -252,6 +294,26 @@ class AuthProvider extends ChangeNotifier {
       try {
         _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
           _loggingIn = false;
+
+          // Same offline-first guard as in the constructor listener.
+          if (data.event == AuthChangeEvent.signedOut &&
+              _isAuthenticated &&
+              !_isOfflineMode &&
+              !_isExplicitLogout) {
+            final isOnline = await _offlineAuthService.isOnline();
+            if (!isOnline && await _offlineAuthService.hasPreviousLogin()) {
+              print('AuthProvider(checkAuthStatus): Offline signedOut — switching to offline mode');
+              final cachedEmail = await _offlineAuthService.getCachedEmail();
+              _isOfflineMode = true;
+              _userEmail = _userEmail ?? cachedEmail;
+              _isExplicitLogout = false;
+              notifyListeners();
+              return;
+            }
+            _sessionExpiredError = true;
+          }
+
+          _isExplicitLogout = false;
           _getUser();
         });
       } catch (e) {

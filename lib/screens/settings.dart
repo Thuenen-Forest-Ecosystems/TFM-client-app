@@ -94,6 +94,7 @@ class _SettingsState extends State<Settings> {
         await prefs.setString('selectedServer', AppConfig.servers[i]['supabaseUrl']!);
       }
     }
+    invalidateServerConfigCache();
     _updateServerSelection();
   }
 
