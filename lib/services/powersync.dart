@@ -366,33 +366,42 @@ class SupabaseConnector extends PowerSyncBackendConnector {
     await _refreshFuture;
 
     // Use Supabase token for PowerSync
-    final session = Supabase.instance.client.auth.currentSession;
+    var session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
       // Not logged in
       return null;
     }
 
-    // If the token is already expired, return null so PowerSync stops retrying
-    // with stale credentials (avoids the auth-error loop when invalidateCredentials
-    // timed out before the refresh actually completed).
-    final tokenExpiry = session.expiresAt == null
+    // If the token is already expired, attempt a proactive refresh before
+    // giving up. This covers cases where invalidateCredentials() was never
+    // called (e.g. first reconnect after the device was offline for a long
+    // time, or background sync firing against a stale session).
+    var tokenExpiry = session.expiresAt == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
     if (tokenExpiry != null && DateTime.now().isAfter(tokenExpiry)) {
-      return null;
+      try {
+        print('fetchCredentials: token expired, attempting proactive refresh');
+        await Supabase.instance.client.auth.refreshSession().timeout(const Duration(seconds: 30));
+      } catch (e) {
+        // Refresh failed (e.g. still offline) — return null so PowerSync backs off.
+        print('fetchCredentials: proactive refresh failed: $e');
+        return null;
+      }
+      // Re-read the session after a successful refresh.
+      session = Supabase.instance.client.auth.currentSession;
+      if (session == null) return null;
+      tokenExpiry = session.expiresAt == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
+      if (tokenExpiry != null && DateTime.now().isAfter(tokenExpiry)) return null;
     }
-
-    // Use the access token to authenticate against PowerSync
-    final token = session.accessToken;
-
-    // userId and tokenExpiry are for debugging purposes only
-    final userId = session.user.id;
 
     var config = await getServerConfig();
     return PowerSyncCredentials(
       endpoint: config['powersyncUrl'] ?? '',
-      token: token,
-      userId: userId,
+      token: session.accessToken,
+      userId: session.user.id,
       expiresAt: tokenExpiry,
     );
   }

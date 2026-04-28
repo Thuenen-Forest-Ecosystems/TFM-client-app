@@ -143,6 +143,14 @@ void callbackDispatcher() {
         // Not connected and no recent sync — app is likely backgrounded, do a sync
         debugPrint('BackgroundSyncService: Attempting to connect PowerSync...');
 
+        // Guard: only sync when the user has an active Supabase session.
+        // Without this, SupabaseConnector.fetchCredentials() returns null
+        // (session == null) and PowerSync reports "Not logged in".
+        if (!isLoggedIn()) {
+          debugPrint('BackgroundSyncService: Skipping - no active Supabase session.');
+          return Future.value(true);
+        }
+
         final connector = SupabaseConnector();
         await db.connect(connector: connector);
 

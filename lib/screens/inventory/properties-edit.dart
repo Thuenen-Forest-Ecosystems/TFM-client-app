@@ -18,10 +18,8 @@ import 'package:terrestrial_forest_monitor/services/conditional_rules_service.da
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
-import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
-import 'package:terrestrial_forest_monitor/widgets/new_record_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/submission_success_dialog.dart';
 import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
@@ -49,7 +47,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Map<String, dynamic>? _initialFormData;
   Map<String, dynamic>? _previousFormData;
   TFMValidationResult? _validationResult;
-  bool _isValidating = false;
   bool _hasCompletedInitialValidation = false;
   bool _isSaving = false;
   late SchemaRepository schemaRepository;
@@ -60,6 +57,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   late final GlobalKey<FormWrapperState> _formWrapperKey;
   List<ConditionalRule> _conditionalRules = [];
   Timer? _validationDebounceTimer;
+  Timer? _throttleSaveTimer;
   bool _isAdminView = false;
 
   /// Whether the form data has been modified since last load/save.
@@ -123,6 +121,26 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // from staying active after navigation (focus node destroyed without
     // closing the system text input connection).
     FocusManager.instance.primaryFocus?.unfocus();
+
+    // Stop the periodic throttle-save timer.
+    _throttleSaveTimer?.cancel();
+
+    // Emergency save: flush unsaved form data to SQLite before the widget is
+    // torn down. This guards against data loss when the user navigates away
+    // while the 800 ms auto-save debounce is still pending.
+    if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
+      final id = _record!.id!;
+      final data = jsonEncode(_formData);
+      final ts = DateTime.now().toUtc().toIso8601String();
+      // Fire-and-forget: widget is being disposed so setState is not called,
+      // but the SQLite write will complete asynchronously.
+      db.execute('UPDATE records SET properties = ?, local_updated_at = ? WHERE id = ?', [
+        data,
+        ts,
+        id,
+      ]);
+      debugPrint('⚡ Emergency save triggered on dispose for record $id');
+    }
 
     // Cancel any pending validation timer
     _validationDebounceTimer?.cancel();
@@ -358,9 +376,16 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       _error = null;
     });
 
-    // Check if this is a NEW record creation
+    // New record creation is disabled – users may only edit existing records.
+    // Navigating to /properties-edit/NEW/NEW is not permitted.
     if (widget.clusterId == 'NEW' && widget.plotName == 'NEW') {
-      await _createNewRecord();
+      setState(() {
+        _error = 'Neue Aufnahmen können hier nicht erstellt werden.';
+        _isLoading = false;
+      });
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Beamer.of(context).beamBack();
+      });
       return;
     }
 
@@ -408,114 +433,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         });
       }
     }
-  }
-
-  Future<void> _createNewRecord() async {
-    if (!mounted) return;
-
-    // Defer dialog until after the widget tree is built
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-
-      // Show dialog to get cluster and plot names
-      final result = await showDialog<Map<String, String>>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const NewRecordDialog(),
-      );
-
-      if (result == null) {
-        // User cancelled, set loading to false and go back
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          // Use a small delay to ensure state is updated before navigation
-          await Future.delayed(const Duration(milliseconds: 100));
-          if (mounted) {
-            Beamer.of(context).beamBack();
-          }
-        }
-        return;
-      }
-
-      final clusterName = result['clusterName']!;
-      final plotName = result['plotName']!;
-      final schemaName = result['schemaName']!;
-
-      try {
-        // Get the selected schema
-        final schema = await schemaRepository.getLatestForInterval(schemaName);
-        if (schema == null) {
-          throw Exception('Schema nicht gefunden: $schemaName');
-        }
-
-        // Generate UUIDs for cluster_id and plot_id
-        final clusterId = DateTime.now().millisecondsSinceEpoch.toString();
-        final plotId = '${clusterId}_${plotName.replaceAll(' ', '_')}';
-
-        // Create new record with minimal required fields
-        final newRecord = repo.Record(
-          id: null, // Will be auto-generated on insert
-          properties: {}, // Empty properties to be filled in form
-          schemaName: schemaName,
-          schemaId: schema.id!,
-          schemaIdValidatedBy: schema.id,
-          schemaVersion: schema.version,
-          plotId: plotId,
-          clusterId: clusterId,
-          plotName: plotName,
-          clusterName: clusterName,
-          previousProperties: null, // No previous data for new record
-          previousPositionData: null,
-          isValid: 0,
-          responsibleAdministration: null,
-          responsibleProvider: null,
-          responsibleState: null,
-          responsibleTroop: null,
-          updatedAt: null,
-          localUpdatedAt: DateTime.now().toUtc().toIso8601String(),
-          completedAtState: null,
-          completedAtTroop: null,
-          completedAtAdministration: null,
-          isToBeRecorded: 1,
-          note: null,
-          validationErrors: null,
-          cluster: null,
-        );
-
-        if (mounted) {
-          setState(() {
-            _record = newRecord;
-            _formData = {};
-            _initialFormData = {};
-            _previousFormData = null;
-            _isLoading = false;
-          });
-
-          // Load schema after record is created
-          await _loadSchema(
-            newRecord.schemaName,
-            schemaIdValidatedBy: newRecord.schemaIdValidatedBy,
-          );
-        }
-      } catch (e) {
-        debugPrint('Error creating new record: $e');
-        if (mounted) {
-          setState(() {
-            _error = 'Fehler beim Erstellen: $e';
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Fehler beim Erstellen der neuen Ecke: $e')));
-          await Future.delayed(const Duration(milliseconds: 100));
-          if (mounted) {
-            Beamer.of(context).beamBack();
-          }
-        }
-      }
-    });
   }
 
   Future<void> save(String type, {Map<String, List<AcknowledgedError>>? acknowledgedErrors}) async {
@@ -722,6 +639,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         _initialFormData = _deepCopyMap(_formData!);
       }
 
+      // Reset the throttle-save timer after a successful save so the 10 s
+      // window restarts from now rather than from the first edit.
+      _throttleSaveTimer?.cancel();
+      _throttleSaveTimer = null;
+
       // Show submission success dialog only on 'complete', not on 'save'
       if (mounted && type == 'complete') {
         final result = await SubmissionSuccessDialog.show(context, submittedRecord: _record!);
@@ -833,6 +755,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       _formData = updatedData;
     });
 
+    // Throttle-save: start a periodic timer on the first change after a save.
+    // This ensures that during continuous typing a hard crash can lose at most
+    // 10 seconds of data, regardless of how long the debounce is suppressed.
+    _throttleSaveTimer ??= Timer.periodic(const Duration(seconds: 10), (_) {
+      if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
+        final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
+        if (!isPlayground) {
+          debugPrint('🕐 Throttle-save triggered for record ${_record!.id}');
+          save('save');
+        }
+      }
+    });
+
     // Cancel any pending validation
     _validationDebounceTimer?.cancel();
 
@@ -859,10 +794,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
 
       if (_originalJsonSchema != null) {
-        setState(() {
-          _isValidating = true;
-        });
-
         try {
           // Apply conditional rules to original schema
           // Deep copy is handled inside applyRules() to prevent mutation
@@ -973,7 +904,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           if (mounted) {
             setState(() {
               _validationResult = processedResult;
-              _isValidating = false;
               _hasCompletedInitialValidation = true;
               // Update schema with conditional rules applied
               _jsonSchema = modifiedSchema;
@@ -990,11 +920,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           }
         } catch (e) {
           debugPrint('Validation error: $e');
-          if (mounted) {
-            setState(() {
-              _isValidating = false;
-            });
-          }
         }
       }
     });
