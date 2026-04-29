@@ -49,6 +49,22 @@ class AuthProvider extends ChangeNotifier {
 
     // Listen for connectivity changes to transition from offline to online
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+
+    // Also check connectivity right now — onConnectivityChanged only fires on
+    // *changes*, so if the app starts while already online with _isOfflineMode
+    // still true (e.g. network was restored before the app was opened), the
+    // upgrade would never be triggered without this initial check.
+    _checkInitialConnectivityAndUpgrade();
+  }
+
+  Future<void> _checkInitialConnectivityAndUpgrade() async {
+    if (!_isOfflineMode) return;
+    final results = await Connectivity().checkConnectivity();
+    final isOnline = results.any((r) => r != ConnectivityResult.none);
+    if (isOnline) {
+      print('AuthProvider: Started online while in offline mode — attempting upgrade');
+      await _upgradeToOnlineMode();
+    }
   }
 
   /// Shared handler for all onAuthStateChange events.

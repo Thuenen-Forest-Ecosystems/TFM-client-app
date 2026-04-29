@@ -7,7 +7,10 @@ import 'package:terrestrial_forest_monitor/screens/inventory/schema-selection.da
 import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
+import 'package:terrestrial_forest_monitor/widgets/diagnostic-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/playground-mode-button.dart';
 
 class Schema extends StatefulWidget {
@@ -42,6 +45,9 @@ class _SchemaState extends State<Schema> {
         title: SvgPicture.asset('assets/logo/THUENEN_SCREEN_Black.svg', height: 50),
         actions: [
           const SyncStatusButton(),
+          const SizedBox(width: 5),
+          //const DiagnosticButton(),
+          //const SizedBox(width: 5),
           const PlaygroundModeButton(),
           //SizedBox(width: 5),
           IconButton(
@@ -52,7 +58,7 @@ class _SchemaState extends State<Schema> {
             icon: const Icon(Icons.account_circle),
             onSelected: (value) async {
               if (value == 'logout') {
-                await Supabase.instance.client.auth.signOut();
+                await context.read<AuthProvider>().logout();
               }
             },
             itemBuilder: (context) {

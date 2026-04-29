@@ -7,6 +7,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
+import 'package:flutter/services.dart';
+import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
+import 'package:terrestrial_forest_monitor/widgets/diagnostic-export-button.dart';
+import 'package:terrestrial_forest_monitor/widgets/records-export-button.dart';
 
 class SyncStatusButton extends StatefulWidget {
   const SyncStatusButton({super.key});
@@ -22,6 +26,17 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   StreamSubscription<SyncStatus>? _syncStatusSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _isNetworkAvailable = true;
+  int _unsyncedCount = 0;
+  StreamSubscription<dynamic>? _unsyncedSub;
+
+  static const _unsyncedSql = '''
+    SELECT COUNT(*) AS n FROM records
+    WHERE local_updated_at IS NOT NULL
+      AND (
+        updated_at IS NULL
+        OR local_updated_at > datetime(updated_at, \'+60 seconds\')
+      )
+  ''';
 
   @override
   void initState() {
@@ -70,6 +85,14 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
 
     // Check initial connectivity
     _checkInitialConnectivity();
+
+    _unsyncedSub = db.watch(_unsyncedSql).listen((rows) {
+      if (mounted) {
+        setState(() {
+          _unsyncedCount = rows.isNotEmpty ? (rows.first['n'] as int? ?? 0) : 0;
+        });
+      }
+    });
   }
 
   Future<void> _checkInitialConnectivity() async {
@@ -86,6 +109,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     super.dispose();
     _syncStatusSubscription?.cancel();
     _connectivitySubscription?.cancel();
+    _unsyncedSub?.cancel();
   }
 
   @override
@@ -98,13 +122,23 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     }
 
     // If offline mode, show offline status with network info
-    if (authProvider.isOfflineMode) {
-      return _buildOfflineStatusChip(context, _isNetworkAvailable);
-    }
+    /*if (authProvider.isOfflineMode) {
+      return Badge(
+        isLabelVisible: _unsyncedCount > 0,
+        backgroundColor: Colors.orange,
+        label: Text('$_unsyncedCount'),
+        child: _buildOfflineStatusChip(context, _isNetworkAvailable),
+      );
+    }*/
 
     // For online mode — authProvider.isAuthenticated already confirmed above,
     // so always show the chip regardless of stream state.
-    return _buildStatusChip(context, _connectionState);
+    return Badge(
+      isLabelVisible: _unsyncedCount > 0,
+      backgroundColor: Colors.orange,
+      label: Text('$_unsyncedCount'),
+      child: _buildStatusChip(context, _connectionState),
+    );
   }
 }
 
@@ -119,7 +153,7 @@ Widget _buildStatusChip(BuildContext context, SyncStatus status) {
       avatar: Icon(iconData, size: 18),
       label: Text(statusText, overflow: TextOverflow.ellipsis, maxLines: 1),
       shape: const StadiumBorder(),
-      onPressed: () => _showStatusDialog(context, status),
+      onPressed: () => _SyncStatusDialog.show(context, status),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     ),
   );
@@ -181,100 +215,361 @@ String _getStatusText(SyncStatus status) {
   }
 }
 
-void _showStatusDialog(BuildContext context, SyncStatus status) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Sync Status'),
-        content: SingleChildScrollView(
+// (replaced by _SyncStatusDialog below)
+// ignore: unused_element
+void _showStatusDialog(BuildContext context, SyncStatus status) {}
+
+class _SyncStatusDialog extends StatefulWidget {
+  final SyncStatus status;
+  const _SyncStatusDialog({required this.status});
+
+  static Future<void> show(BuildContext context, SyncStatus status) {
+    return showDialog(
+      context: context,
+      builder: (_) => _SyncStatusDialog(status: status),
+    );
+  }
+
+  @override
+  State<_SyncStatusDialog> createState() => _SyncStatusDialogState();
+}
+
+class _SyncStatusDialogState extends State<_SyncStatusDialog> {
+  late SyncStatus _status;
+  StreamSubscription<SyncStatus>? _statusSub;
+  bool _diagLoading = true;
+  int _pendingCrudCount = 0;
+  List<Map<String, dynamic>> _crudBreakdown = [];
+  List<Map<String, dynamic>> _unsyncedRecords = [];
+
+  static const String _serverQuery =
+      '''-- Run on Supabase to find records not uploaded from devices:
+SELECT id, cluster_name, plot_name,
+       local_updated_at, updated_at,
+       (local_updated_at::timestamptz - updated_at::timestamptz) AS lag
+FROM public.records
+WHERE local_updated_at IS NOT NULL
+  AND updated_at IS NOT NULL
+  AND local_updated_at > updated_at + interval \'10 minutes\'
+ORDER BY lag DESC;
+
+-- Records that were never uploaded (no server timestamp):
+SELECT id, cluster_name, plot_name, local_updated_at
+FROM public.records
+WHERE local_updated_at IS NOT NULL
+  AND updated_at IS NULL
+ORDER BY local_updated_at DESC;''';
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.status;
+    _loadDiagnostics();
+    _statusSub = db.statusStream.listen((s) {
+      if (mounted) {
+        setState(() => _status = s);
+        _loadDiagnostics();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _statusSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadDiagnostics() async {
+    try {
+      final crudCountResult = await db.execute('SELECT COUNT(*) as n FROM ps_crud');
+      final pending = crudCountResult.isNotEmpty ? (crudCountResult.first['n'] as int? ?? 0) : 0;
+
+      final breakdownResult = await db.execute('''
+        SELECT
+          json_extract(data, '\$.type') AS table_name,
+          json_extract(data, '\$.op')   AS operation,
+          COUNT(*)                       AS cnt
+        FROM ps_crud
+        GROUP BY table_name, operation
+        ORDER BY cnt DESC
+      ''');
+      final breakdown = breakdownResult
+          .map(
+            (r) => {
+              'table': r['table_name']?.toString() ?? '?',
+              'op': r['operation']?.toString() ?? '?',
+              'cnt': r['cnt'],
+            },
+          )
+          .toList();
+
+      final unsyncedResult = await db.execute('''
+        SELECT id, cluster_name, plot_name, local_updated_at, updated_at
+        FROM records
+        WHERE local_updated_at IS NOT NULL
+          AND (
+            updated_at IS NULL
+            OR local_updated_at > datetime(updated_at, \'+60 seconds\')
+          )
+        ORDER BY local_updated_at DESC
+        LIMIT 50
+      ''');
+      final unsynced = unsyncedResult
+          .map(
+            (r) => {
+              'cluster_name': r['cluster_name']?.toString(),
+              'plot_name': r['plot_name']?.toString(),
+              'local_updated_at': r['local_updated_at']?.toString(),
+              'updated_at': r['updated_at']?.toString(),
+            },
+          )
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _pendingCrudCount = pending;
+          _crudBreakdown = breakdown;
+          _unsyncedRecords = unsynced;
+          _diagLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _diagLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    // SocketException / Failed host lookup = plain offline, not actionable
+    final isNetworkDownError =
+        !status.connected &&
+        (status.anyError?.toString().contains('SocketException') == true ||
+            status.anyError?.toString().contains('Failed host lookup') == true);
+    return AlertDialog(
+      title: const Text('Sync Status'),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildStatusRow('Connected', status.connected ? 'Yes' : 'No'),
+            _buildStatusRow('Connecting', status.connecting ? 'Yes' : 'No'),
+            _buildStatusRow('Downloading', status.downloading ? 'Yes' : 'No'),
+            _buildStatusRow('Uploading', status.uploading ? 'Yes' : 'No'),
+            const Divider(),
+            _buildStatusRow(
+              'Letzte Synchronisierung',
+              status.lastSyncedAt?.toLocal().toString() ?? 'Nie',
+            ),
+            //_buildStatusRow('Hat synchronisiert', (status.hasSynced ?? false) ? 'Ja' : 'Nein'),
+            // ── Diagnostic ─────────────────────────────────────────
+            const Divider(),
+            if (_diagLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else
+              _buildDiagnosticSection(context),
+            if (status.anyError != null && !isNetworkDownError) ...[
+              const Divider(),
+              const Text(
+                'Error:',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              ),
+              const SizedBox(height: 4),
+              Text(status.anyError.toString(), style: const TextStyle(fontSize: 12)),
+              if (status.anyError.toString().contains('Handshake') ||
+                  status.anyError.toString().contains('CERTIFICATE_VERIFY_FAILED')) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lightbulb_outline, size: 20, color: Colors.orange.shade700),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Haben Sie bereits die Anwendung "Install SSL Certificates" ausgeführt? '
+                          'Wenn nicht, bitte suchen Sie die Anwendung und führen Diese aus.',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const RecordsExportButton(),
+            DiagnosticExportButton(
+              pendingCrudCount: _pendingCrudCount,
+              crudBreakdown: _crudBreakdown,
+              unsyncedRecords: _unsyncedRecords,
+              lastSyncedAt: _status.lastSyncedAt?.toLocal().toIso8601String(),
+            ),
+          ],
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await db.disconnect();
+                final connector = SupabaseConnector();
+                db.connect(connector: connector);
+              },
+              child: const Text('Reconnect'),
+            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiagnosticSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildStatusRow('Warteschlange', '$_pendingCrudCount ausstehend'),
+        if (_crudBreakdown.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          ..._crudBreakdown.map(
+            (b) => Padding(
+              padding: const EdgeInsets.only(left: 12, top: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('${b['table']} · ${b['op']}', style: const TextStyle(fontSize: 12)),
+                  ),
+                  Text('${b['cnt']}×', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ],
+        _buildStatusRow('Nicht synchronisiert', '${_unsyncedRecords.length} Datensätze'),
+        if (_unsyncedRecords.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          ..._unsyncedRecords.take(10).map(_buildRecordRow),
+          if (_unsyncedRecords.length > 10)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, top: 2),
+              child: Text(
+                '… und ${_unsyncedRecords.length - 10} weitere',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+        ],
+        IfDatabaseAdmin(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildStatusRow('Connected', status.connected ? 'Yes' : 'No'),
-              _buildStatusRow('Connecting', status.connecting ? 'Yes' : 'No'),
-              _buildStatusRow('Downloading', status.downloading ? 'Yes' : 'No'),
-              _buildStatusRow('Uploading', status.uploading ? 'Yes' : 'No'),
-              const Divider(),
-              _buildStatusRow(
-                'Last Synced At',
-                status.lastSyncedAt?.toLocal().toString() ?? 'Never',
-              ),
-              _buildStatusRow('Has Synced', (status.hasSynced ?? false) ? 'Yes' : 'No'),
-              if (status.anyError != null) ...[
-                const Divider(),
-                const Text(
-                  'Error:',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-                const SizedBox(height: 4),
-                Text(status.anyError.toString(), style: const TextStyle(fontSize: 12)),
-                if (status.anyError.toString().contains('Handshake') ||
-                    status.anyError.toString().contains('CERTIFICATE_VERIFY_FAILED')) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.lightbulb_outline, size: 20, color: Colors.orange.shade700),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Haben Sie bereits die Anwendung "Install SSL Certificates" ausgeführt? '
-                            'Wenn nicht, bitte suchen Sie die Anwendung und führen Diese aus.',
-                            style: TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-              const Divider(),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.sync, size: 18, color: Colors.blue),
-                  const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Background Sync Active',
-                      style: TextStyle(fontWeight: FontWeight.w500),
+                      'Server-Diagnose SQL:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    tooltip: 'SQL kopieren',
+                    onPressed: () {
+                      Clipboard.setData(const ClipboardData(text: _serverQuery));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('SQL in die Zwischenablage kopiert'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sync continues even when app is in background or device is sleeping.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Builder(
+                builder: (ctx) {
+                  final scheme = Theme.of(ctx).colorScheme;
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: scheme.outlineVariant),
+                    ),
+                    child: SelectableText(
+                      _serverQuery,
+                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                    ),
+                  );
+                },
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              // Force disconnect and reconnect to recover from stuck sync
-              await db.disconnect();
-              final connector = SupabaseConnector();
-              db.connect(connector: connector);
-            },
-            child: const Text('Reconnect'),
+      ],
+    );
+  }
+
+  Widget _buildRecordRow(Map<String, dynamic> row) {
+    final cluster = row['cluster_name'] ?? '?';
+    final plot = row['plot_name'] ?? '?';
+    final localTs = _formatTs(row['local_updated_at']);
+    final serverTs = _formatTs(row['updated_at']);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(padding: EdgeInsets.only(top: 5), child: Icon(Icons.circle, size: 5)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '$cluster / $plot\nLokal: $localTs  •  Server: ${serverTs ?? '–'}',
+              style: const TextStyle(fontSize: 11),
+            ),
           ),
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
         ],
-      );
-    },
-  );
+      ),
+    );
+  }
+
+  String? _formatTs(String? ts) {
+    if (ts == null) return null;
+    try {
+      final dt = DateTime.parse(ts).toLocal();
+      return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} '
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return ts;
+    }
+  }
 }
 
 void _showOfflineDialog(BuildContext context, bool networkAvailable) {

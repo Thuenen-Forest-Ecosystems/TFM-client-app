@@ -93,7 +93,11 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
       final val = widget.enumValues[i];
       if (val != null) indexMap[val.toString()] = i;
     }
-    _recentIndices = _recentValues.map((key) => indexMap[key]).whereType<int>().toList();
+    _recentIndices = _recentValues
+        .map((key) => indexMap[key])
+        .whereType<int>()
+        .where((i) => _isIndexEnabled(i))
+        .toList();
   }
 
   @override
@@ -136,7 +140,10 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
       // Skip null values
       if (enumValue == null) continue;
 
-      // Apply text filter if active (only filter enabled values when searching)
+      // Hide disabled values
+      if (!_isIndexEnabled(i)) continue;
+
+      // Apply text filter if active
       if (_filterText.isNotEmpty) {
         final filterLower = _filterText.toLowerCase();
         final displayText = _getDisplayText(enumValue, i);
