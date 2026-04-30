@@ -2346,8 +2346,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       _rows.add(newTrinaRow);
 
       if (_stateManager != null) {
-        _stateManager!.insertRows(_stateManager!.rows.length, [newTrinaRow]);
+        final insertIdx = _sortedInsertIndex(newTrinaRow);
+        _stateManager!.insertRows(insertIdx, [newTrinaRow]);
         _notifyDataChanged();
+        _scrollToRow(newTrinaRow);
       } else {
         _notifyDataChanged();
         setState(() {});
@@ -2469,9 +2471,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
     if (_stateManager != null) {
       // Sync to state manager - this should trigger onChanged but it doesn't always
-      _stateManager!.insertRows(_stateManager!.rows.length, [newTrinaRow]);
+      final insertIdx = _sortedInsertIndex(newTrinaRow);
+      _stateManager!.insertRows(insertIdx, [newTrinaRow]);
       // Explicitly notify parent since onChanged might not fire for insertRows
       _notifyDataChanged();
+      _scrollToRow(newTrinaRow);
     } else {
       // If grid not loaded yet (empty state), notify parent directly
       _notifyDataChanged();
@@ -2583,15 +2587,95 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final newTrinaRow = TrinaRow(cells: newCells);
 
     if (_stateManager != null) {
-      // Insert at the end
-      _stateManager!.insertRows(_stateManager!.rows.length, [newTrinaRow]);
+      final insertIdx = _sortedInsertIndex(newTrinaRow);
+      _stateManager!.insertRows(insertIdx, [newTrinaRow]);
       _rows = _stateManager!.rows;
       _notifyDataChanged();
+      _scrollToRow(newTrinaRow);
     } else {
       _rows.add(newTrinaRow);
       _notifyDataChanged();
       setState(() {});
     }
+  }
+
+  /// Returns the index at which [newRow] should be inserted to maintain the
+  /// current sort order. Falls back to appending at the end when no sort is active.
+  int _sortedInsertIndex(TrinaRow newRow) {
+    if (_stateManager == null || _columnSortStates.isEmpty) {
+      return _stateManager?.rows.length ?? _rows.length;
+    }
+    final sortEntry = _columnSortStates.entries.firstWhere(
+      (e) => e.value != 0,
+      orElse: () => const MapEntry('', 0),
+    );
+    if (sortEntry.value == 0) return _stateManager!.rows.length;
+
+    final sortField = sortEntry.key;
+    final ascending = sortEntry.value == 1;
+    final newValue = newRow.cells[sortField]?.value;
+
+    final rows = _stateManager!.rows;
+    for (int i = 0; i < rows.length; i++) {
+      final existingValue = rows[i].cells[sortField]?.value;
+      if (_compareRowValues(newValue, existingValue, ascending) < 0) return i;
+    }
+    return rows.length;
+  }
+
+  int _compareRowValues(dynamic a, dynamic b, bool ascending) {
+    int result;
+    if (a == null && b == null) {
+      result = 0;
+    } else if (a == null) {
+      result = 1; // nulls sort last
+    } else if (b == null) {
+      result = -1;
+    } else if (a is num && b is num) {
+      result = a.compareTo(b);
+    } else {
+      result = a.toString().compareTo(b.toString());
+    }
+    return ascending ? result : -result;
+  }
+
+  /// Scrolls the grid to [newRow] and selects its first visible cell.
+  void _scrollToRow(TrinaRow newRow) {
+    // Two frames are needed: the first lets insertRows finish rebuilding the
+    // grid, the second fires once the new row is actually laid out so that
+    // setCurrentCell (which calls moveScrollByRow internally) can resolve the
+    // correct pixel offset.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_stateManager == null || !mounted) return;
+        final rowIdx = _stateManager!.rows.indexOf(newRow);
+        if (rowIdx < 0) return;
+
+        // Scroll the vertical axis directly to the row's pixel offset, then
+        // select the cell so TrinaGrid also highlights it correctly.
+        final rowHeight = _stateManager!.rowTotalHeight;
+        final targetOffset = rowIdx * rowHeight;
+        final verticalGroup = _stateManager!.scroll.vertical;
+        if (verticalGroup != null) {
+          try {
+            verticalGroup.animateTo(
+              targetOffset,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+            );
+          } catch (_) {
+            // Group has no attached controllers yet; skip scroll.
+          }
+        }
+
+        final visibleColumn = _stateManager!.columns.firstWhere(
+          (c) => !c.hide,
+          orElse: () => _stateManager!.columns.first,
+        );
+        final cell = newRow.cells[visibleColumn.field];
+        if (cell != null) _stateManager!.setCurrentCell(cell, rowIdx);
+      });
+    });
   }
 
   void _notifyDataChanged([bool forceData = false]) {

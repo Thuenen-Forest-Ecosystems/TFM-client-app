@@ -97,7 +97,7 @@ class _ArrayFilterDialogState extends State<ArrayFilterDialog> {
         children: [
           Icon(Icons.filter_list, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          const Text('Filter'),
+          const Text('Ausblenden'),
         ],
       ),
       content: SizedBox(

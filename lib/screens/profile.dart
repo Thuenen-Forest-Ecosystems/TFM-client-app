@@ -56,7 +56,6 @@ class _ProfileState extends State<Profile> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.delete_sweep, size: 36),
         title: const Text('Einstellungen zurücksetzen?'),
         content: const Text(
           'Folgende lokale Einstellungen werden gelöscht:\n\n'
@@ -255,7 +254,6 @@ class _ProfileState extends State<Profile> {
 
             ElevatedButton.icon(
               onPressed: _clearLocalSettings,
-              icon: const Icon(Icons.delete_sweep),
               label: const Text('Einstellungen zurücksetzen'),
             ),
 
