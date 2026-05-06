@@ -789,7 +789,15 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
                 LayoutService.setValueByPath(_localFormData, arrayPath, [updatedData]);
               }
             } else {
-              LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
+              // Merge updated fields into the existing nested object instead of
+              // replacing it. This preserves fields that are present in the data
+              // but not listed in `includeProperties` (e.g. managed by a sibling
+              // GenericForm or written by another source).
+              final existing = LayoutService.getValueByPath(_localFormData, propertyPath);
+              final merged = existing is Map<String, dynamic>
+                  ? (Map<String, dynamic>.from(existing)..addAll(updatedData))
+                  : updatedData;
+              LayoutService.setValueByPath(_localFormData, propertyPath, merged);
             }
             widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
           } else {

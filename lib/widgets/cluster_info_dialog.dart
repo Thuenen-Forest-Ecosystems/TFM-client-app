@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 //import 'package:terrestrial_forest_monitor/services/utils.dart';
 
@@ -51,6 +52,7 @@ class ClusterInfoButton extends StatelessWidget {
         clusterData: clusterMap,
         clusterName: record!.clusterName ?? '',
         rootSchema: rootSchema,
+        record: record,
       ),
     );
   }
@@ -75,12 +77,14 @@ class ClusterInfoDialog extends StatefulWidget {
   final Map<String, dynamic> clusterData;
   final String clusterName;
   final Map<String, dynamic>? rootSchema;
+  final Record? record;
 
   const ClusterInfoDialog({
     super.key,
     required this.clusterData,
     required this.clusterName,
     this.rootSchema,
+    this.record,
   });
 
   @override
@@ -91,11 +95,56 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
   Map<String, dynamic>? _clusterStyleData;
   bool _isLoading = true;
   String? _error;
+  String? _troopName;
+  String? _updatedByName;
 
   @override
   void initState() {
     super.initState();
     _loadClusterStyle();
+    _loadMetadata();
+  }
+
+  Future<void> _loadMetadata() async {
+    if (widget.record == null) return;
+    try {
+      if (widget.record!.responsibleTroop != null) {
+        final rows = await db.getAll('SELECT name FROM troop WHERE id = ?', [
+          widget.record!.responsibleTroop,
+        ]);
+        if (rows.isNotEmpty && mounted) {
+          setState(() => _troopName = rows.first['name'] as String?);
+        }
+      }
+      if (widget.record!.id != null) {
+        final recordRows = await db.getAll('SELECT updated_by FROM records WHERE id = ?', [
+          widget.record!.id,
+        ]);
+        if (recordRows.isNotEmpty) {
+          final updatedById = recordRows.first['updated_by'] as String?;
+          if (updatedById != null) {
+            final userRows = await db.getAll('SELECT user_name FROM users_profile WHERE id = ?', [
+              updatedById,
+            ]);
+            if (userRows.isNotEmpty && mounted) {
+              setState(() => _updatedByName = userRows.first['user_name'] as String?);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading metadata: $e');
+    }
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '-';
+    try {
+      final d = DateTime.parse(dateStr).toLocal();
+      return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   Future<void> _loadClusterStyle() async {
@@ -135,6 +184,7 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
                 border: Border(bottom: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -142,7 +192,14 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
                       children: [
                         Text('Informationen', style: theme.textTheme.titleLarge),
                         const SizedBox(height: 4),
-                        Text('Trakt: ${widget.clusterName}', style: theme.textTheme.bodyMedium),
+                        Text(
+                          'Trakt: ${widget.clusterName} / Ecke: ${widget.record?.plotName ?? '-'}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        if (widget.record != null) ...[
+                          const SizedBox(height: 8),
+                          _buildMetaRow(theme),
+                        ],
                       ],
                     ),
                   ),
@@ -172,6 +229,35 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Build non-editable metadata row for the header
+  Widget _buildMetaRow(ThemeData theme) {
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500);
+
+    Widget metaItem(String label, String? value) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: labelStyle),
+          const SizedBox(height: 1),
+          Text(value ?? '-', style: valueStyle),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 16,
+      runSpacing: 6,
+      children: [
+        metaItem('Aktualisiert am', _formatDate(widget.record!.updatedAt)),
+        metaItem('Aktualisiert von', _updatedByName ?? '-'),
+        metaItem('Trupp', _troopName ?? (widget.record!.responsibleTroop != null ? '…' : '-')),
+      ],
     );
   }
 

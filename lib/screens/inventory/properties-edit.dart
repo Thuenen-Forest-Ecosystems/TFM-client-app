@@ -59,6 +59,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Timer? _validationDebounceTimer;
   Timer? _throttleSaveTimer;
   bool _isAdminView = false;
+  PlaygroundModeProvider? _playgroundModeProvider;
 
   /// Whether the form data has been modified since last load/save.
   bool get _hasUnsavedChanges {
@@ -113,6 +114,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         debugPrint('MapControllerProvider not available: $e');
       }
     }
+
+    // Store playground mode provider reference while context is valid
+    _playgroundModeProvider ??= context.read<PlaygroundModeProvider>();
   }
 
   @override
@@ -128,7 +132,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Emergency save: flush unsaved form data to SQLite before the widget is
     // torn down. This guards against data loss when the user navigates away
     // while the 800 ms auto-save debounce is still pending.
-    if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
+    // Skip in playground mode — no data should be persisted.
+    final isPlayground = _playgroundModeProvider?.isPlaygroundMode ?? false;
+    if (!isPlayground &&
+        !_isAdminView &&
+        _record?.id != null &&
+        !_isSaving &&
+        _hasUnsavedChanges &&
+        _formData != null) {
       final id = _record!.id!;
       final data = jsonEncode(_formData);
       final ts = DateTime.now().toUtc().toIso8601String();
@@ -140,6 +151,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         id,
       ]);
       debugPrint('⚡ Emergency save triggered on dispose for record $id');
+    } else if (isPlayground) {
+      debugPrint('⚡ Emergency save skipped: playground mode is active');
+    } else if (_isAdminView) {
+      debugPrint('⚡ Emergency save skipped: admin view is active');
     }
 
     // Cancel any pending validation timer
@@ -761,7 +776,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _throttleSaveTimer ??= Timer.periodic(const Duration(seconds: 10), (_) {
       if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
         final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
-        if (!isPlayground) {
+        if (!isPlayground && !_isAdminView) {
           debugPrint('🕐 Throttle-save triggered for record ${_record!.id}');
           save('save');
         }
@@ -913,7 +928,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           // Auto-save after validation completes for existing records
           if (mounted && _record?.id != null && !_isSaving) {
             final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
-            if (!isPlayground && _hasUnsavedChanges) {
+            if (!isPlayground && !_isAdminView && _hasUnsavedChanges) {
               debugPrint('Auto-saving after validation...');
               save('save');
             }
