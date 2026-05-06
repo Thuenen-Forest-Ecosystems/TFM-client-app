@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 
@@ -113,7 +114,7 @@ class _ArrayGridDialogState extends State<ArrayGridDialog> {
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.of(context).pop(null),
-                  tooltip: 'Abbrechen',
+                  tooltip: AppLocalizations.of(context)!.gridCancel,
                 ),
               ],
             ),
@@ -137,14 +138,14 @@ class _ArrayGridDialogState extends State<ArrayGridDialog> {
               children: [
                 /*TextButton(
                   onPressed: () => Navigator.of(context).pop(null),
-                  child: const Text('Abbrechen'),
+                  child: Text(AppLocalizations.of(context)!.gridCancel),
                 ),*/
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: widget.parentReadOnly
                       ? null
                       : () => Navigator.of(context).pop(_currentData),
-                  child: const Text('Speichern'),
+                  child: Text(AppLocalizations.of(context)!.gridSave),
                 ),
               ],
             ),

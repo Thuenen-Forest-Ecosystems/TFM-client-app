@@ -147,9 +147,7 @@ class _StartState extends State<Start> {
     if (_sheetController.isAttached && mounted) {
       final newSize = _sheetController.size;
       if (newSize != _currentSheetSize) {
-        setState(() {
-          _currentSheetSize = newSize;
-        });
+        _currentSheetSize = newSize;
 
         // Check if fully expanded (close to max size)
         // We use a small epsilon tolerance
@@ -352,20 +350,47 @@ class _StartState extends State<Start> {
   Widget _buildContent(BuildContext context) {
     return Stack(
       children: [
-        // Background Map (Fixed Height) - Move up based on sheet position
-        // The map center should align with the center of visible area (above the sheet)
-        Positioned(
-          top:
-              -(_currentSheetSize - _minChildSize) * MediaQuery.of(context).size.height * 0.5 -
-              MediaQuery.of(context).padding.top,
-          left: 0,
-          right: 0,
-          height: MediaQuery.of(context).size.height + MediaQuery.of(context).padding.top,
-          child: MapWidget(
-            key: const ValueKey('main-map-widget'),
-            initialCenter: const LatLng(52.2688, 10.5268), // Braunschweig
-            initialZoom: 4,
-            sheetPosition: _currentSheetSize,
+        // Background Map - AnimatedBuilder drives position so MapWidget is a stable
+        // child that is NOT rebuilt on every drag frame.
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _sheetController,
+            builder: (ctx, child) {
+              final size = _sheetController.isAttached ? _sheetController.size : _initialChildSize;
+              final screenHeight = MediaQuery.of(ctx).size.height;
+              final topPadding = MediaQuery.of(ctx).padding.top;
+              return Stack(
+                children: [
+                  Positioned(
+                    top: -(size - _minChildSize) * screenHeight * 0.5 - topPadding,
+                    left: 0,
+                    right: 0,
+                    height: screenHeight + topPadding,
+                    child: child!,
+                  ),
+                  // Dark overlay: fades from 0.7 to fully opaque at max sheet size.
+                  if (size > 0.7)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: screenHeight * (1 - size),
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: ((size - 0.7) / (_maxChildSize - 0.7)).clamp(0.0, 1.0),
+                          child: ColoredBox(color: Theme.of(ctx).scaffoldBackgroundColor),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+            child: MapWidget(
+              key: const ValueKey('main-map-widget'),
+              initialCenter: const LatLng(52.2688, 10.5268), // Braunschweig
+              initialZoom: 4,
+              sheetController: _sheetController,
+            ),
           ),
         ),
         SafeArea(
@@ -491,7 +516,7 @@ class _StartState extends State<Start> {
   Widget _buildBottomSheet() {
     // Calculate maxChildSize based on screen height minus 100px
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxHeight = screenHeight - (65 + MediaQuery.of(context).padding.top);
+    final maxHeight = screenHeight - (0 + MediaQuery.of(context).padding.top);
     _maxChildSize = maxHeight / screenHeight;
 
     // Get keyboard height
@@ -504,7 +529,7 @@ class _StartState extends State<Start> {
     if (hasKeyboard && !_wasKeyboardVisible) {
       if (_sheetController.isAttached) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_sheetController.isAttached && _currentSheetSize < 0.6) {
+          if (_sheetController.isAttached && _sheetController.size < 0.6) {
             _sheetController.animateTo(
               0.8,
               duration: const Duration(milliseconds: 300),
@@ -562,24 +587,26 @@ class _StartState extends State<Start> {
                     ),
                   ),
                 ),
-                // Content Area with Beamer routing
+                // Content Area with Beamer routing.
+                // LayoutBuilder gives the actual available height from the Expanded
+                // constraint, which is always correct regardless of sheet size.
                 Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: EdgeInsets.only(
-                      bottom: keyboardHeight > 0
+                  child: LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final bottomPadding = keyboardHeight > 0
                           ? keyboardHeight
-                          : MediaQuery.of(context).padding.bottom,
-                    ),
-                    children: [
-                      SizedBox(
-                        height:
-                            MediaQuery.of(context).size.height * _currentSheetSize -
-                            28 -
-                            MediaQuery.of(context).padding.bottom,
-                        child: Beamer(routerDelegate: _beamerDelegate),
-                      ),
-                    ],
+                          : MediaQuery.of(ctx).padding.bottom;
+                      return ListView(
+                        controller: scrollController,
+                        padding: EdgeInsets.only(bottom: bottomPadding),
+                        children: [
+                          SizedBox(
+                            height: constraints.maxHeight - bottomPadding,
+                            child: Beamer(routerDelegate: _beamerDelegate),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],

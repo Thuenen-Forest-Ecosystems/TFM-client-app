@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
@@ -253,12 +255,21 @@ class _GenericTextFieldState extends State<GenericTextField> {
     super.dispose();
   }
 
-  String? _getLabel() {
-    final title = widget.fieldSchema['title'] as String? ?? widget.fieldName;
-    return title;
+  String? _getLabel(String langCode) {
+    if (langCode != 'de') {
+      final tfm = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+      final enTitle = tfm?['title_en'] as String?;
+      if (enTitle != null) return enTitle;
+    }
+    return widget.fieldSchema['title'] as String? ?? widget.fieldName;
   }
 
-  String? _getDescription() {
+  String? _getDescription(String langCode) {
+    if (langCode != 'de') {
+      final tfm = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+      final enDesc = tfm?['description_en'] as String?;
+      if (enDesc != null) return enDesc;
+    }
     return widget.fieldSchema['description'] as String?;
   }
 
@@ -549,6 +560,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
     final type = _getType();
     final hasErrors = widget.errors.isNotEmpty;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langCode = context.select<Language, String>((l) => l.locale.languageCode);
 
     // Check if field is readonly (support both 'readOnly' camelCase and 'readonly' lowercase)
     final isReadonly =
@@ -756,7 +768,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
             if (!widget.compact)
               Expanded(
                 child: Text(
-                  _getLabel() ?? '',
+                  _getLabel(langCode) ?? '',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -778,18 +790,21 @@ class _GenericTextFieldState extends State<GenericTextField> {
     if (enumValues != null && enumValues.isNotEmpty) {
       // Get the $tfm metadata if available
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
-      // Prefer inline name_de; fall back to lookup table cache when absent.
-      List? nameDe = tfmData?['name_de'] as List?;
+      // Lookup table takes priority; fall back to inline $tfm.name_de / name_en.
+      final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
+      debugPrint('lookupTable');
+      debugPrint(lookupTable);
+      final resolved = LookupService.instance.getNameList(lookupTable, enumValues, langCode);
+      List? nameDe = resolved.any((e) => e != null) ? resolved : null;
       if (nameDe == null) {
-        // Explicit lookup_table takes precedence; otherwise try the convention
-        // lookup_{fieldName} which is consistent across all lookup-backed fields.
-        final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
-        final resolved = LookupService.instance.getNameDeList(lookupTable, enumValues);
-        if (resolved.any((e) => e != null)) nameDe = resolved;
+        if (langCode == 'en') {
+          nameDe = tfmData?['name_en'] as List? ?? tfmData?['name_de'] as List?;
+        } else {
+          nameDe = tfmData?['name_de'] as List?;
+        }
       }
       List? interval = tfmData?['interval'] as List?;
       if (interval == null) {
-        final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
         interval = LookupService.instance.getIntervalList(lookupTable, enumValues);
       }
 
@@ -822,8 +837,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   isDense: true,
                 )
               : InputDecoration(
-                  labelText: _getLabel(),
-                  helperText: _getDescription(),
+                  labelText: _getLabel(langCode),
+                  helperText: _getDescription(langCode),
                   errorText: _getErrorText(),
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(50)),
@@ -923,17 +938,17 @@ class _GenericTextFieldState extends State<GenericTextField> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _getLabel() ?? '',
+                                  _getLabel(langCode) ?? '',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                     color: hasErrors ? Colors.red : null,
                                   ),
                                 ),
-                                if (_getDescription() != null) ...[
+                                if (_getDescription(langCode) != null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    _getDescription()!,
+                                    _getDescription(langCode)!,
                                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                                   ),
                                 ],
@@ -1108,8 +1123,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
                       : null,
                 )
               : InputDecoration(
-                  labelText: _getLabel(),
-                  helperText: _getDescription(),
+                  labelText: _getLabel(langCode),
+                  helperText: _getDescription(langCode),
                   errorText: _getErrorText(),
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(50)),
@@ -1214,8 +1229,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 isDense: true,
               )
             : InputDecoration(
-                labelText: _getLabel(),
-                helperText: _getDescription(),
+                labelText: _getLabel(langCode),
+                helperText: _getDescription(langCode),
                 errorText: _getErrorText(),
                 border: const OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(12)),

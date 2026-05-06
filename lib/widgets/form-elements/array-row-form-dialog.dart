@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
+import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 
 /// ArrayRowFormDialog - Reusable dialog for adding/editing array rows via form
 ///
@@ -26,6 +28,11 @@ class ArrayRowFormDialog extends StatefulWidget {
   /// Optional previous row data for computed fields that depend on previous inventory
   final Map<String, dynamic>? previousRowData;
 
+  /// Optional pre-filtered validation result for this specific row, sourced from
+  /// the parent grid's full validation result. When provided, the header error
+  /// button reflects the same errors that the grid's row indicator shows.
+  final TFMValidationResult? rowValidationResult;
+
   const ArrayRowFormDialog({
     super.key,
     required this.itemSchema,
@@ -33,9 +40,10 @@ class ArrayRowFormDialog extends StatefulWidget {
     this.columnConfig,
     this.columnItems,
     this.layoutOptions,
-    this.title = 'Neue Zeile hinzufügen',
+    this.title = '',
     this.readOnly = false,
     this.previousRowData,
+    this.rowValidationResult,
   });
 
   /// Show the dialog and return the result
@@ -49,6 +57,7 @@ class ArrayRowFormDialog extends StatefulWidget {
     String? title,
     bool readOnly = false,
     Map<String, dynamic>? previousRowData,
+    TFMValidationResult? rowValidationResult,
   }) async {
     return await showDialog<Map<String, dynamic>>(
       context: context,
@@ -59,9 +68,10 @@ class ArrayRowFormDialog extends StatefulWidget {
         columnConfig: columnConfig,
         columnItems: columnItems,
         layoutOptions: layoutOptions,
-        title: title ?? 'Neue Zeile hinzufügen',
+        title: title ?? '',
         readOnly: readOnly,
         previousRowData: previousRowData,
+        rowValidationResult: rowValidationResult,
       ),
     );
   }
@@ -150,6 +160,45 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       final path = e.instancePath ?? '';
       return path == '/$fieldName' || path.startsWith('/$fieldName/');
     }).toList();
+  }
+
+  /// The validation result shown in the header button.
+  /// Prefers the pre-filtered row result from the parent grid (same errors as
+  /// the grid indicator). Falls back to the live AJV result from the form itself.
+  TFMValidationResult? get _headerValidationResult =>
+      widget.rowValidationResult ?? _validationResult;
+
+  bool get _hasValidationErrors => (_headerValidationResult?.allErrors.isNotEmpty ?? false);
+
+  bool get _hasValidationWarnings => _headerValidationResult?.tfmWarnings.isNotEmpty ?? false;
+
+  IconData get _validationIcon {
+    if (_hasValidationErrors) return Icons.report;
+    if (_hasValidationWarnings) return Icons.warning;
+    return Icons.check;
+  }
+
+  Color get _validationColor {
+    if (_hasValidationErrors) return Colors.red;
+    if (_hasValidationWarnings) return Colors.orange;
+    return const Color.fromARGB(255, 0, 255, 179);
+  }
+
+  Future<void> _showValidationDialog() async {
+    final result = _headerValidationResult;
+    if (result == null || result.allIssues.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.gridNoValidationErrors),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
+    await ValidationErrorsDialog.show(context, result, showActions: false);
   }
 
   void _prepareSchemaAndLayout() {
@@ -542,23 +591,37 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
         }
 
+        // Non-pinned top-level fields (ungrouped, not pinned) rendered above groups
+        final nonPinnedUngroupedFields = _fieldGroups!
+            .where((g) => g.label == null || g.label!.isEmpty)
+            .expand((g) => g.fields)
+            .where((f) => !_pinnedFields.contains(f))
+            .toList();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: labeledGroups.map((group) {
-            final content = buildGroupGrid(group.fields);
-            return ExpansionTile(
-              title: Text(
-                group.label!,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+          children: [
+            if (nonPinnedUngroupedFields.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                child: buildGroupGrid(nonPinnedUngroupedFields),
               ),
-              initiallyExpanded: false,
-              tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-              childrenPadding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-              children: [content],
-            );
-          }).toList(),
+            ...labeledGroups.map((group) {
+              final content = buildGroupGrid(group.fields);
+              return ExpansionTile(
+                title: Text(
+                  group.label!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                initiallyExpanded: false,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+                childrenPadding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                children: [content],
+              );
+            }).toList(),
+          ],
         );
       },
     );
@@ -578,6 +641,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
 
     for (final group in unlabeledGroups) {
       for (final fieldName in group.fields) {
+        if (!_pinnedFields.contains(fieldName)) continue;
         if (!properties.containsKey(fieldName)) continue;
         if (_arrayFields.containsKey(fieldName)) continue;
 
@@ -639,6 +703,9 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   Widget build(BuildContext context) {
     final properties = _effectiveSchema['properties'] as Map<String, dynamic>? ?? {};
     final useGroupedLayout = _fieldGroups != null && _fieldGroups!.isNotEmpty;
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -650,6 +717,39 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(120),
+                border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title.isNotEmpty
+                          ? widget.title
+                          : AppLocalizations.of(context)!.gridRowAddTitleDefault,
+                      style: titleStyle,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(_validationIcon, color: _validationColor),
+                    tooltip: _hasValidationErrors
+                        ? AppLocalizations.of(context)!.gridValidationErrors
+                        : (_hasValidationWarnings
+                              ? AppLocalizations.of(context)!.gridValidationWarnings
+                              : AppLocalizations.of(context)!.gridNoValidationErrors),
+                    onPressed: _showValidationDialog,
+                  ),
+                  /*IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Schließen',
+                    onPressed: _handleCancel,
+                  ),*/
+                ],
+              ),
+            ),
             // Sticky row: ungrouped top-level fields (tree_number, tree_status, …)
             if (useGroupedLayout) _buildPinnedRow(properties),
             // Form content
@@ -696,10 +796,16 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: _handleCancel, child: const Text('Abbrechen')),
+                  TextButton(
+                    onPressed: _handleCancel,
+                    child: Text(AppLocalizations.of(context)!.gridCancel),
+                  ),
                   Spacer(),
                   if (!widget.readOnly)
-                    ElevatedButton(onPressed: _handleSave, child: const Text('Speichern')),
+                    ElevatedButton(
+                      onPressed: _handleSave,
+                      child: Text(AppLocalizations.of(context)!.gridSave),
+                    ),
                 ],
               ),
             ),
@@ -721,12 +827,16 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       child: ListTile(
         title: Text(title),
         subtitle: Text(
-          itemCount == 0 ? 'Leer' : '$itemCount Einträge',
+          itemCount == 0
+              ? AppLocalizations.of(context)!.gridNestedEmpty
+              : AppLocalizations.of(context)!.gridNestedEntries(itemCount),
           style: TextStyle(color: itemCount == 0 ? Colors.grey : null),
         ),
         trailing: IconButton(
           icon: Icon(info.isReadOnly ? Icons.visibility : Icons.edit),
-          tooltip: info.isReadOnly ? 'Anzeigen' : 'Bearbeiten',
+          tooltip: info.isReadOnly
+              ? AppLocalizations.of(context)!.gridView
+              : AppLocalizations.of(context)!.gridNestedEdit,
           onPressed: () => _openNestedArrayDialog(fieldName, info),
         ),
         dense: true,

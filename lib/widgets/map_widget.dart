@@ -30,8 +30,15 @@ class MapWidget extends StatefulWidget {
   final LatLng? initialCenter;
   final double? initialZoom;
   final double? sheetPosition;
+  final DraggableScrollableController? sheetController;
 
-  const MapWidget({super.key, this.initialCenter, this.initialZoom, this.sheetPosition});
+  const MapWidget({
+    super.key,
+    this.initialCenter,
+    this.initialZoom,
+    this.sheetPosition,
+    this.sheetController,
+  });
 
   @override
   State<MapWidget> createState() => _MapWidgetState();
@@ -84,6 +91,7 @@ class _MapWidgetState extends State<MapWidget> {
   List<RettungspunktePoint> _visibleRettungspunkte = [];
   Map<int, String> _treeSpeciesLookup = {}; // Maps species code to species name
   String? _lastRecordsFingerprint; // Guard against redundant reloads
+  bool _wasCoveredBySheet = false;
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -132,6 +140,9 @@ class _MapWidgetState extends State<MapWidget> {
         mapControllerProvider.addListener(_onMapControllerProviderChanged);
       }
     });
+    // Listen for sheet cover/uncover threshold crossings so we can
+    // disable interactions and skip marker builds without needing setState in the parent.
+    widget.sheetController?.addListener(_onSheetControllerChanged);
   }
 
   void _onMapControllerProviderChanged() {
@@ -140,6 +151,22 @@ class _MapWidgetState extends State<MapWidget> {
       _checkForManualMove();
       _checkForFocusedRecord();
       _checkForCenterPositionChange();
+    }
+  }
+
+  /// Called when the sheet controller position changes. Fires setState only when
+  /// crossing the 0.9 threshold — not on every drag frame.
+  void _onSheetControllerChanged() {
+    final isCovered = _isMapCovered;
+    if (isCovered != _wasCoveredBySheet) {
+      _wasCoveredBySheet = isCovered;
+      if (mounted) setState(() {});
+      if (!isCovered) {
+        // Map became visible again — refresh visible records immediately.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_isDisposed && mounted) _updateVisibleRecords();
+        });
+      }
     }
   }
 
@@ -1593,6 +1620,8 @@ class _MapWidgetState extends State<MapWidget> {
     _headingSubscription?.cancel();
     _headingSubscription = null;
 
+    widget.sheetController?.removeListener(_onSheetControllerChanged);
+
     // Remove listeners
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
@@ -1607,20 +1636,52 @@ class _MapWidgetState extends State<MapWidget> {
     super.dispose();
   }
 
+  /// Sheet position from controller (preferred) or the sheetPosition prop.
+  double get _sheetPos => widget.sheetController?.isAttached == true
+      ? widget.sheetController!.size
+      : widget.sheetPosition ?? 0;
+
+  /// True when the bottom sheet covers most of the map (>90% of screen height).
+  /// Used to skip expensive marker builds, viewport filtering, and disable interactions.
+  bool get _isMapCovered => _sheetPos > 0.9;
+
+  @override
+  void didUpdateWidget(MapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-subscribe if the sheetController reference changed.
+    if (oldWidget.sheetController != widget.sheetController) {
+      oldWidget.sheetController?.removeListener(_onSheetControllerChanged);
+      widget.sheetController?.addListener(_onSheetControllerChanged);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final initialCenter = widget.initialCenter ?? const LatLng(51.1657, 10.4515);
     final initialZoom = widget.initialZoom ?? 5.5;
-    final markers = _buildMarkers(_records);
+    // Skip expensive marker construction when map is hidden behind the sheet.
+    final markers = _isMapCovered ? const <Marker>[] : _buildMarkers(_records);
 
-    // Watch for distance line and navigation updates from provider
-    final mapControllerProvider = context.watch<MapControllerProvider>();
-    final distanceLineFrom = mapControllerProvider.distanceLineFrom;
-    final distanceLineTo = mapControllerProvider.distanceLineTo;
-    final navigationStart = mapControllerProvider.navigationStart;
-    final navigationTarget = mapControllerProvider.navigationTarget;
-    final navigationStepsLineString = mapControllerProvider.navigationStepsLineString;
-    final navigationTargetLineString = mapControllerProvider.navigationTargetLineString;
+    // Use context.select per-property to avoid rebuilding on every
+    // setSheetHeight / setCurrentMapBounds notification (fires on each drag frame).
+    // context.read is used for properties that don't need to trigger rebuilds.
+    final mapControllerProvider = context.read<MapControllerProvider>();
+    final distanceLineFrom = context.select<MapControllerProvider, LatLng?>(
+      (p) => p.distanceLineFrom,
+    );
+    final distanceLineTo = context.select<MapControllerProvider, LatLng?>((p) => p.distanceLineTo);
+    final navigationStart = context.select<MapControllerProvider, LatLng?>(
+      (p) => p.navigationStart,
+    );
+    final navigationTarget = context.select<MapControllerProvider, LatLng?>(
+      (p) => p.navigationTarget,
+    );
+    final navigationStepsLineString = context.select<MapControllerProvider, List<LatLng>?>(
+      (p) => p.navigationStepsLineString,
+    );
+    final navigationTargetLineString = context.select<MapControllerProvider, List<LatLng>?>(
+      (p) => p.navigationTargetLineString,
+    );
 
     return FlutterMap(
       mapController: _mapController,
@@ -1629,8 +1690,10 @@ class _MapWidgetState extends State<MapWidget> {
         initialZoom: initialZoom,
         minZoom: 4.0,
         maxZoom: 24.0,
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        interactionOptions: InteractionOptions(
+          flags: _isMapCovered
+              ? InteractiveFlag.none
+              : InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
         onMapReady: () {
           setState(() {
@@ -1663,10 +1726,11 @@ class _MapWidgetState extends State<MapWidget> {
             _currentZoom = newZoom;
           }
 
-          // Debounce viewport updates to avoid rebuilding on every frame
+          // Debounce viewport updates to avoid rebuilding on every frame.
+          // Skip entirely when the sheet covers the map.
           _debounceTimer?.cancel();
           _debounceTimer = Timer(const Duration(milliseconds: 200), () {
-            if (!_isDisposed && mounted) {
+            if (!_isDisposed && mounted && !_isMapCovered) {
               _updateVisibleRecords();
               setState(() {});
             }
@@ -2101,122 +2165,124 @@ class _MapWidgetState extends State<MapWidget> {
             ],
           ),
 
-        // Scale bar - positioned based on sheet position
-        // Account for both sheet height and map vertical offset
-        Positioned(
-          left: 60,
-          bottom: widget.sheetPosition != null
-              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.11)
-              : MediaQuery.of(context).padding.bottom + 8,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Color.fromARGB(100, 200, 200, 200),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.black26, width: 1),
-                ),
-                child: Scalebar(
-                  textStyle: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  lineColor: Colors.black,
-                  strokeWidth: 2,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Zoom buttons - only show on tablets and larger screens
-        //if (MediaQuery.of(context).size.width >= 600)
-        Positioned(
-          right: 70,
-          bottom: widget.sheetPosition != null
-              ? MediaQuery.of(context).size.height * (widget.sheetPosition! * 0.5 + 0.11)
-              : MediaQuery.of(context).padding.bottom + 8,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Zoom buttons
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Zoom out button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.remove,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onSurface,
+        // Scale bar + Zoom buttons — wrapped in AnimatedBuilder so they
+        // reposition on every drag frame even though MapWidget.build() itself
+        // no longer runs per-frame.  The outer Stack fills the FlutterMap
+        // layer; the inner Stack provides a positioning context for Positioned.
+        Stack(
+          children: [
+            AnimatedBuilder(
+              animation: widget.sheetController ?? const AlwaysStoppedAnimation<double>(0.0),
+              builder: (ctx, _) {
+                final pos = widget.sheetController?.isAttached == true
+                    ? widget.sheetController!.size
+                    : _sheetPos;
+                final bottom = pos > 0
+                    ? MediaQuery.of(ctx).size.height * (pos * 0.5 + 0.11)
+                    : MediaQuery.of(ctx).padding.bottom + 8;
+                return Stack(
+                  children: [
+                    // Scale bar
+                    Positioned(
+                      left: 60,
+                      bottom: bottom,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(100, 200, 200, 200),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.black26, width: 1),
+                        ),
+                        child: Scalebar(
+                          textStyle: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          lineColor: Colors.black,
+                          strokeWidth: 2,
+                          padding: EdgeInsets.zero,
+                        ),
                       ),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: () {
-                        final currentZoom = _mapController.camera.zoom;
-                        final currentCenter = _mapController.camera.center;
-                        _mapController.move(currentCenter, currentZoom - 1);
-                      },
                     ),
-                  ),
-
-                  // Divider
-                  const SizedBox(width: 8),
-                  // Zoom in button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.add,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onSurface,
+                    // Zoom buttons
+                    Positioned(
+                      right: 70,
+                      bottom: bottom,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.remove,
+                                size: 20,
+                                color: Theme.of(ctx).colorScheme.onSurface,
+                              ),
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () {
+                                _mapController.move(
+                                  _mapController.camera.center,
+                                  _mapController.camera.zoom - 1,
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.add,
+                                size: 20,
+                                color: Theme.of(ctx).colorScheme.onSurface,
+                              ),
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () {
+                                _mapController.move(
+                                  _mapController.camera.center,
+                                  _mapController.camera.zoom + 1,
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.my_location,
+                                size: 20,
+                                color: _currentPosition != null
+                                    ? Theme.of(ctx).colorScheme.primary
+                                    : Theme.of(ctx).colorScheme.onSurface.withOpacity(0.4),
+                              ),
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: _currentPosition != null
+                                  ? () {
+                                      _mapController.move(_currentPosition!, 17.0);
+                                    }
+                                  : null,
+                            ),
+                          ),
+                        ],
                       ),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: () {
-                        final currentZoom = _mapController.camera.zoom;
-                        final currentCenter = _mapController.camera.center;
-                        _mapController.move(currentCenter, currentZoom + 1);
-                      },
                     ),
-                  ),
-                  // Divider
-                  const SizedBox(width: 8),
-                  // Zoom to current location button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.my_location,
-                        size: 20,
-                        color: _currentPosition != null
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                      ),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: _currentPosition != null
-                          ? () {
-                              _mapController.move(_currentPosition!, 17.0);
-                            }
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ],
     );

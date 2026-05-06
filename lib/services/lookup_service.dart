@@ -33,6 +33,9 @@ class LookupService {
   // table_name → { code_value → name_de }
   final Map<String, Map<dynamic, String>> _cache = {};
 
+  // table_name → { code_value → name_en }
+  final Map<String, Map<dynamic, String>> _cacheEn = {};
+
   // table_name → { code_value → parsed interval List }
   final Map<String, Map<dynamic, dynamic>> _intervalCache = {};
 
@@ -44,6 +47,7 @@ class LookupService {
   Future<void> load() async {
     _loaded = false;
     _cache.clear();
+    _cacheEn.clear();
 
     // Query every table that starts with "lookup_" (all are small).
     // We use a single getAll per table to keep it simple.
@@ -51,8 +55,9 @@ class LookupService {
 
     for (final tableName in tableNames) {
       try {
-        final rows = await db.getAll('SELECT code, name_de, interval FROM "$tableName"');
+        final rows = await db.getAll('SELECT code, name_de, name_en, interval FROM "$tableName"');
         final nameMap = <dynamic, String>{};
+        final nameEnMap = <dynamic, String>{};
         final intervalMap = <dynamic, dynamic>{};
         for (final row in rows) {
           final code = row['code'];
@@ -65,6 +70,13 @@ class LookupService {
             nameMap[code] = nameDe as String;
             if (asInt != null) nameMap[asInt] = nameDe;
             if (asDouble != null && asDouble != asInt) nameMap[asDouble] = nameDe;
+          }
+
+          final nameEn = row['name_en'];
+          if (nameEn != null) {
+            nameEnMap[code] = nameEn as String;
+            if (asInt != null) nameEnMap[asInt] = nameEn;
+            if (asDouble != null && asDouble != asInt) nameEnMap[asDouble] = nameEn;
           }
 
           final intervalRaw = row['interval'];
@@ -81,6 +93,7 @@ class LookupService {
           }
         }
         _cache[tableName] = nameMap;
+        if (nameEnMap.isNotEmpty) _cacheEn[tableName] = nameEnMap;
         if (intervalMap.isNotEmpty) _intervalCache[tableName] = intervalMap;
       } catch (e) {
         debugPrint('LookupService: failed to load $tableName: $e');
@@ -116,8 +129,7 @@ class LookupService {
     versionNotifier.value++;
   }
 
-  /// Return the German display name for [code] in [tableName], or null if
-  /// unknown.
+  /// Return the German display name for [code] in [tableName], or null if unknown.
   String? getNameDe(String tableName, dynamic code) {
     if (!_loaded) return null;
     final table = _cache[tableName];
@@ -125,10 +137,36 @@ class LookupService {
     return table[code] ?? table[code.toString()];
   }
 
-  /// Build a name_de list parallel to [enumValues] from the given lookup
-  /// table.  Entries without a match are null.
+  /// Return the English display name for [code] in [tableName], or null if unknown.
+  String? getNameEn(String tableName, dynamic code) {
+    if (!_loaded) return null;
+    final table = _cacheEn[tableName];
+    if (table == null) return null;
+    return table[code] ?? table[code.toString()];
+  }
+
+  /// Return the display name in [languageCode] ('de' or 'en') for [code].
+  /// Falls back to the other language if the requested one is missing.
+  String? getName(String tableName, dynamic code, String languageCode) {
+    if (languageCode == 'en') {
+      return getNameEn(tableName, code) ?? getNameDe(tableName, code);
+    }
+    return getNameDe(tableName, code) ?? getNameEn(tableName, code);
+  }
+
+  /// Build a name_de list parallel to [enumValues] from the given lookup table.
   List<String?> getNameDeList(String tableName, List enumValues) {
     return enumValues.map((v) => v == null ? null : getNameDe(tableName, v)).toList();
+  }
+
+  /// Build a name_en list parallel to [enumValues] from the given lookup table.
+  List<String?> getNameEnList(String tableName, List enumValues) {
+    return enumValues.map((v) => v == null ? null : getNameEn(tableName, v)).toList();
+  }
+
+  /// Build a localised name list in [languageCode] ('de' or 'en') parallel to [enumValues].
+  List<String?> getNameList(String tableName, List enumValues, String languageCode) {
+    return enumValues.map((v) => v == null ? null : getName(tableName, v, languageCode)).toList();
   }
 
   /// Build an interval list parallel to [enumValues] from the given lookup table.

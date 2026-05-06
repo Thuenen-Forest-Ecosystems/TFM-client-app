@@ -22,5 +22,107 @@
     "authenticationLogin": "LOGIN",
     "@authenticationLogin": {
       "description": "The login button"
-    }
+    },
+
+    "profileTitle": "Settings",
+    "profileMapManagement": "Map management",
+    "profileLayoutSettings": "Layout settings",
+    "profileLanguageSettings": "Language settings",
+    "profileKeyboardSettings": "Keyboard settings",
+    "profileCompactMode": "Compact mode",
+    "profileNetwork": "Network",
+    "profileProxySettings": "Proxy settings",
+    "profileProxySubtitle": "Configuration for state data networks",
+    "profileResetSettings": "Reset settings",
+    "profileResetTitle": "Reset settings?",
+    "profileResetContent": "The following local settings will be deleted:\n\n• Compact mode\n• Keyboard setting\n• Column widths in tables\n• Filter states\n• Recently used enum values\n• Map settings\n\nServer, organisation and proxy settings are retained.",
+    "profileResetCancel": "Cancel",
+    "profileResetConfirm": "Reset",
+    "profileResetSnackbar": "Settings have been reset.",
+    "profileLogoutTitle": "Sign out and delete data?",
+    "profileLogoutContent": "All local data will be irreversibly deleted.\n\nUnsynchronised entries will be lost and cannot be restored.\n\nPlease make sure all data has been synchronised before proceeding.",
+    "profileLogoutCancel": "Cancel",
+    "profileLogoutConfirm": "Delete and sign out",
+    "profileLoggingIn": "Signing out…",
+    "profileLogoutOffline": "Sign out (offline not possible)",
+    "profileLogout": "Sign out and delete data",
+    "profileImprint": "Imprint",
+    "profilePrivacy": "Privacy policy",
+    "profileAppVersion": "App Version: {version} ({build})",
+    "@profileAppVersion": {
+      "placeholders": {
+        "version": {"type": "String"},
+        "build": {"type": "String"}
+      }
+    },
+    "profileShowRecords": "Show records",
+    "profileShowSyncedTables": "Show synced tables",
+    "profileShowLogs": "Show logs",
+    "langDe": "German",
+    "langDeSubtitle": "",
+    "langEn": "English",
+    "langEnSubtitle": "(BETA) not fully translated yet",
+    "langSystem": "System",
+    "langSystemSubtitle": "Use system language",
+
+    "enumDialogSearch": "Search…",
+    "enumDialogRecentlyUsed": "Recently used",
+    "enumDialogListView": "List view",
+    "enumDialogChipsView": "Chips view",
+    "enumDialogClose": "Close",
+    "enumDialogNoResults": "No results found",
+    "enumDialogClearField": "Clear field content",
+
+    "gridRowOptions": "Row options",
+    "gridRowEdit": "Edit row",
+    "gridRowCopy": "Copy row",
+    "gridRowDelete": "Delete row",
+    "gridBoolYes": "Yes",
+    "gridBoolNo": "No",
+    "gridNestedEmpty": "Empty",
+    "gridNestedEntries": "{count} entries",
+    "@gridNestedEntries": {
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "gridRowEntries": "{count} entries",
+    "@gridRowEntries": {
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "gridNestedEdit": "Edit",
+    "gridAddRow": "Add row",
+    "gridAddRowForm": "Add entry",
+    "gridAddRowFormTooltip": "Add row via form",
+    "gridNoEntryRequired": "No entry required",
+    "gridRowEditTitle": "Edit row",
+    "gridRowAddTitle": "Add row",
+    "gridRowAddTitleDefault": "Add new row",
+    "gridSave": "Save",
+    "gridCancel": "Cancel",
+    "gridClose": "Close",
+    "gridView": "View",
+    "gridValidationErrors": "Show validation errors",
+    "gridValidationWarnings": "Show validation warnings",
+    "gridNoValidationErrors": "No validation errors",
+    "versionNewAvailable": "New version available",
+    "versionCurrent": "Current version",
+    "versionNewDetail": "Version {latest} is available (Current: {current})",
+    "@versionNewDetail": {
+        "placeholders": {
+            "latest": {"type": "String"},
+            "current": {"type": "String"}
+        }
+    },
+    "versionCurrentDetail": "Version {current}",
+    "@versionCurrentDetail": {
+        "placeholders": {
+            "current": {"type": "String"}
+        }
+    },
+    "versionOpenRelease": "Open new version release",
+    "versionOpenAllReleases": "Open all releases",
+    "versionCheckForUpdates": "Check for updates"
 }

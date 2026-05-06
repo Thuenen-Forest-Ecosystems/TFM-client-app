@@ -4,5 +4,101 @@
     "settings": "Einstellungen",
     "energySaving": "Energiesparen",
     "energySavingDescription": "Reduziere die Helligkeit des Bildschirms",
-    "authenticationLogin": "ANMELDEN"
-} 
+    "authenticationLogin": "ANMELDEN",
+
+    "profileTitle": "Einstellungen",
+    "profileMapManagement": "Kartenverwaltung",
+    "profileLayoutSettings": "Layout-Einstellungen",
+    "profileLanguageSettings": "Spracheinstellungen",
+    "profileKeyboardSettings": "Keyboard-Einstellungen",
+    "profileCompactMode": "Kompakter Modus",
+    "profileNetwork": "Netzwerk",
+    "profileProxySettings": "Proxy-Einstellungen",
+    "profileProxySubtitle": "Konfiguration für Landesdatennetze",
+    "profileResetSettings": "Einstellungen zurücksetzen",
+    "profileResetTitle": "Einstellungen zurücksetzen?",
+    "profileResetContent": "Folgende lokale Einstellungen werden gelöscht:\n\n• Kompakter Modus\n• Tastatur-Einstellung\n• Spaltenbreiten in Tabellen\n• Filter-Zustände\n• Zuletzt genutzte Enum-Werte\n• Karteneinstellungen\n\nServer-, Organisations- und Proxy-Einstellungen bleiben erhalten.",
+    "profileResetCancel": "Abbrechen",
+    "profileResetConfirm": "Zurücksetzen",
+    "profileResetSnackbar": "Einstellungen wurden zurückgesetzt.",
+    "profileLogoutTitle": "Abmelden und Daten löschen?",
+    "profileLogoutContent": "Alle lokalen Daten werden unwiderruflich gelöscht.\n\nNicht synchronisierte Einträge gehen verloren und können nicht wiederhergestellt werden.\n\nBitte stellen Sie sicher, dass alle Daten synchronisiert wurden, bevor Sie fortfahren.",
+    "profileLogoutCancel": "Abbrechen",
+    "profileLogoutConfirm": "Löschen und abmelden",
+    "profileLoggingIn": "Abmelden…",
+    "profileLogoutOffline": "Abmelden (offline nicht möglich)",
+    "profileLogout": "Abmelden und Daten löschen",
+    "profileImprint": "Impressum",
+    "profilePrivacy": "Datenschutzbestimmungen",
+    "profileAppVersion": "App Version: {version} ({build})",
+    "profileShowRecords": "Records anzeigen",
+    "profileShowSyncedTables": "Synced Tables anzeigen",
+    "profileShowLogs": "Protokolle anzeigen",
+    "langDe": "Deutsch",
+    "langDeSubtitle": "",
+    "langEn": "Englisch",
+    "langEnSubtitle": "(BETA) noch nicht vollständig übersetzt",
+    "langSystem": "System",
+    "langSystemSubtitle": "Systemsprache verwenden",
+
+    "enumDialogSearch": "Suchen\u2026",
+    "enumDialogRecentlyUsed": "Zuletzt genutzt",
+    "enumDialogListView": "Listenansicht",
+    "enumDialogChipsView": "Chips-Ansicht",
+    "enumDialogClose": "Schlie\u00dfen",
+    "enumDialogNoResults": "Keine Ergebnisse gefunden",
+    "enumDialogClearField": "Inhalt des Feldes l\u00f6schen",
+
+    "gridRowOptions": "Zeilenoptionen",
+    "gridRowEdit": "Zeile bearbeiten",
+    "gridRowCopy": "Zeile kopieren",
+    "gridRowDelete": "Zeile l\u00f6schen",
+    "gridBoolYes": "Ja",
+    "gridBoolNo": "Nein",
+    "gridNestedEmpty": "Leer",
+    "gridNestedEntries": "{count} Eintr\u00e4ge",
+    "@gridNestedEntries": {
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "gridRowEntries": "{count} Eintr\u00e4ge",
+    "@gridRowEntries": {
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "gridNestedEdit": "Bearbeiten",
+    "gridAddRow": "Zeile hinzuf\u00fcgen",
+    "gridAddRowForm": "Eintrag hinzuf\u00fcgen",
+    "gridAddRowFormTooltip": "Zeile \u00fcber Formular hinzuf\u00fcgen",
+    "gridNoEntryRequired": "Kein Eintrag erforderlich",
+    "gridRowEditTitle": "Zeile bearbeiten",
+    "gridRowAddTitle": "Zeile hinzuf\u00fcgen",
+    "gridRowAddTitleDefault": "Neue Zeile hinzuf\u00fcgen",
+    "gridSave": "Speichern",
+    "gridCancel": "Abbrechen",
+    "gridClose": "Schlie\u00dfen",
+    "gridView": "Anzeigen",
+    "gridValidationErrors": "Validierungsfehler anzeigen",
+    "gridValidationWarnings": "Validierungswarnungen anzeigen",
+    "gridNoValidationErrors": "Keine Validierungsfehler",
+    "versionNewAvailable": "Neue Version verfügbar",
+    "versionCurrent": "Aktuelle Version",
+    "versionNewDetail": "Version {latest} ist verfügbar (Aktuell: {current})",
+    "@versionNewDetail": {
+        "placeholders": {
+            "latest": {"type": "String"},
+            "current": {"type": "String"}
+        }
+    },
+    "versionCurrentDetail": "Version {current}",
+    "@versionCurrentDetail": {
+        "placeholders": {
+            "current": {"type": "String"}
+        }
+    },
+    "versionOpenRelease": "Release der neuen Version öffnen",
+    "versionOpenAllReleases": "Alle Releases öffnen",
+    "versionCheckForUpdates": "Nach Updates suchen"
+}

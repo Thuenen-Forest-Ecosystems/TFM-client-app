@@ -161,8 +161,10 @@ void main() async {
   // Load grid density preference
   await GridDensityService.loadPreference();
 
-  // set default Locale to Language provider
-  final String defaultLocale = Intl.getCurrentLocale(); // = Platform.localeName;
+  // Resolve startup locale (honours saved preference; falls back to system then 'en')
+  final String systemLocale = Intl.getCurrentLocale(); // = Platform.localeName;
+  final Locale startupLocale = await Language.loadSavedLocale(systemLocale.split('_')[0]);
+
   final Brightness brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
   final ThemeMode initialThemeMode = brightness == Brightness.dark
       ? ThemeMode.dark
@@ -228,7 +230,7 @@ void main() async {
   // Create GPS provider but don't initialize yet (will be done when Start screen loads)
   final gpsProvider = GpsPositionProvider();
 
-  final languageProvider = Language(Locale(defaultLocale));
+  final languageProvider = Language(startupLocale);
   languageProvider.watchLanguageChange();
 
   // Create AuthProvider AFTER Supabase is initialized (in openDatabase)

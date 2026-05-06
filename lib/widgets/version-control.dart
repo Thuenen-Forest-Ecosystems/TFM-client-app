@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/widgets/version_control_logic.dart';
 
 /// Widget that checks for new app versions on GitHub releases
@@ -104,6 +105,7 @@ class _VersionControlState extends State<VersionControl> {
     }
 
     final hasUpdate = _latestVersion != null;
+    final l10n = AppLocalizations.of(context)!;
     final cardColor = hasUpdate
         ? Theme.of(context).colorScheme.primaryContainer
         : Theme.of(context).colorScheme.surfaceContainerHighest;
@@ -131,14 +133,14 @@ class _VersionControlState extends State<VersionControl> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    hasUpdate ? 'Neue Version verfügbar' : 'Aktuelle Version',
+                    hasUpdate ? l10n.versionNewAvailable : l10n.versionCurrent,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     hasUpdate
-                        ? 'Version $_latestVersion ist verfügbar (Aktuell: $_currentVersion)'
-                        : 'Version $_currentVersion',
+                        ? l10n.versionNewDetail(_latestVersion!, _currentVersion!)
+                        : l10n.versionCurrentDetail(_currentVersion!),
                     style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.8)),
                   ),
                 ],
@@ -149,7 +151,7 @@ class _VersionControlState extends State<VersionControl> {
               IconButton(
                 icon: Icon(Icons.launch, color: textColor, size: 20),
                 onPressed: _openReleaseUrl,
-                tooltip: hasUpdate ? 'Release der neuen Version öffnen' : 'Alle Releases öffnen',
+                tooltip: hasUpdate ? l10n.versionOpenRelease : l10n.versionOpenAllReleases,
               ),
               IconButton(
                 icon: _isChecking
@@ -169,7 +171,7 @@ class _VersionControlState extends State<VersionControl> {
                         });
                         _checkForUpdates();
                       },
-                tooltip: 'Nach Updates suchen',
+                tooltip: l10n.versionCheckForUpdates,
               ),
             ],
           ),

@@ -7,7 +7,9 @@ import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
+import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
@@ -669,7 +671,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             child: PopupMenuButton<String>(
               padding: EdgeInsets.zero,
               icon: const Icon(Icons.more_vert, size: 20),
-              tooltip: 'Zeilenoptionen',
+              tooltip: AppLocalizations.of(context)!.gridRowOptions,
               onSelected: (value) {
                 if (value == 'delete') {
                   _deleteRow(rendererContext.rowIdx);
@@ -688,7 +690,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                       Icon(Icons.edit, size: 18, color: _isArrayReadOnly ? Colors.grey : null),
                       SizedBox(width: 8),
                       Text(
-                        'Zeile bearbeiten',
+                        AppLocalizations.of(context)!.gridRowEdit,
                         style: TextStyle(color: _isArrayReadOnly ? Colors.grey : null),
                       ),
                     ],
@@ -706,7 +708,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Zeile kopieren',
+                        AppLocalizations.of(context)!.gridRowCopy,
                         style: TextStyle(color: _isArrayReadOnly ? Colors.grey : null),
                       ),
                     ],
@@ -724,7 +726,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Zeile löschen',
+                        AppLocalizations.of(context)!.gridRowDelete,
                         style: TextStyle(
                           color: (hasPreviousData || _isArrayReadOnly) ? Colors.grey : null,
                         ),
@@ -1552,13 +1554,18 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-    // Prefer inline name_de; fall back to lookup table cache when absent.
-    List? nameDe = tfm?['name_de'] as List?;
+    // Prefer inline name_de/name_en; fall back to lookup table cache when absent.
+    final langCode = context.read<Language>().locale.languageCode;
+    final enumVals = propertySchema['enum'] as List? ?? [];
+    final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
+    final resolved = LookupService.instance.getNameList(lookupTable, enumVals, langCode);
+    List? nameDe = resolved.any((e) => e != null) ? resolved : null;
     if (nameDe == null) {
-      final enumVals = propertySchema['enum'] as List? ?? [];
-      final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
-      final resolved = LookupService.instance.getNameDeList(lookupTable, enumVals);
-      if (resolved.any((e) => e != null)) nameDe = resolved;
+      if (langCode == 'en') {
+        nameDe = tfm?['name_en'] as List? ?? tfm?['name_de'] as List?;
+      } else {
+        nameDe = tfm?['name_de'] as List?;
+      }
     }
     final enumValues = propertySchema['enum'] as List?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1814,8 +1821,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       );
     }
 
-    // Display mode: show "Ja" or "Nein" text
-    final displayText = boolValue ? 'Ja' : 'Nein';
+    // Display mode: show localised boolean text
+    final l10n = AppLocalizations.of(context)!;
+    final displayText = boolValue ? l10n.gridBoolYes : l10n.gridBoolNo;
 
     return Container(
       color: bgColor,
@@ -1861,7 +1869,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     final itemCount = nestedData?.length ?? 0;
-    final displayText = itemCount == 0 ? 'Leer' : '$itemCount Einträge';
+    final l10nNested = AppLocalizations.of(context)!;
+    final displayText = itemCount == 0
+        ? l10nNested.gridNestedEmpty
+        : l10nNested.gridNestedEntries(itemCount);
 
     // Check if parent array or this field is readonly
     final isReadOnly =
@@ -1884,7 +1895,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             icon: const Icon(Icons.edit, size: 18),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Bearbeiten',
+            tooltip: AppLocalizations.of(context)!.gridNestedEdit,
             onPressed: isReadOnly
                 ? null
                 : () => _openNestedArrayDialog(
@@ -2038,12 +2049,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   ) async {
     final enumValues = propertySchema['enum'] as List? ?? [];
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
-    // Prefer inline name_de; fall back to lookup table cache when absent.
-    List? nameDe = tfm?['name_de'] as List?;
+    // Prefer inline name_de/name_en; fall back to lookup table cache when absent.
+    final langCode = context.read<Language>().locale.languageCode;
+    final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
+    final resolved = LookupService.instance.getNameList(lookupTable, enumValues, langCode);
+    List? nameDe = resolved.any((e) => e != null) ? resolved : null;
     if (nameDe == null) {
-      final lookupTable = tfm?['lookup_table'] as String? ?? 'lookup_$fieldKey';
-      final resolved = LookupService.instance.getNameDeList(lookupTable, enumValues);
-      if (resolved.any((e) => e != null)) nameDe = resolved;
+      if (langCode == 'en') {
+        nameDe = tfm?['name_en'] as List? ?? tfm?['name_de'] as List?;
+      } else {
+        nameDe = tfm?['name_de'] as List?;
+      }
     }
     List? interval = tfm?['interval'] as List?;
     if (interval == null) {
@@ -2115,6 +2131,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       }
     }
 
+    // Filter the parent validation result to only this row's errors so the
+    // form dialog header shows the same issues as the grid row indicator.
+    final originalIndex = row.cells['__original_index__']?.value as int? ?? rowIndex;
+    TFMValidationResult? rowValidationResult;
+    if (widget.validationResult != null && widget.propertyName != null) {
+      final rowPath = '/${widget.propertyName}/$originalIndex';
+      final filteredAjvErrors = widget.validationResult!.ajvErrors
+          .where(
+            (e) => e.instancePath == rowPath || (e.instancePath?.startsWith('$rowPath/') ?? false),
+          )
+          .toList();
+      final filteredTfmErrors = widget.validationResult!.tfmErrors
+          .where(
+            (e) => e.instancePath == rowPath || (e.instancePath?.startsWith('$rowPath/') ?? false),
+          )
+          .toList();
+      rowValidationResult = TFMValidationResult(
+        ajvValid: filteredAjvErrors.isEmpty,
+        ajvErrors: filteredAjvErrors,
+        tfmAvailable: widget.validationResult!.tfmAvailable,
+        tfmErrors: filteredTfmErrors,
+      );
+    }
+
     final result = await ArrayRowFormDialog.show(
       context: context,
       itemSchema: itemSchema,
@@ -2122,9 +2162,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       columnConfig: widget.columnConfig,
       columnItems: widget.columnItems,
       layoutOptions: widget.layoutOptions,
-      title: 'Zeile bearbeiten',
+      title: AppLocalizations.of(context)!.gridRowEditTitle,
       readOnly: _isArrayReadOnly,
       previousRowData: previousRowData,
+      rowValidationResult: rowValidationResult,
     );
 
     if (result != null) {
@@ -2291,7 +2332,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       columnConfig: widget.columnConfig,
       columnItems: widget.columnItems,
       layoutOptions: widget.layoutOptions,
-      title: 'Zeile hinzufügen',
+      title: AppLocalizations.of(context)!.gridRowAddTitle,
       readOnly: _isArrayReadOnly,
     );
 
@@ -2750,25 +2791,44 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (_rows.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            const Icon(Icons.table_chart, size: 48, color: Colors.grey),
-            const SizedBox(height: 16),
-            //const Text('Kein Eintrag vorhanden', style: TextStyle(color: Colors.grey)),
-            //const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: _isArrayReadOnly ? null : addRow,
-              icon: const Icon(Icons.add),
-              label: const Text('Eintrag hinzufügen'),
-            ),
-            const SizedBox(height: 8),
-            if (widget.data == null) // if data is null
-              ElevatedButton(
-                onPressed: _setEmptyArray,
-                child: const Text('Kein Eintrag erforderlich'),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              const Icon(Icons.table_chart, size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              //const Text('Kein Eintrag vorhanden', style: TextStyle(color: Colors.grey)),
+              //const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: _isArrayReadOnly ? null : addRow,
+                      child: Text(AppLocalizations.of(context)!.gridAddRowForm),
+                    ),
+                    Container(width: 1, height: 24, color: Colors.white54),
+                    IconButton(
+                      onPressed: _isArrayReadOnly ? null : _addRowAsFormDialog,
+                      icon: const Icon(Icons.playlist_add),
+                      tooltip: AppLocalizations.of(context)!.gridAddRowFormTooltip,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ),
               ),
-          ],
+              const SizedBox(height: 8),
+              if (widget.data == null) // if data is null
+                ElevatedButton(
+                  onPressed: _setEmptyArray,
+                  child: Text(AppLocalizations.of(context)!.gridNoEntryRequired),
+                ),
+            ],
+          ),
         ),
       );
     }
@@ -2813,7 +2873,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                 const SizedBox(width: 8),
               ],
               Text(
-                '${_rows.length} Einträge',
+                AppLocalizations.of(context)!.gridRowEntries(_rows.length),
                 style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 12),
               ),
               Spacer(),
@@ -2832,7 +2892,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                         final atMax = maxRows != null && _rows.length >= maxRows;
                         return TextButton(
                           onPressed: (_isArrayReadOnly || atMax) ? null : addRow,
-                          child: Text('Zeile hinzufügen'),
+                          child: Text(AppLocalizations.of(context)!.gridAddRow),
                         );
                       },
                     ),
@@ -2844,7 +2904,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
                         return IconButton(
                           onPressed: atMax ? null : _addRowAsFormDialog,
                           icon: const Icon(Icons.playlist_add),
-                          tooltip: 'Zeile über Formular hinzufügen',
+                          tooltip: AppLocalizations.of(context)!.gridAddRowFormTooltip,
                           color: Theme.of(context).colorScheme.primary,
                         );
                       },

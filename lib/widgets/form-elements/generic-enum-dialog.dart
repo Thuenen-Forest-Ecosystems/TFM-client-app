@@ -1,7 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
+import 'package:terrestrial_forest_monitor/providers/language.dart';
 
 // Wrapper class to indicate explicit null selection (clearing the field)
 class ClearSelection {
@@ -107,11 +110,21 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     super.dispose();
   }
 
-  String _getLabel() {
+  String _getLabel(String langCode) {
+    if (langCode != 'de') {
+      final tfm = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+      final enTitle = tfm?['title_en'] as String?;
+      if (enTitle != null) return enTitle;
+    }
     return widget.fieldSchema['title'] as String? ?? widget.fieldName;
   }
 
-  String _getDescription() {
+  String _getDescription(String langCode) {
+    if (langCode != 'de') {
+      final tfm = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+      final enDesc = tfm?['description_en'] as String?;
+      if (enDesc != null) return enDesc;
+    }
     return widget.fieldSchema['description'] as String? ?? '';
   }
 
@@ -162,6 +175,8 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final langCode = context.select<Language, String>((l) => l.locale.languageCode);
     final filteredIndices = _getFilteredIndices();
 
     // Move selected value to the top
@@ -199,9 +214,9 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                 focusNode: _searchFocusNode,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: _getLabel(),
-                  helperText: _getDescription(),
-                  hintText: 'Suchen...',
+                  labelText: _getLabel(langCode),
+                  helperText: _getDescription(langCode),
+                  hintText: l10n.enumDialogSearch,
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(50)),
                   ),
@@ -232,12 +247,12 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                 });
                 _saveViewPreference();
               },
-              tooltip: _useChipsView ? 'Listenansicht' : 'Chips-Ansicht',
+              tooltip: _useChipsView ? l10n.enumDialogListView : l10n.enumDialogChipsView,
             ),
             IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.of(context).pop(),
-              tooltip: 'Schließen',
+              tooltip: l10n.enumDialogClose,
             ),
           ],
         ),
@@ -255,7 +270,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4.0),
                     child: Text(
-                      'Zuletzt genutzt',
+                      l10n.enumDialogRecentlyUsed,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -295,7 +310,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
               ),
             Expanded(
               child: filteredIndices.isEmpty
-                  ? const Center(child: Text('Keine Ergebnisse gefunden'))
+                  ? Center(child: Text(l10n.enumDialogNoResults))
                   : _useChipsView
                   ? SingleChildScrollView(
                       child: Padding(
@@ -374,7 +389,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
           ),
           child: ElevatedButton(
             onPressed: () => Navigator.of(context).pop(const ClearSelection()),
-            child: const Text('Inhalt des Feldes löschen'),
+            child: Text(l10n.enumDialogClearField),
           ),
         ),
       ],

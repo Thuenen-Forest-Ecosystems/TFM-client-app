@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -13,6 +14,7 @@ import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/gnss-test-btn.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/keyboard-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/density-settings.dart';
+import 'package:terrestrial_forest_monitor/widgets/settings/language-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -53,25 +55,20 @@ class _ProfileState extends State<Profile> {
   }
 
   Future<void> _clearLocalSettings() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Einstellungen zurücksetzen?'),
-        content: const Text(
-          'Folgende lokale Einstellungen werden gelöscht:\n\n'
-          '• Kompakter Modus\n'
-          '• Tastatur-Einstellung\n'
-          '• Spaltenbreiten in Tabellen\n'
-          '• Filter-Zustände\n'
-          '• Zuletzt genutzte Enum-Werte\n'
-          '• Karteneinstellungen\n\n'
-          'Server-, Organisations- und Proxy-Einstellungen bleiben erhalten.',
-        ),
+        title: Text(l10n.profileResetTitle),
+        content: Text(l10n.profileResetContent),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.profileResetCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Zurücksetzen'),
+            child: Text(l10n.profileResetConfirm),
           ),
         ],
       ),
@@ -114,26 +111,26 @@ class _ProfileState extends State<Profile> {
     setState(() => _resetKey++);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Einstellungen wurden zurückgesetzt.')));
+    ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.profileResetSnackbar)));
   }
 
   Future<void> _confirmAndLogout(AuthProvider authProvider) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
-        title: const Text('Abmelden und Daten löschen?'),
-        content: const Text(
-          'Alle lokalen Daten werden unwiderruflich gelöscht.\n\n'
-          'Nicht synchronisierte Einträge gehen verloren und können nicht wiederhergestellt werden.\n\n'
-          'Bitte stellen Sie sicher, dass alle Daten synchronisiert wurden, bevor Sie fortfahren.',
-        ),
+        title: Text(l10n.profileLogoutTitle),
+        content: Text(l10n.profileLogoutContent),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.profileLogoutCancel),
+          ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Löschen und abmelden'),
+            child: Text(l10n.profileLogoutConfirm),
           ),
         ],
       ),
@@ -149,9 +146,10 @@ class _ProfileState extends State<Profile> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Einstellungen')),
+      appBar: AppBar(title: Text(l10n.profileTitle)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -163,7 +161,7 @@ class _ProfileState extends State<Profile> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15),
               child: Text(
-                'Kartenverwaltung',
+                l10n.profileMapManagement,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -173,7 +171,7 @@ class _ProfileState extends State<Profile> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
               child: Text(
-                'Layout-Einstellungen',
+                l10n.profileLayoutSettings,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -182,7 +180,16 @@ class _ProfileState extends State<Profile> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
               child: Text(
-                'Keyboard-Einstellungen',
+                l10n.profileLanguageSettings,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Card(child: LanguageSettings(key: ValueKey(_resetKey))),
+            const SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
+                l10n.profileKeyboardSettings,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -191,7 +198,7 @@ class _ProfileState extends State<Profile> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
               child: Text(
-                'Kompakter Modus',
+                l10n.profileCompactMode,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -208,16 +215,16 @@ class _ProfileState extends State<Profile> {
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: const Text(
-                'Netzwerk',
+              child: Text(
+                l10n.profileNetwork,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.vpn_lock),
-                title: const Text('Proxy-Einstellungen'),
-                subtitle: const Text('Konfiguration für Landesdatennetze'),
+                title: Text(l10n.profileProxySettings),
+                subtitle: Text(l10n.profileProxySubtitle),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   Navigator.of(
@@ -254,7 +261,7 @@ class _ProfileState extends State<Profile> {
 
             ElevatedButton.icon(
               onPressed: _clearLocalSettings,
-              label: const Text('Einstellungen zurücksetzen'),
+              label: Text(l10n.profileResetSettings),
             ),
 
             const SizedBox(height: 32),
@@ -273,10 +280,10 @@ class _ProfileState extends State<Profile> {
                   : const Icon(Icons.logout),
               label: Text(
                 authProvider.loggingIn
-                    ? 'Abmelden...'
+                    ? l10n.profileLoggingIn
                     : !_isOnline
-                    ? 'Abmelden (offline nicht möglich)'
-                    : 'Abmelden und Daten löschen',
+                    ? l10n.profileLogoutOffline
+                    : l10n.profileLogout,
               ),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.red,
@@ -293,14 +300,14 @@ class _ProfileState extends State<Profile> {
                   onPressed: () {
                     launchUrl(Uri.parse('https://www.thuenen.de/de/impressum'));
                   },
-                  child: const Text('Impressum', style: TextStyle(fontSize: 12)),
+                  child: Text(l10n.profileImprint, style: const TextStyle(fontSize: 12)),
                 ),
                 const Text('|', style: TextStyle(color: Colors.grey)),
                 TextButton(
                   onPressed: () {
                     launchUrl(Uri.parse('https://www.thuenen.de/de/datenschutzerklaerung'));
                   },
-                  child: const Text('Datenschutzbestimmungen', style: TextStyle(fontSize: 12)),
+                  child: Text(l10n.profilePrivacy, style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -314,7 +321,7 @@ class _ProfileState extends State<Profile> {
                     padding: const EdgeInsets.only(top: 16),
                     child: Center(
                       child: Text(
-                        'App Version: ${packageInfo.version} (${packageInfo.buildNumber})',
+                        l10n.profileAppVersion(packageInfo.version, packageInfo.buildNumber),
                         style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ),
@@ -331,13 +338,13 @@ class _ProfileState extends State<Profile> {
               onPressed: () {
                 context.beamToNamed('/records-raw');
               },
-              child: const Text('Records anzeigen'),
+              child: Text(l10n.profileShowRecords),
             ),
             ElevatedButton(
               onPressed: () {
                 context.beamToNamed('/synced_tables');
               },
-              child: const Text('Synced Tables anzeigen'),
+              child: Text(l10n.profileShowSyncedTables),
             ),
             /*ElevatedButton(
               onPressed: () {
@@ -354,7 +361,7 @@ class _ProfileState extends State<Profile> {
               onPressed: () {
                 context.beamToNamed('/logs');
               },
-              child: const Text('Protokolle anzeigen'),
+              child: Text(l10n.profileShowLogs),
             ),
           ],
         ),
