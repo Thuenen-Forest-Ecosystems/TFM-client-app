@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:get_storage/get_storage.dart';
 import 'dart:async';
 
 // Conditional import: use real serial port on native platforms (Windows/Linux/macOS), stub on web
 import 'package:flutter_libserialport/flutter_libserialport.dart'
     if (dart.library.html) 'package:terrestrial_forest_monitor/services/serial_port_stub.dart';
+
+const _kBaudRateKey = 'serial_baud_rate';
+const _kBaudRateOptions = [4800, 9600, 19200, 38400, 57600, 115200];
 
 class SerialPortDevice {
   final String name;
@@ -31,10 +35,25 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
   StreamSubscription? _readerSubscription;
   String? _serialPortError; // Track serial port error messages
   void Function(void Function())? _modalStateCallback; // Callback to update modal state
+  int _baudRate = 9600;
+
+  final _storage = GetStorage();
+
+  void _loadBaudRate() {
+    final saved = _storage.read<int>(_kBaudRateKey);
+    if (saved != null && _kBaudRateOptions.contains(saved)) {
+      _baudRate = saved;
+    }
+  }
+
+  void _saveBaudRate(int rate) {
+    _storage.write(_kBaudRateKey, rate);
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadBaudRate();
     // DO NOT scan ports on init - this causes Semaphore timeout on Windows
     // Ports will be scanned only when user opens the device menu
   }
@@ -127,9 +146,9 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
         throw Exception('Failed to open port: ${SerialPort.lastError}');
       }
 
-      // Configure port for GPS (typical settings: 9600 baud, 8N1)
+      // Configure port for GPS (typical settings: 8N1)
       final config = SerialPortConfig();
-      config.baudRate = 9600;
+      config.baudRate = _baudRate;
       config.bits = 8;
       config.stopBits = 1;
       config.parity = SerialPortParity.none;
@@ -307,6 +326,26 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                 ),
 
                 const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text('Baud Rate:', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 8),
+                    DropdownButton<int>(
+                      value: _baudRate,
+                      items: _kBaudRateOptions
+                          .map((r) => DropdownMenuItem(value: r, child: Text('$r')))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _baudRate = v);
+                          _saveBaudRate(v);
+                          setModalState(() {});
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 const Text(
                   'Available Serial Ports',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -513,10 +552,25 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
   SerialPortReader? _reader;
   StreamSubscription? _readerSubscription;
   String? _serialPortError;
+  int _baudRate = 9600;
+
+  final _storage = GetStorage();
+
+  void _loadBaudRate() {
+    final saved = _storage.read<int>(_kBaudRateKey);
+    if (saved != null && _kBaudRateOptions.contains(saved)) {
+      _baudRate = saved;
+    }
+  }
+
+  void _saveBaudRate(int rate) {
+    _storage.write(_kBaudRateKey, rate);
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadBaudRate();
     // Auto-scan when sheet opens
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _scanPorts();
@@ -601,7 +655,7 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
       }
 
       final config = SerialPortConfig();
-      config.baudRate = 9600;
+      config.baudRate = _baudRate;
       config.bits = 8;
       config.stopBits = 1;
       config.parity = SerialPortParity.none;
@@ -741,6 +795,25 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
           ),
 
           const SizedBox(height: 16),
+          Row(
+            children: [
+              const Text('Baud Rate:', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _baudRate,
+                items: _kBaudRateOptions
+                    .map((r) => DropdownMenuItem(value: r, child: Text('$r')))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _baudRate = v);
+                    _saveBaudRate(v);
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           const Text(
             'Available Serial Ports',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
