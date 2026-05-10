@@ -530,7 +530,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               if (gpsProvider.lastPosition != null)
                                 _buildDataRow(
                                   'Position',
-                                  '${gpsProvider.lastPosition!.latitude.toStringAsFixed(8)}, ${gpsProvider.lastPosition!.longitude.toStringAsFixed(8)}',
+                                  '${gpsProvider.lastPosition!.latitude}, ${gpsProvider.lastPosition!.longitude}',
                                 ),
 
                               // NMEA data if available
@@ -654,7 +654,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               if (_initialSavedData!['position_mean'] != null)
                                 _buildDataRow(
                                   'Position (mean)',
-                                  '${(_initialSavedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_initialSavedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
+                                  '${_initialSavedData!['position_mean']['latitude'] ?? "?"}, ${_initialSavedData!['position_mean']['longitude'] ?? "?"}',
                                 ),
                               _buildDataRow(
                                 'Korrektursignal',
@@ -850,7 +850,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               if (_aggregatedData!['position_mean'] != null)
                                 _buildDataRow(
                                   'Position (mean)',
-                                  '${(_aggregatedData!['position_mean']['latitude'] as num?)?.toStringAsFixed(8) ?? "?"}, ${(_aggregatedData!['position_mean']['longitude'] as num?)?.toStringAsFixed(8) ?? "?"}',
+                                  '${_aggregatedData!['position_mean']['latitude'] ?? "?"}, ${_aggregatedData!['position_mean']['longitude'] ?? "?"}',
                                 ),
                               _buildDataRow(
                                 'Korrektursignal',

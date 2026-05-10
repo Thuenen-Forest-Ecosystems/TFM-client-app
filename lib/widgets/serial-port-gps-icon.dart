@@ -248,6 +248,20 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                       'GPS Devices',
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
+                    const Spacer(),
+                    DropdownButton<int>(
+                      value: _baudRate,
+                      items: _kBaudRateOptions
+                          .map((r) => DropdownMenuItem(value: r, child: Text('$r')))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _baudRate = v);
+                          _saveBaudRate(v);
+                          setModalState(() {});
+                        }
+                      },
+                    ),
                     if (_isScanning)
                       TextButton.icon(
                         onPressed: () {
@@ -326,26 +340,6 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                 ),
 
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Text('Baud Rate:', style: TextStyle(fontSize: 14)),
-                    const SizedBox(width: 8),
-                    DropdownButton<int>(
-                      value: _baudRate,
-                      items: _kBaudRateOptions
-                          .map((r) => DropdownMenuItem(value: r, child: Text('$r')))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _baudRate = v);
-                          _saveBaudRate(v);
-                          setModalState(() {});
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
                 const Text(
                   'Available Serial Ports',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -721,11 +715,23 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'GPS Devices',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              DropdownButton<int>(
+                value: _baudRate,
+                items: _kBaudRateOptions
+                    .map((r) => DropdownMenuItem(value: r, child: Text('$r')))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _baudRate = v);
+                    _saveBaudRate(v);
+                  }
+                },
               ),
               if (_isScanning)
                 TextButton.icon(
@@ -795,25 +801,6 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
           ),
 
           const SizedBox(height: 16),
-          Row(
-            children: [
-              const Text('Baud Rate:', style: TextStyle(fontSize: 14)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _baudRate,
-                items: _kBaudRateOptions
-                    .map((r) => DropdownMenuItem(value: r, child: Text('$r')))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() => _baudRate = v);
-                    _saveBaudRate(v);
-                  }
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           const Text(
             'Available Serial Ports',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),

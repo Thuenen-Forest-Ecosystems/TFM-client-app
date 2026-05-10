@@ -107,6 +107,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // Serial port (USB/COM) connection name
   String? connectedSerialPortName;
+  String _serialPortBuffer = ''; // Buffer for partial NMEA sentences (needed at high baud rates)
 
   /// Whether position data comes from an external GNSS device (BLE or Classic Bluetooth).
   /// When true, compass heading is unreliable (phone orientation != walking direction).
@@ -682,6 +683,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _positionStream = null;
     _hasReliableGpsHeading = false;
     _headingSource = 'none';
+    _serialPortBuffer = '';
     _stopCompass();
     notifyListeners();
   }
@@ -890,7 +892,26 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // Method to process serial port NMEA data (for Windows USB GPS devices)
   void processSerialPortData(List<int> data) {
-    _currentNMEA = parseData(data, _currentNMEA);
+    // Accumulate incoming bytes into the buffer to handle partial NMEA sentences.
+    // At higher baud rates (e.g. 115200) the OS delivers chunks that don't align
+    // with sentence boundaries, so we must buffer until we have a full line.
+    _serialPortBuffer += String.fromCharCodes(data);
+
+    // Guard against a runaway buffer (e.g. device sending non-NMEA garbage)
+    if (_serialPortBuffer.length > 4096) {
+      _serialPortBuffer = '';
+      return;
+    }
+
+    // Process every complete line in the buffer
+    while (_serialPortBuffer.contains('\n')) {
+      final int index = _serialPortBuffer.indexOf('\n');
+      final String line = _serialPortBuffer.substring(0, index).trim();
+      _serialPortBuffer = _serialPortBuffer.substring(index + 1);
+
+      if (line.isEmpty) continue;
+      _currentNMEA = parseData(line.codeUnits, _currentNMEA);
+    }
 
     // Update position if we have valid coordinates
     if (_currentNMEA != null && _currentNMEA!.latitude != null && _currentNMEA!.longitude != null) {
