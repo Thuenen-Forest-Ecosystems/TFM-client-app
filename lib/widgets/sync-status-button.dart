@@ -34,7 +34,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     WHERE local_updated_at IS NOT NULL
       AND (
         updated_at IS NULL
-        OR local_updated_at > datetime(updated_at, \'+60 seconds\')
+        OR local_updated_at > datetime(updated_at, \'+10 minutes\')
       )
   ''';
 
@@ -309,7 +309,7 @@ ORDER BY local_updated_at DESC;''';
         WHERE local_updated_at IS NOT NULL
           AND (
             updated_at IS NULL
-            OR local_updated_at > datetime(updated_at, \'+60 seconds\')
+            OR local_updated_at > datetime(updated_at, \'+10 minutes\')
           )
         ORDER BY local_updated_at DESC
         LIMIT 50

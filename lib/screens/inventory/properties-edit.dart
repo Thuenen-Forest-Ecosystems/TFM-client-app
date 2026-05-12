@@ -469,6 +469,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       return;
     }
 
+    // Refuse to save in admin view
+    if (_isAdminView) {
+      debugPrint('Save blocked: admin view is active');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Admin-Ansicht – Speichern nicht möglich.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     try {
       debugPrint('Saving form data: $_formData');
 
@@ -497,17 +510,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       String? validationErrorsJson = _record!.validationErrors;
       String? plausibilityErrorsJson = _record!.plausibilityErrors;
 
-      debugPrint('💾 === SAVE ERRORS DEBUG ===');
-      debugPrint('💾 acknowledgedErrors provided: ${acknowledgedErrors != null}');
-      debugPrint('💾 Existing validationErrors from record: $validationErrorsJson');
-      debugPrint('💾 Existing plausibilityErrors from record: $plausibilityErrorsJson');
-
       if (acknowledgedErrors != null) {
         final validationErrors = acknowledgedErrors['validation_errors'] ?? [];
         final plausibilityErrors = acknowledgedErrors['plausibility_errors'] ?? [];
-
-        debugPrint('💾 New validation errors count: ${validationErrors.length}');
-        debugPrint('💾 New plausibility errors count: ${plausibilityErrors.length}');
 
         validationErrorsJson = validationErrors.isNotEmpty
             ? AcknowledgedError.encodeList(validationErrors)
@@ -515,19 +520,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         plausibilityErrorsJson = plausibilityErrors.isNotEmpty
             ? AcknowledgedError.encodeList(plausibilityErrors)
             : null;
-
-        debugPrint(
-          '💾 PROPERTIES-EDIT validationErrorsJson type: ${validationErrorsJson.runtimeType}',
-        );
-        debugPrint(
-          '💾 PROPERTIES-EDIT plausibilityErrorsJson type: ${plausibilityErrorsJson.runtimeType}',
-        );
-        debugPrint(
-          '💾 Final validationErrorsJson: ${validationErrorsJson?.substring(0, validationErrorsJson.length > 100 ? 100 : validationErrorsJson.length)}...',
-        );
-        debugPrint(
-          '💾 Final plausibilityErrorsJson: ${plausibilityErrorsJson?.substring(0, plausibilityErrorsJson.length > 100 ? 100 : plausibilityErrorsJson.length)}...',
-        );
       } else {
         debugPrint('💾 No new errors provided, using existing from record');
       }
@@ -560,15 +552,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       } else {
         // UPDATE existing record
-        debugPrint('💾 === EXECUTING DATABASE UPDATE ===');
-        debugPrint('💾 Type: $type');
-        debugPrint('💾 Record ID: ${_record!.id}');
-        debugPrint(
-          '💾 Writing validationErrorsJson: ${validationErrorsJson != null ? "${validationErrorsJson.length} chars" : "NULL"}',
-        );
-        debugPrint(
-          '💾 Writing plausibilityErrorsJson: ${plausibilityErrorsJson != null ? "${plausibilityErrorsJson.length} chars" : "NULL"}',
-        );
 
         if (type == 'save') {
           await db.execute(
@@ -791,11 +774,16 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Update provider cache and focused record (map preview)
       if (mounted && _record != null) {
         try {
+          final isPlayground = _playgroundModeProvider?.isPlaygroundMode ?? false;
+
           // Create updated record (don't save to DB yet)
           final updatedRecord = _record!.copyWith(properties: updatedData);
 
-          // 1. Update list/markers
-          context.read<RecordsListProvider>().updateRecordInCache(updatedRecord);
+          // 1. Update list/markers — skip in playground mode so the overview
+          //    does not show unsaved changes that will never be persisted.
+          if (!isPlayground) {
+            context.read<RecordsListProvider>().updateRecordInCache(updatedRecord);
+          }
 
           // 2. Update focused features (trees, etc.) if map provider is available
           // MapWidget listens to this to rebuild tree layers
@@ -1366,11 +1354,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                               _validationResult != null && _validationResult!.allIssues.isNotEmpty,
                           textColor: Colors.white,
                           child: TextButton(
-                            onPressed:
-                                (_jsonSchema != null &&
-                                    _hasCompletedInitialValidation &&
-                                    !isPlayground &&
-                                    !_isAdminView)
+                            onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
                                 ? saveRecord
                                 : null,
                             child: const Text('FERTIG'),

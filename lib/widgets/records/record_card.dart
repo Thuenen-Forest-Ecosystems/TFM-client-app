@@ -28,11 +28,13 @@ class RecordCard extends StatefulWidget {
 
 class _RecordCardState extends State<RecordCard> {
   String? _forestStatusLabel;
+  String? _propertyTypeLabel;
 
   @override
   void initState() {
     super.initState();
     _loadForestStatusLabel();
+    _loadPropertyTypeLabel();
   }
 
   @override
@@ -40,6 +42,9 @@ class _RecordCardState extends State<RecordCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.record.properties['forest_status'] != widget.record.properties['forest_status']) {
       _loadForestStatusLabel();
+    }
+    if (oldWidget.record.properties['property_type'] != widget.record.properties['property_type']) {
+      _loadPropertyTypeLabel();
     }
   }
 
@@ -59,6 +64,72 @@ class _RecordCardState extends State<RecordCard> {
     } catch (e) {
       debugPrint('Error loading forest status label: $e');
     }
+  }
+
+  Future<void> _loadPropertyTypeLabel() async {
+    final propertyType = widget.record.properties['property_type'];
+    if (propertyType == null) {
+      debugPrint('No property type code found in record properties');
+      setState(() => _propertyTypeLabel = null);
+      return;
+    }
+    try {
+      final result = await db.get('SELECT name_de FROM lookup_property_type WHERE code = ?', [
+        propertyType,
+      ]);
+      if (mounted && result != null) {
+        setState(() => _propertyTypeLabel = result['name_de'] as String?);
+      }
+    } catch (e) {
+      debugPrint('Error loading property type label: $e');
+    }
+  }
+
+  Widget _forestStatusChip(BuildContext context) {
+    final forestStatus = widget.record.properties['forest_status'];
+    if (forestStatus == null || forestStatus == 3 || forestStatus == 4 || forestStatus == 5) {
+      return const SizedBox.shrink();
+    }
+    if (_forestStatusLabel == null) return const SizedBox.shrink();
+    return Chip(
+      label: Text(_forestStatusLabel!, style: TextStyle(fontSize: 11)),
+      padding: EdgeInsets.zero,
+      labelPadding: EdgeInsets.symmetric(horizontal: 6),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity(horizontal: 0, vertical: -4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    );
+  }
+
+  Widget _accessibilityChip(BuildContext context) {
+    final accessibility = widget.record.properties['accessibility'];
+    if (accessibility != null && accessibility is int) {
+      if (accessibility != 1) {
+        return Chip(
+          label: Text('Nicht zugänglich', style: TextStyle(fontSize: 11)),
+          padding: EdgeInsets.zero,
+          labelPadding: EdgeInsets.symmetric(horizontal: 6),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity(horizontal: 0, vertical: -4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        );
+      }
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _propertyTypeChip(BuildContext context) {
+    final propertyType = widget.record.properties['property_type'];
+    if (propertyType == null) return const SizedBox.shrink();
+    final label = _propertyTypeLabel ?? propertyType.toString();
+    return Chip(
+      label: Text(label, style: TextStyle(fontSize: 11)),
+      padding: EdgeInsets.zero,
+      labelPadding: EdgeInsets.symmetric(horizontal: 6),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity(horizontal: 0, vertical: -4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    );
   }
 
   void _openNativeNavigationForRecord(BuildContext context) {
@@ -143,10 +214,11 @@ class _RecordCardState extends State<RecordCard> {
     final isSynchronized = _isSynchronized();
 
     // Reduce opacity if not accessible or not forest
-    final shouldReduceOpacity = !isForest;
+    final shouldReduceOpacity =
+        !isForest || (properties['accessibility'] != null && properties['accessibility'] != 1);
 
     return Opacity(
-      opacity: shouldReduceOpacity ? 0.5 : 1.0,
+      opacity: shouldReduceOpacity ? 0.75 : 1.0,
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 2,
@@ -231,18 +303,17 @@ class _RecordCardState extends State<RecordCard> {
                                   ],
                                 ),
                               ),
-                            if (!isForest && _forestStatusLabel != null && !widget.isDense)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.warning, size: 16, color: Colors.orange),
-                                    const SizedBox(width: 4),
-                                    Text(_forestStatusLabel!, style: TextStyle(fontSize: 12)),
-                                  ],
-                                ),
+                            if (!widget.isDense)
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: [
+                                  _forestStatusChip(context),
+                                  _accessibilityChip(context),
+                                  _propertyTypeChip(context),
+                                ],
                               ),
-                            if (((widget.record.previousProperties?['plot_support_points'])
+                            /*if (((widget.record.previousProperties?['plot_support_points'])
                                             as List?)
                                         ?.isNotEmpty ==
                                     true &&
@@ -254,7 +325,7 @@ class _RecordCardState extends State<RecordCard> {
                                     const Text('Mit Hilfspunkten', style: TextStyle(fontSize: 12)),
                                   ],
                                 ),
-                              ),
+                              ),*/
                             const SizedBox(height: 8),
                             // Footer (always at bottom)
                             Row(

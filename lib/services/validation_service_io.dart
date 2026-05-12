@@ -449,13 +449,20 @@ class ValidationError {
 
   factory ValidationError.fromJson(Map<String, dynamic> json) {
     return ValidationError(
-      instancePath: json['instancePath'] as String?,
-      schemaPath: json['schemaPath'] as String?,
-      keyword: json['keyword'] as String?,
-      message: json['message'] as String? ?? 'Unknown error',
+      instancePath: json['instancePath']?.toString(),
+      schemaPath: json['schemaPath']?.toString(),
+      keyword: json['keyword']?.toString(),
+      message: json['message']?.toString() ?? 'Unknown error',
       params: json['params'] as Map<String, dynamic>?,
       rawError: json,
     );
+  }
+
+  String get displayMessage {
+    if (instancePath != null && instancePath!.isNotEmpty) {
+      return '$instancePath: $message';
+    }
+    return message;
   }
 
   @override
@@ -510,18 +517,32 @@ class TFMValidationError {
   TFMValidationError({this.instancePath, this.error, this.debugInfo});
 
   factory TFMValidationError.fromJson(Map<String, dynamic> json) {
+    final errorField = json['error'];
+    Map<String, dynamic>? errorMap;
+    if (errorField is Map<String, dynamic>) {
+      errorMap = errorField;
+    } else if (errorField != null) {
+      errorMap = {'type': 'error', 'text': errorField.toString()};
+    }
     return TFMValidationError(
-      instancePath: json['instancePath'] as String?,
-      error: json['error'] as Map<String, dynamic>?,
-      debugInfo: json['debugInfo'] as String?,
+      instancePath: json['instancePath']?.toString(),
+      error: errorMap,
+      debugInfo: json['debugInfo']?.toString(),
     );
   }
 
-  String get type => error?['type'] ?? 'error';
+  String get type => error?['type']?.toString() ?? 'error';
   bool get isError => type == 'error';
   bool get isWarning => type == 'warning';
-  String get message => error?['text'] ?? 'Unknown TFM error';
-  String? get note => error?['note'];
+  String get message => error?['text']?.toString() ?? 'Unknown TFM error';
+  String? get note => error?['note']?.toString();
+
+  String get displayMessage {
+    if (instancePath != null && instancePath!.isNotEmpty) {
+      return '$instancePath: $message';
+    }
+    return message;
+  }
 
   @override
   String toString() {
