@@ -26,6 +26,28 @@ import 'dart:async';
 
 import 'package:turf/turf.dart' as turf;
 
+/// Prevents [TileLayer] from disposing the inner [FMTCTileProvider] on widget
+/// rebuilds/removals. Dispose explicitly via [innerDispose] from State.dispose.
+/// This avoids recreating HTTP clients and leaking file descriptors.
+class _ManagedTileProvider extends TileProvider {
+  _ManagedTileProvider(this._inner);
+  final TileProvider _inner;
+
+  @override
+  Map<String, String> get headers => _inner.headers;
+
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
+      _inner.getImage(coordinates, options);
+
+  /// No-op: lifecycle is managed externally by the owning State.
+  @override
+  void dispose() {}
+
+  /// Actually disposes the inner provider (call from State.dispose).
+  void innerDispose() => _inner.dispose();
+}
+
 class MapWidget extends StatefulWidget {
   final LatLng? initialCenter;
   final double? initialZoom;
@@ -92,6 +114,10 @@ class _MapWidgetState extends State<MapWidget> {
   Map<int, String> _treeSpeciesLookup = {}; // Maps species code to species name
   String? _lastRecordsFingerprint; // Guard against redundant reloads
   bool _wasCoveredBySheet = false;
+
+  // Single OpenCycleMap tile provider, created once and shared across the
+  // zoom-band TileLayers below.  Disposed in dispose().
+  _ManagedTileProvider? _ocmProvider;
 
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
@@ -1622,6 +1648,9 @@ class _MapWidgetState extends State<MapWidget> {
 
     widget.sheetController?.removeListener(_onSheetControllerChanged);
 
+    // Dispose managed tile provider (HTTP client etc.)
+    _ocmProvider?.innerDispose();
+
     // Remove listeners
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
@@ -1714,11 +1743,20 @@ class _MapWidgetState extends State<MapWidget> {
         onPositionChanged: (position, hasGesture) {
           final newZoom = position.zoom;
 
-          // Immediate update if crossing zoom 13 threshold (for label visibility)
-          final shouldShowLabels = newZoom >= 13;
+          // Immediate setState when crossing any threshold that changes the
+          // widget tree: 9.5 / 13.5 for OCM tile-band switching, 13 for labels.
+          final wasLow = _currentZoom < 9.5;
+          final wasMid = _currentZoom >= 9.5 && _currentZoom < 13.5;
+          final wasHigh = _currentZoom >= 13.5;
           final wasShowingLabels = _currentZoom >= 13;
 
-          if (shouldShowLabels != wasShowingLabels) {
+          final isLow = newZoom < 9.5;
+          final isMid = newZoom >= 9.5 && newZoom < 13.5;
+          final isHigh = newZoom >= 13.5;
+          final shouldShowLabels = newZoom >= 13;
+
+          if (isLow != wasLow || isMid != wasMid || isHigh != wasHigh ||
+              shouldShowLabels != wasShowingLabels) {
             setState(() {
               _currentZoom = newZoom;
             });
@@ -1740,17 +1778,57 @@ class _MapWidgetState extends State<MapWidget> {
       children: [
         // Tile Layers - rendered in order: OpenCycleMap → ESRI Satellite → DOP (top)
 
-        // Layer 1: OpenCycleMap (offline, covers zoom 4-18)
-        if (_selectedBasemaps.contains('opencycle') && _storesInitialized)
+        // Layer 1: OpenCycleMap — three mutually exclusive TileLayers, one per
+        // downloaded zoom band (4 / 10 / 14).  Only ONE is ever present in the
+        // widget tree at a time (selected by _currentZoom), so flutter_map has
+        // a single tile-event subscription and calculates tile coordinates at
+        // exactly the cached zoom level via minNativeZoom == maxNativeZoom.
+        // flutter_map then scales those tiles itself to fill the screen.
+        // (Using minZoom/maxZoom params inside TileLayer does NOT work for this:
+        //  flutter_map checks _outsideZoomLimits against the clamped native zoom,
+        //  not the actual map zoom, so tiles are loaded at every zoom level.)
+        //
+        // The shared _ManagedTileProvider is created once and not disposed by
+        // TileLayer on widget swaps — only by State.dispose().
+        if (_selectedBasemaps.contains('opencycle') && _storesInitialized && _currentZoom < 9.5)
           TileLayer(
-            // https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png
             urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             subdomains: const ['a', 'b', 'c'],
-            maxNativeZoom: 24, // Tiles only available up to zoom 18, upscale for higher zooms
-            tileProvider: FMTCStore('OpenCycleMap').getTileProvider(
-              settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
-            ),
+            minNativeZoom: 4,
+            maxNativeZoom: 4, // clamp all requests to cached zoom 4
+            tileProvider: (_ocmProvider ??= _ManagedTileProvider(
+              FMTCStore('OpenCycleMap').getTileProvider(
+                settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+              ),
+            )),
+          ),
+        if (_selectedBasemaps.contains('opencycle') && _storesInitialized &&
+            _currentZoom >= 9.5 && _currentZoom < 13.5)
+          TileLayer(
+            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            subdomains: const ['a', 'b', 'c'],
+            minNativeZoom: 10,
+            maxNativeZoom: 10, // clamp all requests to cached zoom 10
+            tileProvider: (_ocmProvider ??= _ManagedTileProvider(
+              FMTCStore('OpenCycleMap').getTileProvider(
+                settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+              ),
+            )),
+          ),
+        if (_selectedBasemaps.contains('opencycle') && _storesInitialized && _currentZoom >= 13.5)
+          TileLayer(
+            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            subdomains: const ['a', 'b', 'c'],
+            minNativeZoom: 14,
+            maxNativeZoom: 14, // clamp all requests to cached zoom 14
+            tileProvider: (_ocmProvider ??= _ManagedTileProvider(
+              FMTCStore('OpenCycleMap').getTileProvider(
+                settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+              ),
+            )),
           ),
 
         // Layer 2: ESRI Satellite (free worldwide satellite imagery)
