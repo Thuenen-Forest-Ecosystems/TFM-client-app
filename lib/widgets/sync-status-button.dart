@@ -28,6 +28,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   bool _isNetworkAvailable = true;
   int _unsyncedCount = 0;
   StreamSubscription<dynamic>? _unsyncedSub;
+  StreamSubscription<void>? _dbSwitchSub;
 
   static const _unsyncedSql = '''
     SELECT COUNT(*) AS n FROM records
@@ -41,6 +42,26 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   @override
   void initState() {
     super.initState();
+    _subscribeToDb();
+
+    // Listen to network connectivity changes
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      if (mounted) {
+        setState(() {
+          _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
+        });
+      }
+    });
+
+    // Check initial connectivity
+    _checkInitialConnectivity();
+
+    // Re-subscribe whenever switchUserDatabase swaps the global db.
+    _dbSwitchSub = dbSwitchEvents.listen((_) => _resubscribeDb());
+  }
+
+  /// Subscribe to the current [db] instance's streams.
+  void _subscribeToDb() {
     _connectionState = db.currentStatus;
     _syncStatusSubscription = db.statusStream.listen((event) {
       if (mounted) {
@@ -74,18 +95,6 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
       }
     });
 
-    // Listen to network connectivity changes
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
-      if (mounted) {
-        setState(() {
-          _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
-        });
-      }
-    });
-
-    // Check initial connectivity
-    _checkInitialConnectivity();
-
     _unsyncedSub = db.watch(_unsyncedSql).listen((rows) {
       if (mounted) {
         setState(() {
@@ -93,6 +102,13 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
         });
       }
     });
+  }
+
+  /// Cancel current db subscriptions and resubscribe to the (new) [db].
+  void _resubscribeDb() {
+    _syncStatusSubscription?.cancel();
+    _unsyncedSub?.cancel();
+    if (mounted) _subscribeToDb();
   }
 
   Future<void> _checkInitialConnectivity() async {
@@ -110,6 +126,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     _syncStatusSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _unsyncedSub?.cancel();
+    _dbSwitchSub?.cancel();
   }
 
   @override
@@ -237,6 +254,7 @@ class _SyncStatusDialog extends StatefulWidget {
 class _SyncStatusDialogState extends State<_SyncStatusDialog> {
   late SyncStatus _status;
   StreamSubscription<SyncStatus>? _statusSub;
+  StreamSubscription<void>? _dbSwitchSub;
   bool _diagLoading = true;
   int _pendingCrudCount = 0;
   List<Map<String, dynamic>> _crudBreakdown = [];
@@ -271,11 +289,23 @@ ORDER BY local_updated_at DESC;''';
         _loadDiagnostics();
       }
     });
+    _dbSwitchSub = dbSwitchEvents.listen((_) {
+      _statusSub?.cancel();
+      _statusSub = db.statusStream.listen((s) {
+        if (mounted) {
+          setState(() => _status = s);
+          _loadDiagnostics();
+        }
+      });
+      if (mounted) setState(() => _status = db.currentStatus);
+      _loadDiagnostics();
+    });
   }
 
   @override
   void dispose() {
     _statusSub?.cancel();
+    _dbSwitchSub?.cancel();
     super.dispose();
   }
 

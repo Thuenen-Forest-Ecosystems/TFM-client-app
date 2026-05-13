@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -31,6 +32,12 @@ final List<RegExp> fatalResponseCodes = [
 
 late PowerSyncDatabase db;
 
+/// Broadcast stream that fires whenever [switchUserDatabase] completes and
+/// [db] points to a new instance. Widgets that hold subscriptions to the old
+/// db instance must cancel + resubscribe when they receive this event.
+final _dbSwitchController = StreamController<void>.broadcast();
+Stream<void> get dbSwitchEvents => _dbSwitchController.stream;
+
 Future<FunctionResponse> inviteUserByEmail(String email, String organizationId) async {
   // final FunctionResponse response =
   return await Supabase.instance.client.functions.invoke(
@@ -42,10 +49,15 @@ Future<FunctionResponse> inviteUserByEmail(String email, String organizationId) 
   );
 }
 
-Future<String> getDatabasePath() async {
+/// Returns the SQLite file path for [userId] (per-user isolation) or the
+/// legacy shared path when [userId] is null.
+Future<String> getDatabasePath({String? userId}) async {
   var config = await getServerConfig();
 
-  final dbFilename = '${config['database']}.db';
+  final base = (config['database'] ?? 'tfm') as String;
+  final suffix = userId != null ? '_$userId' : '';
+  final dbFilename = '$base$suffix.db';
+
   // getApplicationSupportDirectory is not supported on Web
   if (kIsWeb) {
     return dbFilename;
@@ -58,6 +70,50 @@ Future<String> getDatabasePath() async {
     print('Error getting database path: $e');
     rethrow;
   }
+}
+
+/// The userId whose db file the global [db] currently points to.
+/// Used by [switchUserDatabase] to skip redundant switches when the db is
+/// already set up for the same user (e.g. offline→online upgrade).
+String? _currentDbUserId;
+
+/// Switch the global [db] to the SQLite file that belongs to [userId].
+/// If the current [db] is already the correct user's database, this is a
+/// no-op — callers should still call [db.connect] afterwards.
+/// Initialises the new database before swapping the global reference so that
+/// any code using [db] never sees an uninitialised instance.
+/// The old database is only disconnected (not closed) to prevent a
+/// ClosedException in any streams or watchers that still hold a reference.
+Future<void> switchUserDatabase(String userId) async {
+  if (_currentDbUserId == userId) {
+    print('PowerSync: db already set up for user $userId, skipping switch');
+    return;
+  }
+
+  final oldDb = db;
+  final userDbPath = await getDatabasePath(userId: userId);
+
+  // Initialise the new db before making it visible to the rest of the app.
+  final newDb = PowerSyncDatabase(schema: schema, path: userDbPath, logger: attachedLogger);
+  await newDb.initialize();
+
+  // Atomic swap — from this point all callers use the new db.
+  db = newDb;
+  _currentDbUserId = userId;
+
+  // Notify widgets so they can cancel old stream subscriptions and resubscribe
+  // to the new db instance.
+  _dbSwitchController.add(null);
+
+  // Gracefully stop the old connection without closing the SQLite handle,
+  // so any remaining stream listeners don't receive a ClosedException.
+  try {
+    await oldDb.disconnect();
+  } catch (e) {
+    print('switchUserDatabase: error disconnecting old db (ignored): $e');
+  }
+
+  print('PowerSync: switched to database for user $userId ($userDbPath)');
 }
 
 bool isLoggedIn() {
@@ -258,8 +314,9 @@ Future<PowerSyncDatabase> openDatabase() async {
     final AuthChangeEvent event = data.event;
     try {
       if (event == AuthChangeEvent.signedIn) {
-        currentConnector = SupabaseConnector();
-        db.connect(connector: currentConnector!);
+        // AuthProvider._onAuthStateChange handles switchUserDatabase + connect
+        // for the correct per-user db. Nothing to do here.
+        currentConnector = null;
       } else if (event == AuthChangeEvent.signedOut) {
         currentConnector = null;
         await db.disconnect();

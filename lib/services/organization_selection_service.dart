@@ -50,21 +50,38 @@ class OrganizationSelectionService {
     return prefs.remove(_selectedOrgKey);
   }
 
+  /// Clear ALL selection preferences (org, permission, troop, admin flag).
+  /// Must be called on logout so the next user starts with a clean slate.
+  Future<void> clearAllSelections() async {
+    final prefs = await SharedPreferences.getInstance();
+    print('OrganizationSelectionService: Clearing all selections on logout');
+    await prefs.remove(_selectedOrgKey);
+    await prefs.remove('selected_permission_id');
+    await prefs.remove('selected_troop_id');
+    await prefs.remove('selected_troop_name');
+    await prefs.remove('is_organization_admin');
+  }
+
   /// Check if an organization is currently selected
   Future<bool> hasSelectedOrganization() async {
     final orgId = await getSelectedOrganizationId();
     return orgId != null && orgId.isNotEmpty;
   }
 
-  /// Set the selected permission ID
+  /// Set the selected permission ID.
+  /// Does NOT fire [_notifyPermissionChange] — call [notifyPermissionSelected]
+  /// after all related settings (orgId, troopId, isAdmin) have been saved so
+  /// that listeners see a consistent state.
   Future<bool> setSelectedPermissionId(String permissionId) async {
     final prefs = await SharedPreferences.getInstance();
     print('OrganizationSelectionService: Saving selected permission: $permissionId');
-    final result = await prefs.setString('selected_permission_id', permissionId);
-    if (result) {
-      _notifyPermissionChange(permissionId);
-    }
-    return result;
+    return prefs.setString('selected_permission_id', permissionId);
+  }
+
+  /// Fire the permission-changed notification.  Call this once ALL related
+  /// preferences (org, troop, isAdmin) have been persisted.
+  void notifyPermissionSelected(String permissionId) {
+    _notifyPermissionChange(permissionId);
   }
 
   /// Get the currently selected permission ID

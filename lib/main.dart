@@ -199,10 +199,18 @@ void main() async {
 
     // Reload the lookup cache after each sync cycle completes so that labels
     // appear even when tables were empty on the first boot (pre-sync).
+    // Throttle: only reload when lastSyncedAt actually advances to avoid
+    // repeated loads on rapid status flickers.
     bool _wasDownloading = db.currentStatus.downloading;
+    DateTime? _lastLookupReloadAt;
     db.statusStream.listen((status) {
       if (_wasDownloading && !status.downloading) {
-        LookupService.instance.load();
+        final now = DateTime.now();
+        if (_lastLookupReloadAt == null ||
+            now.difference(_lastLookupReloadAt!) > const Duration(minutes: 5)) {
+          _lastLookupReloadAt = now;
+          LookupService.instance.load();
+        }
       }
       _wasDownloading = status.downloading;
     });

@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'package:terrestrial_forest_monitor/services/offline_auth_service.dart';
 import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'dart:async';
 
 class AuthProvider extends ChangeNotifier {
@@ -82,9 +83,11 @@ class AuthProvider extends ChangeNotifier {
     // cycle, locking the user out after coming back from days offline.
     if ((data.event == AuthChangeEvent.tokenRefreshed || data.event == AuthChangeEvent.signedIn) &&
         data.session != null &&
-        data.session!.refreshToken != null) {
+        data.session!.refreshToken != null &&
+        data.session!.user.email != null) {
       try {
         await _offlineAuthService.updateTokens(
+          email: data.session!.user.email!,
           accessToken: data.session!.accessToken,
           refreshToken: data.session!.refreshToken!,
           tokenExpiry: data.session!.expiresAt != null
@@ -95,6 +98,18 @@ class AuthProvider extends ChangeNotifier {
       } catch (e) {
         print('AuthProvider: Failed to persist refreshed tokens - $e');
       }
+    }
+
+    // When Supabase fires signedOut while we are already in offline mode
+    // (e.g. it detects a stale/expired stored session after connectivity is
+    // restored) we must NOT log the user out — the offline session is still
+    // valid and _upgradeToOnlineMode() will re-establish the Supabase session.
+    if (data.event == AuthChangeEvent.signedOut &&
+        _isAuthenticated &&
+        _isOfflineMode &&
+        !_isExplicitLogout) {
+      print('AuthProvider: signedOut ignored — already in offline mode');
+      return;
     }
 
     // When Supabase fires signedOut due to a failed token refresh while the
@@ -121,6 +136,20 @@ class AuthProvider extends ChangeNotifier {
       _sessionExpiredError = true;
     }
 
+    // On sign-in, switch to the user's personal database BEFORE calling
+    // _getUser() so that navigation (triggered by notifyListeners inside
+    // _getUser) never sees the previous user's data.
+    if (data.event == AuthChangeEvent.signedIn && data.session?.user.id != null) {
+      try {
+        await switchUserDatabase(data.session!.user.id);
+        // Connect the freshly-initialised per-user db to PowerSync.
+        db.connect(connector: SupabaseConnector());
+        print('AuthProvider: switched db and connected for ${data.session!.user.id}');
+      } catch (e) {
+        print('AuthProvider: switchUserDatabase failed on signedIn (ignored): $e');
+      }
+    }
+
     _isExplicitLogout = false;
     _getUser();
   }
@@ -137,9 +166,13 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _upgradeToOnlineMode() async {
     try {
-      // Get cached refresh token and access token
-      final refreshToken = await _offlineAuthService.getRefreshToken();
-      final accessToken = await _offlineAuthService.getAccessToken();
+      // Get cached refresh token and access token for the current offline user
+      if (_userEmail == null) {
+        print('AuthProvider: Cannot upgrade to online mode - no user email available');
+        return;
+      }
+      final refreshToken = await _offlineAuthService.getRefreshToken(_userEmail!);
+      final accessToken = await _offlineAuthService.getAccessToken(_userEmail!);
 
       if (refreshToken == null || accessToken == null) {
         print('AuthProvider: Cannot upgrade to online mode - no tokens available');
@@ -155,8 +188,9 @@ class AuthProvider extends ChangeNotifier {
         print('AuthProvider: Successfully upgraded to online mode - ${response.user!.email}');
 
         // Update stored tokens with new ones (only if refresh token is available)
-        if (response.session!.refreshToken != null) {
+        if (response.session!.refreshToken != null && response.user!.email != null) {
           await _offlineAuthService.updateTokens(
+            email: response.user!.email!,
             accessToken: response.session!.accessToken,
             refreshToken: response.session!.refreshToken!,
             tokenExpiry: response.session!.expiresAt != null
@@ -165,15 +199,72 @@ class AuthProvider extends ChangeNotifier {
           );
         }
 
-        // Clear offline mode - the auth state listener will update authentication state
+        // Clear offline mode first so the BeamGuard doesn't redirect on notify.
         _isOfflineMode = false;
         notifyListeners();
+
+        // Connect PowerSync directly here. The onAuthStateChange(signedIn)
+        // handler also calls db.connect(), but it runs asynchronously and its
+        // timing relative to this point is unpredictable. Calling connect()
+        // here ensures the sync chip updates immediately when the session is
+        // restored. PowerSyncDatabase.connect() is safe to call more than once.
+        db.connect(connector: SupabaseConnector());
+        print('AuthProvider: PowerSync connect triggered after offline→online upgrade');
       } else {
         print('AuthProvider: Session restore returned no session - staying in offline mode');
       }
     } catch (e) {
       print('AuthProvider: Error upgrading to online mode - $e');
-      // If refresh fails, stay in offline mode until manual re-login
+
+      // If the stored refresh token has been revoked / rotated server-side
+      // (Supabase returns refresh_token_not_found / 400), fall back to
+      // re-authenticating with the cached password. This is transparent to
+      // the user — they stay on the current screen and PowerSync connects
+      // normally once the fresh session is established.
+      final errStr = e.toString();
+      final isTokenInvalid =
+          errStr.contains('refresh_token_not_found') ||
+          errStr.contains('token_not_found') ||
+          errStr.contains('Invalid Refresh Token') ||
+          (errStr.contains('statusCode: 400') && errStr.contains('AuthApiException'));
+
+      if (isTokenInvalid && _userEmail != null) {
+        print('AuthProvider: Refresh token invalid — retrying with cached password');
+        await _upgradeWithPassword();
+      }
+      // For transient errors (SocketException, timeout, etc.) stay in offline
+      // mode — the upgrade will be retried when connectivity changes again.
+    }
+  }
+
+  /// Fallback: re-authenticate using the stored password when the refresh
+  /// token has been rotated. Stays in offline mode silently on failure.
+  Future<void> _upgradeWithPassword() async {
+    try {
+      final password = await _offlineAuthService.getCachedPassword(_userEmail!);
+      if (password == null) {
+        print('AuthProvider: No cached password available for password fallback');
+        return;
+      }
+
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: _userEmail!,
+        password: password,
+      );
+
+      if (response.session != null && response.user != null) {
+        print('AuthProvider: Password fallback succeeded — upgraded to online mode');
+        // signedIn event will fire and call db.connect() via the auth listener,
+        // but call it directly here too for immediate feedback.
+        _isOfflineMode = false;
+        notifyListeners();
+        db.connect(connector: SupabaseConnector());
+      } else {
+        print('AuthProvider: Password fallback returned no session — staying offline');
+      }
+    } catch (e) {
+      print('AuthProvider: Password fallback failed — staying offline: $e');
+      // Silently stay in offline mode; never force-redirect to login.
     }
   }
 
@@ -189,7 +280,10 @@ class AuthProvider extends ChangeNotifier {
         _userId = user.id;
         shouldNotify = true;
       }
-    } else {
+    } else if (!_isOfflineMode) {
+      // Only clear auth if we are NOT in offline mode. In offline mode there
+      // is intentionally no Supabase session, so a null currentUser is expected
+      // and must not be treated as a sign-out.
       if (_isAuthenticated) {
         print('AuthProvider: No authenticated user');
         _isAuthenticated = false;
@@ -266,6 +360,12 @@ class AuthProvider extends ChangeNotifier {
         _userId = result['userId'];
         _loggingIn = false;
 
+        // Switch to this user's personal database file so their offline
+        // data is available and other users' data is not visible.
+        if (_userId != null) {
+          await switchUserDatabase(_userId!);
+        }
+
         print('AuthProvider: Offline login successful - user: $_userEmail, id: $_userId');
         notifyListeners();
       } else {
@@ -283,8 +383,9 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      // Clear selected organization before logging out
-      await OrganizationSelectionService().clearSelectedOrganization();
+      // Clear ALL selected-organization preferences before logging out so the
+      // next user starts with a clean slate (troop, isAdmin, permissionId, etc.)
+      await OrganizationSelectionService().clearAllSelections();
 
       // Cancel background sync when logging out
       await BackgroundSyncService.cancelAll();
@@ -329,7 +430,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<DateTime?> getLastOnlineLogin() async {
-    return await _offlineAuthService.getLastOnlineLogin();
+    if (_userEmail == null) return null;
+    return await _offlineAuthService.getLastOnlineLogin(_userEmail!);
   }
 
   Future<void> checkAuthStatus() async {

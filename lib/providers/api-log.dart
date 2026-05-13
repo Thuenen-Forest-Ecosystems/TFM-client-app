@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 class ApiLog with ChangeNotifier, DiagnosticableTreeMixin {
   List<dynamic> _errorLog = [];
   String? _token;
+  static const int _maxLogs = 100;
 
   ApiLog(this._token);
 
@@ -11,6 +12,9 @@ class ApiLog with ChangeNotifier, DiagnosticableTreeMixin {
 
   void addLog(dynamic log) {
     _errorLog.add(log);
+    if (_errorLog.length > _maxLogs) {
+      _errorLog.removeAt(0);
+    }
     notifyListeners();
   }
 

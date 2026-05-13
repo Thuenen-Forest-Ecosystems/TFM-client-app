@@ -24,11 +24,23 @@ class SchemaSelection extends StatefulWidget {
 
 class _SchemaSelectionState extends State<SchemaSelection> {
   bool _isDatabaseAdmin = false;
+  StreamSubscription<void>? _dbSwitchSub;
 
   @override
   void initState() {
     super.initState();
     _checkDatabaseAdminStatus();
+    // When switchUserDatabase swaps the global db, rebuild so the StreamBuilder
+    // below re-creates its stream from the new db instance.
+    _dbSwitchSub = dbSwitchEvents.listen((_) {
+      if (mounted) setState(() => _isDatabaseAdmin = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _dbSwitchSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkDatabaseAdminStatus() async {

@@ -1755,7 +1755,9 @@ class _MapWidgetState extends State<MapWidget> {
           final isHigh = newZoom >= 13.5;
           final shouldShowLabels = newZoom >= 13;
 
-          if (isLow != wasLow || isMid != wasMid || isHigh != wasHigh ||
+          if (isLow != wasLow ||
+              isMid != wasMid ||
+              isHigh != wasHigh ||
               shouldShowLabels != wasShowingLabels) {
             setState(() {
               _currentZoom = newZoom;
@@ -1803,8 +1805,10 @@ class _MapWidgetState extends State<MapWidget> {
               ),
             )),
           ),
-        if (_selectedBasemaps.contains('opencycle') && _storesInitialized &&
-            _currentZoom >= 9.5 && _currentZoom < 13.5)
+        if (_selectedBasemaps.contains('opencycle') &&
+            _storesInitialized &&
+            _currentZoom >= 9.5 &&
+            _currentZoom < 13.5)
           TileLayer(
             urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',

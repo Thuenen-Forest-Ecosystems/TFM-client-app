@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
+import 'package:powersync/powersync.dart' hide Column;
 import 'package:terrestrial_forest_monitor/repositories/permissions_repository.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 /// Widget that displays a list of permissions (organizations) assigned to a user.
 /// Shows organization names as selectable radio buttons.
@@ -22,12 +26,24 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
 
   late Stream<List<TroopModel>> _troopsStream;
   late Stream<List<PermissionModel>> _permissionsStream;
+  StreamSubscription<void>? _dbSwitchSub;
 
   @override
   void initState() {
     super.initState();
     _loadSelectedOrganization();
     _initStreams();
+    // When switchUserDatabase swaps the global db, reinitialize streams so
+    // the StreamBuilders query the new db instance (e.g. after offline login).
+    _dbSwitchSub = dbSwitchEvents.listen((_) {
+      if (mounted) setState(() => _initStreams());
+    });
+  }
+
+  @override
+  void dispose() {
+    _dbSwitchSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -69,11 +85,14 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     String? troopId,
     String? troopName,
   }) async {
+    // Save all settings FIRST, then notify listeners so that _getOrganizationFilter
+    // sees a fully consistent state (no stale troop/isAdmin from previous user).
     await _selectionService.setSelectedPermissionId(permissionId);
     await _selectionService.setSelectedOrganizationId(organizationId);
     await _selectionService.setIsOrganizationAdmin(isAdmin);
     await _selectionService.setSelectedTroopId(troopId);
     await _selectionService.setSelectedTroopName(troopName);
+    _selectionService.notifyPermissionSelected(permissionId);
 
     if (mounted) {
       //setState(() {
@@ -128,12 +147,42 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
             final permissions = snapshot.data ?? [];
 
             if (permissions.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'Keine Berechtigungen gefunden',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
+              return StreamBuilder<SyncStatus>(
+                stream: db.statusStream,
+                initialData: db.currentStatus,
+                builder: (context, syncSnapshot) {
+                  final status = syncSnapshot.data ?? db.currentStatus;
+                  final isDownloading = status.downloading;
+                  if (isDownloading) {
+                    final fraction = status.downloadProgress?.downloadedFraction;
+                    final percentText = fraction != null ? ' ${(fraction * 100).round()}%' : '';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Berechtigungen werden synchronisiert…$percentText',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Keine Berechtigungen gefunden',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  );
+                },
               );
             }
 
