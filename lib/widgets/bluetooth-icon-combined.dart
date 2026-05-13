@@ -1,10 +1,10 @@
+import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
-import 'dart:async';
-import 'dart:io' show Platform;
 
 // Combined device class to hold both BLE and Classic devices
 class CombinedBluetoothDevice {
@@ -111,6 +111,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
   StreamSubscription<List<ble.ScanResult>>? _bleScanSubscription;
   classic.FlutterBluetoothSerial? _flutterBluetoothSerial;
   StreamSubscription<classic.BluetoothDiscoveryResult>? _classicScanSubscription;
+  Timer? _classicReconnectTimeout;
   late Future<bool> _bluetoothCheckFuture;
 
   @override
@@ -147,6 +148,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
   void dispose() {
     _bleScanSubscription?.cancel();
     _classicScanSubscription?.cancel();
+    _classicReconnectTimeout?.cancel();
     ble.FlutterBluePlus.stopScan();
     super.dispose();
   }
@@ -168,6 +170,11 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
       }
       _classicScanSubscription?.cancel();
       _classicScanSubscription = null;
+      _classicReconnectTimeout?.cancel();
+      _classicReconnectTimeout = null;
+      // Explicitly cancel Android Classic discovery so the adapter is free
+      // for the next startDiscovery() call.
+      await _flutterBluetoothSerial?.cancelDiscovery();
       if (mounted) setState(() => _isScanning = false);
     } catch (e) {
       debugPrint('Error stopping scans: $e');
@@ -189,31 +196,57 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
     });
 
     try {
+      // Phase 1: BLE scan (10 s).
+      // startScan(timeout:) starts the scan and schedules an auto-stop; it
+      // completes almost immediately, so we also await a matching delay so
+      // that results can come in via _bleScanSubscription before we move on.
       await ble.FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
       await Future.delayed(const Duration(seconds: 10));
       await ble.FlutterBluePlus.stopScan();
-      if (mounted) setState(() => _isScanning = false);
+      // _isScanning intentionally stays true — Classic scan follows.
 
+      // Phase 2: Classic scan (Android, up to ~14 s).
+      // Running both simultaneously interferes with BLE on Android, so we run
+      // them sequentially and only clear _isScanning after Classic is done.
       if (Platform.isAndroid && _flutterBluetoothSerial != null) {
-        _classicScanSubscription?.cancel();
-        _classicScanSubscription = _flutterBluetoothSerial!.startDiscovery().listen((result) {
-          if (!mounted) return;
-          setState(() {
-            final exists = _combinedDevices.any((d) => d.id == result.device.address);
-            if (!exists) {
-              _combinedDevices.add(
-                CombinedBluetoothDevice(
-                  id: result.device.address,
-                  name: result.device.name ?? 'Unknown Classic Device',
-                  rssi: result.rssi,
-                  isBLE: false,
-                  classicDevice: result.device,
-                ),
-              );
-            }
-          });
-        }, onError: (e) => debugPrint('Classic scan error: $e'));
-        Future.delayed(const Duration(seconds: 10), () => _classicScanSubscription?.cancel());
+        // Cancel any lingering discovery on the Android side, then give the
+        // adapter a moment to settle before starting a new inquiry.
+        await _flutterBluetoothSerial!.cancelDiscovery();
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        _classicScanSubscription = _flutterBluetoothSerial!.startDiscovery().listen(
+          (result) {
+            if (!mounted) return;
+            setState(() {
+              final exists = _combinedDevices.any((d) => d.id == result.device.address);
+              if (!exists) {
+                _combinedDevices.add(
+                  CombinedBluetoothDevice(
+                    id: result.device.address,
+                    name: result.device.name ?? 'Unknown Classic Device',
+                    rssi: result.rssi,
+                    isBLE: false,
+                    classicDevice: result.device,
+                  ),
+                );
+              }
+            });
+          },
+          onError: (e) => debugPrint('Classic scan error: $e'),
+          onDone: () {
+            _classicReconnectTimeout?.cancel();
+            _classicReconnectTimeout = null;
+            if (mounted) setState(() => _isScanning = false);
+          },
+        );
+        // Safety-net timer in case onDone never fires.
+        _classicReconnectTimeout = Timer(const Duration(seconds: 14), () {
+          _classicScanSubscription?.cancel();
+          _classicScanSubscription = null;
+          if (mounted) setState(() => _isScanning = false);
+        });
+      } else {
+        if (mounted) setState(() => _isScanning = false);
       }
     } catch (e) {
       debugPrint('Scan error: $e');

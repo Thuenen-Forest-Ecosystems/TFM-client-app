@@ -330,19 +330,20 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
       // Check if it's a valid NMEA sentence (starts with $)
       if (sentence.startsWith('\$')) {
         try {
-          List<String> fields = sentence.split(',');
+          // Strip NMEA checksum (*HH) from the sentence before splitting so that
+          // the last field (e.g. VDOP in GNGSA) is not returned as "1.42*1D".
+          final checksumIndex = sentence.indexOf('*');
+          final cleanedSentence = checksumIndex != -1
+              ? sentence.substring(0, checksumIndex)
+              : sentence;
+          List<String> fields = cleanedSentence.split(',');
 
           // Ensure there are enough fields before accessing them
           if (fields.length < 2) continue;
 
-          // Extract talker ID (e.g., GNRMC, GNGGA) - handle potential checksum *NN
+          // Extract talker ID (e.g., GNRMC, GNGGA)
           String sentenceIdentifier = fields[0];
-          String talkerId = sentenceIdentifier.substring(
-            1,
-            sentenceIdentifier.contains('*')
-                ? sentenceIdentifier.indexOf('*')
-                : sentenceIdentifier.length,
-          );
+          String talkerId = sentenceIdentifier.substring(1);
 
           // https://openrtk.readthedocs.io/en/latest/communication_port/nmea.html
           // --- GNRMC ---
@@ -391,7 +392,8 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
                 nmeaState.longitude = dmsToDecimal(longitude, longitudeDirection);
                 nmeaState.altitude = double.tryParse(altitude);
                 nmeaState.satellites = int.tryParse(satellites);
-                nmeaState.hdop = double.tryParse(horizontalDilution); // Store HDOP from GGA
+                // Store HDOP from GGA; keep any existing value if this field is empty
+                nmeaState.hdop = double.tryParse(horizontalDilution) ?? nmeaState.hdop;
                 nmeaState.fixQuality = quality;
               } else {
                 // Fix is not valid, maybe clear relevant fields?
@@ -416,8 +418,7 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
               // nmeaState.mode = mode; // Mode from GSA
               nmeaState.fixType = int.tryParse(fixType);
               nmeaState.pdop = double.tryParse(pdop);
-              // Prefer HDOP from GGA if available, but store GSA's if GGA wasn't parsed yet
-              nmeaState.hdop ??= double.tryParse(hdop);
+              nmeaState.hdop = double.tryParse(hdop) ?? nmeaState.hdop;
               nmeaState.vdop = double.tryParse(vdop);
             }
             // --- GPVTG (Optional, another source for Course Over Ground) ---
