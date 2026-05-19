@@ -93,6 +93,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   List<ArrayFilterRule> _filters = [];
   Set<int> _activeFilterIndices = {};
   bool _filtersLoaded = false;
+  final Map<int, Map<String, dynamic>> _hiddenRowsByOriginalIndex = {};
 
   // Maps field name -> layout item config for calculated columns (used to pre-compute sortable cell values)
   final Map<String, Map<String, dynamic>> _calculatedColumnConfigs = {};
@@ -1356,16 +1357,37 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     final properties = itemSchema?['properties'] as Map<String, dynamic>?;
 
-    // Apply filters if any are active, tracking original indices
-    List<dynamic> filteredData = widget.data!;
-    List<int> originalIndices = List.generate(widget.data!.length, (i) => i);
+    _hiddenRowsByOriginalIndex.clear();
+
+    // Build visible candidate rows first, excluding deprecated rows.
+    final visibleCandidates = <dynamic>[];
+    final candidateIndices = <int>[];
+
+    for (int i = 0; i < widget.data!.length; i++) {
+      final item = widget.data![i];
+      final itemMap = item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{};
+      final isDeprecated = itemMap['_deprecated'] == true;
+
+      if (isDeprecated) {
+        _hiddenRowsByOriginalIndex[i] = itemMap;
+        continue;
+      }
+
+      visibleCandidates.add(item);
+      candidateIndices.add(i);
+    }
+
+    // Apply user filters to non-deprecated candidates, tracking original indices.
+    List<dynamic> filteredData = visibleCandidates;
+    List<int> originalIndices = candidateIndices;
 
     if (_filters.isNotEmpty && _activeFilterIndices.isNotEmpty) {
       final tempFiltered = <dynamic>[];
       final tempIndices = <int>[];
 
-      for (int i = 0; i < widget.data!.length; i++) {
-        final item = widget.data![i];
+      for (int i = 0; i < visibleCandidates.length; i++) {
+        final item = visibleCandidates[i];
+        final originalIndex = candidateIndices[i];
         bool passesFilters = true;
 
         // Row must pass ALL active filters
@@ -1385,7 +1407,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
         if (passesFilters) {
           tempFiltered.add(item);
-          tempIndices.add(i); // Keep track of original index
+          tempIndices.add(originalIndex); // Keep track of original index
+        } else {
+          _hiddenRowsByOriginalIndex[originalIndex] = item is Map
+              ? Map<String, dynamic>.from(item)
+              : <String, dynamic>{};
         }
       }
 
@@ -1393,7 +1419,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       originalIndices = tempIndices;
 
       debugPrint(
-        'Filtered ${widget.data!.length} rows to ${filteredData.length} rows (${_activeFilterIndices.length} active filters)',
+        'Filtered ${visibleCandidates.length} visible rows to ${filteredData.length} rows (${_activeFilterIndices.length} active filters)',
       );
     }
 
@@ -2290,15 +2316,38 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
   /// Compute the next auto-increment value for a field given current rows.
   int _computeNextAutoIncrementValue(String key, Map<String, dynamic> propertySchema) {
-    final existingValues = _rows
-        .map((row) => row.cells[key]?.value)
-        .where((v) => v != null && v is num)
-        .map((v) => (v as num).toInt())
-        .toList();
+    int? parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
+    final existingValues = <int>{};
+
+    final rowsToUse = _stateManager?.rows ?? _rows;
+    for (final row in rowsToUse) {
+      final intValue = parseInt(row.cells[key]?.value);
+      if (intValue != null) existingValues.add(intValue);
+    }
+
+    if (widget.data != null) {
+      for (final item in widget.data!) {
+        if (item is! Map) continue;
+        final intValue = parseInt(item[key]);
+        if (intValue != null) existingValues.add(intValue);
+      }
+    }
+
     final defaultValue = propertySchema['default'] as int? ?? 1;
-    return existingValues.isEmpty
-        ? defaultValue
-        : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+    if (existingValues.isEmpty) return defaultValue;
+
+    int maxValue = existingValues.first;
+    for (final value in existingValues) {
+      if (value > maxValue) maxValue = value;
+    }
+
+    return maxValue + 1;
   }
 
   Future<void> _addRowAsFormDialog() async {
@@ -2446,18 +2495,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final autoIncrement = form?['autoIncrement'] as bool? ?? false;
 
       if (autoIncrement && (type == 'integer' || type == 'number')) {
-        // Auto-increment: find max value and add 1
-        final existingValues = _rows
-            .map((row) => row.cells[key]?.value)
-            .where((v) => v != null && v is num)
-            .map((v) => (v as num).toInt())
-            .toList();
-
-        final defaultValue = propertySchema['default'] as int? ?? 1;
-        newRow[key] = existingValues.isEmpty
-            ? defaultValue
-            : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
-        debugPrint('  ✅ $key = ${newRow[key]} (autoIncrement, default: $defaultValue)');
+        // Auto-increment from full dataset (including hidden/deprecated rows).
+        newRow[key] = _computeNextAutoIncrementValue(key, propertySchema);
+        debugPrint('  ✅ $key = ${newRow[key]} (autoIncrement)');
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
         debugPrint('  ✅ $key = ${newRow[key]} (default from schema)');
@@ -2598,17 +2638,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         final autoIncrement = form?['autoIncrement'] as bool? ?? false;
 
         if (autoIncrement && (type == 'integer' || type == 'number')) {
-          // Auto-increment: find max value and add 1 (don't copy the original value)
-          final existingValues = _rows
-              .map((row) => row.cells[key]?.value)
-              .where((v) => v != null && v is num)
-              .map((v) => (v as num).toInt())
-              .toList();
-
-          final defaultValue = propertySchema['default'] as int? ?? 1;
-          final nextValue = existingValues.isEmpty
-              ? defaultValue
-              : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+          // Auto-increment from full dataset (including hidden/deprecated rows).
+          final nextValue = _computeNextAutoIncrementValue(key, propertySchema);
 
           newCells[key] = TrinaCell(value: nextValue);
           debugPrint('  🔢 AutoIncrement field $key: copied value ignored, using $nextValue');
@@ -2744,6 +2775,16 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         }
       });
       rowDataEntries.add(MapEntry(originalIndex, rowData));
+    }
+
+    // Keep rows hidden in the UI (deprecated and filter-hidden) in the payload.
+    if (!forceData && _hiddenRowsByOriginalIndex.isNotEmpty) {
+      final presentIndices = rowDataEntries.map((e) => e.key).toSet();
+      _hiddenRowsByOriginalIndex.forEach((originalIndex, rowData) {
+        if (!presentIndices.contains(originalIndex)) {
+          rowDataEntries.add(MapEntry(originalIndex, Map<String, dynamic>.from(rowData)));
+        }
+      });
     }
 
     // Sort by original index to always send data in a stable order

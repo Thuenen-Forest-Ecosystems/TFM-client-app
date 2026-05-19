@@ -376,7 +376,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
   @override
   Widget build(BuildContext context) {
     // Null data means the array has never been initialised yet
-    if (widget.data == null) {
+    /*if (widget.data == null) {
       return Center(
         child: ElevatedButton(
           onPressed: () {
@@ -385,14 +385,15 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
               _rows = [];
             });
           },
-          child: const Text('Kein Eintrag erforderlich'),
+          child: const Text('Kein Eintrag erforderlichww'),
         ),
       );
-    }
+    }*/
 
     final maxRows = (widget.layoutOptions?['maxRows'] as num?)?.toInt();
     final atMax = maxRows != null && _rows.length >= maxRows;
-    final margin = (widget.layoutOptions?['margin'] as num?)?.toDouble() ?? 0.0;
+    final margin = 0.0;
+    //(widget.layoutOptions?['margin'] as num?)?.toDouble() ?? 0.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(

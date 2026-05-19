@@ -52,6 +52,8 @@ const listOfLookupTables = [
   'lookup_trees_less_4meter_layer',
   'lookup_trees_less_4meter_mirrored',
   'lookup_trees_less_4meter_origin',
+  'lookup_trees_greater_4meter_mirrored',
+  'lookup_cover_percentage',
   'lookup_natur_schutzgebiet',
   'lookup_vogel_schutzgebiet',
   'lookup_natur_park',

@@ -434,8 +434,7 @@ class _HelpingPointState extends State<HelpingPoint> {
                                 ),
                               TextButton.icon(
                                 onPressed: _startRecording,
-                                icon: const Icon(Icons.gps_fixed, size: 18),
-                                label: const Text('Einmessung starten'),
+                                label: const Text('neue Einmessung'),
                               ),
                             ],
                           ),
