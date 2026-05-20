@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
@@ -94,6 +95,7 @@ class _ProfileState extends State<Profile> {
       'show_crown_circles',
       'show_cluster_polygons',
       'show_probekreise',
+      'app_language',
     };
 
     for (final key in allKeys) {
@@ -107,6 +109,7 @@ class _ProfileState extends State<Profile> {
     await FloatingNumKeyboard.loadPreference();
 
     if (!mounted) return;
+    context.read<Language>().setLocale(const Locale('system'));
     context.read<ThemeModeProvider>().setTheme(ThemeMode.dark);
     setState(() => _resetKey++);
     ScaffoldMessenger.of(

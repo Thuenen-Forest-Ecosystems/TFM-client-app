@@ -13,9 +13,9 @@ const _kSupported = ['en', 'de'];
 Locale _resolveLocale(String code) {
   if (code == 'system') {
     final systemCode = SchedulerBinding.instance.platformDispatcher.locale.languageCode;
-    return Locale(_kSupported.contains(systemCode) ? systemCode : 'en');
+    return Locale(_kSupported.contains(systemCode) ? systemCode : 'de');
   }
-  return Locale(_kSupported.contains(code) ? code : 'en');
+  return Locale(_kSupported.contains(code) ? code : 'de');
 }
 
 class Language with ChangeNotifier, DiagnosticableTreeMixin {
@@ -57,8 +57,8 @@ class Language with ChangeNotifier, DiagnosticableTreeMixin {
     if (saved != null) {
       return _resolveLocale(saved);
     }
-    // No saved preference: use system language if supported, else 'en'.
-    return Locale(_kSupported.contains(systemCode) ? systemCode : 'en');
+    // No saved preference: use system language if supported, else 'de'.
+    return Locale(_kSupported.contains(systemCode) ? systemCode : 'de');
   }
 
   void watchLanguageChange() async {
@@ -69,11 +69,11 @@ class Language with ChangeNotifier, DiagnosticableTreeMixin {
 
       if (event.isNotEmpty) {
         String languageCountry = event.first['value'];
-        Locale newLanguage = Locale('en');
+        Locale newLanguage = const Locale('de');
         if (supportedLanguages.contains(languageCountry.split('_')[0])) {
           newLanguage = Locale(languageCountry);
         } else {
-          newLanguage = const Locale('en');
+          newLanguage = const Locale('de');
         }
         if (_locale != newLanguage) {
           print('newLanguage: $newLanguage');
