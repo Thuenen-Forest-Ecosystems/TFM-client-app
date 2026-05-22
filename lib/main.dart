@@ -220,8 +220,11 @@ void main() async {
       await initializeAttachmentQueue(db);
     }
 
-    // Initialize validation service (flutter_inappwebview not supported on web)
-    if (!kIsWeb) {
+    // Initialize validation service (flutter_inappwebview not supported on web or Windows desktop)
+    // On Windows the HeadlessInAppWebView (WebView2) runs a full browser process in the
+    // background and is the single largest source of energy consumption. Initialise
+    // lazily (on first form open) instead of at startup.
+    if (!kIsWeb && !Platform.isWindows) {
       await ValidationService.instance.initialize();
     }
 

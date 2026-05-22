@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -7,6 +9,12 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 class AppLifecycleManager extends WidgetsBindingObserver {
   bool _isSyncInProgress = false;
   bool _keepSyncActive = false;
+
+  /// True when running on a desktop OS (Windows / macOS / Linux).
+  /// Desktop OSes manage their own power policy; wake locks are unnecessary
+  /// and prevent the system from sleeping during idle sync activity.
+  static bool get _isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   /// Initialize the lifecycle manager
   /// Call this in main() after initializing PowerSync
@@ -31,28 +39,34 @@ class AppLifecycleManager extends WidgetsBindingObserver {
     debugPrint('AppLifecycleManager: Initialized');
   }
 
-  /// Enable wake lock to keep device awake during sync
+  /// Enable wake lock to keep device awake during sync.
+  /// Skipped on desktop (Windows/macOS/Linux) — the OS manages power policy
+  /// itself and a perpetual wake lock would prevent sleep during idle sync.
   Future<void> _enableWakeLock() async {
     if (!_keepSyncActive) {
       _keepSyncActive = true;
-      try {
-        await WakelockPlus.enable();
-        debugPrint('AppLifecycleManager: Wake lock enabled');
-      } catch (e) {
-        debugPrint('AppLifecycleManager: Failed to enable wake lock: $e');
+      if (!_isDesktop) {
+        try {
+          await WakelockPlus.enable();
+          debugPrint('AppLifecycleManager: Wake lock enabled');
+        } catch (e) {
+          debugPrint('AppLifecycleManager: Failed to enable wake lock: $e');
+        }
       }
     }
   }
 
-  /// Disable wake lock after sync completes
+  /// Disable wake lock after sync completes.
   Future<void> _disableWakeLock() async {
     if (_keepSyncActive) {
       _keepSyncActive = false;
-      try {
-        await WakelockPlus.disable();
-        debugPrint('AppLifecycleManager: Wake lock disabled');
-      } catch (e) {
-        debugPrint('AppLifecycleManager: Failed to disable wake lock: $e');
+      if (!_isDesktop) {
+        try {
+          await WakelockPlus.disable();
+          debugPrint('AppLifecycleManager: Wake lock disabled');
+        } catch (e) {
+          debugPrint('AppLifecycleManager: Failed to disable wake lock: $e');
+        }
       }
     }
   }

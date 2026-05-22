@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:latlong2/latlong.dart';
 
 import 'package:flutter/material.dart';
@@ -159,6 +161,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
     // Cancel any pending validation timer
     _validationDebounceTimer?.cancel();
+
+    // On Windows the ValidationService is lazy-initialised (not started at
+    // startup). Dispose the HeadlessInAppWebView when the form closes so the
+    // background WebView2 process does not persist between form sessions.
+    if (!kIsWeb && Platform.isWindows) {
+      ValidationService.instance.dispose();
+    }
 
     // Clear distance line and focused record immediately when leaving
     // Only clear if the focused record matches this page's record
