@@ -39,7 +39,6 @@ class _MapAdminState extends State<MapAdmin> {
         final stats = await store.stats.length;
         tileCounts[storeName] = stats;
       } catch (e) {
-        print('Error loading stats for $storeName: $e');
         tileCounts[storeName] = 0;
       }
     }

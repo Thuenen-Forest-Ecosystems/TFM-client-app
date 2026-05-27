@@ -81,38 +81,26 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     // Load previously saved acknowledged errors if record exists
     Map<String, AcknowledgedError> savedErrors = {};
     if (widget.record != null) {
-      debugPrint('🔑 Loading saved errors from record ${widget.record!.id}');
-      debugPrint('🔑 validationErrors: ${widget.record!.validationErrors}');
-      debugPrint('🔑 plausibilityErrors: ${widget.record!.plausibilityErrors}');
 
       // Load validation errors (AJV errors)
-      debugPrint('🔑 Decoding validation errors...');
       final validationErrorsList = AcknowledgedError.decodeList(widget.record!.validationErrors);
-      debugPrint('🔑 Decoded ${validationErrorsList.length} validation errors');
       for (var error in validationErrorsList) {
         final key = _savedErrorKey(error);
         savedErrors[key] = error;
-        debugPrint('🔑 Saved AJV error key: $key');
       }
 
       // Load plausibility errors (TFM errors)
-      debugPrint('🔑 Decoding plausibility errors...');
       final plausibilityErrorsList = AcknowledgedError.decodeList(
         widget.record!.plausibilityErrors,
       );
-      debugPrint('🔑 Decoded ${plausibilityErrorsList.length} plausibility errors');
       for (var error in plausibilityErrorsList) {
         final key = _savedErrorKey(error);
         savedErrors[key] = error;
-        debugPrint('🔑 Saved TFM error key: $key');
       }
     }
 
-    debugPrint('🔑 Total saved errors loaded: ${savedErrors.length}');
     if (savedErrors.isNotEmpty) {
-      debugPrint('🔑 All saved error keys:');
       for (var key in savedErrors.keys) {
-        debugPrint('🔑   - "$key"');
       }
     }
 
@@ -151,12 +139,10 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
   /// Close the dialog after saving acknowledged errors
   Future<void> _closeDialog() async {
     if (_isPopping) {
-      debugPrint('🚪 _closeDialog: Already popping, ignoring');
       return;
     }
 
     _isPopping = true;
-    debugPrint('🚪 _closeDialog: Saving before close...');
     await _saveAcknowledgedErrorsToDatabase();
 
     if (mounted) {
@@ -180,12 +166,10 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
   /// Uses _hasSaved guard to prevent double saves from racing
   Future<bool> _saveAcknowledgedErrorsToDatabase() async {
     if (widget.record == null || widget.record!.id == null) {
-      debugPrint('💾 Skip save: no record or record ID');
       return false;
     }
 
     if (_hasSaved) {
-      debugPrint('💾 Skip save: already saved this session');
       return true;
     }
 
@@ -204,31 +188,14 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           ? AcknowledgedError.encodeList(plausibilityErrors)
           : null;
 
-      debugPrint('💾 Saving acknowledged errors to DB for record ${widget.record!.id}');
-      debugPrint('💾 validation_errors: ${validationErrors.length} items');
-      debugPrint('💾 plausibility_errors: ${plausibilityErrors.length} items');
-      debugPrint('💾 validationErrorsJson type: ${validationErrorsJson.runtimeType}');
-      debugPrint(
-        '💾 validationErrorsJson: ${validationErrorsJson?.substring(0, validationErrorsJson.length > 150 ? 150 : validationErrorsJson.length)}',
-      );
-      debugPrint('💾 plausibilityErrorsJson type: ${plausibilityErrorsJson.runtimeType}');
-      debugPrint(
-        '💾 plausibilityErrorsJson: ${plausibilityErrorsJson?.substring(0, plausibilityErrorsJson.length > 150 ? 150 : plausibilityErrorsJson.length)}',
-      );
 
       // Debug: Print what we're saving
       if (validationErrors.isNotEmpty) {
-        debugPrint('💾 Saving validation errors:');
         for (var err in validationErrors) {
-          debugPrint('💾   Key would be: ${_savedErrorKey(err)}');
-          debugPrint('💾   Note: ${err.note}');
         }
       }
       if (plausibilityErrors.isNotEmpty) {
-        debugPrint('💾 Saving plausibility errors:');
         for (var err in plausibilityErrors) {
-          debugPrint('💾   Key would be: ${_savedErrorKey(err)}');
-          debugPrint('💾   Note: ${err.note}');
         }
       }
 
@@ -237,10 +204,8 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
         [validationErrorsJson, plausibilityErrorsJson, widget.record!.id],
       );
 
-      debugPrint('💾 ✅ Save successful');
       return true;
     } catch (e) {
-      debugPrint('💾 ❌ Error saving acknowledged errors: $e');
       _hasSaved = false; // Allow retry on error
       return false;
     }
@@ -265,7 +230,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
         );
       }
     } catch (e) {
-      debugPrint('Error saving note: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -492,7 +456,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
         // This callback handles system back button and gestures
         if (didPop || _isPopping) {
-          debugPrint('🚪 PopScope: Already popping, skipping');
           return;
         }
 
@@ -703,16 +666,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                                         requireNotes: false,
                                       );
 
-                                      debugPrint('📋 === DIALOG SUBMIT ===');
-                                      debugPrint(
-                                        '📋 validation_errors collected: ${acknowledged['validation_errors']?.length ?? 0}',
-                                      );
-                                      debugPrint(
-                                        '📋 plausibility_errors collected: ${acknowledged['plausibility_errors']?.length ?? 0}',
-                                      );
-                                      debugPrint(
-                                        '📋 Action: ${errorCount == 0 ? 'complete' : 'save'}',
-                                      );
 
                                       if (mounted) {
                                         // Mark as saved so PopScope's callback skips DB save

@@ -72,7 +72,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.addListener(_onMapBoundsChanged);
     } catch (e) {
-      debugPrint('Error adding map bounds listener: $e');
     }
   }
 
@@ -81,7 +80,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final gpsProvider = context.read<GpsPositionProvider>();
       gpsProvider.addListener(_onGpsPositionChanged);
     } catch (e) {
-      debugPrint('Error adding GPS position listener: $e');
     }
   }
 
@@ -100,7 +98,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         _loadInitialData();
       }
     } catch (e) {
-      debugPrint('Error handling map bounds change: $e');
     }
   }
 
@@ -127,7 +124,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         }
       }
     } catch (e) {
-      debugPrint('Error handling GPS position change: $e');
     }
   }
 
@@ -173,7 +169,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
       if (cachedData != null) {
         final records = cachedData.map((item) => item['record'] as Record).toList();
-        print('RecordsSelection: Loaded ${records.length} records from provider cache');
 
         // Process records: filter by search, sort, and add metadata
         final processedRecords = await _processRecords(records);
@@ -193,7 +188,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           _displayMoreRecords();
         }
       } else {
-        print('RecordsSelection: No cached records available yet');
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -201,7 +195,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         }
       }
     } catch (e) {
-      print('RecordsSelection: Error loading from cache: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -286,7 +279,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           }).toList();
         }
       } catch (e) {
-        debugPrint('Error filtering by map extent: $e');
       }
     }
 
@@ -427,7 +419,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         }
       }
     } catch (e) {
-      print('Error getting GPS position: $e');
     }
   }
 
@@ -657,7 +648,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   void _focusRecordOnMap(Record record) {
     final coords = record.getCoordinates();
     if (coords == null) {
-      debugPrint('No valid coordinates found for record');
       return;
     }
 
@@ -665,7 +655,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     final lng = coords['longitude'];
 
     if (lat == null || lng == null) {
-      debugPrint('Invalid coordinates for record');
       return;
     }
 
@@ -680,7 +669,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     final mapControllerProvider = context.read<MapControllerProvider>();
     mapControllerProvider.setFocusBounds(bounds);
 
-    debugPrint('Focus bounds set for record at $lat, $lng');
   }
 
   void _openFilterDialog() {
@@ -722,7 +710,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final provider = context.read<RecordsListProvider>();
       provider.removeListener(_onProviderChanged);
     } catch (e) {
-      print('Error removing provider listener: $e');
     }
 
     // Remove map controller provider listener
@@ -730,7 +717,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.removeListener(_onMapBoundsChanged);
     } catch (e) {
-      print('Error removing map bounds listener: $e');
     }
 
     // Remove GPS position provider listener
@@ -738,7 +724,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       final gpsProvider = context.read<GpsPositionProvider>();
       gpsProvider.removeListener(_onGpsPositionChanged);
     } catch (e) {
-      print('Error removing GPS position listener: $e');
     }
 
     // Only dispose if we created the controller ourselves

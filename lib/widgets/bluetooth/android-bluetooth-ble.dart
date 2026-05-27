@@ -47,7 +47,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
 
             String talkerId = fields[0].substring(1);
 
-            print(talkerId);
 
             // https://openrtk.readthedocs.io/en/latest/communication_port/nmea.html
             if (talkerId == 'GNRMC') {
@@ -60,14 +59,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
               String speedOverGround = fields[7];
               String courseOverGround = fields[8];
 
-              print('Time: $time');
-              print('Status: $status');
-              print('Latitude: ${dmsToDecimal('0$latitude', latitudeDirection)}°');
-              print('Latitude Direction: $latitudeDirection');
-              print('Longitude: ${dmsToDecimal(longitude, longitudeDirection)}°');
-              print('Longitude Direction: $longitudeDirection');
-              print('Speed Over Ground: $speedOverGround');
-              print('Course Over Ground: $courseOverGround');
             } else if (talkerId == 'GNGGA') {
               String time = fields[1];
               String latitude = fields[2];
@@ -79,15 +70,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
               String horizontalDilution = fields[8];
               String altitude = fields[9];
 
-              print('Time: $time');
-              print('Latitude: $latitude');
-              print('Latitude Direction: $latitudeDirection');
-              print('Longitude: $longitude');
-              print('Longitude Direction: $longitudeDirection');
-              print('Quality: $quality');
-              print('Satellites: $satellites');
-              print('Horizontal Dilution: $horizontalDilution');
-              print('Altitude: $altitude');
             } else if (talkerId == 'GNGSA') {
               String mode = fields[1];
               String fixType = fields[2];
@@ -96,25 +78,14 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
               String hdop = fields[16];
               String vdop = fields[17];
 
-              print('Mode: $mode');
-              print('Fix Type: $fixType');
-              print('Satellite IDs: $satelliteIds');
-              print('PDOP: $pdop');
-              print('HDOP: $hdop');
-              print('VDOP: $vdop');
             } else {
-              print('Unknown NMEA sentence: $sentence');
             }
           } catch (e) {
-            print('Failed to parse NMEA sentence: $sentence');
-            print('Error: $e');
           }
         } else {
-          print('Not a valid NMEA sentence: $sentence');
         }
       }
     } catch (e) {
-      print('Error processing data: $e');
     }
   }
 
@@ -177,7 +148,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
         dynamic devices = jsonDecode(value['value']);
         if (devices is Map) {
           if (devices.isNotEmpty) {
-            print('Found connected devices: $devices');
             // autoConnect First
             for (var deviceId in devices.keys) {
               var device = BluetoothDevice.fromId(deviceId);
@@ -187,14 +157,12 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
           }
         }
       } else {
-        print('No connected devices found');
       }
     });
   }
 
   void _connectDeviceFromId(String remoteId) async {
     if (remoteId.isEmpty) {
-      print('No remote ID provided');
       return;
     }
     var device = BluetoothDevice.fromId(remoteId);
@@ -208,9 +176,7 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
     // listen for disconnection
     subscriptionConnection = device.connectionState.listen((BluetoothConnectionState state) async {
       if (state == BluetoothConnectionState.disconnected) {
-        print("disconnected: ${device.platformName}");
       } else if (state == BluetoothConnectionState.connected) {
-        print('connected: ${device.platformName}');
         setState(() {
           connectedDevice = device;
         });
@@ -232,22 +198,17 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
   // Add this new method to discover and interact with services
   Future<void> _discoverServices(BluetoothDevice device) async {
     try {
-      print('Discovering services...');
       List<BluetoothService> services = await device.discoverServices();
-      print('Found ${services.length} services');
 
       for (var service in services) {
-        print('Service: ${service.uuid}');
 
         // Get characteristics for this service
         for (var characteristic in service.characteristics) {
-          print('Characteristic: ${characteristic.uuid}');
 
           // Check if characteristic is readable
           if (characteristic.properties.read) {
             // Read value
             List<int> value = await characteristic.read();
-            print('Read value: $value');
 
             // You can process the data here
             // Example: String stringValue = String.fromCharCodes(value);
@@ -266,13 +227,11 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
         }
       }
     } catch (e) {
-      print('Error discovering services: $e');
     }
   }
 
   void _autoConnect(remoteId) async {
     if (remoteId == null) {
-      print('No remote ID provided for auto-connect');
       return;
     }
     var device = BluetoothDevice.fromId(remoteId);
@@ -281,10 +240,8 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
 
     await device.connectionState.where((val) {
       if (val == BluetoothConnectionState.connected) {
-        print('Connected to device: ${device.platformName}');
         _discoverServices(device);
       } else if (val == BluetoothConnectionState.disconnected) {
-        print('Disconnected from device: ${device.platformName}');
       }
       return val == BluetoothConnectionState.connected || val == BluetoothConnectionState.disconnected;
     }).first;
@@ -293,16 +250,13 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
   Future<void> _checkConnectedDevices() async {
     List<BluetoothDevice> connected = FlutterBluePlus.connectedDevices;
     if (connected.isNotEmpty) {
-      print('Already connected devices:');
       for (var device in connected) {
-        print('${device.platformName} (${device.remoteId})');
         setState(() {
           connectedDevice = device;
         });
         // Optionally: _discoverServices(device);
       }
     } else {
-      print('No devices currently connected');
     }
   }
 
@@ -319,7 +273,6 @@ class _AndroidBluetoothBleState extends State<AndroidBluetoothBle> {
 
   @override
   void dispose() {
-    print('dispose');
     // Make sure to stop scanning when disposing the widget
     _stopScan();
     //if (mounted) {

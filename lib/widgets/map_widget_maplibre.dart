@@ -81,11 +81,9 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
       if (cachedRecords != null && cachedRecords.isNotEmpty) {
         // Use cached records (extract Record objects from Map)
         records = cachedRecords.map((item) => item['record'] as Record).toList();
-        debugPrint('Using ${records.length} cached records for map');
       } else {
         // Load from database with reasonable limit (clustering will handle aggregation)
         records = await RecordsRepository().getRecordsGroupedByCluster(limit: 100000);
-        debugPrint('Loaded ${records.length} records from database for map');
       }
 
       if (!mounted || _isDisposed) return;
@@ -100,7 +98,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         await _addMarkers();
       }
     } catch (e) {
-      debugPrint('Error loading records for map: $e');
     }
   }
 
@@ -111,12 +108,9 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
     try {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.setController(controller);
-      debugPrint('Map controller registered with provider');
     } catch (e) {
-      debugPrint('MapControllerProvider not found: $e');
     }
 
-    debugPrint('Map controller created');
   }
 
   void _subscribeToGPS() {
@@ -126,27 +120,22 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
       _gpsSubscription = gpsProvider.positionStreamController.listen(
         (position) {
           if (_isDisposed || _mapController == null) {
-            debugPrint('Cannot update location: disposed=$_isDisposed, controller=${_mapController != null}');
             return;
           }
 
           _updateLocationMarker(LatLng(position.latitude, position.longitude), position.accuracy);
         },
         onError: (error) {
-          debugPrint('❌ GPS stream error: $error');
         },
         onDone: () {
-          debugPrint('GPS stream closed');
         },
       );
     } catch (e) {
-      debugPrint('❌ Error subscribing to GPS: $e');
     }
   }
 
   Future<void> _updateLocationMarker(LatLng position, double accuracy) async {
     if (_mapController == null || _isDisposed || _isUpdatingLocation) {
-      debugPrint('Skipping location update: controller=${_mapController != null}, disposed=$_isDisposed, updating=$_isUpdatingLocation');
       return;
     }
 
@@ -165,17 +154,13 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
 
       // Update or create location dot
       if (_locationCircle != null) {
-        debugPrint('Updating existing location dot');
         await _mapController!.updateCircle(_locationCircle!, CircleOptions(geometry: position, circleRadius: 6, circleColor: '#2196F3', circleOpacity: 1.0, circleStrokeWidth: 2, circleStrokeColor: '#FFFFFF', circleStrokeOpacity: 1.0));
       } else {
-        debugPrint('Creating new location dot');
         _locationCircle = await _mapController!.addCircle(CircleOptions(geometry: position, circleRadius: 6, circleColor: '#2196F3', circleOpacity: 1.0, circleStrokeWidth: 2, circleStrokeColor: '#FFFFFF', circleStrokeOpacity: 1.0));
       }
 
-      debugPrint('Location marker updated successfully');
     } catch (e) {
       if (!_isDisposed) {
-        debugPrint('Error updating location marker: $e');
       }
     } finally {
       _isUpdatingLocation = false;
@@ -183,29 +168,23 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
   }
 
   Future<void> _onMapClick(Point<double> point, LatLng coordinates) async {
-    debugPrint('Map click detected at point: $point, coordinates: $coordinates');
     if (_isDisposed || _mapController == null) {
       return;
     }
 
     if (_mapController == null) {
-      debugPrint('Map controller is null');
       return;
     }
 
     try {
       // Query rendered features at the clicked point for clusters
-      debugPrint('Querying clusters at point: $point');
       final clusterFeatures = await _mapController!.queryRenderedFeatures(point, ['clusters'], null);
 
-      debugPrint('Found ${clusterFeatures.length} cluster features');
 
       if (clusterFeatures.isNotEmpty) {
         final cluster = clusterFeatures.first;
-        debugPrint('Cluster data: $cluster');
         final pointCount = cluster['properties']['point_count'];
 
-        debugPrint('Cluster clicked with $pointCount points');
 
         // Trigger circle click callback
         _onCircleClicked(cluster, 'clusters');
@@ -214,7 +193,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         final currentZoom = _mapController!.cameraPosition?.zoom ?? 5.0;
         final newZoom = currentZoom + 2.0;
 
-        debugPrint('Zooming to level: $newZoom at coordinates: $coordinates');
 
         // Animate to the cluster location with increased zoom
         await _mapController!.animateCamera(CameraUpdate.newLatLngZoom(coordinates, newZoom), duration: const Duration(milliseconds: 500));
@@ -222,35 +200,28 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
       }
 
       // Query for unclustered points
-      debugPrint('Querying unclustered points at point: $point');
       final pointFeatures = await _mapController!.queryRenderedFeatures(point, ['unclustered-point'], null);
 
-      debugPrint('Found ${pointFeatures.length} point features');
 
       if (pointFeatures.isNotEmpty) {
         final feature = pointFeatures.first;
         final clusterName = feature['properties']['cluster_name'];
         final plotName = feature['properties']['plot_name'];
 
-        debugPrint('Individual point clicked: $clusterName - $plotName');
 
         // Trigger circle click callback
         _onCircleClicked(feature, 'unclustered-point');
 
         // You can add navigation or show details here if needed
       } else {
-        debugPrint('No features found at clicked location');
       }
     } catch (e, stackTrace) {
-      debugPrint('Error handling map click: $e');
-      debugPrint('Stack trace: $stackTrace');
     }
   }
 
   void _onStyleLoaded() {
     if (_isDisposed) return;
 
-    debugPrint('Map style loaded');
     // Add markers if they're already loaded
     if (_markersLoaded && _records.isNotEmpty && mounted && !_isDisposed) {
       _addMarkers();
@@ -258,8 +229,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
   }
 
   void _onCircleClicked(Map<String, dynamic> feature, String layerId) {
-    debugPrint('Circle clicked on layer: $layerId');
-    debugPrint('Feature data: $feature');
 
     // Add your custom logic here for when any circle is clicked
     // feature contains the GeoJSON feature properties
@@ -268,11 +237,9 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
 
   Future<void> _addMarkers() async {
     if (_mapController == null || !mounted || _isDisposed) {
-      debugPrint('MapController is null or widget disposed, cannot add markers');
       return;
     }
 
-    debugPrint('Map style loaded! Adding ${_records.length} markers with clustering...');
 
     try {
       // Prepare data for background processing
@@ -282,7 +249,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
             return {'id': record.id, 'cluster_name': record.clusterName, 'plot_name': record.plotName, 'longitude': coords['longitude'], 'latitude': coords['latitude']};
           }).toList();
 
-      debugPrint('Prepared ${recordsData.length} records for GeoJSON conversion');
 
       // Calculate bounding box for all markers
       if (recordsData.isNotEmpty) {
@@ -305,7 +271,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         final latPadding = (maxLat - minLat) * 0.1;
         final lngPadding = (maxLng - minLng) * 0.1;
 
-        debugPrint('Bounding box: SW($minLng, $minLat) NE($maxLng, $maxLat)');
 
         // Move camera to fit all markers
         if (!mounted || _mapController == null || _isDisposed) return;
@@ -314,7 +279,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
           CameraUpdate.newLatLngBounds(LatLngBounds(southwest: LatLng(minLat - latPadding, minLng - lngPadding), northeast: LatLng(maxLat + latPadding, maxLng + lngPadding)), left: 50, top: 50, right: 50, bottom: 50),
         );
 
-        debugPrint('Camera moved to fit all markers');
       }
 
       // Check before starting expensive operation
@@ -323,14 +287,12 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
       // Process GeoJSON creation in background thread
       final geojsonData = await compute(_createGeoJsonInIsolate, recordsData);
 
-      debugPrint('GeoJSON created in background thread');
 
       // Check if still mounted after async operation
       if (!mounted || _mapController == null || _isDisposed) return;
 
       await _mapController!.addSource('records', GeojsonSourceProperties(data: geojsonData, cluster: true, clusterMaxZoom: 14, clusterRadius: 50));
 
-      debugPrint('Added GeoJSON source with clustering');
 
       // Check if still mounted after async operation
       if (!mounted || _mapController == null || _isDisposed) return;
@@ -370,7 +332,6 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         filter: ['has', 'point_count'],
       );
 
-      debugPrint('Added cluster circles layer');
 
       // Check if still mounted after async operation
       if (!mounted || _mapController == null || _isDisposed) return;
@@ -386,12 +347,8 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
         ],
       );
 
-      debugPrint('Added unclustered points layer');
-      debugPrint('Finished adding all marker layers!');
     } catch (e, stackTrace) {
       if (!_isDisposed) {
-        debugPrint('Error adding markers: $e');
-        debugPrint('Stack trace: $stackTrace');
       }
     }
   }
@@ -406,9 +363,7 @@ class _MapWidgetMapLibreState extends State<MapWidgetMapLibre> {
     try {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.setController(null);
-      debugPrint('Map controller unregistered from provider');
     } catch (e) {
-      debugPrint('Error unregistering map controller: $e');
     }
 
     // Don't manually dispose the controller - MapLibre handles this internally

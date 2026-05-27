@@ -39,7 +39,6 @@ ParsedVersion? parseVersion(String version) {
 
     return ParsedVersion(semanticParts: semanticParts, buildNumber: buildNumber);
   } catch (error) {
-    debugPrint('Error parsing version "$version": $error');
     return null;
   }
 }
@@ -49,7 +48,6 @@ bool isNewerVersion(String latestVersion, String currentVersion) {
   final current = parseVersion(currentVersion);
 
   if (latest == null || current == null) {
-    debugPrint('Error comparing versions: latest=$latestVersion current=$currentVersion');
     return false;
   }
 
@@ -80,7 +78,6 @@ ReleaseInfo? parseLatestReleaseResponse(String responseBody) {
 
     return ReleaseInfo(tagName: latestTag, htmlUrl: htmlUrl);
   } catch (error) {
-    debugPrint('Error parsing latest release response: $error');
     return null;
   }
 }

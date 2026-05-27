@@ -38,14 +38,12 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
   }
 
   void errorListener(SpeechRecognitionError error) {
-    print('Received error status: $error, listening: ${speech.isListening}');
     setState(() {
       lastError = '${error.errorMsg} - ${error.permanent}';
     });
   }
 
   void statusListener(String status) {
-    print('Received listener status: $status, listening: ${speech.isListening}');
     setState(() {
       lastStatus = status;
     });
@@ -122,16 +120,12 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
   void startListening() async {
     const currentLocaleId = 'de-DE';
     //var selectedLocale = locales[selectedLocale];
-    print('start');
     //String? currentLanguage = await getSettings('language');
     //print('language: ${currentLanguage}');
 
     try {
-      print('start');
       String languageCountry = context.watch<Language>().locale.toString();
-      print("locale: $languageCountry");
     } catch (e) {
-      print("Error: $e");
     }
     lastWords = '';
     lastError = '';

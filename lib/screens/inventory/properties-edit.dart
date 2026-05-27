@@ -113,7 +113,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       try {
         _mapProvider = context.read<MapControllerProvider>();
       } catch (e) {
-        debugPrint('MapControllerProvider not available: $e');
       }
     }
 
@@ -152,11 +151,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         ts,
         id,
       ]);
-      debugPrint('⚡ Emergency save triggered on dispose for record $id');
     } else if (isPlayground) {
-      debugPrint('⚡ Emergency save skipped: playground mode is active');
     } else if (_isAdminView) {
-      debugPrint('⚡ Emergency save skipped: admin view is active');
     }
 
     // Cancel any pending validation timer
@@ -181,12 +177,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           // Only clear focused record if it's the same as this page's record
           if (_mapProvider!.focusedRecord?.id == _record!.id) {
             _mapProvider!.clearFocusedRecord();
-            debugPrint('Distance line and focused record cleared on dispose (record matched)');
           } else {
-            debugPrint('Distance line cleared but focused record preserved (different record)');
           }
         } catch (e) {
-          debugPrint('Error clearing map state on dispose: $e');
         }
       });
     }
@@ -228,31 +221,22 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       SchemaModel? latestSchema;
 
       if (schemaIdValidatedBy != null) {
-        debugPrint('Loading validated schema: $schemaIdValidatedBy');
         latestSchema = await schemaRepository.getById(schemaIdValidatedBy);
 
         if (latestSchema == null) {
-          debugPrint('Validated schema not found, falling back to latest');
           latestSchema = await schemaRepository.getLatestForInterval(intervalName);
         }
       } else {
-        debugPrint('No validated schema ID, loading latest for interval: $intervalName');
         latestSchema = await schemaRepository.getLatestForInterval(intervalName);
       }
 
       if (latestSchema == null) {
-        debugPrint('No schema found for interval: $intervalName');
         setState(() {
           _error = 'Kein Schema gefunden für: $intervalName';
         });
         return;
       }
 
-      debugPrint('Found schema: ${latestSchema.title} (version: ${latestSchema.version})');
-      debugPrint('Schema directory: ${latestSchema.directory}');
-      debugPrint('Schema has schemaData: ${latestSchema.schemaData != null}');
-      debugPrint('Schema has styleDefault: ${latestSchema.styleDefault != null}');
-      debugPrint('Schema has plausabilityScript: ${latestSchema.plausabilityScript != null}');
 
       // Store loaded schema version for display
       setState(() {
@@ -262,13 +246,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       // Determine which style to use based on control troop status
       final isControlTroop = await getCurrentIsControlTroop() ?? false;
-      debugPrint('Using ${isControlTroop ? "CONTROL" : "DEFAULT"} style');
 
       final styleToUse = isControlTroop ? latestSchema.styleControl : latestSchema.styleDefault;
 
       // Validate that required style exists
       if (isControlTroop && latestSchema.styleControl == null) {
-        debugPrint('❌ ERROR: Control troop requires style_control but it is NULL');
         if (mounted) {
           setState(() {
             _error = 'Kontroll-Trupp benötigt style_control Schema, aber es ist nicht verfügbar';
@@ -285,12 +267,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           styleData: styleToUse,
           directory: latestSchema.directory,
         );
-        debugPrint('📌 Loaded ${conditionalRules.length} conditional rules');
       } catch (rulesError) {
-        debugPrint('❌ Error loading conditional rules: $rulesError');
       }
 
-      debugPrint('Loading schema data (from database or files)');
 
       try {
         Map<String, dynamic>? validationSchema;
@@ -298,35 +277,26 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
         // First try: Use data from schema table columns (regardless of directory)
         if (latestSchema.schemaData != null) {
-          debugPrint('✅ Schema data found in database, attempting to extract validation schema');
-          debugPrint('Schema data keys: ${latestSchema.schemaData!.keys.toList()}');
 
           // Safely navigate nested structure with debugging
           final schemaData = latestSchema.schemaData!;
           if (schemaData.containsKey('properties')) {
             final properties = schemaData['properties'] as Map<String, dynamic>?;
-            debugPrint('Properties keys: ${properties?.keys.toList()}');
 
             if (properties != null && properties.containsKey('plot')) {
               final plot = properties['plot'] as Map<String, dynamic>?;
-              debugPrint('Plot keys: ${plot?.keys.toList()}');
 
               if (plot != null && plot.containsKey('items')) {
                 validationSchema = plot['items'] as Map<String, dynamic>?;
-                debugPrint('✅ Successfully extracted validation schema from database');
               } else {
-                debugPrint('❌ "items" key not found in plot object');
               }
             } else {
-              debugPrint('❌ "plot" key not found in properties object');
             }
           } else {
-            debugPrint('❌ "properties" key not found in schema data');
           }
         }
 
         if (latestSchema.plausabilityScript != null) {
-          debugPrint('✅ Using plausability script from database');
           tfmValidationCode = latestSchema.plausabilityScript;
         }
 
@@ -335,7 +305,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
         // Check if we have the required validation schema
         if (validationSchema == null) {
-          debugPrint('❌ No validation schema available');
           if (mounted) {
             setState(() {
               _error = 'Validation schema not available in database';
@@ -355,30 +324,23 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           _styleData = styleToUse; // Use the determined style (control or default)
           _isLoading = false;
         });
-        debugPrint('✅ Schema and rules set in state (${conditionalRules.length} rules)');
 
         // Initialize TFM validation code if available
         if (tfmValidationCode != null) {
           try {
-            debugPrint('Reinitializing ValidationService with TFM validation code');
             await ValidationService.instance.initialize(tfmValidationCode: tfmValidationCode);
-            debugPrint('ValidationService reinitialized with TFM validation');
 
             // Small delay to ensure WebView is fully ready
             await Future.delayed(Duration(milliseconds: 200));
-            debugPrint('Waited for ValidationService to be fully ready');
           } catch (tfmError) {
-            debugPrint('Error initializing TFM validation code: $tfmError');
           }
         }
 
         // Trigger initial validation
         if (_formData != null && _originalJsonSchema != null) {
-          debugPrint('Triggering initial validation...');
           await _onFormDataChanged(_formData!);
         }
       } catch (e) {
-        debugPrint('Error loading schema: $e');
         if (mounted) {
           setState(() {
             _error = 'Error loading schema: $e';
@@ -387,7 +349,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       }
     } catch (e) {
-      debugPrint('Error loading schema: $e');
       setState(() {
         _error = 'Fehler beim Laden des Schemas: $e';
       });
@@ -461,13 +422,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
   Future<void> save(String type, {Map<String, List<AcknowledgedError>>? acknowledgedErrors}) async {
     if (_record == null || _formData == null) {
-      debugPrint('Cannot save: record or form data is null');
       return;
     }
 
     // Refuse to save in playground mode
     if (context.read<PlaygroundModeProvider>().isPlaygroundMode) {
-      debugPrint('Save blocked: playground mode is active');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('🧪 Playground-Modus aktiv – Speichern nicht möglich.'),
@@ -480,7 +439,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
     // Refuse to save in admin view
     if (_isAdminView) {
-      debugPrint('Save blocked: admin view is active');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Admin-Ansicht – Speichern nicht möglich.'),
@@ -492,7 +450,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
 
     try {
-      debugPrint('Saving form data: $_formData');
 
       // Get current timestamp for local_updated_at in UTC (to match server's updated_at timezone)
       final now = DateTime.now().toUtc().toIso8601String();
@@ -510,7 +467,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             _record = freshRecord;
           }
         } catch (e) {
-          debugPrint('Warning: Could not reload record before save: $e');
         }
       }
 
@@ -530,7 +486,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             ? AcknowledgedError.encodeList(plausibilityErrors)
             : null;
       } else {
-        debugPrint('💾 No new errors provided, using existing from record');
       }
 
       // Check if this is a new record (no id yet)
@@ -574,7 +529,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record!.id,
             ],
           );
-          debugPrint('💾 ✅ UPDATE (save) executed');
         } else if (type == 'complete') {
           await db.execute(
             'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
@@ -588,7 +542,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record!.id,
             ],
           );
-          debugPrint('💾 ✅ UPDATE (complete) executed');
         }
 
         // Create updated record for local state
@@ -632,12 +585,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             setState(() {
               _record = reloadedRecord;
             });
-            debugPrint('✅ Reloaded record from database:');
-            debugPrint('✅ validationErrors: ${_record!.validationErrors}');
-            debugPrint('✅ plausibilityErrors: ${_record!.plausibilityErrors}');
           }
         } catch (e) {
-          debugPrint('⚠️ Failed to reload record: $e');
         }
       }
 
@@ -669,7 +618,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       }
     } catch (e) {
-      debugPrint('Error saving record: $e');
 
       // Show error message
       if (mounted) {
@@ -710,7 +658,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             });
           }
         } catch (e) {
-          debugPrint('Warning: Could not reload record before opening dialog: $e');
         }
       }
 
@@ -723,7 +670,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       );
 
       if (result != null) {
-        debugPrint('📋 Action: ${result.action}');
       }
 
       // Reload record from database AFTER dialog closes to get any auto-saved acknowledged errors
@@ -736,7 +682,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             });
           }
         } catch (e) {
-          debugPrint('Failed to reload record after dialog: $e');
         }
       }
 
@@ -769,7 +714,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
         final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
         if (!isPlayground && !_isAdminView) {
-          debugPrint('🕐 Throttle-save triggered for record ${_record!.id}');
           save('save');
         }
       }
@@ -801,7 +745,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             mapProvider.setFocusedRecord(updatedRecord);
           }
         } catch (e) {
-          debugPrint('Error updating map preview: $e');
         }
       }
 
@@ -818,7 +761,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               : _originalJsonSchema!;
 
           if (_conditionalRules.isEmpty) {
-            debugPrint('⚠️ No conditional rules to apply');
           }
           ;
 
@@ -858,12 +800,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             final results = await db.getAll('SELECT * FROM lookup_tree_species');
             if (results.isNotEmpty) {
               treeSpeciesLookup = results.map((row) => Map<String, dynamic>.from(row)).toList();
-              debugPrint('Loaded ${treeSpeciesLookup.length} tree species for validation');
             } else {
-              debugPrint('No tree species found in lookup table');
             }
           } catch (e) {
-            debugPrint('Warning: Could not load tree species lookup: $e');
           }
 
           final result = await ValidationService.instance.validateWithTFM(
@@ -926,12 +865,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           if (mounted && _record?.id != null && !_isSaving) {
             final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
             if (!isPlayground && !_isAdminView && _hasUnsavedChanges) {
-              debugPrint('Auto-saving after validation...');
               save('save');
             }
           }
         } catch (e) {
-          debugPrint('Validation error: $e');
         }
       }
     });
@@ -942,7 +879,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.setFocusedRecord(_record);
     } catch (e) {
-      debugPrint('Error setting focused record: $e');
     }
   }
 
@@ -957,15 +893,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         final latLng = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
         mapProvider.moveToLocation(latLng, zoom: 19.0);
       } else {
-        debugPrint('Record has no coordinates to focus on');
       }
     } catch (e) {
-      debugPrint('Error focusing on record: $e');
     }
   }
 
   void _navigateToTabFromError(String? tabId) {
-    debugPrint('Navigate to tab requested: $tabId');
     // Use GlobalKey to access FormWrapper's state and call its navigation method
     _formWrapperKey.currentState?.navigateToTab(tabId);
   }
@@ -1073,9 +1006,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Determine which style to use based on control troop status
       final isControlTroop = await getCurrentIsControlTroop() ?? false;
       final styleColumn = isControlTroop ? 'style_control' : 'style_default';
-      debugPrint(
-        'Showing ${isControlTroop ? "CONTROL" : "DEFAULT"} style from column: $styleColumn',
-      );
 
       // First try: Get style from current schema's style_control or style_default
       final results = await db.getAll('SELECT $styleColumn FROM schemas WHERE id = ?', [
@@ -1089,7 +1019,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         } else {
           styleJson = styleData as Map<String, dynamic>;
         }
-        debugPrint('✅ Loaded $styleColumn from database');
       }
       // File-based style fallback is deprecated and disabled.
       // Style data must come from the database.
@@ -1144,7 +1073,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         );
       }
     } catch (e) {
-      debugPrint('Error loading style file: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1269,7 +1197,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       }
     } catch (e) {
-      debugPrint('Error showing schema selector: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }

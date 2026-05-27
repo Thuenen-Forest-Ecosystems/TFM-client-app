@@ -107,8 +107,6 @@ class _DataGridFormInventoryState extends State<DataGridFormInventory> {
             return Text(value);
           };
         } catch (e) {
-          print(e);
-          print(tableName);
         }
       } else {
         if (value['type'] == 'integer') {
@@ -132,7 +130,6 @@ class _DataGridFormInventoryState extends State<DataGridFormInventory> {
     for (var value in values) {
       rows.add(PlutoRow(cells: value.map((key, value) => MapEntry(key, PlutoCell(value: value)))));
     }
-    print(values);
     return rows;
   }
 

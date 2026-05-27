@@ -67,7 +67,6 @@ Future<String> getDatabasePath({String? userId}) async {
     final dir = await getApplicationSupportDirectory();
     return join(dir.path, dbFilename);
   } catch (e) {
-    print('Error getting database path: $e');
     rethrow;
   }
 }
@@ -86,7 +85,6 @@ String? _currentDbUserId;
 /// ClosedException in any streams or watchers that still hold a reference.
 Future<void> switchUserDatabase(String userId) async {
   if (_currentDbUserId == userId) {
-    print('PowerSync: db already set up for user $userId, skipping switch');
     return;
   }
 
@@ -110,10 +108,8 @@ Future<void> switchUserDatabase(String userId) async {
   try {
     await oldDb.disconnect();
   } catch (e) {
-    print('switchUserDatabase: error disconnecting old db (ignored): $e');
   }
 
-  print('PowerSync: switched to database for user $userId ($userDbPath)');
 }
 
 bool isLoggedIn() {
@@ -144,7 +140,6 @@ String? getUserIdFromContext(dynamic context) {
       return authProvider.userId as String?;
     }
   } catch (e) {
-    print('getUserIdFromContext: Could not get userId from AuthProvider - $e');
   }
 
   return null;
@@ -230,7 +225,6 @@ Future<User> login(String email, String password) async {
     );
     return response.user!;
   } catch (e) {
-    print('Error logging in: $e');
     rethrow;
   }
 }
@@ -283,9 +277,7 @@ Future<PowerSyncDatabase> openDatabase() async {
 
   try {
     await db.initialize();
-    print('Database initialized');
   } catch (e) {
-    print('Error initializing database: $e');
     rethrow;
   }
 
@@ -294,7 +286,6 @@ Future<PowerSyncDatabase> openDatabase() async {
 
     await Supabase.initialize(url: config['supabaseUrl'] ?? '', anonKey: config['anonKey'] ?? '');
   } catch (e) {
-    print('Error initializing Supabase: $e');
     rethrow;
   }
 
@@ -303,13 +294,10 @@ Future<PowerSyncDatabase> openDatabase() async {
   if (isLoggedIn()) {
     currentConnector = SupabaseConnector();
     db.connect(connector: currentConnector);
-    print('Logged in');
   } else {
-    print('Not logged in');
   }
 
   Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-    print('onAuthStateChange: ${data.event}');
 
     final AuthChangeEvent event = data.event;
     try {
@@ -321,16 +309,12 @@ Future<PowerSyncDatabase> openDatabase() async {
         currentConnector = null;
         await db.disconnect();
       } else if (event == AuthChangeEvent.tokenRefreshed) {
-        print(
-          'Token refreshed - PowerSync handles credential updates automatically via fetchCredentials()',
-        );
         // Do NOT call db.connect() here — it restarts the sync connection,
         // causing in-progress downloads to start over from scratch.
         // PowerSync automatically calls fetchCredentials() on the connector
         // when the current token expires.
       }
     } catch (e) {
-      print('Error handling auth state change: $e');
       rethrow;
     }
   });
@@ -338,7 +322,6 @@ Future<PowerSyncDatabase> openDatabase() async {
   // Note: For offline-authenticated users, PowerSync will work in offline-only mode
   // The local SQLite database remains accessible, but no sync will occur until
   // the user logs in online again
-  print('PowerSync: Database ready for offline-first operation');
 
   // Demo using SQLite Full-Text Search with PowerSync.
   // See https://docs.powersync.com/usage-examples/full-text-search for more details
@@ -370,20 +353,16 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           var data = Map<String, dynamic>.of(op.opData!);
 
           // Check if the table is records table
-          print('${op.table} PUT');
           if (op.table == 'records' && data['properties'] != null) {
             data['properties'] = jsonDecode(data['properties']);
-            print('PS: properties: ${data['properties']}');
           }
 
           data['id'] = op.id;
           await table.upsert(data);
         } else if (op.op == UpdateType.patch) {
           // Check if the table is records table
-          print('${op.table} PATCH');
           if (op.table == 'records' && op.opData!['properties'] != null) {
             op.opData!['properties'] = jsonDecode(op.opData!['properties']);
-            print('PS: properties: ${op.opData!['properties']}');
           }
           await table.update(op.opData!).eq('id', op.id);
         } else if (op.op == UpdateType.delete) {
@@ -394,23 +373,15 @@ class SupabaseConnector extends PowerSyncBackendConnector {
       await transaction
           .complete()
           .then((value) {
-            print('Data uploaded successfully');
           })
           .catchError((e) {
-            print('Error completing transaction: $e');
           });
     } on PostgrestException catch (e) {
       if (e.code != null && fatalResponseCodes.any((re) => re.hasMatch(e.code!))) {
-        print('PS: Fatal error: ${e.code} ${e.message}');
         // print values for debugging
-        print('PS: ${transaction.crud}');
         // print table name
-        print('PS: ${transaction.crud[0].table}');
         await transaction.complete();
       } else {
-        print('Error uploading data: $e');
-        print('PS: ${transaction.crud}');
-        print('PS: ${transaction.crud[0].table}');
         rethrow;
       }
     }
@@ -438,11 +409,9 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         : DateTime.fromMillisecondsSinceEpoch(session.expiresAt! * 1000);
     if (tokenExpiry != null && DateTime.now().isAfter(tokenExpiry)) {
       try {
-        print('fetchCredentials: token expired, attempting proactive refresh');
         await Supabase.instance.client.auth.refreshSession().timeout(const Duration(seconds: 30));
       } catch (e) {
         // Refresh failed (e.g. still offline) — return null so PowerSync backs off.
-        print('fetchCredentials: proactive refresh failed: $e');
         return null;
       }
       // Re-read the session after a successful refresh.

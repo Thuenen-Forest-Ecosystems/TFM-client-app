@@ -52,9 +52,7 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
     _rows = List<Map<String, dynamic>>.from(
       widget.data.map((item) => Map<String, dynamic>.from(item is Map ? item : {})),
     );
-    print('Initialized ${_rows.length} rows');
     _columns = _buildColumns();
-    print('Initialized ${_columns.length} columns');
 
     // Get schema for use in DataSource
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
@@ -76,17 +74,14 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
     // The schema IS the array schema, so items is at the root level
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
     if (itemSchema == null) {
-      print('No items found in schema');
       return columns;
     }
 
     final properties = itemSchema['properties'] as Map<String, dynamic>?;
     if (properties == null) {
-      print('No properties found in items schema');
       return columns;
     }
 
-    print('Found ${properties.length} properties in schema');
 
     // Separate pinned and unpinned columns
     final pinnedColumns = <MapEntry<String, dynamic>>[];
@@ -102,7 +97,6 @@ class _ArrayElementSyncfusionState extends State<ArrayElementSyncfusion> {
       final display = uiOptions?['display'] as bool? ?? true;
 
       if (!display) {
-        print('Skipping column $key (display: false)');
         return; // Skip this column
       }
 

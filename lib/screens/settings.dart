@@ -31,7 +31,6 @@ class _SettingsState extends State<Settings> {
 
   void _watchLanguage() {
     db.watch('SELECT * FROM device_settings WHERE key = \'language\'').listen((event) {
-      print('newLanguage: $event');
     });
     return;
 
@@ -51,7 +50,6 @@ class _SettingsState extends State<Settings> {
             }
           });
     } catch (e) {
-      print('Error watching language: $e');
     }
   }
 

@@ -37,7 +37,6 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> {
         }
       },
       onError: (error) {
-        debugPrint('Speech recognition error: $error');
         setState(() => _isListening = false);
       },
     );

@@ -186,9 +186,7 @@ class ArrayLayout extends LayoutItem {
 
   factory ArrayLayout.fromJson(Map<String, dynamic> json) {
     final items = json['items'] as List<dynamic>?;
-    debugPrint('📋 ArrayLayout.fromJson for ${json['id']}: items count = ${items?.length ?? 0}');
     if (items != null && items.isNotEmpty) {
-      debugPrint('   First item: ${items[0]}');
     }
 
     return ArrayLayout(

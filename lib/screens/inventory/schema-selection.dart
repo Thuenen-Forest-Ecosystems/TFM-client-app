@@ -61,7 +61,6 @@ class _SchemaSelectionState extends State<SchemaSelection> {
         });
       }
     } catch (e) {
-      debugPrint('Error checking database admin status: $e');
       if (mounted) {
         setState(() => _isDatabaseAdmin = false);
       }

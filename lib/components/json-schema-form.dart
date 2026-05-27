@@ -50,7 +50,6 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     _localFormData = {};
     if (widget.formData != null) {
       _deepCopyData(widget.formData!, _localFormData);
-      print('Initialized form data: $_localFormData');
     }
 
     // Create a schema validator from the provided schema
@@ -164,7 +163,6 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         final value = _getFieldValue(fullPath);
         if (value != null) {
           controller.text = value.toString();
-          print('Initialized controller for $fullPath with: ${controller.text}');
         }
       } else if (fieldType == 'object') {
         // Recursively process object fields
@@ -216,16 +214,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           currentValue = currentValue[part];
           // If we hit null in the middle of the path, return null
           if (currentValue == null && i < parts.length - 1) {
-            print('Path $fieldName returned null at part $part');
             return null;
           }
         } else {
-          print('Path $fieldName is invalid at part $part - not a map');
           return null; // Path is invalid - not a map
         }
       }
 
-      print('Retrieved value for $fieldName: $currentValue');
       return currentValue;
     }
 
@@ -677,7 +672,6 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
               ),
 
               onChanged: (value) {
-                print('SAVED: $name = $value');
                 // Set to null if empty, otherwise keep the string value
                 _updateField(name, value.isEmpty ? null : value);
               },

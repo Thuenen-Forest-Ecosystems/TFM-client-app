@@ -39,7 +39,6 @@ class _GpsButtonState extends State<GpsButton> {
         });
       }
     } catch (e) {
-      print("Error loading GNSS settings: $e");
       if (mounted) {
         setState(() {
           _isLoadingSettings = false; // Stop loading on error

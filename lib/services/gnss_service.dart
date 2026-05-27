@@ -29,7 +29,6 @@ class GnssService {
       final result = await _channel.invokeMethod('startGnssListener');
       return result == true;
     } catch (e) {
-      debugPrint('Error starting GNSS listener: $e');
       return false;
     }
   }
@@ -40,7 +39,6 @@ class GnssService {
       final result = await _channel.invokeMethod('stopGnssListener');
       return result == true;
     } catch (e) {
-      debugPrint('Error stopping GNSS listener: $e');
       return false;
     }
   }
@@ -51,7 +49,6 @@ class GnssService {
       final result = await _channel.invokeMethod('isGnssAvailable');
       return result == true;
     } catch (e) {
-      debugPrint('Error checking GNSS availability: $e');
       return false;
     }
   }

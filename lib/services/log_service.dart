@@ -28,7 +28,6 @@ class LogService {
 
     // Also print to console for DebugView compatibility
     if (kDebugMode) {
-      print('[${entry.level.name.toUpperCase()}] ${entry.message}');
     }
   }
 

@@ -113,19 +113,35 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   /// When true, compass heading is unreliable (phone orientation != walking direction).
   bool get isUsingExternalGnss => connectedDevice != null || connectedClassicDevice != null;
 
-  final LocationSettings locationSettings = AndroidSettings(
-    accuracy: LocationAccuracy.high,
-    //distanceFilter: 100,
-    //forceLocationManager: true,
-    intervalDuration: const Duration(seconds: 1),
-    //(Optional) Set foreground notification config to keep the app alive
-    //when going to the background
-    foregroundNotificationConfig: const ForegroundNotificationConfig(
-      notificationText: "App keeps location active in background",
-      notificationTitle: "TFM Location Service",
-      enableWakeLock: true,
-    ),
-  );
+  /// Location settings for the internal Geolocator stream.
+  ///
+  /// Only used by the *internal* GPS path (`Geolocator.getPositionStream`).
+  /// External GNSS (Bluetooth BLE / Classic / serial) bypasses Geolocator
+  /// entirely and is therefore unaffected by these settings.
+  ///
+  /// On Windows/macOS/Linux desktops there is no real GNSS chip — the
+  /// platform plugin uses Wi-Fi / IP geolocation. `LocationAccuracy.high`
+  /// only causes more frequent polling without improving accuracy, so we
+  /// use `medium` and a longer interval to reduce CPU / radio wakeups.
+  /// On Android / iOS we keep the original high-accuracy 1 s behaviour.
+  LocationSettings get locationSettings {
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      return const LocationSettings(accuracy: LocationAccuracy.medium, distanceFilter: 0);
+    }
+    return AndroidSettings(
+      accuracy: LocationAccuracy.high,
+      //distanceFilter: 100,
+      //forceLocationManager: true,
+      intervalDuration: const Duration(seconds: 1),
+      //(Optional) Set foreground notification config to keep the app alive
+      //when going to the background
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationText: "App keeps location active in background",
+        notificationTitle: "TFM Location Service",
+        enableWakeLock: true,
+      ),
+    );
+  }
 
   // BLUETOOTH
   Future<void> initialize() async {
@@ -143,12 +159,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
             }
           } else {
             // No saved bluetooth device, use internal GPS
-            debugPrint('No bluetooth device configured, starting internal GPS');
             startInternalGps();
           }
         } else {
           // No settings found, use internal GPS
-          debugPrint('No GPS settings found, starting internal GPS');
           startInternalGps();
         }
       });
@@ -159,21 +173,15 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   Future<void> _discoverServices(ble.BluetoothDevice device) async {
     // _isConnecting = true; // Managed by caller
     try {
-      print('Discovering services...');
       List<ble.BluetoothService> services = await device.discoverServices();
-      print('Found ${services.length} services');
 
       for (var service in services) {
-        print('Service: ${service.uuid}');
-
         // Get characteristics for this service
         for (var characteristic in service.characteristics) {
           // Check if characteristic is readable
           if (characteristic.properties.read) {
             // Read value if needed for device identification
             await characteristic.read();
-
-            print('Device Name: $device');
           }
 
           // Check if characteristic supports notifications
@@ -193,7 +201,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         }
       }
     } catch (e) {
-      print('Error discovering services: $e');
       // _isConnecting = false; // Managed by caller
     }
   }
@@ -243,7 +250,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (connected.isNotEmpty) {
       for (var connectedDevice in connected) {
         if (connectedDevice.remoteId == device.remoteId) {
-          print('Already connected to device: ${device.platformName}');
           return;
         }
       }
@@ -260,8 +266,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     // Add connection timeout
     Timer connectionTimeout = Timer(const Duration(seconds: 15), () {
       if (_isConnecting && connectedDevice == null) {
-        debugPrint('Connection timeout - stopping connection attempt');
-        debugPrint('Bluetooth device not reachable, falling back to internal GPS');
         _isConnecting = false;
         blueConnectionSubscription?.cancel();
         device.disconnect();
@@ -274,7 +278,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       ble.BluetoothConnectionState state,
     ) async {
       if (state == ble.BluetoothConnectionState.disconnected) {
-        debugPrint('Device disconnected');
         connectedDevice = null;
         _isConnecting = false;
         notifyListeners();
@@ -305,13 +308,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         await device.requestConnectionPriority(
           connectionPriorityRequest: ble.ConnectionPriority.high,
         );
-        debugPrint('Requested high connection priority');
-      } catch (e) {
-        debugPrint('Could not request connection priority: $e');
-      }
+      } catch (e) {}
     } catch (error) {
-      print('Error connecting to device: $error');
-      debugPrint('Failed to connect to Bluetooth device, falling back to internal GPS');
       connectionTimeout.cancel();
       _isConnecting = false;
       // Automatically start internal GPS as fallback
@@ -328,9 +326,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     // Check if device is bonded (paired)
     if (!device.isBonded) {
-      debugPrint(
-        'Device ${device.name} is not paired. Please pair the device first in system Bluetooth settings.',
-      );
       _isConnecting = false;
       notifyListeners();
       return;
@@ -338,7 +333,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     // Prevent multiple simultaneous connection attempts
     if (_isClassicReconnecting) {
-      debugPrint('Classic reconnection already in progress, skipping');
       return;
     }
 
@@ -349,9 +343,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (classicConnection != null && classicConnection!.isConnected) {
       try {
         await classicConnection!.finish();
-      } catch (e) {
-        debugPrint('Error closing previous connection: $e');
-      }
+      } catch (e) {}
     }
 
     _isConnecting = true;
@@ -360,14 +352,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     notifyListeners();
 
     try {
-      debugPrint('Connecting to Classic Bluetooth device: ${device.name}');
-
       // Connect to the device with proper error handling
       try {
         classicConnection = await classic.BluetoothConnection.toAddress(device.address);
       } catch (e) {
         // If connection fails, reset the reconnecting flag and schedule retry
-        debugPrint('Initial connection attempt failed: $e');
         _isConnecting = false;
         _isClassicReconnecting = false;
 
@@ -381,8 +370,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       if (classicConnection == null || !classicConnection!.isConnected) {
         throw Exception('Connection failed - not connected');
       }
-
-      debugPrint('Connected to ${device.name}');
 
       // Buffer to accumulate NMEA sentences
       String buffer = '';
@@ -418,9 +405,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
                     _currentNMEA!.longitude != null) {
                   _updatePositionFromNMEA();
                 }
-              } catch (e) {
-                debugPrint('Error parsing NMEA from Classic BT: $e');
-              }
+              } catch (e) {}
             }
           }
 
@@ -430,11 +415,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           }
         },
         onDone: () {
-          debugPrint('Classic Bluetooth connection closed');
           _handleClassicDisconnection(device);
         },
         onError: (error) {
-          debugPrint('Error with Classic Bluetooth data stream: $error');
           _handleClassicDisconnection(device);
         },
         cancelOnError: false, // Keep listening even after errors
@@ -446,7 +429,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _startCompass();
       notifyListeners();
     } catch (e) {
-      debugPrint('Error connecting to Classic Bluetooth device: $e');
       _isConnecting = false;
       _isClassicReconnecting = false;
 
@@ -460,7 +442,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   void _resetDataTimeout(classic.BluetoothDevice device) {
     _classicDataTimeoutTimer?.cancel();
     _classicDataTimeoutTimer = Timer(const Duration(seconds: 10), () {
-      debugPrint('Classic Bluetooth data timeout - no data received for 10 seconds');
       _handleClassicDisconnection(device);
     });
   }
@@ -474,9 +455,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (classicConnection != null && classicConnection!.isConnected) {
       try {
         classicConnection!.finish();
-      } catch (e) {
-        debugPrint('Error closing connection during cleanup: $e');
-      }
+      } catch (e) {}
     }
     classicConnection = null;
 
@@ -494,8 +473,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
     // Check if we've exceeded max reconnection attempts
     if (_classicReconnectAttempts >= _maxReconnectAttempts) {
-      debugPrint('Max reconnection attempts ($_maxReconnectAttempts) reached for ${device.name}');
-      debugPrint('Classic Bluetooth device not reachable, falling back to internal GPS');
       connectedClassicDevice = null;
       _classicReconnectAttempts = 0;
       startInternalGps();
@@ -505,9 +482,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _classicReconnectAttempts++;
     _classicReconnectTimer = Timer(const Duration(seconds: 3), () {
       if (connectedClassicDevice?.address == device.address) {
-        debugPrint(
-          'Reconnection attempt $_classicReconnectAttempts/$_maxReconnectAttempts to ${device.name}',
-        );
         connectClassicDevice(device);
       }
     });
@@ -594,6 +568,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   /// Start listening to the device compass (magnetometer)
   void _startCompass() {
     _compassSubscription?.cancel();
+    // Windows desktops have no compass / magnetometer hardware. The
+    // flutter_compass plugin still polls a sensor source and the resulting
+    // stream causes UI rebuilds for no benefit. Skip the subscription
+    // entirely on Windows; heading falls back to GPS heading only.
+    if (!kIsWeb && Platform.isWindows) {
+      return;
+    }
     _compassSubscription = FlutterCompass.events?.listen((CompassEvent event) {
       if (event.heading != null) {
         _lastCompassHeading = event.heading!;
@@ -659,9 +640,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (classicConnection != null && classicConnection!.isConnected) {
       try {
         classicConnection!.finish();
-      } catch (e) {
-        debugPrint('Error closing Classic connection: $e');
-      }
+      } catch (e) {}
     }
     classicConnection = null;
     connectedClassicDevice = null;
@@ -733,12 +712,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         Permission.storage,
       ].request();
       if (statuses[Permission.location] != PermissionStatus.granted) {
-        print('Location permission denied. Cannot start tracking.');
         // Optionally show a message to the user
         return;
       }
     } catch (e) {
-      print('Error checking permission/service: $e');
       // Handle error (e.g., show message if service disabled)
       return;
     }
@@ -781,11 +758,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               notifyListeners();
             }
           });
-          debugPrint('Android GNSS listener started successfully');
         }
-      } catch (e) {
-        debugPrint('Failed to initialize Android GNSS service: $e');
-      }
+      } catch (e) {}
     }
 
     _isConnecting = true;
@@ -797,7 +771,6 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
         .handleError((error) {
           // <-- Add error handling for the stream
-          print("Error in location stream: $error");
           // Handle specific errors if needed
           _isConnecting = false;
         })

@@ -36,7 +36,6 @@ class _NewRecordDialogState extends State<NewRecordDialog> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading schemas: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

@@ -398,7 +398,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
       // Remove trailing zeros for other values
       return result.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
     } catch (e) {
-      debugPrint('❌ Expression evaluation error for ${widget.fieldName}: $e');
       return 'Error: ${e.toString()}';
     }
   }
@@ -498,7 +497,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
           return 'Unknown function: $functionName';
       }
     } catch (e) {
-      debugPrint('❌ Function evaluation error for ${widget.fieldName}: $e');
       return 'Error';
     }
   }
@@ -792,8 +790,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
       final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
       // Lookup table takes priority; fall back to inline $tfm.name_de / name_en.
       final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
-      debugPrint('lookupTable');
-      debugPrint(lookupTable);
       final resolved = LookupService.instance.getNameList(lookupTable, enumValues, langCode);
       List? nameDe = resolved.any((e) => e != null) ? resolved : null;
       if (nameDe == null) {
@@ -1003,7 +999,6 @@ class _GenericTextFieldState extends State<GenericTextField> {
       /*if (widget.fieldOptions?['upDownBtn'] == null && widget.fieldSchema['upDownBtn'] == null) {
         if (minimum != null && maximum != null && (maximum - minimum) <= 1000) {
           // Auto-enable spinner for small range
-          debugPrint('Auto-enabling upDownBtn for field ${widget.fieldName} due to small range');
           hasSpinner = true;
           upDownBtn = 1;
         }

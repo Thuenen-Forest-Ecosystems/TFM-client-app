@@ -96,13 +96,11 @@ class _TFMMapState extends State<TFMMap> {
               // Update the state variables that will be used in MapOptions
               _currentCenter = LatLng(centerList[0], centerList[1]);
               _currentZoom = zoom;
-              print('Restored camera state: Center=$_currentCenter, Zoom=$_currentZoom');
             }
           }
         }
       }
     } catch (e) {
-      print('Error restoring camera state: $e');
       // Keep default values if restoring fails
     }
   }
@@ -110,7 +108,6 @@ class _TFMMapState extends State<TFMMap> {
   @override
   void initState() {
     super.initState();
-    print('TFMMap initState');
 
     // get MapController from MapState
     _mapController = context.read<MapState>().mapController;
@@ -199,7 +196,6 @@ class _TFMMapState extends State<TFMMap> {
 
         // Save the JSON string
         setDeviceSettings('cameraState', cameraStateString);
-        print('Saved camera state: $cameraStateString');
       }
     });
   }
@@ -238,7 +234,6 @@ class _TFMMapState extends State<TFMMap> {
 
         for (final hitValue in hitResult.hitValues) {
           Map plot = hitValue as Map;
-          print(plot);
           Beamer.of(context).beamToNamed('/record/${plot['recordId']}');
           //_navigateToPlot('private_ci2027_001', plot['cluster_id'], plot['id']);
         }

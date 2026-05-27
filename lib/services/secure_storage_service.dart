@@ -44,7 +44,6 @@ class SecureStorageService {
     final legacyEmail = await _storage.read(key: _legacyKeyEmail);
     if (legacyEmail == null) return;
 
-    print('SecureStorageService: Migrating legacy credentials for $legacyEmail');
 
     final fields = {
       _legacyKeyPassword: 'password',
@@ -65,7 +64,6 @@ class SecureStorageService {
 
     await _storage.write(key: _keyLastCachedEmail, value: legacyEmail);
     await _storage.delete(key: _legacyKeyEmail);
-    print('SecureStorageService: Migration complete for $legacyEmail');
   }
 
   // ── Public API ───────────────────────────────────────────────────────────────
@@ -224,7 +222,6 @@ class SecureStorageService {
       ]) {
         await _storage.delete(key: _userKey(email, field));
       }
-      print('SecureStorageService: Credentials cleared for $email');
     } catch (e) {
       rethrow;
     }

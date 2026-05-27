@@ -96,7 +96,6 @@ class LookupService {
         if (nameEnMap.isNotEmpty) _cacheEn[tableName] = nameEnMap;
         if (intervalMap.isNotEmpty) _intervalCache[tableName] = intervalMap;
       } catch (e) {
-        debugPrint('LookupService: failed to load $tableName: $e');
       }
     }
 
@@ -107,22 +106,13 @@ class LookupService {
       0,
       (sum, m) => sum + m.length ~/ 3,
     ); // divide by 3: stored as str+int+double
-    debugPrint(
-      'LookupService: loaded ${_cache.length} tables, ~$totalEntries unique entries total',
-    );
     // Sample first table with data
     for (final entry in _cache.entries) {
       if (entry.value.isNotEmpty) {
-        debugPrint(
-          '  sample [${entry.key}]: first entry key=${entry.value.keys.first} val=${entry.value.values.first}',
-        );
         break;
       }
     }
     if (totalEntries == 0) {
-      debugPrint(
-        'LookupService WARNING: all lookup tables are empty! Enum labels will not be shown.',
-      );
     }
 
     // Notify listeners (e.g. widgets) that lookup data has been (re)loaded.

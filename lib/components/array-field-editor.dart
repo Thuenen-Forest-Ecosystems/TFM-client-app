@@ -538,7 +538,6 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
       // PlutoGrid requires unique, non-empty field identifiers
       final String safeKey = key.isNotEmpty ? key : 'column_$title';
       if (key.isEmpty) {
-        print('!!!!Column key is empty, using default: $safeKey');
       }
 
       // https://pluto.weblaze.dev/columns
@@ -595,7 +594,6 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
               if (type != 'boolean')
                 SpeechToTextButton(
                   onChanged: (value) {
-                    print('SpeechToTextButton value: $value');
                     // Update the cell value with the recognized text
                     //rendererContext.stateManager.setCellValue(rendererContext.rowIdx, rendererContext.column.field, value);
                   },
@@ -655,7 +653,6 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
       );
     }
 
-    print('BUILD GRID ${rows.length}');
 
     // Rest of the build method...
     return PlutoGrid(
@@ -690,7 +687,6 @@ class _ArrayGridEditorState extends State<_ArrayGridEditor> {
                 }
               }
             } catch (e) {
-              print('Error adjusting column widths: $e');
             }
 
             stateManager.setShowLoading(false);

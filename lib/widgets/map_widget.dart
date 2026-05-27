@@ -156,9 +156,7 @@ class _MapWidgetState extends State<MapWidget> {
         try {
           final mapControllerProvider = context.read<MapControllerProvider>();
           mapControllerProvider.setFlutterMapController(_mapController);
-          debugPrint('Flutter map controller registered with provider');
         } catch (e) {
-          debugPrint('MapControllerProvider not found: $e');
         }
 
         // Set up listener for MapControllerProvider focus bounds
@@ -203,10 +201,8 @@ class _MapWidgetState extends State<MapWidget> {
 
       if (manualMoveTimestamp != null && manualMoveTimestamp != _lastManualFocusTime) {
         _lastManualFocusTime = manualMoveTimestamp;
-        debugPrint('Manual move detected at ${manualMoveTimestamp}');
       }
     } catch (e) {
-      debugPrint('Error checking manual move: $e');
     }
   }
 
@@ -219,7 +215,6 @@ class _MapWidgetState extends State<MapWidget> {
       // Check if center position changed
       if (currentCenterKey != _lastCenterPositionKey) {
         _lastCenterPositionKey = currentCenterKey;
-        debugPrint('Center position changed to: $currentCenterKey');
 
         // Recalculate positions for current focused record if any
         if (_focusedRecord != null) {
@@ -245,12 +240,10 @@ class _MapWidgetState extends State<MapWidget> {
               _subplotPositions = subplotPositions;
               _previousSubplotPositions = previousSubplotPositions;
             });
-            debugPrint('Recalculated positions with new center: $currentCenterKey');
           }
         }
       }
     } catch (e) {
-      debugPrint('Error checking center position change: $e');
     }
   }
 
@@ -306,7 +299,6 @@ class _MapWidgetState extends State<MapWidget> {
         }
       }
     } catch (e) {
-      debugPrint('Error checking focused record: $e');
     }
   }
 
@@ -319,9 +311,6 @@ class _MapWidgetState extends State<MapWidget> {
 
     // If properties is null, return empty list
     if (properties == null) {
-      debugPrint(
-        'No ${usePrevious ? 'previous' : 'current'} properties available for tree positions',
-      );
       return [];
     }
 
@@ -333,14 +322,11 @@ class _MapWidgetState extends State<MapWidget> {
 
       if (centerPosition != null) {
         centerCoords = {'latitude': centerPosition.latitude, 'longitude': centerPosition.longitude};
-        debugPrint('Using selected center position: ${mapControllerProvider.centerPositionKey}');
       } else {
         centerCoords = record.getCoordinates();
-        debugPrint('Using default center position (SOLL)');
       }
     } catch (e) {
       centerCoords = record.getCoordinates();
-      debugPrint('Error getting center position, using default: $e');
     }
 
     return compute(_computeTreePositions, {'recordCoords': centerCoords, 'properties': properties});
@@ -390,9 +376,6 @@ class _MapWidgetState extends State<MapWidget> {
 
     // If properties is null, return empty list
     if (properties == null) {
-      debugPrint(
-        'No ${usePrevious ? 'previous' : 'current'} properties available for subplot positions',
-      );
       return [];
     }
 
@@ -603,7 +586,6 @@ class _MapWidgetState extends State<MapWidget> {
     final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
     final properties = params['properties'] as Map<String, dynamic>;
 
-    debugPrint('Calculating tree positions for record at: $recordCoords');
 
     if (recordCoords == null) return positions;
 
@@ -614,10 +596,8 @@ class _MapWidgetState extends State<MapWidget> {
       // Check if tree data exists in properties (note: field is 'tree', not 'trees')
       final trees = properties['tree'];
       if (trees == null || trees is! List) {
-        debugPrint('No tree data found in properties. Available keys: ${properties.keys.toList()}');
         return positions;
       }
-      debugPrint('Found ${trees.length} trees in tree array');
 
       // Calculate position for each tree based on azimuth and distance
       final centerPoint = turf.Point(coordinates: turf.Position(centerLng, centerLat));
@@ -646,9 +626,6 @@ class _MapWidgetState extends State<MapWidget> {
           // Convert distance from cm to meters then to kilometers
           final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
 
-          debugPrint(
-            'Tree ${treeNumber}: azimuth=${azimuthDegrees}°, distance=${distanceKm}km, dbh=${dbh}mm',
-          );
 
           // Use Turf's destination to calculate the new position
           final destinationPoint = turf.destination(
@@ -674,7 +651,6 @@ class _MapWidgetState extends State<MapWidget> {
         }
       }
     } catch (e) {
-      debugPrint('Error calculating tree positions: $e');
     }
 
     return positions;
@@ -740,7 +716,6 @@ class _MapWidgetState extends State<MapWidget> {
         }
       }
     } catch (e) {
-      debugPrint('Error calculating edges: $e');
     }
 
     return results;
@@ -751,7 +726,6 @@ class _MapWidgetState extends State<MapWidget> {
     final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
     final properties = params['properties'] as Map<String, dynamic>;
 
-    debugPrint('Calculating subplot positions for record at: $recordCoords');
 
     if (recordCoords == null) return positions;
 
@@ -762,12 +736,8 @@ class _MapWidgetState extends State<MapWidget> {
       // Check if subplot data exists in properties
       final subplots = properties['subplots_relative_position'];
       if (subplots == null || subplots is! List) {
-        debugPrint(
-          'No subplot data found in properties. Available keys: ${properties.keys.toList()}',
-        );
         return positions;
       }
-      debugPrint('Found ${subplots.length} subplots in subplots_relative_position array');
 
       // Calculate position for each subplot based on azimuth and distance
       final centerPoint = turf.Point(coordinates: turf.Position(centerLng, centerLat));
@@ -787,9 +757,6 @@ class _MapWidgetState extends State<MapWidget> {
           // Convert distance from cm to meters then to kilometers
           final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
 
-          debugPrint(
-            'Subplot: azimuth=${azimuthDegrees}°, distance=${distanceKm}km, radius=${radius}m, parent_table=${parentTable}',
-          );
 
           // Use Turf's destination to calculate the center position of the subplot
           final destinationPoint = turf.destination(
@@ -813,7 +780,6 @@ class _MapWidgetState extends State<MapWidget> {
         }
       }
     } catch (e) {
-      debugPrint('Error calculating subplot positions: $e');
     }
 
     return positions;
@@ -825,29 +791,24 @@ class _MapWidgetState extends State<MapWidget> {
       final openCycleStore = FMTCStore('OpenCycleMap');
       if (!(await openCycleStore.manage.ready)) {
         await openCycleStore.manage.create();
-        debugPrint('Created opencyclemap tile store');
       }
 
       // Initialize ESRI Satellite store
       final esriStore = FMTCStore('esri_satellite');
       if (!(await esriStore.manage.ready)) {
         await esriStore.manage.create();
-        debugPrint('Created ESRI satellite tile store');
       }
 
       // Initialize DOP store
       final dopStore = FMTCStore('wms_dop__');
       if (!(await dopStore.manage.ready)) {
         await dopStore.manage.create();
-        debugPrint('Created wms_dop__ tile store');
       }
 
       setState(() {
         _storesInitialized = true;
       });
-      debugPrint('Tile stores initialized successfully');
     } catch (e) {
-      debugPrint('Error initializing tile stores: $e');
       // Set flag anyway to allow app to continue
       setState(() {
         _storesInitialized = true;
@@ -863,7 +824,6 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _selectedBasemaps = savedBasemaps.toSet();
         });
-        debugPrint('Loaded saved basemaps: $savedBasemaps');
       } else {
         // First installation: select all basemaps by default
         setState(() {
@@ -871,7 +831,6 @@ class _MapWidgetState extends State<MapWidget> {
         });
         // Save the default selection
         await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
-        debugPrint('First installation: enabled all basemaps by default');
       }
 
       // Load tree diameter multiplier
@@ -880,7 +839,6 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _treeDiameterMultiplier = savedMultiplier;
         });
-        debugPrint('Loaded tree diameter multiplier: $savedMultiplier');
       }
 
       // Load tree label settings
@@ -889,7 +847,6 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _showTreeLabels = savedShowLabels;
         });
-        debugPrint('Loaded show tree labels: $savedShowLabels');
       }
 
       final savedLabelFields = prefs.getStringList('tree_label_fields');
@@ -897,7 +854,6 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _treeLabelFields = savedLabelFields.toSet();
         });
-        debugPrint('Loaded tree label fields: $savedLabelFields');
       }
 
       // Load layer visibility settings
@@ -918,7 +874,6 @@ class _MapWidgetState extends State<MapWidget> {
       if (savedShowRettungspunkte != null)
         setState(() => _showRettungspunkte = savedShowRettungspunkte);
     } catch (e) {
-      debugPrint('Error loading map settings: $e');
     }
   }
 
@@ -935,7 +890,6 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setBool('show_probekreise', _showProbekreise);
       await prefs.setBool('show_rettungspunkte', _showRettungspunkte);
     } catch (e) {
-      debugPrint('Error saving map settings: $e');
     }
   }
 
@@ -947,15 +901,12 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _rettungspunkte = points;
         });
-        debugPrint('Loaded ${points.length} Rettungspunkte');
       }
     } catch (e) {
-      debugPrint('Error loading Rettungspunkte: $e');
     }
   }
 
   Future<void> _loadTreeSpeciesLookup() async {
-    debugPrint('_loadTreeSpeciesLookup');
     try {
       final results = await db.getAll('SELECT code, name_de FROM lookup_tree_species');
       final lookup = <int, String>{};
@@ -979,10 +930,8 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _treeSpeciesLookup = lookup;
         });
-        debugPrint('Loaded ${lookup.length} tree species names');
       }
     } catch (e) {
-      debugPrint('Error loading tree species lookup: $e');
     }
   }
 
@@ -1038,7 +987,6 @@ class _MapWidgetState extends State<MapWidget> {
         }
         _lastRecordsFingerprint = fingerprint;
 
-        debugPrint('MapWidget: Loaded ${recordsWithCoords.length} records from provider cache');
 
         if (!_isDisposed && mounted) {
           setState(() {
@@ -1054,9 +1002,6 @@ class _MapWidgetState extends State<MapWidget> {
             if (!_isMapReady) {
               // If map not ready, show all records
               _visibleRecords = recordsWithCoords;
-              debugPrint(
-                'MapWidget: Map not ready, showing all ${recordsWithCoords.length} records',
-              );
             } else {
               // If map is ready, filter immediately (synchronously for removed records)
               final bounds = _mapController.camera.visibleBounds;
@@ -1073,9 +1018,6 @@ class _MapWidgetState extends State<MapWidget> {
                     lng >= bounds.west &&
                     lng <= bounds.east;
               }).toList();
-              debugPrint(
-                'MapWidget: Updated visible records: ${_visibleRecords.length} out of ${recordsWithCoords.length}',
-              );
             }
 
             if (!_markersLoaded && recordsWithCoords.isNotEmpty) {
@@ -1094,11 +1036,9 @@ class _MapWidgetState extends State<MapWidget> {
             _historicalPositionPolygons = {};
           });
           _lastRecordsFingerprint = null;
-          debugPrint('MapWidget: Cache cleared, removed all markers');
         }
       }
     } catch (e) {
-      debugPrint('MapWidget: Error loading records from provider: $e');
     }
   }
 
@@ -1115,9 +1055,6 @@ class _MapWidgetState extends State<MapWidget> {
         _lastFocusTimestamp = timestamp;
         _lastManualFocusTime = DateTime.now(); // Track manual focus
 
-        debugPrint(
-          'Focusing map on bounds: SW(${focusBounds.south}, ${focusBounds.west}) NE(${focusBounds.north}, ${focusBounds.east})',
-        );
 
         // Fit camera to the requested bounds
         _mapController.fitCamera(
@@ -1132,7 +1069,6 @@ class _MapWidgetState extends State<MapWidget> {
         });
       }
     } catch (e) {
-      debugPrint('Error checking focus bounds: $e');
     }
   }
 
@@ -1143,7 +1079,6 @@ class _MapWidgetState extends State<MapWidget> {
       _gpsSubscription = gpsProvider.positionStreamController.listen(
         (position) {
           if (_isDisposed) {
-            debugPrint('Cannot update location: disposed=$_isDisposed');
             return;
           }
 
@@ -1153,10 +1088,8 @@ class _MapWidgetState extends State<MapWidget> {
           });
         },
         onError: (error) {
-          debugPrint('❌ GPS stream error: $error');
         },
         onDone: () {
-          debugPrint('GPS stream closed');
         },
       );
 
@@ -1171,11 +1104,9 @@ class _MapWidgetState extends State<MapWidget> {
           });
         },
         onError: (error) {
-          debugPrint('❌ Heading stream error: $error');
         },
       );
     } catch (e) {
-      debugPrint('❌ Error subscribing to GPS: $e');
     }
   }
 
@@ -1186,7 +1117,6 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() {
           _visibleRecords = _records;
         });
-        debugPrint('MapWidget: Map not ready, showing all ${_records.length} records');
       }
       return;
     }
@@ -1198,7 +1128,6 @@ class _MapWidgetState extends State<MapWidget> {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.setCurrentMapBounds(bounds);
     } catch (e) {
-      debugPrint('Error updating map bounds in provider: $e');
     }
 
     // Only update if bounds changed significantly (avoid micro-updates during pan)
@@ -1234,7 +1163,6 @@ class _MapWidgetState extends State<MapWidget> {
         _visibleRecords = visibleRecords;
         _visibleRettungspunkte = visibleRettungspunkte;
       });
-      debugPrint('Updated visible records: ${_visibleRecords.length} out of ${_records.length}');
     }
   }
 
@@ -1276,9 +1204,6 @@ class _MapWidgetState extends State<MapWidget> {
     if (_lastManualFocusTime != null) {
       final timeSinceManualFocus = DateTime.now().difference(_lastManualFocusTime!);
       if (timeSinceManualFocus.inSeconds < 5) {
-        debugPrint(
-          'Skipping auto-fit due to recent manual focus (${timeSinceManualFocus.inSeconds}s ago)',
-        );
         return;
       }
     }
@@ -1309,7 +1234,6 @@ class _MapWidgetState extends State<MapWidget> {
       final latPadding = (maxLat - minLat) * 0.1;
       final lngPadding = (maxLng - minLng) * 0.1;
 
-      debugPrint('Bounding box: SW($minLng, $minLat) NE($maxLng, $maxLat)');
 
       final bounds = LatLngBounds(
         LatLng(minLat - latPadding, minLng - lngPadding),
@@ -1322,7 +1246,6 @@ class _MapWidgetState extends State<MapWidget> {
           _mapController.fitCamera(
             CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
           );
-          debugPrint('Camera moved to fit all markers');
         }
       });
     }
@@ -1424,7 +1347,6 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void _onMarkerTapped(Record record) {
-    debugPrint('Marker tapped: ${record.clusterName} - ${record.plotName}');
 
     // Mark as manual interaction to prevent auto-fit
     _lastManualFocusTime = DateTime.now();
@@ -1444,12 +1366,10 @@ class _MapWidgetState extends State<MapWidget> {
           '/properties-edit/${Uri.encodeComponent(record.clusterId)}/${Uri.encodeComponent(record.plotName ?? '')}';
       mapControllerProvider.requestNavigation(navPath);
     } catch (e) {
-      debugPrint('Error marking manual interaction or requesting navigation: $e');
     }
   }
 
   void _onClusterTapped(List<Marker> markers) {
-    debugPrint('Cluster tapped with ${markers.length} markers');
     // Zoom in on cluster
     if (markers.isNotEmpty) {
       final center = markers.first.point;
@@ -1462,17 +1382,14 @@ class _MapWidgetState extends State<MapWidget> {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('tree', treeNumber);
     } catch (e) {
-      debugPrint('🌳 Error handling tree circle tap: $e');
     }
   }
 
   void _onEdgeCircleTapped(int edgeNumber) {
-    debugPrint('Edge circle tapped: edge_number=$edgeNumber');
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('edges', edgeNumber);
     } catch (e) {
-      debugPrint('Error handling edge circle tap: $e');
     }
   }
 
@@ -1659,7 +1576,6 @@ class _MapWidgetState extends State<MapWidget> {
       final recordsProvider = context.read<RecordsListProvider>();
       recordsProvider.removeListener(_onProviderChanged);
     } catch (e) {
-      debugPrint('Error removing listeners: $e');
     }
 
     super.dispose();
@@ -1876,14 +1792,9 @@ class _MapWidgetState extends State<MapWidget> {
                   errorMsg.contains('certificate') ||
                   errorMsg.contains('proxy') ||
                   errorMsg.contains('connection')) {
-                debugPrint('🔴 PROXY/NETWORK ERROR loading DOP tile ${tile.coordinates}:');
-                debugPrint('   Error: $error');
-                debugPrint('   Possible cause: Proxy blocking geodatenzentrum.de');
               } else {
-                debugPrint('🔴 Error loading DOP tile ${tile.coordinates}: $error');
               }
               if (stackTrace != null) {
-                debugPrint('   Stack: $stackTrace');
               }
             },
           ),

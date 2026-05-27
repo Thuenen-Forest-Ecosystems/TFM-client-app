@@ -39,7 +39,6 @@ class _MessagesChatState extends State<MessagesChat> {
         _currentUserId = user?.id;
       });
     } catch (e) {
-      debugPrint('Error loading current user: $e');
     }
   }
 
@@ -119,7 +118,6 @@ class _MessagesChatState extends State<MessagesChat> {
     try {
       await db.execute('DELETE FROM records_messages WHERE id = ?', [messageId]);
     } catch (e) {
-      debugPrint('Error deleting message: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,

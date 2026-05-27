@@ -137,7 +137,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         _checkError = null;
       });
     } catch (e) {
-      print('[Check] Error checking records: $e');
       if (!mounted) return;
 
       setState(() {
@@ -161,9 +160,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   }
 
   Future<void> _downloadMapTilesForBasemap(String basemapName) async {
-    print('[Download] Starting download for $basemapName...');
     final records = await RecordsRepository().getAllRecordsUnfiltered();
-    print('[Download] Found ${records.length} records');
 
     if (records.isEmpty) {
       if (mounted) {
@@ -182,7 +179,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       _basemapProgress[basemapName] = 0.0;
       _basemapStatus[basemapName] = 'Wird heruntergeladen...';
     });
-    print('[Download] Download state initialized for $basemapName');
 
     try {
       // DOP and ESRI Satellite need per-record download with small radius (100m)
@@ -194,7 +190,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         if (bbox != null) {
           await _downloadTiles(bbox, basemapName);
         } else {
-          print('[Download] $basemapName bbox is null, skipping');
         }
       }
 
@@ -209,7 +204,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       }
     } catch (e) {
       if (mounted) {
-        print('[Download] Error: $e');
         setState(() {
           _basemapStatus[basemapName] = 'Fehler beim Download';
         });
@@ -227,26 +221,22 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   }
 
   Future<void> _downloadDOPForRecords(List<Record> records, String basemapName) async {
-    print('[$basemapName] Processing ${records.length} records');
 
     // Download tiles for each record position with 100m radius
     int recordIndex = 0;
     for (final record in records) {
       if (_cancelRequested) {
-        print('[$basemapName] Download cancelled by user');
         break;
       }
       recordIndex++;
       final coords = record.getCoordinates();
       if (coords == null) {
-        print('[$basemapName] Record $recordIndex: No coordinates, skipping');
         continue;
       }
 
       final lat = coords['latitude'];
       final lng = coords['longitude'];
       if (lat == null || lng == null) {
-        print('[$basemapName] Record $recordIndex: Missing lat/lng, skipping');
         continue;
       }
 
@@ -255,9 +245,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       final recordBbox = LatLngBounds(
         LatLng(lat - radiusPadding, lng - radiusPadding),
         LatLng(lat + radiusPadding, lng + radiusPadding),
-      );
-      print(
-        '[$basemapName] Record $recordIndex/${records.length}: Downloading bbox around ($lat, $lng)',
       );
 
       // Update progress based on record completion
@@ -269,9 +256,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       }
 
       await _downloadTiles(recordBbox, basemapName);
-      print('[$basemapName] Record $recordIndex/${records.length}: Download completed');
     }
-    print('[$basemapName] All records processed');
   }
 
   LatLngBounds? _calculateBoundingBox(List<Record> records, String basemapName) {
@@ -316,7 +301,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   }
 
   Future<void> _downloadStandardTiles(LatLngBounds bbox, String basemapName) async {
-    print('[$basemapName] Starting download for bbox: $bbox');
     final storeName =
         basemapsToSelectFrom[basemapName]?['storeName'] ??
         basemapName.toLowerCase().replaceAll(' ', '_');
@@ -324,7 +308,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     // Create store if it doesn't exist
     await store.manage.create();
-    print('[$basemapName] Store created/verified: $storeName');
 
     // Define download region
     final region = RectangleRegion(bbox);
@@ -337,16 +320,13 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           basemapsToSelectFrom[basemapName]?['minZoom'] ?? 1,
           basemapsToSelectFrom[basemapName]?['maxZoom'] ?? 19,
         ];
-    print('[$basemapName] Zoom levels to download: $zoomLevels');
 
     // Download each zoom level separately
     int zoomIndex = 0;
     for (final zoom in zoomLevels) {
       if (_cancelRequested) {
-        print('[$basemapName] Cancelled at zoom level $zoom');
         break;
       }
-      print('[$basemapName] Starting download for zoom level $zoom');
       // Configure TileLayer with urlTemplate (required by FMTC)
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
@@ -355,7 +335,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       );
 
       // Start download
-      print('[$basemapName] Starting download for zoom $zoom...');
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
@@ -364,23 +343,17 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           maxBufferLength: 100,
           skipExistingTiles: true,
         );
-        print('[$basemapName] Download stream created for zoom $zoom');
 
         // Consume the progress stream
         int progressUpdateCount = 0;
         int lastFailedCount = 0;
         await for (final progress in download) {
           if (_cancelRequested) {
-            print('[$basemapName] Breaking progress loop due to cancel');
             break;
           }
 
           progressUpdateCount++;
           if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
-            print(
-              '[$basemapName] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
-              '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
-            );
           }
 
           // Detect if many tiles are failing - likely a proxy/network issue
@@ -388,9 +361,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
             lastFailedCount = progress.failedTiles;
             // If more than 20% of tiles failed, show warning
             if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
-              print(
-                '[$basemapName] ⚠️ High failure rate detected: ${progress.failedTiles}/${progress.maxTiles}',
-              );
             }
           }
 
@@ -408,11 +378,8 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           }
         }
 
-        print('[$basemapName] Zoom $zoom download completed ($progressUpdateCount updates)');
         zoomIndex++;
       } catch (e, stackTrace) {
-        print('[$basemapName] Error during download at zoom $zoom: $e');
-        print('[$basemapName] Stack trace: $stackTrace');
 
         // Check for Windows isolate serialization error
         if (e.toString().contains('Illegal argument in isolate message') &&
@@ -429,7 +396,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
               ),
             );
           }
-          print('[$basemapName] Windows isolate limitation - bulk downloads not supported');
           // Skip remaining zoom levels for this basemap
           break;
         }
@@ -449,19 +415,15 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         zoomIndex++;
       }
 
-      print('[$basemapName] Zoom $zoom processing complete');
     }
-    print('[$basemapName] All zoom levels completed');
   }
 
   Future<void> _downloadWmsTiles(LatLngBounds bbox, String basemapName) async {
-    print('[WMS] Starting download for bbox: $bbox');
     // Use the same WMS configuration as the existing map layer
     // FMTC will handle WMS tile generation and caching
     final storeName = basemapName == 'DTK25' ? 'wms_dtk25__' : 'wms_dop__';
     final store = FMTCStore(storeName);
     await store.manage.create();
-    print('[WMS] Store created/verified: $storeName');
 
     final baseUrl = basemapName == 'DTK25'
         ? 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?'
@@ -478,16 +440,13 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           basemapsToSelectFrom[basemapName]?['minZoom'] ?? 1,
           basemapsToSelectFrom[basemapName]?['maxZoom'] ?? 19,
         ];
-    print('[WMS] Zoom levels to download: $zoomLevels');
 
     // Download each zoom level separately
     int zoomIndex = 0;
     for (final zoom in zoomLevels) {
       if (_cancelRequested) {
-        print('[WMS] Cancelled at zoom level $zoom');
         break;
       }
-      print('[WMS] Starting download for zoom level $zoom');
       // Configure TileLayer with WMS options (required by FMTC)
       final downloadableRegion = region.toDownloadable(
         minZoom: zoom,
@@ -502,7 +461,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         ),
       );
 
-      print('[WMS] Starting download for zoom $zoom...');
       try {
         final download = store.download.startForeground(
           region: downloadableRegion,
@@ -511,24 +469,18 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           maxBufferLength: 100,
           skipExistingTiles: true,
         );
-        print('[WMS] Download stream created for zoom $zoom');
 
         // Consume the progress stream
         int progressUpdateCount = 0;
         int lastFailedCount = 0;
         await for (final progress in download) {
           if (_cancelRequested) {
-            print('[WMS] Breaking progress loop due to cancel');
             break;
           }
 
           progressUpdateCount++;
 
           if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
-            print(
-              '[WMS] Zoom $zoom progress: ${progress.successfulTiles}/${progress.maxTiles} '
-              '(skipped: ${progress.skippedTiles}, failed: ${progress.failedTiles})',
-            );
           }
 
           // Detect if many tiles are failing - likely a proxy/network issue
@@ -536,9 +488,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
             lastFailedCount = progress.failedTiles;
             // If more than 20% of tiles failed, show warning
             if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
-              print(
-                '[WMS] ⚠️ High failure rate detected: ${progress.failedTiles}/${progress.maxTiles}',
-              );
             }
           }
 
@@ -556,11 +505,8 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           }
         }
 
-        print('[WMS] Zoom $zoom download completed ($progressUpdateCount updates)');
         zoomIndex++;
       } catch (e, stackTrace) {
-        print('[WMS] Error during download at zoom $zoom: $e');
-        print('[WMS] Stack trace: $stackTrace');
 
         // Check for Windows isolate serialization error
         if (e.toString().contains('Illegal argument in isolate message') &&
@@ -577,7 +523,6 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
               ),
             );
           }
-          print('[WMS] Windows isolate limitation - bulk downloads not supported');
           break;
         }
 
@@ -596,15 +541,11 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
         zoomIndex++;
       }
     }
-    print('[WMS] All zoom levels completed');
   }
 
   @override
   Widget build(BuildContext context) {
     // Only allow download if nothing is currently downloading, not checking, and records exist
-    debugPrint('Checking tiles: $_isCheckingTiles');
-    debugPrint('Missing tiles count: $_missingTilesCount');
-    debugPrint('Downloading basemap: $_downloadingBasemap');
     final canStartDownload =
         _downloadingBasemap == null && !_isCheckingTiles && _missingTilesCount == -1;
     return SingleChildScrollView(

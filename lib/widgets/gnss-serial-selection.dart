@@ -60,7 +60,6 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     if (serialPort != null && serialPort!.isOpen) {
       serialPort.close();
       serialPort.dispose();
-      print('CLOSE');
     }
   }
 
@@ -74,7 +73,6 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
           ).timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              print('Serial port scan timeout - common on Windows with VPN/Bluetooth');
               return <String>[];
             },
           );
@@ -89,9 +87,7 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
       });
     } catch (e) {
       if (e is SerialPortError) {
-        print('availablePorts: $e');
       } else {
-        print('Error Get Ports: $e');
       }
       setState(() {
         availablePorts = [];
@@ -131,7 +127,6 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     //double lonD = double.parse(lon);
 
     // Step 8: Print the latitude and longitude
-    print('Latitude: $lat, Longitude: $lon');
     /*return Position(
       latitude: double.parse(lat),
       longitude: double.parse(lon),
@@ -149,7 +144,6 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
     serialPort = SerialPort(selectedPort);
 
     if (serialPort == null || baudeRate == null) {
-      print('Serial port is null');
       return;
     }
 
@@ -159,15 +153,12 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
 
     try {
       var config = serialPort!.config;
-      print(baudeRate);
       config.baudRate = baudeRate!;
       serialPort!.config = config;
 
       if (serialPort.openRead()) {
-        print('Port opened');
         tested = true;
       } else {
-        print('Port not opened');
         setState(() {
           testing = false;
         });
@@ -192,25 +183,20 @@ class _GnssSerialSelectionState extends State<GnssSerialSelection> {
           for (String line in lines) {
             // Step 3: Check if the line starts with "GNRMC"
             if (line.startsWith('GNRMC')) {
-              print(line);
               // Step 4: Parse the line
               _getLatLonFromGNRMC(line);
             }
           }
         },
         onDone: () {
-          print('Done');
         },
         onError: (e) {
-          print('$e');
           setState(() {
             testing = false;
           });
         },
       );
-      print('read start');
     } catch (e) {
-      print(e);
     }
   }
 

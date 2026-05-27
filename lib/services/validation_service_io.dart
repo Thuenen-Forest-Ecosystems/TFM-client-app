@@ -23,13 +23,11 @@ class ValidationService {
   Future<void> initialize({String? tfmValidationCode}) async {
     // Allow reinitialization only if TFM code is provided and not already loaded
     if (_isInitialized && (tfmValidationCode == null || _isTFMLoaded)) {
-      print('ValidationService already initialized (TFM loaded: $_isTFMLoaded)');
       return;
     }
 
     // If reinitializing with TFM code, dispose existing WebView first
     if (_isInitialized && tfmValidationCode != null && !_isTFMLoaded) {
-      print('Reinitializing ValidationService with TFM code');
       await _headlessWebView?.dispose();
       _webViewController = null;
       _isInitialized = false;
@@ -52,7 +50,6 @@ class ValidationService {
       try {
         ajvI18nCode = await rootBundle.loadString('assets/html/ajv-i18n.min.js');
       } catch (e) {
-        print('AJV i18n library not found: $e');
       }
 
       // Initialize headless WebView with inline AJV + optional TFM validation
@@ -90,28 +87,21 @@ class ValidationService {
         ),
         onWebViewCreated: (controller) {
           _webViewController = controller;
-          print('Headless WebView created for validation');
         },
         onLoadStop: (controller, url) async {
-          print('Headless WebView loaded: $url');
 
           // Verify AJV is loaded
           final ajvCheck = await controller.evaluateJavascript(source: 'typeof window.ajv7');
-          print('AJV type check: $ajvCheck');
 
           // Verify TFM is loaded (if provided)
           if (tfmValidationCode != null) {
             final tfmCheck = await controller.evaluateJavascript(source: 'typeof window.TFM');
-            print('TFM type check: $tfmCheck');
             _isTFMLoaded = tfmCheck == 'function';
           }
 
           if (ajvCheck == 'function') {
             _isInitialized = true;
-            print('Setting _isTFMLoaded to: $_isTFMLoaded before completing');
             _initCompleter?.complete();
-            print('Validation service initialized successfully (TFM: $_isTFMLoaded)');
-            print('_initCompleter completed, _isTFMLoaded is now: $_isTFMLoaded');
           } else {
             final error = Exception('AJV library not loaded properly. Type: $ajvCheck');
             _initCompleter?.completeError(error);
@@ -119,7 +109,7 @@ class ValidationService {
           }
         },
         onConsoleMessage: (controller, consoleMessage) {
-          print('WebView Console: '); // ${consoleMessage.message}
+// ${consoleMessage.message}
         },
       );
 
@@ -128,7 +118,6 @@ class ValidationService {
       // Wait for the onLoadStop callback to complete initialization
       await _initCompleter!.future;
     } catch (e) {
-      print('Error initializing validation service: $e');
       if (!(_initCompleter?.isCompleted ?? true)) {
         _initCompleter?.completeError(e);
       }
@@ -197,7 +186,6 @@ class ValidationService {
         try {
           normalizedErrors = jsonDecode(jsonEncode(rawErrors)) as List<dynamic>;
         } catch (e) {
-          print('Validation error normalization failed: $e');
         }
       }
 
@@ -207,7 +195,6 @@ class ValidationService {
 
       return ValidationResult(isValid: resultMap['valid'] ?? false, errors: parsedErrors);
     } catch (e) {
-      print('Validation error: $e');
       return ValidationResult(
         isValid: false,
         errors: [ValidationError(message: 'Validation exception: $e')],
@@ -232,9 +219,7 @@ class ValidationService {
       final ajvResult = await validate(schema, data);
 
       // If TFM is not loaded, return only AJV results
-      print('TFM validation check: _isTFMLoaded = $_isTFMLoaded');
       if (!_isTFMLoaded) {
-        print('TFM not loaded, returning AJV-only results');
         return TFMValidationResult(
           ajvValid: ajvResult.isValid,
           ajvErrors: ajvResult.errors,
@@ -383,7 +368,6 @@ class ValidationService {
         tfmErrors: tfmErrors,
       );
     } catch (e) {
-      print('TFM validation error: $e');
       return TFMValidationResult(
         ajvValid: false,
         ajvErrors: [ValidationError(message: 'Validation exception: $e')],

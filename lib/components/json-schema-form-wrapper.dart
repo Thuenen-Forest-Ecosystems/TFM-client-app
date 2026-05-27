@@ -64,7 +64,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
         _formData = widget.formData;
       }
     } catch (e) {
-      print('Error fetching form data: $e');
     }
 
     _validateFormData(_formData);
@@ -107,7 +106,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
         setState(() {});
       }
     } catch (e) {
-      print('Failed to initialize speech recognition: $e');
       _speechEnabled = false;
       if (mounted) {
         setState(() {});
@@ -157,7 +155,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
     if (_timer != null) {
       _timer!.cancel();
     }
-    print('Autosaving...');
     _timer = Timer(Duration(seconds: 3), () {
       _timer = null;
       _save();
@@ -173,14 +170,12 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
     try {
       final record = await db.get('SELECT * FROM records WHERE id = ?', [widget.recordsId]);
       if (record.isNotEmpty) {
-        print('Record exists, updating...');
         // Update the record
         await db.execute('UPDATE records SET properties = ? WHERE id = ?', [
           jsonEncode(_formData),
           widget.recordsId,
         ]);
       } else {
-        print('Record does not exist, inserting...');
         // Insert a new record
         await db.execute('INSERT INTO records (properties, schema_id) VALUES (?, ?)', [
           jsonEncode(_formData),
@@ -188,7 +183,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
         ]);
       }
     } catch (e) {
-      print('Error saving form data: $e');
     }
     _saveInProgress = false;
   }
@@ -290,7 +284,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
                       if (validationErrors.isEmpty) {
                         _save();
                       } else {
-                        print('Form data is invalid: $_formData');
                       }
                     }
                     : null,
@@ -526,7 +519,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
 
   // Returns true if the form is valid, false otherwise
   bool _validateFormData(Map<String, dynamic> data) {
-    print(' -- VALIDATE --');
     try {
       // Validate the data against the schema
       final result = _jsonSchema.validate(data);
@@ -570,7 +562,6 @@ class _JsonSchemaFormWrapperState extends State<JsonSchemaFormWrapper>
         // Update errors state
         formErrors = errors;
       } else {
-        print('Form is valid $validationErrors');
         // Clear errors if validation is successful
         validationErrors = [];
         formErrors = {};

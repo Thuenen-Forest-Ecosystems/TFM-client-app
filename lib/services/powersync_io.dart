@@ -18,7 +18,6 @@ Future downloadFileImpl(String fileName, {bool force = false}) async {
     await path.writeAsBytes(file);
     return path;
   } catch (e) {
-    print('Error downloading file: $e');
     return null;
   }
 }

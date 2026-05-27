@@ -26,9 +26,6 @@ class JsonSchemaProvider with ChangeNotifier, DiagnosticableTreeMixin {
     final isValid = _jsonSchema.validate(_values);
     // Get the errors
     for (var error in isValid.errors) {
-      print(error.instancePath);
-      print(error.runtimeType);
-      print(error.schemaPath);
     }
   }
 

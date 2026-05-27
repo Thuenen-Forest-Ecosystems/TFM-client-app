@@ -53,7 +53,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
             if (snapshot.hasData && snapshot.data != null && snapshot.data!['schema'] != null) {
-              print('Loaded schema: ${snapshot.data!['schema']}');
 
               // Parse the schema as json from the database
               Map<String, dynamic> clusterSchemaData = jsonDecode(snapshot.data!['schema']);

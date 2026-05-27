@@ -19,7 +19,6 @@ class TimestampToTimeago extends StatelessWidget {
       return GestureDetector(
         child: agoStyle ? Text(timeago.format(dataTime, locale: 'de'), style: style) : Text(dataTime.toIso8601String(), style: style),
         onTap: () {
-          print(!agoStyle);
           agoStyle = !agoStyle;
         },
       );

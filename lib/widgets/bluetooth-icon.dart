@@ -51,7 +51,6 @@ class _BluetoothIconState extends State<BluetoothIcon> {
         });
       }
     } catch (e) {
-      debugPrint('Error checking connected devices: $e');
     }
   }
 
@@ -90,7 +89,6 @@ class _BluetoothIconState extends State<BluetoothIcon> {
         });
       }
     } catch (e) {
-      debugPrint('Error scanning: $e');
       _showErrorDialog('Failed to scan: $e');
       if (mounted) {
         setState(() => _isScanning = false);
@@ -133,7 +131,6 @@ class _BluetoothIconState extends State<BluetoothIcon> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Connected to ${device.platformName}')));
       }
     } catch (e) {
-      debugPrint('Error connecting: $e');
       if (mounted) {
         Navigator.of(context).pop(); // Close connecting dialog
         _showErrorDialog('Failed to connect: $e');
@@ -149,7 +146,6 @@ class _BluetoothIconState extends State<BluetoothIcon> {
           _connectedDevice = null;
         });
       } catch (e) {
-        debugPrint('Error disconnecting: $e');
       }
     }
   }

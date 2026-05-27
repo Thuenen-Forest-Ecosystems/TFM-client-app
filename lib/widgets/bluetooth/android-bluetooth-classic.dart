@@ -26,22 +26,18 @@ class _AndroidBluetoothClassicState extends State<AndroidBluetoothClassic> {
       // Then listen to results
       _flutterBlueClassicPlugin.scanResults.listen(
         (device) {
-          print('FlutterBlueClassic scan results: ${device.toString()}');
           setState(() {
             _scanResults.add(device);
           });
         },
         onError: (error) {
-          print('Error listening to scan resultss: $error');
         },
       );
     } catch (e) {
-      print('Error with FlutterBlueClassic: $e');
     }
   }
 
   void _toggleScan() {
-    print('Starting scan...');
     try {
       if (_isScanning) {
         _flutterBlueClassicPlugin.stopScan();
@@ -50,7 +46,6 @@ class _AndroidBluetoothClassicState extends State<AndroidBluetoothClassic> {
         _flutterBlueClassicPlugin.startScan();
       }
     } catch (e) {
-      print('Error starting scan: $e');
     }
   }
 

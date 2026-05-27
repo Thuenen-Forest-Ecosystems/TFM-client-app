@@ -25,18 +25,15 @@ class RecordsListProvider extends ChangeNotifier {
     // Load current permission ID
     OrganizationSelectionService().getSelectedPermissionId().then((permissionId) {
       _currentPermissionId = permissionId;
-      debugPrint('RecordsListProvider: Permission ID loaded: $permissionId');
     });
   }
 
   void _onPermissionChanged(String newPermissionId) {
-    print('RecordsListProvider: Permission changed to $newPermissionId, clearing cache');
 
     // Only clear if permission actually changed
     if (_currentPermissionId != newPermissionId) {
       _currentPermissionId = newPermissionId;
       clearAllCache();
-      print('RecordsListProvider: Cache cleared due to permission change');
     }
   }
 
@@ -49,9 +46,6 @@ class RecordsListProvider extends ChangeNotifier {
   // Get cached data for an interval and order
   List<Map<String, dynamic>>? getCachedRecords(String intervalName, ClusterOrderBy orderBy) {
     final key = _getCacheKey(intervalName, orderBy);
-    debugPrint(
-      'RecordsListProvider: getCachedRecords with key: $key (found: ${_recordsCache[key]?.length ?? 0} items)',
-    );
     return _recordsCache[key];
   }
 
@@ -87,9 +81,6 @@ class RecordsListProvider extends ChangeNotifier {
     bool hasMore,
   ) {
     final key = _getCacheKey(intervalName, orderBy);
-    debugPrint(
-      'RecordsListProvider: cacheRecords with key: $key (storing ${records.length} items)',
-    );
 
     // Only notify listeners if the data actually changed
     final existing = _recordsCache[key];

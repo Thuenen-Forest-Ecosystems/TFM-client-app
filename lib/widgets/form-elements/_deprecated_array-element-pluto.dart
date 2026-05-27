@@ -48,8 +48,6 @@ class _ArrayElementPlutoState extends State<ArrayElementPluto> {
   @override
   void initState() {
     super.initState();
-    debugPrint('Initializing ArrayElementPluto for property: ${widget.propertyName}');
-    debugPrint('Initial data: ${widget.data}');
     _initializeGrid();
   }
 
@@ -99,13 +97,11 @@ class _ArrayElementPlutoState extends State<ArrayElementPluto> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
 
     if (itemSchema == null) {
-      debugPrint('No items found in schema');
       return columns;
     }
 
     final properties = itemSchema['properties'] as Map<String, dynamic>?;
     if (properties == null) {
-      debugPrint('No properties found in items schema');
       return columns;
     }
 
@@ -213,7 +209,6 @@ class _ArrayElementPlutoState extends State<ArrayElementPluto> {
       );
     }
 
-    debugPrint('Total frozen columns: $_frozenColumnCount');
 
     return columns;
   }

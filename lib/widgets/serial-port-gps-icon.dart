@@ -84,7 +84,6 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           ).timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('Serial port scan timeout - this is common on Windows with VPN/Bluetooth');
               throw TimeoutException('Serial port scan timed out');
             },
           );
@@ -104,7 +103,6 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           );
           port.dispose();
         } catch (e) {
-          debugPrint('Error reading port $portName: $e');
         }
       }
 
@@ -116,7 +114,6 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
         _modalStateCallback?.call(() {});
       }
     } catch (e) {
-      debugPrint('Error scanning ports: $e');
       final errorMessage = e.toString().contains('TimeoutException')
           ? 'Serial port scan timed out. Try disabling VPN or closing other apps that use COM ports.'
           : 'Failed to scan serial ports: $e';
@@ -163,12 +160,10 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           gpsProvider.processSerialPortData(data);
         },
         onError: (error) {
-          debugPrint('Serial port read error: $error');
           _showErrorDialog('GPS connection lost: $error');
           _disconnectSerialPort();
         },
         onDone: () {
-          debugPrint('Serial port connection closed');
           _disconnectSerialPort();
         },
       );
@@ -184,11 +179,9 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
             context,
           ).showSnackBar(SnackBar(content: Text('Connecting to GPS on $portName...')));
         } catch (e) {
-          debugPrint('Could not show snackbar: $e');
         }
       }
     } catch (e) {
-      debugPrint('Error connecting to serial port: $e');
       _disconnectSerialPort();
       if (mounted && context.mounted) {
         _showErrorDialog('Failed to connect to GPS: $e');
@@ -594,7 +587,6 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
           ).timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('Serial port scan timeout');
               throw TimeoutException('Serial port scan timed out');
             },
           );
@@ -613,7 +605,6 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
           );
           port.dispose();
         } catch (e) {
-          debugPrint('Error reading port $portName: $e');
         }
       }
 
@@ -624,7 +615,6 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
         });
       }
     } catch (e) {
-      debugPrint('Error scanning ports: $e');
       final errorMessage = e.toString().contains('TimeoutException')
           ? 'Serial port scan timed out. Try disabling VPN or closing other apps that use COM ports.'
           : 'Failed to scan serial ports: $e';
@@ -659,11 +649,9 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
       _readerSubscription = _reader!.stream.listen(
         (data) => gpsProvider.processSerialPortData(data),
         onError: (error) {
-          debugPrint('Serial port read error: $error');
           _disconnectSerialPort();
         },
         onDone: () {
-          debugPrint('Serial port connection closed');
           _disconnectSerialPort();
         },
       );
@@ -679,7 +667,6 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
         ).showSnackBar(SnackBar(content: Text('Connecting to GPS on $portName...')));
       }
     } catch (e) {
-      debugPrint('Error connecting to serial port: $e');
       await _disconnectSerialPort();
     }
   }

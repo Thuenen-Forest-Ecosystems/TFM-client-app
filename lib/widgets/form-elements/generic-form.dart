@@ -152,8 +152,6 @@ class _GenericFormState extends State<GenericForm> {
       return const Center(child: Text('No primitive fields in schema'));
     }
 
-    debugPrint('GenericForm layout mode: ${widget.layout}');
-    debugPrint('GenericForm fieldOptions: ${widget.fieldOptions}');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -235,7 +233,6 @@ class _GenericFormState extends State<GenericForm> {
             columns = 1; // Small screens: 1 column
           }
 
-          debugPrint('Responsive grid: screenWidth=$screenWidth, columns=$columns');
 
           // Calculate column width
           final spacing = 10.0;

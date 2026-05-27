@@ -115,16 +115,12 @@ class MapControllerProvider with ChangeNotifier {
 
   void setFlutterMapController(MapController? controller) {
     _flutterMapController = controller;
-    debugPrint('Flutter map controller registered');
     notifyListeners();
   }
 
   void setFocusBounds(LatLngBounds bounds) {
     _focusBounds = bounds;
     _focusTimestamp = DateTime.now();
-    debugPrint(
-      'Focus bounds set: SW(${bounds.south}, ${bounds.west}) NE(${bounds.north}, ${bounds.east})',
-    );
     notifyListeners();
   }
 
@@ -152,12 +148,8 @@ class MapControllerProvider with ChangeNotifier {
         _flutterMapController!.move(location, zoom);
       }
 
-      debugPrint(
-        'Map moved to: ${location.latitude}, ${location.longitude} at zoom $zoom (animated: $animate)',
-      );
       notifyListeners();
     } else {
-      debugPrint('Cannot move map: controller not initialized');
     }
   }
 
@@ -176,7 +168,6 @@ class MapControllerProvider with ChangeNotifier {
     if (_distanceLineFrom != null || _distanceLineTo != null) {
       _distanceLineFrom = null;
       _distanceLineTo = null;
-      debugPrint('Distance line cleared');
       notifyListeners();
     }
   }
@@ -184,13 +175,11 @@ class MapControllerProvider with ChangeNotifier {
   void setFocusedRecord(Record? record) {
     _focusedRecord = record;
     notifyListeners();
-    debugPrint('Focused record set: ${record?.plotName ?? "none"}');
   }
 
   void clearFocusedRecord() {
     if (_focusedRecord != null) {
       _focusedRecord = null;
-      debugPrint('Focused record cleared');
       notifyListeners();
     }
   }
@@ -198,7 +187,6 @@ class MapControllerProvider with ChangeNotifier {
   void requestNavigation(String path) {
     _navigationPath = path;
     _navigationTimestamp = DateTime.now();
-    debugPrint('Navigation requested: $path');
     notifyListeners();
   }
 
@@ -210,7 +198,6 @@ class MapControllerProvider with ChangeNotifier {
   /// Set which previous positions should be visible for a record
   void setVisiblePreviousPositions(String recordId, Set<String> visibleKeys) {
     _visiblePreviousPositions[recordId] = Set.from(visibleKeys);
-    debugPrint('Visible previous positions for $recordId: $visibleKeys');
     notifyListeners();
   }
 
@@ -254,7 +241,6 @@ class MapControllerProvider with ChangeNotifier {
     if (_navigationStart != null) {
       _navigationStart = null;
       _navigationStartLabel = null;
-      debugPrint('Navigation start cleared');
       notifyListeners();
     }
   }
@@ -283,7 +269,6 @@ class MapControllerProvider with ChangeNotifier {
       changed = true;
     }
     if (changed) {
-      debugPrint('Navigation line strings cleared');
       notifyListeners();
     }
   }
@@ -300,14 +285,12 @@ class MapControllerProvider with ChangeNotifier {
   /// Enable map tap mode for position selection
   void enableMapTapMode() {
     _isMapTapEnabled = true;
-    debugPrint('Map tap mode enabled');
     notifyListeners();
   }
 
   /// Disable map tap mode
   void disableMapTapMode() {
     _isMapTapEnabled = false;
-    debugPrint('Map tap mode disabled');
     notifyListeners();
   }
 
@@ -317,7 +300,6 @@ class MapControllerProvider with ChangeNotifier {
   /// Handle a map tap event (called from map widget)
   void onMapTapped(LatLng position) {
     if (_isMapTapEnabled) {
-      debugPrint('Map tapped at: ${position.latitude}, ${position.longitude}');
       _mapTapController.add(position);
       // Automatically disable after one tap
       disableMapTapMode();
@@ -329,7 +311,6 @@ class MapControllerProvider with ChangeNotifier {
     _selectedArrayName = arrayName;
     _selectedRowIdentifier = identifier;
     _selectionTimestamp = DateTime.now();
-    debugPrint('Grid row selection requested: $arrayName[$identifier]');
     notifyListeners();
   }
 
@@ -339,7 +320,6 @@ class MapControllerProvider with ChangeNotifier {
       _selectedArrayName = null;
       _selectedRowIdentifier = null;
       _selectionTimestamp = null;
-      debugPrint('Grid row selection cleared');
     }
   }
 
@@ -347,7 +327,6 @@ class MapControllerProvider with ChangeNotifier {
   void setCenterPosition(String? key, LatLng? position) {
     _centerPositionKey = key;
     _centerPosition = position;
-    debugPrint('Center position set: $key at $position');
     notifyListeners();
   }
 
@@ -355,7 +334,6 @@ class MapControllerProvider with ChangeNotifier {
   void clearCenterPosition() {
     _centerPositionKey = null;
     _centerPosition = null;
-    debugPrint('Center position cleared');
     notifyListeners();
   }
 }

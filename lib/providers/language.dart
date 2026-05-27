@@ -76,7 +76,6 @@ class Language with ChangeNotifier, DiagnosticableTreeMixin {
           newLanguage = const Locale('de');
         }
         if (_locale != newLanguage) {
-          print('newLanguage: $newLanguage');
           _locale = newLanguage;
           notifyListeners();
         }

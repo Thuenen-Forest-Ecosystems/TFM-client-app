@@ -26,7 +26,6 @@ class _TabsTableFormState extends State<TabsTableForm> with TickerProviderStateM
         }
       }
     }
-    print(keysToRemove);
     for (var key in keysToRemove) {
       schema.remove(key);
     }
@@ -45,7 +44,6 @@ class _TabsTableFormState extends State<TabsTableForm> with TickerProviderStateM
     deadwood['items']['properties'] = _removeTypeObjectFromProperties(deadwood['items']['properties']);
 
     /*print('plot_landmark');
-    print(widget.schema['properties']['plot']['items']['properties']['plot_landmark']);
     Map plot_landmark = Map.from(_schema['items']['properties']['plot_landmark']);
     plot_landmark['properties'] = _removeTypeObjectFromProperties(plot_landmark['properties']);*/
 

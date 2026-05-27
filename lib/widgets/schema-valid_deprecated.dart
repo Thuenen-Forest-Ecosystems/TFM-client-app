@@ -30,7 +30,6 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
     ValidationResults validationResult = _jsonSchema.validate(data);
     // Get the errors
     for (var error in validationResult.errors) {
-      print('deprecated');
     }
     return validationResult;
   }
@@ -75,7 +74,6 @@ class _SchemaValidBtnState extends State<SchemaValidBtn> {
               selected: validationResult.errors.isEmpty,
               onSelected: (bool selected) {
                 /*if (!validationResult) {
-                    print('Invalid');
                   }*/
                 _errorsDialog(validationResult);
               },

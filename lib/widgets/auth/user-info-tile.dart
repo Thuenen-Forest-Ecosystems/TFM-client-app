@@ -53,7 +53,6 @@ class _UserInfoTileState extends State<UserInfoTile> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading user profile: $e');
     }
   }
 

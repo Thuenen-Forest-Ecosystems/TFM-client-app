@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 
 class Workmanager {
   Future<void> initialize(Function callback, {bool isInDebugMode = false}) async {
-    debugPrint('Workmanager stub: initialize called');
   }
 
   Future<void> registerPeriodicTask(
@@ -12,7 +11,6 @@ class Workmanager {
     Duration? frequency,
     Constraints? constraints,
   }) async {
-    debugPrint('Workmanager stub: registerPeriodicTask called');
   }
 
   Future<void> registerOneOffTask(
@@ -21,19 +19,15 @@ class Workmanager {
     Duration? initialDelay,
     Constraints? constraints,
   }) async {
-    debugPrint('Workmanager stub: registerOneOffTask called');
   }
 
   Future<void> cancelAll() async {
-    debugPrint('Workmanager stub: cancelAll called');
   }
 
   Future<void> cancelByUniqueName(String uniqueName) async {
-    debugPrint('Workmanager stub: cancelByUniqueName called');
   }
 
   void executeTask(Function callback) {
-    debugPrint('Workmanager stub: executeTask called');
   }
 }
 

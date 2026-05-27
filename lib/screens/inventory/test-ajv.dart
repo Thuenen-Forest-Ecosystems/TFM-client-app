@@ -37,19 +37,15 @@ class _TestAjvState extends State<TestAjv> {
     // Load your local JavaScript file
     try {
       jsValidationCode = await rootBundle.loadString('assets/html/validation.js');
-      debugPrint('JavaScript validation code loaded');
     } catch (e) {
-      debugPrint('Error loading JavaScript file: $e');
     }
 
     // Initialize headless WebView for running JavaScript
     headlessWebView = HeadlessInAppWebView(
       initialSettings: InAppWebViewSettings(javaScriptEnabled: true),
       onWebViewCreated: (controller) {
-        debugPrint('HeadlessInAppWebView created');
       },
       onLoadStop: (controller, url) async {
-        debugPrint('WebView loaded');
       },
     );
 
@@ -62,11 +58,8 @@ class _TestAjvState extends State<TestAjv> {
     ValidationResults result = jsonSchema.validate(this.data);
 
     if (result.isValid) {
-      debugPrint('Data is valid according to JSON Schema.');
     } else {
-      debugPrint('Data is NOT valid according to JSON Schema.');
       for (var error in result.errors) {
-        debugPrint('Error: ${error}');
       }
     }
 
@@ -110,19 +103,14 @@ class _TestAjvState extends State<TestAjv> {
 
         if (jsResult != null) {
           final validationResult = jsonDecode(jsResult.toString());
-          debugPrint('JavaScript validation result: $validationResult');
 
           if (validationResult['valid'] == true) {
-            debugPrint('✓ JavaScript validation passed');
           } else {
-            debugPrint('✗ JavaScript validation failed: ${validationResult['error'] ?? validationResult['message']}');
           }
         }
       } catch (e) {
-        debugPrint('Error running JavaScript validation: $e');
       }
     } else {
-      debugPrint('WebView or JavaScript code not initialized');
     }
   }
 

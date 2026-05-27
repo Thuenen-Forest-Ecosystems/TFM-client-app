@@ -79,7 +79,6 @@ class _VersionControlState extends State<VersionControl> {
       }
     } catch (e) {
       // Silently fail - no internet connection or API error
-      debugPrint('Failed to check for updates: $e');
     } finally {
       if (mounted) {
         setState(() {

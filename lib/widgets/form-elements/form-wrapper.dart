@@ -91,9 +91,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       try {
         _mapControllerProvider = context.read<MapControllerProvider>();
         _mapControllerProvider!.addListener(_onMapGridRowSelection);
-        debugPrint('FormWrapper: MapControllerProvider listener added');
       } catch (e) {
-        debugPrint('FormWrapper: MapControllerProvider not available: $e');
       }
     }
   }
@@ -113,12 +111,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     }
 
     _lastSelectionTimestamp = selectionTimestamp;
-    debugPrint('FormWrapper: Grid row selection for $selectedArrayName[$selectedIdentifier]');
 
     // Find the tab that contains this array
     final tabIndex = _tabs.indexWhere((tab) => tab.id == selectedArrayName);
     if (tabIndex < 0) {
-      debugPrint('FormWrapper: No tab found for array: $selectedArrayName');
       return;
     }
 
@@ -139,7 +135,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         if (arrayKey?.currentState != null) {
           arrayKey!.currentState!.openRowFormByIdentifier(selectedIdentifier);
         } else {
-          debugPrint('FormWrapper: ArrayElementTrina state not available for $selectedArrayName');
           // Fallback: open the dialog directly from form-wrapper
           _openRowFormDirectly(selectedArrayName, selectedIdentifier);
         }
@@ -175,7 +170,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     }
 
     if (rowData == null || rowIndex == null) {
-      debugPrint('FormWrapper: No row found with $identifierField=$identifier');
       return;
     }
 
@@ -227,9 +221,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         directory: widget.layoutDirectory,
       );
       if (_layoutConfig != null) {
-        debugPrint('Loaded layout successfully');
       } else {
-        debugPrint('Failed to load layout, using fallback');
       }
     }
 
@@ -404,7 +396,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     // Reload layout if layoutStyleData or layoutDirectory changed
     if (widget.layoutStyleData != oldWidget.layoutStyleData ||
         widget.layoutDirectory != oldWidget.layoutDirectory) {
-      debugPrint('📊 Layout data changed, clearing cache and reloading');
       LayoutService.clearCache();
       _initializeLayout();
       return; // _initializeLayout will rebuild everything including tabs
@@ -461,26 +452,19 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
   void _navigateToTab(String? tabId) {
     if (tabId == null) {
-      debugPrint('Early return: tabId is null');
       return;
     }
 
     if (_tabController == null) {
-      debugPrint('Early return: _tabController is null');
       return;
     }
 
-    debugPrint('Available tabs: ${_tabs.map((t) => t.id).toList()}');
     final tabIndex = _tabs.indexWhere((tab) => tab.id == tabId);
-    debugPrint('Found tabIndex: $tabIndex for tabId: $tabId');
 
     if (tabIndex >= 0) {
-      debugPrint('Calling animateTo($tabIndex)');
       _tabController!.animateTo(tabIndex);
       _previousTabIndex = tabIndex;
-      debugPrint('Tab animation completed, new index should be: $tabIndex');
     } else {
-      debugPrint('Tab not found! tabId=$tabId not in ${_tabs.map((t) => t.id).toList()}');
     }
   }
 
@@ -505,11 +489,9 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     if (currentIndex >= 0 && currentIndex < _tabs.length) {
       final tabId = _tabs[currentIndex].id;
       final isArrayTab = _isArrayElementTrinaTab(tabId);
-      debugPrint('Tab changed to: $tabId (index: $currentIndex), isArrayTab: $isArrayTab');
       setState(() {
         _currentTabType = isArrayTab ? 'array' : 'other';
       });
-      debugPrint('Current tab type set to: $_currentTabType');
     }
   }
 
@@ -884,20 +866,15 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       return Center(child: Text('Unsupported array component: ${layoutItem.component}'));
     } else if (layoutItem is ObjectLayout) {
       // Object layout - render with appropriate component (supports paths)
-      debugPrint(
-        'ObjectLayout: id=${layoutItem.id}, component=${layoutItem.component}, property=${layoutItem.property}',
-      );
       final propertyPath = layoutItem.property;
 
       // Special handling for components that don't require a property path
       if (layoutItem.component == 'previous_positions_selection') {
         // PreviousPositionsSelection component - works with entire form data
-        debugPrint('object layout previous_positions_selection');
         return PreviousPositionsSelection(rawRecord: widget.rawRecord);
       }
       if (layoutItem.component == 'previous_positions_navigation') {
         // PreviousPositionsNavigation component - works with entire form data
-        debugPrint('object layout previous_positions_navigation');
 
         // Determine if this component is in the currently visible tab
         final isVisible = _isLayoutItemInCurrentTab(layoutItem);
@@ -911,7 +888,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       }
       if (layoutItem.component == 'plot_support_points') {
         // PlotSupportPoints component - for manual position entry
-        debugPrint('object layout plot_support_points - rendering PlotSupportPoints');
         return PlotSupportPoints(
           jsonSchema: schemaProperties,
           data: _localFormData,
@@ -927,11 +903,9 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       }
       if (layoutItem.component == 'manuell_relative_position') {
         // ManuellRelativePosition component - for manual navigation when GPS is unavailable
-        debugPrint('object layout manuell_relative_position - rendering ManuellRelativePosition');
         return ManuellRelativePosition(formData: _localFormData, onFieldChanged: _updateField);
       }
       if (layoutItem.component == 'subplots_relative_position') {
-        debugPrint('object layout subplots_relative_position - rendering SubplotsRelativePosition');
 
         final children = <Widget>[];
         if (layoutItem.children != null) {
@@ -950,9 +924,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       if (layoutItem.component == 'messages_chat') {
         // MessagesChat component - displays messages for the current record
         final recordId = widget.rawRecord?.id;
-        debugPrint(
-          'FormWrapper: messages_chat - rawRecord.id=$recordId, rawRecord exists=${widget.rawRecord != null}',
-        );
         if (recordId == null) {
           return const Card(
             child: Padding(
@@ -961,15 +932,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
             ),
           );
         }
-        debugPrint('FormWrapper: Creating MessagesChat with recordId=$recordId');
         return MessagesChat(recordId: recordId);
       }
 
       // For other components, property path is required
       if (propertyPath == null) {
-        debugPrint(
-          'ObjectLayout ${layoutItem.id} is missing property field and has no special handling',
-        );
         return Card(child: Text('Object layout "${layoutItem.id}" is missing property field'));
       }
 
@@ -1192,7 +1159,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     // Only show dialog if tab was already active
     if (wasAlreadyActive) {
       // Tab is already active - show validation errors for this tab
-      debugPrint('Already active tab tapped: $index');
 
       if (index < _tabs.length) {
         final tabId = _tabs[index].id;

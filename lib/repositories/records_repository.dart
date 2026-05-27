@@ -188,8 +188,6 @@ class Record {
         }
       }
     } catch (e, stackTrace) {
-      print('Error extracting coordinates: $e');
-      print('Stack trace: $stackTrace');
     }
 
     return null;
@@ -222,7 +220,6 @@ class Record {
             return Map<String, dynamic>.from(parsed);
           }
         } catch (e) {
-          debugPrint('Error parsing cluster field JSON: $e');
         }
       }
 
@@ -246,12 +243,9 @@ class Record {
             return Map<String, dynamic>.from(parsed);
           }
         } catch (e) {
-          debugPrint('Error parsing cluster JSON string from properties: $e');
         }
       }
     } catch (e, stackTrace) {
-      debugPrint('Error extracting cluster data: $e');
-      debugPrint('Stack trace: $stackTrace');
     }
 
     return null;
@@ -431,21 +425,17 @@ class RecordsRepository {
   /// Test database connectivity with a simple COUNT query
   Future<int> testSimpleQuery() async {
     try {
-      debugPrint('RecordsRepository.testSimpleQuery: Running COUNT(*)...');
       final results = await db
           .execute('SELECT COUNT(*) as count FROM records')
           .timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('RecordsRepository.testSimpleQuery: Query timed out');
               throw TimeoutException('COUNT query timed out');
             },
           );
       final count = results.first['count'] as int;
-      debugPrint('RecordsRepository.testSimpleQuery: Total records in DB: $count');
       return count;
     } catch (e) {
-      debugPrint('RecordsRepository.testSimpleQuery: Error: $e');
       return -1;
     }
   }
@@ -455,9 +445,6 @@ class RecordsRepository {
       final orgFilter = await _getOrganizationFilter().timeout(
         const Duration(seconds: 5),
         onTimeout: () {
-          debugPrint(
-            'RecordsRepository.getAllRecords: _getOrganizationFilter timed out, using 1=1',
-          );
           return '1=1';
         },
       );
@@ -467,15 +454,12 @@ class RecordsRepository {
           .timeout(
             const Duration(seconds: 60),
             onTimeout: () {
-              debugPrint('RecordsRepository.getAllRecords: Query timed out after 60 seconds');
               throw TimeoutException('Database query timed out');
             },
           );
 
       return results.map((row) => Record.fromRow(row)).toList();
     } catch (e, stackTrace) {
-      debugPrint('RecordsRepository.getAllRecords: Error: $e');
-      debugPrint('RecordsRepository.getAllRecords: Stack trace: $stackTrace');
       return [];
     }
   }
@@ -483,13 +467,9 @@ class RecordsRepository {
   // Get only records that have valid coordinates for map display
   Future<List<Record>> getRecordsWithCoordinates() async {
     try {
-      debugPrint('RecordsRepository.getRecordsWithCoordinates: Getting organization filter...');
       final orgFilter = await _getOrganizationFilter().timeout(
         const Duration(seconds: 5),
         onTimeout: () {
-          debugPrint(
-            'RecordsRepository.getRecordsWithCoordinates: _getOrganizationFilter timed out, using 1=1',
-          );
           return '1=1';
         },
       );
@@ -505,18 +485,12 @@ class RecordsRepository {
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () {
-              debugPrint('RecordsRepository.getRecordsWithCoordinates: Query timed out');
               throw TimeoutException('Database query timed out');
             },
           );
 
-      debugPrint(
-        'RecordsRepository.getRecordsWithCoordinates: Found ${results.length} records with coordinates',
-      );
       return results.map((row) => Record.fromRow(row)).toList();
     } catch (e, stackTrace) {
-      debugPrint('RecordsRepository.getRecordsWithCoordinates: Error: $e');
-      debugPrint('RecordsRepository.getRecordsWithCoordinates: Stack trace: $stackTrace');
       return [];
     }
   }
@@ -598,13 +572,10 @@ class RecordsRepository {
   }
 
   Stream<List<Record>> watchAllRecords() {
-    debugPrint('RecordsRepository.watchAllRecords: Setting up stream...');
 
     // Return a stream that waits for the filter then starts watching
     return Stream.fromFuture(_getOrganizationFilter()).asyncExpand((orgFilter) {
-      debugPrint('RecordsRepository.watchAllRecords: Filter ready, starting db.watch()');
       return db.watch('SELECT * FROM records WHERE $orgFilter').map((results) {
-        debugPrint('RecordsRepository.watchAllRecords: db.watch emitted ${results.length} results');
         return results.map((row) => Record.fromRow(row)).toList();
       });
     });
@@ -673,21 +644,16 @@ class RecordsRepository {
   /// Use this for map tile downloads where we need to cover all areas
   Future<List<Record>> getAllRecordsUnfiltered() async {
     try {
-      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Fetching all records...');
       final results = await db
           .execute('SELECT * FROM records')
           .timeout(
             const Duration(seconds: 60),
             onTimeout: () {
-              debugPrint('RecordsRepository.getAllRecordsUnfiltered: Query timed out');
               throw TimeoutException('Database query timed out');
             },
           );
-      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Found ${results.length} records');
       return results.map((row) => Record.fromRow(row)).toList();
     } catch (e, stackTrace) {
-      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Error: $e');
-      debugPrint('RecordsRepository.getAllRecordsUnfiltered: Stack trace: $stackTrace');
       return [];
     }
   }

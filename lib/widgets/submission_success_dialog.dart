@@ -62,7 +62,6 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading cluster records: $e');
       if (mounted) {
         setState(() {
           _clusterRecords = [];

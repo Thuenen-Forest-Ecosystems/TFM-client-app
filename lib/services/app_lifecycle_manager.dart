@@ -36,7 +36,6 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       }
     });
 
-    debugPrint('AppLifecycleManager: Initialized');
   }
 
   /// Enable wake lock to keep device awake during sync.
@@ -48,9 +47,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       if (!_isDesktop) {
         try {
           await WakelockPlus.enable();
-          debugPrint('AppLifecycleManager: Wake lock enabled');
         } catch (e) {
-          debugPrint('AppLifecycleManager: Failed to enable wake lock: $e');
         }
       }
     }
@@ -63,9 +60,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       if (!_isDesktop) {
         try {
           await WakelockPlus.disable();
-          debugPrint('AppLifecycleManager: Wake lock disabled');
         } catch (e) {
-          debugPrint('AppLifecycleManager: Failed to disable wake lock: $e');
         }
       }
     }
@@ -73,26 +68,20 @@ class AppLifecycleManager extends WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('AppLifecycleManager: App state changed to $state');
 
     switch (state) {
       case AppLifecycleState.resumed:
         // App came back to foreground
-        debugPrint('AppLifecycleManager: App resumed - PowerSync will continue syncing');
         // PowerSync automatically reconnects if needed
         break;
 
       case AppLifecycleState.inactive:
         // App is transitioning (e.g., incoming call, switching apps)
-        debugPrint('AppLifecycleManager: App inactive - maintaining PowerSync connection');
         // Keep PowerSync connected during transitions
         break;
 
       case AppLifecycleState.paused:
         // App is in background
-        debugPrint(
-          'AppLifecycleManager: App paused - PowerSync will continue syncing in background',
-        );
         // PowerSync connection stays alive
         // On Android: sync continues as long as device is awake
         // On iOS: sync continues for a limited time, then system decides
@@ -100,13 +89,11 @@ class AppLifecycleManager extends WidgetsBindingObserver {
 
       case AppLifecycleState.detached:
         // App is about to be terminated
-        debugPrint('AppLifecycleManager: App detached - cleaning up');
         _disableWakeLock();
         break;
 
       case AppLifecycleState.hidden:
         // App is hidden (iOS only)
-        debugPrint('AppLifecycleManager: App hidden - maintaining PowerSync connection');
         break;
     }
   }
@@ -115,7 +102,6 @@ class AppLifecycleManager extends WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _disableWakeLock();
-    debugPrint('AppLifecycleManager: Disposed');
   }
 }
 

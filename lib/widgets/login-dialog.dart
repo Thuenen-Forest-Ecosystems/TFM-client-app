@@ -69,7 +69,6 @@ class _LoginDialogState extends State<LoginDialog> {
       //await apiService.login(userName, password);
       Navigator.of(context).pop();
     } catch (e) {
-      print('ERROR: $e');
       setState(() {
         errors.clear();
         passwordController.text = '';
@@ -86,11 +85,9 @@ class _LoginDialogState extends State<LoginDialog> {
   _logoutRequest() async {
     try {
       await logout();
-      print('logged out');
       //await apiService.logout(_user?['email']);
       //Provider.of<ApiLog>(context, listen: false).changeToken(null);
     } catch (e) {
-      print(e);
     }
     _getUser();
   }

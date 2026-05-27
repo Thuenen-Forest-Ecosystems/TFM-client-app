@@ -18,7 +18,6 @@ class _UsersProfileListState extends State<UsersProfileList> {
       itemCount: widget.usersProfileList?.length ?? 0,
       itemBuilder: (context, index) {
         final userProfile = widget.usersProfileList![index];
-        print(userProfile);
         return ListTile(
           title: Text(userProfile['email'] ?? 'N/A'),
           subtitle: Text(userProfile['id'] ?? 'N/A'),

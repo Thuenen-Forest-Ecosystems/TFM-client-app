@@ -142,7 +142,6 @@ void main() async {
     final certOverride = _WindowsCertificateOverride();
     await certOverride.initialize();
     HttpOverrides.global = certOverride;
-    print('Windows certificate override enabled with bundled certificate');
 
     // Initialize window manager for quit confirmation
     await windowManager.ensureInitialized();
@@ -153,7 +152,6 @@ void main() async {
 
   // Initialize proxy service (must be done early, before any HTTP requests)
   await ProxyService.initialize();
-  print('Proxy service initialized');
 
   // Load floating numeric keyboard user preference
   await FloatingNumKeyboard.loadPreference();
@@ -172,16 +170,13 @@ void main() async {
 
   try {
     await dotenv.load(fileName: '.env');
-  } catch (e) {
-    print('Error loading .env file: $e');
-  }
+  } catch (e) {}
 
   // Initialize background sync service
   await BackgroundSyncService.initialize();
 
   // Save Map offline
   if (!kIsWeb) {
-    print('Offline Map Cache');
     await FMTCObjectBoxBackend().initialise();
     await FMTCStore('wms_dtk25__').manage.create();
     await FMTCStore('wms_dop__').manage.create();
@@ -203,7 +198,10 @@ void main() async {
     // repeated loads on rapid status flickers.
     bool _wasDownloading = db.currentStatus.downloading;
     DateTime? _lastLookupReloadAt;
-    db.statusStream.listen((status) {
+    // PowerSync emits many redundant status events during a sync cycle.
+    // We only react to a downloading=true -> false transition here, so
+    // collapse events that don't change the `downloading` flag.
+    db.statusStream.distinct((a, b) => a.downloading == b.downloading).listen((status) {
       if (_wasDownloading && !status.downloading) {
         final now = DateTime.now();
         if (_lastLookupReloadAt == null ||
@@ -231,7 +229,6 @@ void main() async {
     // Initialize app lifecycle manager to keep sync running in background
     await appLifecycleManager.initialize();
   } catch (e) {
-    print('Error opening database: $e');
     // Rethrow to prevent app from continuing with broken state
     rethrow;
   }
@@ -330,9 +327,7 @@ class _LayoutState extends State<Layout> with WindowListener {
                     _isClosing = true;
                     try {
                       await ValidationService.instance.dispose();
-                    } catch (e) {
-                      print('Error disposing validation service during shutdown: $e');
-                    }
+                    } catch (e) {}
                     await windowManager.setPreventClose(false);
                     await windowManager.close();
                   },

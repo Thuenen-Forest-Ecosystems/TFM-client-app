@@ -195,12 +195,10 @@ class _StartState extends State<Start> {
         mapProvider.clearNavigationRequest();
       }
     } catch (e) {
-      debugPrint('Start: Error handling navigation request: $e');
     }
   }
 
   void _onPermissionChangedResubscribe(String _) {
-    debugPrint('Start: Permission changed, re-subscribing to watchAllRecords');
     _startWatchingRecords();
   }
 
@@ -260,7 +258,6 @@ class _StartState extends State<Start> {
           }
         },
         onError: (error) {
-          debugPrint('Start: Error watching records: $error');
           if (mounted) {
             setState(() {
               _isLoadingData = false;
@@ -269,7 +266,6 @@ class _StartState extends State<Start> {
         },
       );
     } catch (e) {
-      debugPrint('Start: Error setting up watch: $e');
       if (mounted) {
         setState(() {
           _isLoadingData = false;
@@ -290,7 +286,6 @@ class _StartState extends State<Start> {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.removeListener(_onMapNavigationRequest);
     } catch (e) {
-      debugPrint('Start: Error removing map navigation listener: $e');
     }
 
     _beamerDelegate.dispose();
@@ -498,7 +493,6 @@ class _StartState extends State<Start> {
               return true;
             }
           } catch (e) {
-            debugPrint('Error loading record for back navigation: $e');
           }
         }
       }

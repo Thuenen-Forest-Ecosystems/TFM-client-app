@@ -83,7 +83,6 @@ class _RecordPositionState extends State<RecordPosition> {
       // _qualityCriteria = GpsQualityCriteria.fromJsonString(jsonString);
       _qualityCriteria = GpsQualityCriteria.defaultCriteria;
     } catch (e) {
-      debugPrint('Failed to load quality criteria from JSON, using defaults: $e');
       _qualityCriteria = GpsQualityCriteria.defaultCriteria;
     }
   }
@@ -167,7 +166,6 @@ class _RecordPositionState extends State<RecordPosition> {
         }
       });
     } catch (e) {
-      debugPrint('Error starting GPS recording: $e');
       setState(() {
         isRecording = false;
       });
@@ -422,7 +420,6 @@ class _RecordPositionState extends State<RecordPosition> {
         _currentQualityLevel = null;
         _currentDetailedQuality = null;
       });
-      debugPrint('Saved aggregated GPS data: ${_initialSavedData!['measurement_count']} positions');
     }
   }
 

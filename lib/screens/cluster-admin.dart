@@ -14,7 +14,6 @@ class _ClusterAdminState extends State<ClusterAdmin> {
   final GlobalKey<DataGridFromSqlTableState> _dataGridKey = GlobalKey<DataGridFromSqlTableState>();
 
   _onRowsSelected(List<PlutoRow>? rows) {
-    print('Selected rows count: ${rows?.length}');
   }
 
   @override

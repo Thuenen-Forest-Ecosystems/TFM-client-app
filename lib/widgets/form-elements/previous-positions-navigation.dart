@@ -59,7 +59,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         }
       }
     } catch (e) {
-      debugPrint('Error setting center position: $e');
     }
   }
 
@@ -99,7 +98,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         }
       });
     } catch (e) {
-      debugPrint('Error subscribing to GPS: $e');
     }
   }
 
@@ -349,7 +347,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               final reverseAzimuth = (azimuthGon + 200) % 400;
               supportPointCoords = distance.offset(type3Coords, distanceM, reverseAzimuth);
             } else {
-              debugPrint('Warning: Point type=4 encountered before type=3');
               // Fallback to SOLL Position with reverse azimuth
               final reverseAzimuth = (azimuthGon + 200) % 400;
               supportPointCoords = distance.offset(referenceCoords, distanceM, reverseAzimuth);
@@ -357,7 +354,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             break;
 
           default:
-            debugPrint('Unknown point type: $pointType');
             // Default fallback: use azimuth directly from SOLL Position
             supportPointCoords = distance.offset(referenceCoords, distanceM, azimuthGon);
         }
@@ -410,12 +406,10 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           }
         }
       } catch (e) {
-        debugPrint('Error extracting label from jsonSchema: $e');
       }
     }
 
     // Fallback to database lookup
-    debugPrint('Loading label for support point type from database: $pointType');
     try {
       final result = await db.get('SELECT name_de FROM lookup_support_point_type WHERE code = ?', [
         pointType,
@@ -426,7 +420,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         return label;
       }
     } catch (e) {
-      debugPrint('Error loading support point type label from database: $e');
     }
 
     // Fallback to generic label
@@ -453,7 +446,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         return LatLng(lat, lng);
       }
     } catch (e) {
-      debugPrint('Error extracting coordinates: $e');
     }
     return null;
   }
@@ -1016,7 +1008,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       mapProvider.disableMapTapMode();
       _mapTapSubscription?.cancel();
     } catch (e) {
-      debugPrint('Error clearing navigation: $e');
     }
   }
 
@@ -1029,7 +1020,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     try {
       context.read<MapControllerProvider>().disableMapTapMode();
     } catch (e) {
-      debugPrint('Error disabling map tap mode: $e');
     }
 
     // Clear all navigation elements when widget is disposed

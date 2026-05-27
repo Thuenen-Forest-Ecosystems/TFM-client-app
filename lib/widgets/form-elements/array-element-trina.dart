@@ -110,8 +110,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   @override
   void initState() {
     super.initState();
-    print('Initializing ArrayElementTrina for property: ${widget.propertyName}');
-    print('Initial data: ${widget.data}');
     _initializeFilters();
     _initializeGrid();
     GridDensityService.notifier.addListener(_onDensityChanged);
@@ -189,14 +187,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
   void _initializeFilters() {
     // Parse filter configuration from layout
-    debugPrint('🔍 Filter config for ${widget.propertyName}: ${widget.filterConfig}');
 
     if (widget.filterConfig != null && widget.filterConfig!.isNotEmpty) {
       _filters = widget.filterConfig!
           .map((config) => ArrayFilterRule.fromJson(config as Map<String, dynamic>))
           .toList();
 
-      debugPrint('✅ Created ${_filters.length} filters for ${widget.propertyName}');
 
       // Set default active filters
       _activeFilterIndices.clear();
@@ -224,14 +220,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           _activeFilterIndices = savedIndices.map((s) => int.parse(s)).toSet();
           _filtersLoaded = true;
         });
-        debugPrint('Loaded filter state for ${widget.propertyName}: $_activeFilterIndices');
       } else {
         setState(() {
           _filtersLoaded = true;
         });
       }
     } catch (e) {
-      debugPrint('Error loading filter state: $e');
       setState(() {
         _filtersLoaded = true;
       });
@@ -245,9 +239,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final prefs = await SharedPreferences.getInstance();
       final key = 'array_filter_${widget.propertyName}';
       await prefs.setStringList(key, _activeFilterIndices.map((i) => i.toString()).toList());
-      debugPrint('Saved filter state for ${widget.propertyName}: $_activeFilterIndices');
     } catch (e) {
-      debugPrint('Error saving filter state: $e');
     }
   }
 
@@ -280,9 +272,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       try {
         _mapControllerProvider = context.read<MapControllerProvider>();
         _mapControllerProvider!.addListener(_onMapControllerChanged);
-        debugPrint('${widget.propertyName}: Listener added to MapControllerProvider');
       } catch (e) {
-        debugPrint('Error setting up MapControllerProvider listener: $e');
       }
     }
   }
@@ -301,9 +291,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           selectionTimestamp != null &&
           selectionTimestamp != _lastSelectionTimestamp) {
         _lastSelectionTimestamp = selectionTimestamp;
-        debugPrint(
-          'Grid selection event for ${widget.propertyName}: identifier=$selectedIdentifier',
-        );
 
         // Open form dialog for the matching row
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -315,7 +302,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         });
       }
     } catch (e) {
-      debugPrint('Error handling map controller change: $e');
     }
   }
 
@@ -323,7 +309,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (_stateManager == null || widget.data == null) return;
 
     final identifierField = widget.identifierField ?? 'tree_number';
-    debugPrint('Searching for row with $identifierField=$identifier');
 
     // Find the row index with matching identifier
     int? matchingRowIndex;
@@ -336,11 +321,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     if (matchingRowIndex == null) {
-      debugPrint('No row found with $identifierField=$identifier');
       return;
     }
 
-    debugPrint('Found matching row at index $matchingRowIndex');
 
     // Select the row in the grid
     try {
@@ -350,9 +333,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       );
       _stateManager!.setKeepFocus(true);
 
-      debugPrint('Successfully selected row $matchingRowIndex');
     } catch (e) {
-      debugPrint('Error selecting row: $e');
     }
   }
 
@@ -372,7 +353,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     if (matchingRowIndex == null) {
-      debugPrint('No row found with $identifierField=$identifier for form dialog');
       return;
     }
 
@@ -397,7 +377,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           final oldReadOnly = oldProps[key]?['readOnly'];
           final newReadOnly = value['readOnly'];
           if (oldReadOnly != newReadOnly) {
-            debugPrint('  📝 Field $key: readOnly changed from $oldReadOnly to $newReadOnly');
           }
         });
       }
@@ -425,7 +404,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     _isArrayReadOnly =
         widget.jsonSchema['readOnly'] as bool? ?? widget.jsonSchema['readonly'] as bool? ?? false;
     if (_isArrayReadOnly) {
-      debugPrint('🔒 Array ${widget.propertyName} is READONLY - row operations disabled');
     }
 
     _calculatedColumnConfigs.clear();
@@ -602,9 +580,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (widget.previousData == null) return false;
 
     if (widget.identifierField == null) {
-      debugPrint(
-        '⚠️ No identifierField provided for matching previous data in ${widget.propertyName}',
-      );
     }
 
     // Use configured identifier field or fall back to common fields
@@ -633,15 +608,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
 
     if (itemSchema == null) {
-      debugPrint('❌ No items found in schema for ${widget.propertyName}');
-      debugPrint('Schema keys: ${widget.jsonSchema.keys}');
       return columns;
     }
 
     final properties = itemSchema['properties'] as Map<String, dynamic>?;
     if (properties == null) {
-      debugPrint('❌ No properties found in items schema for ${widget.propertyName}');
-      debugPrint('ItemSchema keys: ${itemSchema.keys}');
       return columns;
     }
 
@@ -831,7 +802,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
             // Nested array column
             propertySchema = properties[fieldName] ?? {'type': 'array'};
           } else {
-            debugPrint('⚠️ Field $fieldName not found in schema and not calculated');
             return null;
           }
         } else {
@@ -960,12 +930,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           if (column != null) {
             columns.add(column);
           } else {
-            debugPrint('  ⚠️ createColumnFromItem returned null for ${itemMap['name']}');
           }
         }
       }
 
-      debugPrint('Total frozen columns: $frozenColumnCount');
       return columns;
     }
 
@@ -1101,7 +1069,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final isReadOnly = entry.value['readonly'] as bool? ?? false;
 
       /*if (isReadOnly) {
-        debugPrint('🔒 Column $key is READONLY');
       }*/
 
       // Determine frozen position from pinned value
@@ -1152,7 +1119,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     }
 
     // Store frozen column count for configuration
-    debugPrint('Total frozen columns: $frozenColumnCount');
 
     return columns;
   }
@@ -1418,9 +1384,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       filteredData = tempFiltered;
       originalIndices = tempIndices;
 
-      debugPrint(
-        'Filtered ${visibleCandidates.length} visible rows to ${filteredData.length} rows (${_activeFilterIndices.length} active filters)',
-      );
     }
 
     return filteredData.asMap().entries.map((entry) {
@@ -1448,7 +1411,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               cellValue = propertySchema['default'];
               // Also update the rowData so the default is persisted
               rowData[column.field] = cellValue;
-              debugPrint('  ⚙️ Applied default for ${column.field} = $cellValue during grid init');
             }
           }
 
@@ -1890,7 +1852,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           nestedData = decoded;
         }
       } catch (e) {
-        debugPrint('Failed to parse nested array JSON: $e');
       }
     }
 
@@ -2369,7 +2330,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         final propertySchema = properties[key] as Map<String, dynamic>?;
         if (propertySchema != null) {
           autoIncrementInitialData[key] = _computeNextAutoIncrementValue(key, propertySchema);
-          debugPrint('  🔢 Pre-computed autoIncrement $key = ${autoIncrementInitialData[key]}');
         }
       }
     }
@@ -2476,7 +2436,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Seed with defaults from columnItems (overridden below by schema defaults / autoIncrement)
     newRow.addAll(_getColumnItemDefaultsMap());
 
-    debugPrint('🆕 Adding new row for ${widget.propertyName}');
 
     properties.forEach((key, value) {
       final propertySchema = value as Map<String, dynamic>;
@@ -2497,10 +2456,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       if (autoIncrement && (type == 'integer' || type == 'number')) {
         // Auto-increment from full dataset (including hidden/deprecated rows).
         newRow[key] = _computeNextAutoIncrementValue(key, propertySchema);
-        debugPrint('  ✅ $key = ${newRow[key]} (autoIncrement)');
       } else if (propertySchema.containsKey('default')) {
         newRow[key] = propertySchema['default'];
-        debugPrint('  ✅ $key = ${newRow[key]} (default from schema)');
       } else if (!newRow.containsKey(key)) {
         // Only apply type-based default if not already seeded (e.g. from columnItems default)
         switch (type) {
@@ -2613,9 +2570,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
               typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
         }
         newCells[key] = TrinaCell(value: schemaDefault ?? _getDefaultValue(type));
-        debugPrint(
-          '  🔄 ResetOnCopy field $key: set to default ${schemaDefault ?? _getDefaultValue(type)}',
-        );
         return;
       }
 
@@ -2642,7 +2596,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           final nextValue = _computeNextAutoIncrementValue(key, propertySchema);
 
           newCells[key] = TrinaCell(value: nextValue);
-          debugPrint('  🔢 AutoIncrement field $key: copied value ignored, using $nextValue');
         } else {
           // Normal field: copy the value
           newCells[key] = TrinaCell(value: cell.value);
@@ -2809,7 +2762,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Remove listener from MapControllerProvider
     if (_mapControllerProvider != null) {
       _mapControllerProvider!.removeListener(_onMapControllerChanged);
-      debugPrint('${widget.propertyName}: Listener removed from MapControllerProvider');
     }
     GridDensityService.notifier.removeListener(_onDensityChanged);
     LookupService.versionNotifier.removeListener(_onLookupReloaded);

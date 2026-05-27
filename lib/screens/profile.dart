@@ -352,9 +352,7 @@ class _ProfileState extends State<Profile> {
             /*ElevatedButton(
               onPressed: () {
                 db.getAll('SELECT * FROM lookup_tree_species').then((value) {
-                  print('Tree species lookup table:');
                   for (var row in value) {
-                    print(row);
                   }
                 });
               },

@@ -22,12 +22,10 @@ class _StorageListState extends State<StorageList> {
     // https://supabase.com/docs/reference/self-hosting-storage/gets-all-buckets
     try {
       final List<Bucket> buckets = await Supabase.instance.client.storage.listBuckets();
-      print('Buckets: $buckets');
 
       //final Bucket bucket = await Supabase.instance.client.storage.getBucket('TFM');
       //print('Bucket: $bucket');
     } catch (e) {
-      print('Error getting bucket: $e');
     }
   }
 

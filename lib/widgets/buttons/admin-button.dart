@@ -46,7 +46,6 @@ class _AdminButtonState extends State<AdminButton> {
                   return SizedBox();
                 }
               } else {
-                print('snapshot: ${snapshot.error} ${user.id}');
               }
               return SizedBox();
             },

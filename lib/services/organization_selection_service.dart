@@ -39,14 +39,12 @@ class OrganizationSelectionService {
   /// Set the selected organization ID
   Future<bool> setSelectedOrganizationId(String organizationId) async {
     final prefs = await SharedPreferences.getInstance();
-    print('OrganizationSelectionService: Saving selected organization: $organizationId');
     return prefs.setString(_selectedOrgKey, organizationId);
   }
 
   /// Clear the selected organization (e.g., on logout)
   Future<bool> clearSelectedOrganization() async {
     final prefs = await SharedPreferences.getInstance();
-    print('OrganizationSelectionService: Clearing selected organization');
     return prefs.remove(_selectedOrgKey);
   }
 
@@ -54,7 +52,6 @@ class OrganizationSelectionService {
   /// Must be called on logout so the next user starts with a clean slate.
   Future<void> clearAllSelections() async {
     final prefs = await SharedPreferences.getInstance();
-    print('OrganizationSelectionService: Clearing all selections on logout');
     await prefs.remove(_selectedOrgKey);
     await prefs.remove('selected_permission_id');
     await prefs.remove('selected_troop_id');
@@ -74,7 +71,6 @@ class OrganizationSelectionService {
   /// that listeners see a consistent state.
   Future<bool> setSelectedPermissionId(String permissionId) async {
     final prefs = await SharedPreferences.getInstance();
-    print('OrganizationSelectionService: Saving selected permission: $permissionId');
     return prefs.setString('selected_permission_id', permissionId);
   }
 
@@ -93,7 +89,6 @@ class OrganizationSelectionService {
   /// Clear the selected permission
   Future<bool> clearSelectedPermission() async {
     final prefs = await SharedPreferences.getInstance();
-    print('OrganizationSelectionService: Clearing selected permission');
     return prefs.remove('selected_permission_id');
   }
 
@@ -103,7 +98,6 @@ class OrganizationSelectionService {
     if (troopId == null) {
       return prefs.remove('selected_troop_id');
     }
-    print('OrganizationSelectionService: Saving selected troop: $troopId');
     return prefs.setString('selected_troop_id', troopId);
   }
 
@@ -131,7 +125,6 @@ class OrganizationSelectionService {
   /// Set whether the selected permission is organization admin
   Future<bool> setIsOrganizationAdmin(bool isAdmin) async {
     final prefs = await SharedPreferences.getInstance();
-    print('OrganizationSelectionService: Saving is_organization_admin: $isAdmin');
     return prefs.setBool('is_organization_admin', isAdmin);
   }
 

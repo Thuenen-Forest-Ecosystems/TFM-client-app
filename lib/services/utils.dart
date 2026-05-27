@@ -191,7 +191,6 @@ double? dmsToDecimal(String dms, String direction) {
       minutes = double.parse(dms.substring(3));
     }
   } catch (e) {
-    print("Error parsing DMS value '$dms': $e");
     return null; // Parsing failed
   }
 
@@ -222,7 +221,6 @@ double? dmsToDecimal_deprecated(String dms, String direction) {
     decimalDegrees = -decimalDegrees;
   } else if (direction.toUpperCase() != 'E' && direction.toUpperCase() != 'N') {
     // Handle invalid direction input (optional: throw error or return null)
-    print("Warning: Invalid direction '$direction'. Assuming positive.");
   }
 
   return decimalDegrees;
@@ -439,14 +437,11 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
           }
         } catch (e) {
           // Catch specific parsing errors
-          print('Failed to parse NMEA sentence: $sentence');
-          print('Error: $e');
           // print('Stack trace: $stackTrace'); // Uncomment for detailed debugging
         }
       }
     }
   } catch (e) {
-    print('Error processing raw data: $e');
     return nmeaState; // Return current state even if there was a processing error
   }
   // print('return nmeaState: ${nmeaState.toString()}'); // More detailed print
@@ -463,16 +458,13 @@ Future<bool?> getCurrentIsControlTroop() async {
     final troopId = await selectionService.getSelectedTroopId();
 
     if (troopId == null) {
-      print('No troop selected, returning null for isControlTroop');
       return null;
     }
 
     final result = await db.get('SELECT is_control_troop FROM troop WHERE id = ?', [troopId]);
     final isControlTroop = (result['is_control_troop'] as int?) == 1;
-    print('Troop $troopId is_control_troop: $isControlTroop');
     return isControlTroop;
   } catch (e) {
-    print('Error getting isControlTroop: $e');
     return null;
   }
 }

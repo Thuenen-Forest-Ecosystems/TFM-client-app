@@ -22,8 +22,6 @@ class _TFMStorageState extends State<TFMStorage> {
 
   Future<void> _getLocalFiles() async {
     db.get('SELECT * FROM attachments', []).then((rows) {
-      print('rows');
-      print(rows);
     });
   }
 
@@ -31,7 +29,6 @@ class _TFMStorageState extends State<TFMStorage> {
   void initState() {
     super.initState();
 
-    print('attachmentQueue');
     _getLocalFiles();
 
     //_downloadFile('ci2027_plausability_0.0.1.js');

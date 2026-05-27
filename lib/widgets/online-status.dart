@@ -79,7 +79,6 @@ class _OnlineStatusState extends State<OnlineStatus> with SingleTickerProviderSt
       _syncDataDone();
       //_getAllClusters();
     }).catchError((error) {
-      print(error);
       _syncDataDone();
     });
   }
@@ -88,7 +87,6 @@ class _OnlineStatusState extends State<OnlineStatus> with SingleTickerProviderSt
     // sync data
     syncInProgress = false;
     _controller.stop();
-    print('sync done');
   }
 
   _getAllClusters() async {

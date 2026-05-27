@@ -62,14 +62,12 @@ class _RecordCardState extends State<RecordCard> {
         setState(() => _forestStatusLabel = result['name_de'] as String?);
       }
     } catch (e) {
-      debugPrint('Error loading forest status label: $e');
     }
   }
 
   Future<void> _loadPropertyTypeLabel() async {
     final propertyType = widget.record.properties['property_type'];
     if (propertyType == null) {
-      debugPrint('No property type code found in record properties');
       setState(() => _propertyTypeLabel = null);
       return;
     }
@@ -81,7 +79,6 @@ class _RecordCardState extends State<RecordCard> {
         setState(() => _propertyTypeLabel = result['name_de'] as String?);
       }
     } catch (e) {
-      debugPrint('Error loading property type label: $e');
     }
   }
 

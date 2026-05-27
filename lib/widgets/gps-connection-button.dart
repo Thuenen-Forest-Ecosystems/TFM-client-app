@@ -51,7 +51,6 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
   }
 
   void _start_flutter_bluetooth_serial() async {
-    print('Start flutter_bluetooth_serial');
     try {
       final ports =
           await Future.delayed(
@@ -60,14 +59,11 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
           ).timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              print('Serial port scan timeout');
               return <String>[];
             },
           );
       setState(() => availablePorts = ports);
-      print('Available ports: $availablePorts');
     } catch (e) {
-      print('Error scanning ports: $e');
       setState(() => availablePorts = []);
     }
   }
@@ -75,7 +71,6 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
   void read(ports) {
     SerialPortReader reader = SerialPortReader(ports[2]);
     reader.stream.listen((data) {
-      print('Data: $data');
     });
   }
 
@@ -87,7 +82,6 @@ class _GpsConnectionButtonState extends State<GpsConnectionButton> {
       _requestPermissions();
       positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
           .handleError((error) {
-            print(error);
           })
           .listen((Position? position) {
             context.read<GpsPositionProvider>().setPosition(position);

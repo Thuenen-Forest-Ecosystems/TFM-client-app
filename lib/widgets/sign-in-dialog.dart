@@ -75,7 +75,6 @@ class _SignInDialogState extends State<SignInDialog> {
       Navigator.of(context).pop();
       Provider.of<ApiLog>(context, listen: false).changeToken(response.data['token']);
     } else {
-      print('ERROR');
       setState(() {
         errors.clear();
         passwordController.text = '';
@@ -96,7 +95,6 @@ class _SignInDialogState extends State<SignInDialog> {
       //Beamer.of(context).beamToNamed('/');
       //Navigator.popUntil(context, ModalRoute.withName('/'));
     } catch (e) {
-      print(e);
     }
     _getUser();
   }

@@ -108,7 +108,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
         _isCheckingTiles = false;
       });
     } catch (e) {
-      print('[Windows Check] Error checking records: $e');
       if (!mounted) return;
 
       setState(() {
@@ -119,9 +118,7 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
   }
 
   Future<void> _downloadMapTilesFromRecordsBBox() async {
-    print('[Windows Download] Starting download process...');
     final records = await RecordsRepository().getAllRecords();
-    print('[Windows Download] Found ${records.length} records');
 
     if (records.isEmpty) {
       if (mounted) {
@@ -167,7 +164,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
       );
 
       if (confirmed != true) {
-        print('[Windows Download] User cancelled download');
         return;
       }
     }
@@ -196,7 +192,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
           LatLng(lat + radiusPadding, lng + radiusPadding),
         );
 
-        print('[Windows Download] Processing record ${processedRecords + 1}/${records.length}');
         await _downloadTilesForBboxManually(recordBbox);
 
         processedRecords++;
@@ -217,7 +212,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
       }
     } catch (e) {
       if (mounted) {
-        print('[Windows Download] Error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Download: $e')),
         );
@@ -240,7 +234,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
     try {
       // Temporarily remove HttpOverrides to avoid isolate serialization issues
       HttpOverrides.global = null;
-      print('[Windows] Temporarily disabled HttpOverrides for FMTC download');
 
       for (final basemapEntry in basemapsToSelectFrom.entries) {
         final basemapName = basemapEntry.key;
@@ -255,12 +248,10 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
           final zoomLayers = config['zoomLayers'] as List<dynamic>?;
           final zoomLevels = zoomLayers?.cast<int>() ?? [1, 19];
 
-          print('[Windows] Downloading $basemapName tiles...');
 
           final region = RectangleRegion(bbox);
 
           for (final zoom in zoomLevels) {
-            print('[Windows] Processing zoom level $zoom for $basemapName');
 
             try {
               // Create tile layer configuration
@@ -318,7 +309,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
                   lastFailedCount = progress.failedTiles;
                   // If more than 20% of tiles failed, show warning
                   if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
-                    print('[Windows] ⚠️ High failure rate: ${progress.failedTiles}/${progress.maxTiles}');
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -336,18 +326,10 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
                 // Log progress periodically
                 if (progress.successfulTiles % 10 == 0 ||
                     progress.successfulTiles == progress.maxTiles) {
-                  print(
-                    '[Windows] $basemapName zoom $zoom: '
-                    '${progress.successfulTiles}/${progress.maxTiles} tiles '
-                    '(failed: ${progress.failedTiles})',
-                  );
                 }
               }
 
-              print('[Windows] Completed $basemapName zoom $zoom: $lastSuccessful tiles');
             } catch (e, stackTrace) {
-              print('[Windows] Error at zoom $zoom: $e');
-              print('[Windows] Stack trace: $stackTrace');
               
               // Check for proxy-related errors
               final proxyError = _detectProxyError(e);
@@ -372,8 +354,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
             }
           }
         } catch (e, stackTrace) {
-          print('[Windows] Error downloading $basemapName: $e');
-          print('[Windows] Stack trace: $stackTrace');
           
           // Check for proxy-related errors
           final proxyError = _detectProxyError(e);
@@ -396,7 +376,6 @@ class _MapTilesDownloadWindowsState extends State<MapTilesDownloadWindows> {
       // CRITICAL: Restore HttpOverrides after downloads complete
       if (savedOverrides != null) {
         HttpOverrides.global = savedOverrides;
-        print('[Windows] Restored HttpOverrides');
       }
     }
   }

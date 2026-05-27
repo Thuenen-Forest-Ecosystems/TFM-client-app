@@ -55,7 +55,6 @@ class _StatelessTestState extends State<StatelessTest> {
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
       },
       onConsoleMessage: (controller, consoleMessage) {
-        print("Console: ${consoleMessage.message}");
       },
       onLoadStart: (controller, url) async {
         final snackBar = SnackBar(content: Text('onLoadStart $url'), duration: const Duration(seconds: 1));
@@ -66,7 +65,6 @@ class _StatelessTestState extends State<StatelessTest> {
         });
       },
       onLoadStop: (controller, url) async {
-        print('inited onLoadStart');
         final snackBar = SnackBar(content: Text('onLoadStop $url'), duration: const Duration(seconds: 1));
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
 
@@ -82,15 +80,12 @@ class _StatelessTestState extends State<StatelessTest> {
         """;
 
         var result3 = await webViewController.evaluateJavascript(source: jsCode);
-        print('JavaScript result: $result3');
 
         var result2 = await controller.evaluateJavascript(source: "foo + bar");
-        print('result2');
-        print(result2);
 
         var result = await controller.injectJavascriptFileFromAsset(assetFilePath: "/Users/b-mini/Documents/TFM/ci2027_schema_0.0.1.json");
-        print(result.runtimeType); // int
-        print(result); // 30
+// int
+// 30
 
         setState(() {
           this.url = url?.toString() ?? '';
@@ -107,7 +102,6 @@ class _StatelessTestState extends State<StatelessTest> {
     final isAjvLoaded = await webViewController.evaluateJavascript(source: "window.isAjvLoaded;");
 
     if (isAjvLoaded == null || isAjvLoaded == false) {
-      print('ÄJV is not loaded!');
       return;
     }
 
@@ -145,9 +139,7 @@ class _StatelessTestState extends State<StatelessTest> {
     try {
       // Run the JavaScript code
       final result = await webViewController.evaluateJavascript(source: jsCode);
-      print('JavaScript result: $result');
     } catch (e) {
-      print('Error: $e');
     }
     return;
 
@@ -173,7 +165,6 @@ class _StatelessTestState extends State<StatelessTest> {
     """;
 
     var result = await webViewController.evaluateJavascript(source: jsCode2);
-    print('JavaScript result: $result');
   }
 
   @override

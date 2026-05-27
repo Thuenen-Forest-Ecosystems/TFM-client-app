@@ -53,7 +53,6 @@ class _IfDatabaseAdminState extends State<IfDatabaseAdmin> {
         });
       }
     } catch (e) {
-      debugPrint('Error checking database admin status: $e');
       if (mounted) {
         setState(() {
           _isDatabaseAdmin = false;

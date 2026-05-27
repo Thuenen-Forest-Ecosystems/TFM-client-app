@@ -111,8 +111,6 @@ class ApiService {
   addClusterToUser(String username, List clusters) async {
     int counter = 0;
 
-    print('addClusterToUser');
-    print(userCollection);
     if (userCollection == null) {
       await initDB(username);
     }
@@ -132,7 +130,6 @@ class ApiService {
     var user = await getLoggedInUser();
 
     if (user == null) {
-      print('User not logged in');
       //throw Error('User not logged in', 401, {});
     }
 
@@ -230,7 +227,6 @@ class ApiService {
       var user = await getLoggedInUser();
       await addClusterToUser(user['email'], clusters);
     } catch (e) {
-      print(e);
     }
 
     return clusters;

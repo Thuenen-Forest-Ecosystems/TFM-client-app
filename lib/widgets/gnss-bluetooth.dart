@@ -16,7 +16,6 @@ class _GnssBluetoothState extends State<GnssBluetooth> {
   BluetoothDevice? _dearchForDeviceByID() {
     for (var device in devices) {
       if (device.remoteId.toString() == remoteID) {
-        print('Device found: $device');
         return device;
       }
     }
@@ -30,23 +29,18 @@ class _GnssBluetoothState extends State<GnssBluetooth> {
       setState(() {
         devices = results.map((r) => r.device).toList();
       });
-      print('Discovered devices: $devices');
       BluetoothDevice? device = _dearchForDeviceByID();
       if (device != null && !_connected) {
         _connected = true;
-        print('Device found: $device');
         // Connect to the device
         device
             .connect()
             .then((_) {
-              print('Connected to $device');
               // Perform any additional actions after connecting
             })
             .catchError((error) {
-              print('Error connecting to device: $error');
             });
       } else {
-        print('Device not found');
       }
     });
   }

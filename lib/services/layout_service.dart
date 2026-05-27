@@ -17,16 +17,11 @@ class LayoutService {
   }) async {
     // Return cached layout if already loaded for this directory
     if (_cachedLayout != null && _cachedDirectory == directory) {
-      debugPrint(
-        '🔄 Returning CACHED layout for directory: $directory (version: ${_cachedLayout?.version})',
-      );
       return _cachedLayout;
     }
 
-    debugPrint('📥 Loading FRESH layout for directory: $directory');
 
     if (styleData == null) {
-      print('No layout data available');
       return null;
     }
 
@@ -36,18 +31,15 @@ class LayoutService {
       _cachedLayout = LayoutConfig.fromJson(jsonData);
       _cachedDirectory = directory;
 
-      debugPrint('✅ Loaded layout version: ${_cachedLayout?.version} for directory: $directory');
 
       return _cachedLayout;
     } catch (e) {
-      print('Failed to load layout: $e');
       return null;
     }
   }
 
   /// Clear the cached layout (useful for testing or hot reload)
   static void clearCache() {
-    debugPrint('🗑️ Clearing layout cache (was: ${_cachedLayout?.version})');
     _cachedLayout = null;
     _cachedDirectory = null;
   }

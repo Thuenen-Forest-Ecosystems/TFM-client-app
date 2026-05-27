@@ -177,7 +177,6 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
       await _flutterBluetoothSerial?.cancelDiscovery();
       if (mounted) setState(() => _isScanning = false);
     } catch (e) {
-      debugPrint('Error stopping scans: $e');
     }
   }
 
@@ -249,7 +248,6 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
         if (mounted) setState(() => _isScanning = false);
       }
     } catch (e) {
-      debugPrint('Scan error: $e');
       if (mounted) setState(() => _isScanning = false);
     }
   }

@@ -25,7 +25,6 @@ class ConditionalRulesService {
 
     try {
       if (styleData == null) {
-        debugPrint('❌ No style data available for conditional rules');
         return [];
       }
 
@@ -42,11 +41,8 @@ class ConditionalRulesService {
       _cachedRules = rules;
       _cachedDirectory = directory;
 
-      debugPrint('✓ Loaded ${rules.length} conditional rules');
       return rules;
     } catch (e, stackTrace) {
-      debugPrint('❌ Error loading conditional rules: $e');
-      debugPrint('Stack trace: $stackTrace');
       return [];
     }
   }
@@ -85,16 +81,13 @@ class ConditionalRulesService {
     required Map<String, dynamic> formData,
     required List<ConditionalRule> rules,
   }) {
-    debugPrint('=== Applying ${rules.length} conditional rules ===');
     // Deep copy to avoid mutating the original schema
     var modifiedSchema = _deepCopyMap(schema);
 
     for (final rule in rules) {
       if (_shouldApplyRule(rule, formData)) {
-        debugPrint('✓ Applying conditional rule: ${rule.id}');
         modifiedSchema = _executeRuleActions(rule, modifiedSchema);
       } else {
-        debugPrint('✗ Skipping rule: ${rule.id} (condition not met)');
       }
     }
 
@@ -106,9 +99,6 @@ class ConditionalRulesService {
     final trigger = rule.trigger;
     final fieldValue = formData[trigger.field];
 
-    debugPrint(
-      'Checking rule "${rule.id}": field="${trigger.field}", value=$fieldValue (${fieldValue.runtimeType}), operator="${trigger.operator}", expected=${trigger.values}',
-    );
 
     switch (trigger.operator) {
       case 'in':
@@ -118,40 +108,32 @@ class ConditionalRulesService {
         for (final expectedValue in trigger.values!) {
           // Direct comparison
           if (fieldValue == expectedValue) {
-            debugPrint('✓ Match found (direct): $fieldValue == $expectedValue');
             return true;
           }
 
           // String comparison
           if (fieldValue.toString() == expectedValue.toString()) {
-            debugPrint(
-              '✓ Match found (string): $fieldValue.toString() == $expectedValue.toString()',
-            );
             return true;
           }
 
           // Numeric comparison
           if (fieldValue is num && expectedValue is num) {
             if (fieldValue == expectedValue) {
-              debugPrint('✓ Match found (numeric): $fieldValue == $expectedValue');
               return true;
             }
           } else if (fieldValue is String && expectedValue is num) {
             final parsedValue = num.tryParse(fieldValue);
             if (parsedValue == expectedValue) {
-              debugPrint('✓ Match found (parsed string to num): $parsedValue == $expectedValue');
               return true;
             }
           } else if (fieldValue is num && expectedValue is String) {
             final parsedExpected = num.tryParse(expectedValue);
             if (fieldValue == parsedExpected) {
-              debugPrint('✓ Match found (parsed expected to num): $fieldValue == $parsedExpected');
               return true;
             }
           }
         }
 
-        debugPrint('✗ No match found');
         return false;
 
       case 'notIn':
@@ -165,7 +147,6 @@ class ConditionalRulesService {
       case 'lessThan':
         return fieldValue != null && fieldValue < (trigger.value ?? 0);
       default:
-        debugPrint('Unknown operator: ${trigger.operator}');
         return false;
     }
   }
@@ -186,7 +167,6 @@ class ConditionalRulesService {
           modifiedSchema = _applySetVisible(modifiedSchema, action);
           break;
         default:
-          debugPrint('Unknown action type: ${action.type}');
       }
     }
 
@@ -304,7 +284,6 @@ class ConditionalRulesService {
   Map<String, dynamic> _applySetVisible(Map<String, dynamic> schema, RuleAction action) {
     // This would be implemented based on how visibility is handled in your forms
     // For now, return unchanged schema
-    debugPrint('setVisible action not yet implemented');
     return schema;
   }
 

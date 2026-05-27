@@ -13,7 +13,6 @@ class OfflineAuthService {
       final connectivityResult = await Connectivity().checkConnectivity();
       return connectivityResult.any((result) => result != ConnectivityResult.none);
     } catch (e) {
-      print('OfflineAuthService: Error checking connectivity - $e');
       return false;
     }
   }
@@ -21,11 +20,9 @@ class OfflineAuthService {
   /// Attempt offline login for [email] / [password].
   Future<Map<String, dynamic>> loginOffline(String email, String password) async {
     try {
-      print('OfflineAuthService: Attempting offline login for $email');
 
       final hasCredentials = await _secureStorage.hasCredentials(email);
       if (!hasCredentials) {
-        print('OfflineAuthService: No cached credentials found for $email');
         return {
           'success': false,
           'error':
@@ -35,7 +32,6 @@ class OfflineAuthService {
 
       final isAllowed = await _secureStorage.isOfflineLoginAllowed(email, maxDaysOffline: 30);
       if (!isAllowed) {
-        print('OfflineAuthService: Offline login expired for $email');
         return {
           'success': false,
           'error':
@@ -45,7 +41,6 @@ class OfflineAuthService {
 
       final isValid = await _secureStorage.validateOfflineCredentials(email, password);
       if (!isValid) {
-        print('OfflineAuthService: Invalid offline credentials for $email');
         return {
           'success': false,
           'error':
@@ -54,10 +49,8 @@ class OfflineAuthService {
       }
 
       final userId = await _secureStorage.getCachedUserId(email);
-      print('OfflineAuthService: Offline login successful for $email');
       return {'success': true, 'userId': userId, 'email': email};
     } catch (e) {
-      print('OfflineAuthService: Error during offline login - $e');
       return {
         'success': false,
         'error': 'Ein Fehler ist während der Offline-Anmeldung aufgetreten: $e',
@@ -83,9 +76,7 @@ class OfflineAuthService {
         refreshToken: refreshToken,
         tokenExpiry: tokenExpiry,
       );
-      print('OfflineAuthService: Online login credentials saved for $email');
     } catch (e) {
-      print('OfflineAuthService: Error saving credentials - $e');
       rethrow;
     }
   }
@@ -94,9 +85,7 @@ class OfflineAuthService {
   Future<void> clearStoredCredentials(String email) async {
     try {
       await _secureStorage.clearCredentials(email);
-      print('OfflineAuthService: Stored credentials cleared for $email');
     } catch (e) {
-      print('OfflineAuthService: Error clearing credentials - $e');
       rethrow;
     }
   }
@@ -106,7 +95,6 @@ class OfflineAuthService {
     try {
       return await _secureStorage.hasAnyCredentials();
     } catch (e) {
-      print('OfflineAuthService: Error checking previous login - $e');
       return false;
     }
   }
@@ -116,7 +104,6 @@ class OfflineAuthService {
     try {
       return await _secureStorage.getCachedEmail();
     } catch (e) {
-      print('OfflineAuthService: Error getting cached email - $e');
       return null;
     }
   }
@@ -126,7 +113,6 @@ class OfflineAuthService {
     try {
       return await _secureStorage.getLastOnlineLogin(email);
     } catch (e) {
-      print('OfflineAuthService: Error getting last online login - $e');
       return null;
     }
   }
@@ -136,7 +122,6 @@ class OfflineAuthService {
     try {
       return await _secureStorage.getCachedRefreshToken(email);
     } catch (e) {
-      print('OfflineAuthService: Error getting refresh token - $e');
       return null;
     }
   }
@@ -146,7 +131,6 @@ class OfflineAuthService {
     try {
       return await _secureStorage.getCachedPassword(email);
     } catch (e) {
-      print('OfflineAuthService: Error getting cached password - $e');
       return null;
     }
   }
@@ -156,7 +140,6 @@ class OfflineAuthService {
     try {
       return await _secureStorage.getCachedAccessToken(email);
     } catch (e) {
-      print('OfflineAuthService: Error getting access token - $e');
       return null;
     }
   }
@@ -175,9 +158,7 @@ class OfflineAuthService {
         refreshToken: refreshToken,
         tokenExpiry: tokenExpiry,
       );
-      print('OfflineAuthService: Tokens updated successfully for $email');
     } catch (e) {
-      print('OfflineAuthService: Error updating tokens - $e');
       rethrow;
     }
   }

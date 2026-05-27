@@ -133,7 +133,6 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
         }
       }
     } catch (e) {
-      debugPrint('Error loading metadata: $e');
     }
   }
 
@@ -158,7 +157,6 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error loading cluster style: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;

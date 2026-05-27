@@ -64,9 +64,6 @@ class _LoginState extends State<Login> {
     final hasPreviousLogin = await _authProvider.hasPreviousLogin();
     final cachedEmail = await _authProvider.getCachedEmail();
 
-    print(
-      'Login: Connectivity check - isOffline: $isOffline, hasPreviousLogin: $hasPreviousLogin, cachedEmail: $cachedEmail',
-    );
 
     if (mounted) {
       setState(() {
@@ -162,20 +159,17 @@ class _LoginState extends State<Login> {
 
     // Always validate first
     if (!_formKey.currentState!.validate()) {
-      print('Login: Form validation failed');
       return;
     }
 
     // Prevent double-clicks
     if (_authProvider.loggingIn) {
-      print('Login: Already logging in, ignoring');
       return;
     }
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    print('Login: Attempting login for email: $email');
 
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -185,11 +179,9 @@ class _LoginState extends State<Login> {
 
       // Check if still mounted after async operation
       if (!mounted) {
-        print('Login: Widget unmounted after login attempt');
         return;
       }
 
-      print('Login: Login successful');
 
       // Notify autofill service that login was successful.
       // SKIP on Windows: finishAutofillContext re-engages the platform text
@@ -205,12 +197,10 @@ class _LoginState extends State<Login> {
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
-      print('Login: Error occurred: $e');
 
       String errorMessage = 'Login fehlgeschlagen';
 
       if (e is AuthException) {
-        print('Login: AuthException - ${e.message}');
         switch (e.message) {
           case 'Invalid login credentials':
             errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.';
@@ -221,7 +211,6 @@ class _LoginState extends State<Login> {
             errorMessage = 'Anmeldefehler: ${e.message}';
         }
       } else {
-        print('Login: Non-AuthException error - $e');
 
         // Check for proxy-related errors
         if (e.toString().contains('proxy') ||
@@ -261,7 +250,6 @@ class _LoginState extends State<Login> {
         }
       }
 
-      print('Login: Showing error message: $errorMessage');
 
       // Show error using captured ScaffoldMessenger (works even if widget is unmounted)
       scaffoldMessenger.showSnackBar(
@@ -276,20 +264,17 @@ class _LoginState extends State<Login> {
 
     // Always validate first
     if (!_formKey.currentState!.validate()) {
-      print('Login: Form validation failed');
       return;
     }
 
     // Prevent double-clicks
     if (_authProvider.loggingIn) {
-      print('Login: Already logging in, ignoring');
       return;
     }
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    print('Login: Attempting offline login for email: $email');
 
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -299,11 +284,9 @@ class _LoginState extends State<Login> {
 
       // Check if still mounted after async operation
       if (!mounted) {
-        print('Login: Widget unmounted after offline login attempt');
         return;
       }
 
-      print('Login: Offline login successful');
 
       // Notify autofill service that login was successful.
       // SKIP on Windows (see comment in _handleLogin).
@@ -316,7 +299,6 @@ class _LoginState extends State<Login> {
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
-      print('Login: Offline login error occurred: $e');
 
       String errorMessage = 'Offline-Anmeldung fehlgeschlagen';
 
@@ -326,7 +308,6 @@ class _LoginState extends State<Login> {
         errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
       }
 
-      print('Login: Showing offline error message: $errorMessage');
 
       // Show error using captured ScaffoldMessenger
       scaffoldMessenger.showSnackBar(

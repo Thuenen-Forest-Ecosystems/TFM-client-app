@@ -11,7 +11,6 @@ class ValidationService {
   }
 
   Future<void> initialize({String? tfmValidationCode}) async {
-    print('ValidationService: Web platform - validation not supported');
   }
 
   Future<ValidationResult> validate(
@@ -20,7 +19,6 @@ class ValidationService {
     String? validationCode,
   }) async {
     // On web, just return valid - no actual validation
-    print('ValidationService: Web platform - skipping validation');
     return ValidationResult(isValid: true, errors: []);
   }
 
@@ -39,7 +37,6 @@ class ValidationService {
   }
 
   Future<void> dispose() async {
-    print('ValidationService: Web dispose - no-op');
   }
 }
 

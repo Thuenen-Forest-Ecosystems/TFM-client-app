@@ -18,18 +18,16 @@ class _BreadCrumbState extends State<BreadCrumb> {
 
     /*historyObserver.historyChangeStream.listen(_getBreadCrumb);
 
-    print(NavigationHistoryObserver().history);*/
+*/
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     /*BeamLocation beamLocation = Beamer.of(context).currentBeamLocation;
-    print('BEAMER STATE');
     List history = beamLocation.history;
     //print(BeamState.fromUri(Uri.parse('/schema/private_ci2027_001')));
     for (var entry in history) {
-      print(entry.buildPages());
     }*/
   }
 

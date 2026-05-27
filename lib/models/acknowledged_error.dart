@@ -46,7 +46,6 @@ class AcknowledgedError {
         if (rawErrorValue is Map) {
           rawErrorMap = Map<String, dynamic>.from(rawErrorValue);
         } else {
-          debugPrint('⚠️ rawError is not a Map: $rawErrorValue (${rawErrorValue.runtimeType})');
         }
       }
 
@@ -61,9 +60,6 @@ class AcknowledgedError {
         rawError: rawErrorMap,
       );
     } catch (e, stackTrace) {
-      debugPrint('❌ ERROR in AcknowledgedError.fromJson: $e');
-      debugPrint('❌ Stack: $stackTrace');
-      debugPrint('❌ JSON: $json');
       rethrow; // Re-throw so decodeList catches it
     }
   }
@@ -75,28 +71,16 @@ class AcknowledgedError {
   static List<AcknowledgedError> decodeList(String? jsonString) {
     if (jsonString == null || jsonString.isEmpty) return [];
     try {
-      debugPrint('❌ DEBUG: Input jsonString type: ${jsonString.runtimeType}');
-      debugPrint('❌ DEBUG: Input jsonString length: ${jsonString.length}');
-      debugPrint(
-        '❌ DEBUG: First 100 chars: ${jsonString.substring(0, jsonString.length > 100 ? 100 : jsonString.length)}',
-      );
 
       dynamic decoded = jsonDecode(jsonString);
 
-      debugPrint('❌ DEBUG: After 1st jsonDecode, type: ${decoded.runtimeType}');
 
       // Handle double-encoded JSON: if decode result is still a String, decode again
       if (decoded is String) {
-        debugPrint('❌ DEBUG: Double-encoded JSON detected! Decoding again...');
-        debugPrint(
-          '❌ DEBUG: String value: ${decoded.substring(0, decoded.length > 100 ? 100 : decoded.length)}',
-        );
         decoded = jsonDecode(decoded);
-        debugPrint('❌ DEBUG: After 2nd jsonDecode, type: ${decoded.runtimeType}');
       }
 
       if (decoded is! List) {
-        debugPrint('❌ ERROR: Decoded JSON is not a List, got ${decoded.runtimeType}');
         return [];
       }
 
@@ -105,26 +89,18 @@ class AcknowledgedError {
         try {
           final item = decoded[i];
           if (item is! Map) {
-            debugPrint('❌ ERROR: Item $i is not a Map, got ${item.runtimeType}');
             continue;
           }
 
           final Map<String, dynamic> itemMap = Map<String, dynamic>.from(item);
           errors.add(AcknowledgedError.fromJson(itemMap));
         } catch (itemError) {
-          debugPrint('❌ ERROR decoding item $i: $itemError');
-          debugPrint('❌ Item data: ${decoded[i]}');
           // Continue processing other items
         }
       }
 
       return errors;
     } catch (e, stackTrace) {
-      debugPrint('❌ ERROR decoding AcknowledgedError list: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
-      debugPrint(
-        '❌ JSON was: ${jsonString.substring(0, jsonString.length > 200 ? 200 : jsonString.length)}...',
-      );
       return [];
     }
   }
