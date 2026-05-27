@@ -13,6 +13,16 @@ class ValidationService {
   bool _isDisposing = false;
   Completer<void>? _initCompleter;
 
+  // Energy optimization: WebView2 (especially on Windows) runs a full browser
+  // host process in the background. Disposing it during idle periods and when
+  // the app is backgrounded reduces CPU/RAM usage significantly. The next
+  // validate() call transparently re-initializes the engine using the last
+  // known TFM code.
+  Timer? _idleTimer;
+  String? _lastTfmValidationCode;
+  Completer<void>? _disposeCompleter;
+  static const Duration _idleTimeout = Duration(minutes: 2);
+
   ValidationService._();
 
   static ValidationService get instance {
@@ -21,6 +31,20 @@ class ValidationService {
   }
 
   Future<void> initialize({String? tfmValidationCode}) async {
+    // If a dispose (idle/background) is in progress, wait for it to finish
+    // before re-initializing so we don't tear down a freshly-created WebView.
+    if (_disposeCompleter != null) {
+      try {
+        await _disposeCompleter!.future;
+      } catch (_) {}
+    }
+
+    // Remember the latest TFM code so we can transparently re-initialize after
+    // an idle dispose without callers having to know about the lifecycle.
+    if (tfmValidationCode != null) {
+      _lastTfmValidationCode = tfmValidationCode;
+    }
+
     // Allow reinitialization only if TFM code is provided and not already loaded
     if (_isInitialized && (tfmValidationCode == null || _isTFMLoaded)) {
       return;
@@ -126,9 +150,8 @@ class ValidationService {
   }
 
   Future<ValidationResult> validate(Map<String, dynamic> schema, Map<String, dynamic> data) async {
-    if (!_isInitialized || _webViewController == null) {
-      throw Exception('Validation service not initialized. Call initialize() first.');
-    }
+    await _ensureInitialized();
+    _resetIdleTimer();
 
     try {
       final schemaJson = jsonEncode(schema);
@@ -210,9 +233,8 @@ class ValidationService {
     Map<String, dynamic>? previousData,
     List<Map<String, dynamic>>? treeSpeciesLookup,
   }) async {
-    if (!_isInitialized || _webViewController == null) {
-      throw Exception('Validation service not initialized. Call initialize() first.');
-    }
+    await _ensureInitialized();
+    _resetIdleTimer();
 
     try {
       // First run AJV validation
@@ -378,27 +400,68 @@ class ValidationService {
   }
 
   Future<void> dispose() async {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _lastTfmValidationCode = null;
+    await _disposeWebViewKeepInstance();
+  }
+
+  /// Called by AppLifecycleManager when the app is backgrounded / hidden.
+  /// Disposes the WebView while preserving the singleton + remembered TFM
+  /// code so the next validate() call transparently re-initializes.
+  Future<void> handleAppPaused() async {
+    await _disposeWebViewKeepInstance();
+  }
+
+  /// Ensure the WebView is up. Re-creates it (using the last known TFM code)
+  /// if it was disposed by the idle timer or by an app-lifecycle event.
+  Future<void> _ensureInitialized() async {
+    if (_isInitialized && _webViewController != null) return;
+    await initialize(tfmValidationCode: _lastTfmValidationCode);
+  }
+
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(_idleTimeout, () {
+      // Fire-and-forget; errors are non-fatal (next validate re-initializes).
+      _disposeWebViewKeepInstance();
+    });
+  }
+
+  Future<void> _disposeWebViewKeepInstance() async {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+
     if (_isDisposing) {
+      if (_disposeCompleter != null) {
+        try {
+          await _disposeCompleter!.future;
+        } catch (_) {}
+      }
       return;
     }
+    if (_headlessWebView == null && !_isInitialized) return;
 
     _isDisposing = true;
-
+    _disposeCompleter = Completer<void>();
     try {
       final headlessWebView = _headlessWebView;
       _headlessWebView = null;
       _webViewController = null;
 
       if (headlessWebView != null) {
-        await headlessWebView.dispose();
+        try {
+          await headlessWebView.dispose();
+        } catch (_) {}
       }
     } finally {
+      _isInitialized = false;
+      _isTFMLoaded = false;
+      _initCompleter = null;
       _isDisposing = false;
+      _disposeCompleter?.complete();
+      _disposeCompleter = null;
     }
-
-    _isInitialized = false;
-    _isTFMLoaded = false;
-    _initCompleter = null;
   }
 }
 
