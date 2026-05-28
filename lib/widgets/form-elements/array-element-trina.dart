@@ -193,7 +193,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           .map((config) => ArrayFilterRule.fromJson(config as Map<String, dynamic>))
           .toList();
 
-
       // Set default active filters
       _activeFilterIndices.clear();
       for (int i = 0; i < _filters.length; i++) {
@@ -216,16 +215,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final savedIndices = prefs.getStringList(key);
 
       if (savedIndices != null) {
+        if (!mounted) return;
         setState(() {
           _activeFilterIndices = savedIndices.map((s) => int.parse(s)).toSet();
           _filtersLoaded = true;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           _filtersLoaded = true;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _filtersLoaded = true;
       });
@@ -239,8 +241,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       final prefs = await SharedPreferences.getInstance();
       final key = 'array_filter_${widget.propertyName}';
       await prefs.setStringList(key, _activeFilterIndices.map((i) => i.toString()).toList());
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _showFilterDialog() async {
@@ -253,6 +254,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() {
         _activeFilterIndices = result;
         _rows = _buildRows();
@@ -272,8 +274,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       try {
         _mapControllerProvider = context.read<MapControllerProvider>();
         _mapControllerProvider!.addListener(_onMapControllerChanged);
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
 
@@ -301,12 +302,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           }
         });
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _scrollToAndSelectRow(dynamic identifier) {
-    if (_stateManager == null || widget.data == null) return;
+    final stateManager = _stateManager;
+    if (stateManager == null || widget.data == null) return;
 
     final identifierField = widget.identifierField ?? 'tree_number';
 
@@ -324,17 +325,17 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
       return;
     }
 
+    if (matchingRowIndex < 0 || matchingRowIndex >= stateManager.rows.length) {
+      return;
+    }
 
     // Select the row in the grid
     try {
-      _stateManager!.setCurrentCell(
-        _stateManager!.rows[matchingRowIndex].cells.entries.first.value,
-        matchingRowIndex,
-      );
-      _stateManager!.setKeepFocus(true);
-
-    } catch (e) {
-    }
+      final targetRow = stateManager.rows[matchingRowIndex];
+      if (targetRow.cells.isEmpty) return;
+      stateManager.setCurrentCell(targetRow.cells.entries.first.value, matchingRowIndex);
+      stateManager.setKeepFocus(true);
+    } catch (e) {}
   }
 
   /// Open the form dialog for a row identified by its identifier value (e.g. tree_number)
@@ -376,8 +377,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         newProps.forEach((key, value) {
           final oldReadOnly = oldProps[key]?['readOnly'];
           final newReadOnly = value['readOnly'];
-          if (oldReadOnly != newReadOnly) {
-          }
+          if (oldReadOnly != newReadOnly) {}
         });
       }
 
@@ -403,8 +403,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Check if the entire array is readonly (support both 'readOnly' and 'readonly')
     _isArrayReadOnly =
         widget.jsonSchema['readOnly'] as bool? ?? widget.jsonSchema['readonly'] as bool? ?? false;
-    if (_isArrayReadOnly) {
-    }
+    if (_isArrayReadOnly) {}
 
     _calculatedColumnConfigs.clear();
     _columns = _buildColumns();
@@ -579,8 +578,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) {
     if (widget.previousData == null) return false;
 
-    if (widget.identifierField == null) {
-    }
+    if (widget.identifierField == null) {}
 
     // Use configured identifier field or fall back to common fields
     final identifierFields = widget.identifierField != null
@@ -929,8 +927,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           final column = createColumnFromItem(itemMap);
           if (column != null) {
             columns.add(column);
-          } else {
-          }
+          } else {}
         }
       }
 
@@ -1383,7 +1380,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
       filteredData = tempFiltered;
       originalIndices = tempIndices;
-
     }
 
     return filteredData.asMap().entries.map((entry) {
@@ -1851,8 +1847,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         if (decoded is List) {
           nestedData = decoded;
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     final itemCount = nestedData?.length ?? 0;
@@ -2089,7 +2084,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (itemSchema == null) return;
 
     // Build current row data from cells
-    final row = (_stateManager?.rows ?? _rows)[rowIndex];
+    final rows = _stateManager?.rows ?? _rows;
+    if (rowIndex < 0 || rowIndex >= rows.length) return;
+    final row = rows[rowIndex];
     final currentData = <String, dynamic>{};
     row.cells.forEach((key, cell) {
       if (key != '__row_number__' &&
@@ -2158,6 +2155,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     if (result != null) {
       // Update existing row cells with form result
       final rows = _stateManager?.rows ?? _rows;
+      if (rowIndex < 0 || rowIndex >= rows.length) return;
       final targetRow = rows[rowIndex];
       result.forEach((key, value) {
         if (targetRow.cells.containsKey(key)) {
@@ -2436,7 +2434,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     // Seed with defaults from columnItems (overridden below by schema defaults / autoIncrement)
     newRow.addAll(_getColumnItemDefaultsMap());
 
-
     properties.forEach((key, value) {
       final propertySchema = value as Map<String, dynamic>;
       final typeValue = propertySchema['type'];
@@ -2524,10 +2521,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
   void _deleteRow(int rowIndex) {
     if (_stateManager != null) {
+      if (rowIndex < 0 || rowIndex >= _stateManager!.rows.length) return;
       _stateManager!.removeRows([_stateManager!.rows[rowIndex]]);
       _rows = _stateManager!.rows;
       _notifyDataChanged();
     } else {
+      if (rowIndex < 0 || rowIndex >= _rows.length) return;
       _rows.removeAt(rowIndex);
       _notifyDataChanged();
       setState(() {});
@@ -2535,7 +2534,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   }
 
   void _copyRow(int rowIndex) {
-    final rowToCopy = (_stateManager?.rows ?? _rows)[rowIndex];
+    final sourceRows = _stateManager?.rows ?? _rows;
+    if (rowIndex < 0 || rowIndex >= sourceRows.length) return;
+    final rowToCopy = sourceRows[rowIndex];
     final newCells = <String, TrinaCell>{};
 
     // Get schema to check for autoIncrement fields

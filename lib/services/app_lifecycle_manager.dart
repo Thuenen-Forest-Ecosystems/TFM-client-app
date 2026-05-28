@@ -36,7 +36,6 @@ class AppLifecycleManager extends WidgetsBindingObserver {
         _disableWakeLock();
       }
     });
-
   }
 
   /// Enable wake lock to keep device awake during sync.
@@ -48,8 +47,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       if (!_isDesktop) {
         try {
           await WakelockPlus.enable();
-        } catch (e) {
-        }
+        } catch (e) {}
       }
     }
   }
@@ -61,15 +59,13 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       if (!_isDesktop) {
         try {
           await WakelockPlus.disable();
-        } catch (e) {
-        }
+        } catch (e) {}
       }
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-
     switch (state) {
       case AppLifecycleState.resumed:
         // App came back to foreground

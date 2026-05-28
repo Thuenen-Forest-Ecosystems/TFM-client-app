@@ -604,6 +604,8 @@ class _MapWidgetState extends State<MapWidget> {
 
       for (var tree in trees) {
         if (tree is! Map) continue;
+        // Keep map output aligned with array grid filtering behavior.
+        if (tree['_deprecated'] == true) continue;
 
         final azimuth = tree['azimuth'];
         final distance = tree['distance'];

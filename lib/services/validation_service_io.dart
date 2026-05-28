@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
@@ -22,12 +21,30 @@ class ValidationService {
   String? _lastTfmValidationCode;
   Completer<void>? _disposeCompleter;
   static const Duration _idleTimeout = Duration(minutes: 2);
+  Future<void> _validationQueue = Future.value();
 
   ValidationService._();
 
   static ValidationService get instance {
     _instance ??= ValidationService._();
     return _instance!;
+  }
+
+  /// Serializes validation operations to a single pipeline so WebView JS
+  /// calls never overlap across widgets/screens.
+  Future<T> _enqueueValidation<T>(Future<T> Function() operation) {
+    final completer = Completer<T>();
+    _validationQueue = _validationQueue
+        .catchError((_) {})
+        .then((_) async {
+          try {
+            completer.complete(await operation());
+          } catch (e, st) {
+            completer.completeError(e, st);
+          }
+        })
+        .catchError((_) {});
+    return completer.future;
   }
 
   Future<void> initialize({String? tfmValidationCode}) async {
@@ -73,8 +90,7 @@ class ValidationService {
       String ajvI18nCode = '';
       try {
         ajvI18nCode = await rootBundle.loadString('assets/html/ajv-i18n.min.js');
-      } catch (e) {
-      }
+      } catch (e) {}
 
       // Initialize headless WebView with inline AJV + optional TFM validation
       _headlessWebView = HeadlessInAppWebView(
@@ -113,7 +129,6 @@ class ValidationService {
           _webViewController = controller;
         },
         onLoadStop: (controller, url) async {
-
           // Verify AJV is loaded
           final ajvCheck = await controller.evaluateJavascript(source: 'typeof window.ajv7');
 
@@ -133,7 +148,7 @@ class ValidationService {
           }
         },
         onConsoleMessage: (controller, consoleMessage) {
-// ${consoleMessage.message}
+          // ${consoleMessage.message}
         },
       );
 
@@ -149,7 +164,14 @@ class ValidationService {
     }
   }
 
-  Future<ValidationResult> validate(Map<String, dynamic> schema, Map<String, dynamic> data) async {
+  Future<ValidationResult> validate(Map<String, dynamic> schema, Map<String, dynamic> data) {
+    return _enqueueValidation(() => _validateUnsafe(schema, data));
+  }
+
+  Future<ValidationResult> _validateUnsafe(
+    Map<String, dynamic> schema,
+    Map<String, dynamic> data,
+  ) async {
     await _ensureInitialized();
     _resetIdleTimer();
 
@@ -191,7 +213,9 @@ class ValidationService {
         })();
       ''';
 
-      final result = await _webViewController!.evaluateJavascript(source: jsCode);
+      final result = await _webViewController!
+          .evaluateJavascript(source: jsCode)
+          .timeout(const Duration(seconds: 15));
 
       if (result == null) {
         return ValidationResult(
@@ -208,8 +232,7 @@ class ValidationService {
       if (rawErrors != null) {
         try {
           normalizedErrors = jsonDecode(jsonEncode(rawErrors)) as List<dynamic>;
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       final parsedErrors = normalizedErrors
@@ -232,13 +255,29 @@ class ValidationService {
     required Map<String, dynamic> data,
     Map<String, dynamic>? previousData,
     List<Map<String, dynamic>>? treeSpeciesLookup,
+  }) {
+    return _enqueueValidation(
+      () => _validateWithTFMUnsafe(
+        schema: schema,
+        data: data,
+        previousData: previousData,
+        treeSpeciesLookup: treeSpeciesLookup,
+      ),
+    );
+  }
+
+  Future<TFMValidationResult> _validateWithTFMUnsafe({
+    required Map<String, dynamic> schema,
+    required Map<String, dynamic> data,
+    Map<String, dynamic>? previousData,
+    List<Map<String, dynamic>>? treeSpeciesLookup,
   }) async {
     await _ensureInitialized();
     _resetIdleTimer();
 
     try {
       // First run AJV validation
-      final ajvResult = await validate(schema, data);
+      final ajvResult = await _validateUnsafe(schema, data);
 
       // If TFM is not loaded, return only AJV results
       if (!_isTFMLoaded) {
@@ -352,10 +391,9 @@ class ValidationService {
           }
       ''';
 
-      final callResult = await _webViewController!.callAsyncJavaScript(
-        functionBody: jsCode,
-        arguments: {},
-      );
+      final callResult = await _webViewController!
+          .callAsyncJavaScript(functionBody: jsCode, arguments: {})
+          .timeout(const Duration(seconds: 20));
 
       final result = callResult?.value;
 
@@ -403,6 +441,7 @@ class ValidationService {
     _idleTimer?.cancel();
     _idleTimer = null;
     _lastTfmValidationCode = null;
+    await _validationQueue.catchError((_) {});
     await _disposeWebViewKeepInstance();
   }
 
@@ -410,6 +449,7 @@ class ValidationService {
   /// Disposes the WebView while preserving the singleton + remembered TFM
   /// code so the next validate() call transparently re-initializes.
   Future<void> handleAppPaused() async {
+    await _validationQueue.catchError((_) {});
     await _disposeWebViewKeepInstance();
   }
 
@@ -424,7 +464,11 @@ class ValidationService {
     _idleTimer?.cancel();
     _idleTimer = Timer(_idleTimeout, () {
       // Fire-and-forget; errors are non-fatal (next validate re-initializes).
-      _disposeWebViewKeepInstance();
+      // Queue disposal after in-flight validations complete.
+      _validationQueue = _validationQueue
+          .catchError((_) {})
+          .then((_) => _disposeWebViewKeepInstance())
+          .catchError((_) {});
     });
   }
 

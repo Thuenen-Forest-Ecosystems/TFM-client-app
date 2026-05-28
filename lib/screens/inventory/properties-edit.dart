@@ -60,6 +60,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   List<ConditionalRule> _conditionalRules = [];
   Timer? _validationDebounceTimer;
   Timer? _throttleSaveTimer;
+  int _validationCycle = 0;
+  Future<void> _validationQueue = Future.value();
   bool _isAdminView = false;
   PlaygroundModeProvider? _playgroundModeProvider;
 
@@ -112,8 +114,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     if (_mapProvider == null) {
       try {
         _mapProvider = context.read<MapControllerProvider>();
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     // Store playground mode provider reference while context is valid
@@ -152,10 +153,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         id,
       ]);
     } else if (isPlayground) {
-    } else if (_isAdminView) {
-    }
+    } else if (_isAdminView) {}
 
     // Cancel any pending validation timer
+    _validationCycle++;
     _validationDebounceTimer?.cancel();
 
     // On Windows the ValidationService is lazy-initialised (not started at
@@ -177,10 +178,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           // Only clear focused record if it's the same as this page's record
           if (_mapProvider!.focusedRecord?.id == _record!.id) {
             _mapProvider!.clearFocusedRecord();
-          } else {
-          }
-        } catch (e) {
-        }
+          } else {}
+        } catch (e) {}
       });
     }
 
@@ -237,7 +236,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         return;
       }
 
-
       // Store loaded schema version for display
       setState(() {
         _loadedSchemaVersion = latestSchema!.version;
@@ -267,9 +265,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           styleData: styleToUse,
           directory: latestSchema.directory,
         );
-      } catch (rulesError) {
-      }
-
+      } catch (rulesError) {}
 
       try {
         Map<String, dynamic>? validationSchema;
@@ -277,7 +273,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
         // First try: Use data from schema table columns (regardless of directory)
         if (latestSchema.schemaData != null) {
-
           // Safely navigate nested structure with debugging
           final schemaData = latestSchema.schemaData!;
           if (schemaData.containsKey('properties')) {
@@ -288,12 +283,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
               if (plot != null && plot.containsKey('items')) {
                 validationSchema = plot['items'] as Map<String, dynamic>?;
-              } else {
-              }
-            } else {
-            }
-          } else {
-          }
+              } else {}
+            } else {}
+          } else {}
         }
 
         if (latestSchema.plausabilityScript != null) {
@@ -332,8 +324,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
             // Small delay to ensure WebView is fully ready
             await Future.delayed(Duration(milliseconds: 200));
-          } catch (tfmError) {
-          }
+          } catch (tfmError) {}
         }
 
         // Trigger initial validation
@@ -450,7 +441,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
 
     try {
-
       // Get current timestamp for local_updated_at in UTC (to match server's updated_at timezone)
       final now = DateTime.now().toUtc().toIso8601String();
 
@@ -466,8 +456,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           if (freshRecord != null) {
             _record = freshRecord;
           }
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // Prepare acknowledged errors JSON
@@ -485,8 +474,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         plausibilityErrorsJson = plausibilityErrors.isNotEmpty
             ? AcknowledgedError.encodeList(plausibilityErrors)
             : null;
-      } else {
-      }
+      } else {}
 
       // Check if this is a new record (no id yet)
       if (_record!.id == null) {
@@ -586,8 +574,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record = reloadedRecord;
             });
           }
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // Update initial form data snapshot so save button disables again
@@ -618,7 +605,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         }
       }
     } catch (e) {
-
       // Show error message
       if (mounted) {
         // Find root scaffold messenger to show above bottom sheet
@@ -657,8 +643,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record = freshRecord;
             });
           }
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // Show validation errors/warnings dialog
@@ -669,8 +654,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         record: _record,
       );
 
-      if (result != null) {
-      }
+      if (result != null) {}
 
       // Reload record from database AFTER dialog closes to get any auto-saved acknowledged errors
       if (_record?.id != null) {
@@ -681,8 +665,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record = reloadedRecord;
             });
           }
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // If user didn't confirm save from dialog, return
@@ -702,6 +685,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   }
 
   Future<void> _onFormDataChanged(Map<String, dynamic> updatedData) async {
+    if (!mounted) return;
+
     // Always update form data immediately (UI-responsive)
     setState(() {
       _formData = updatedData;
@@ -721,156 +706,166 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
     // Cancel any pending validation
     _validationDebounceTimer?.cancel();
+    final cycle = ++_validationCycle;
 
     // Debounce validation and updates
-    _validationDebounceTimer = Timer(const Duration(milliseconds: 800), () async {
-      // Update provider cache and focused record (map preview)
-      if (mounted && _record != null) {
-        try {
-          final isPlayground = _playgroundModeProvider?.isPlaygroundMode ?? false;
+    _validationDebounceTimer = Timer(const Duration(milliseconds: 800), () {
+      _validationQueue = _validationQueue
+          .then((_) async {
+            if (!mounted || cycle != _validationCycle) return;
 
-          // Create updated record (don't save to DB yet)
-          final updatedRecord = _record!.copyWith(properties: updatedData);
+            // Update provider cache and focused record (map preview)
+            if (_record != null) {
+              try {
+                final isPlayground = _playgroundModeProvider?.isPlaygroundMode ?? false;
 
-          // 1. Update list/markers — skip in playground mode so the overview
-          //    does not show unsaved changes that will never be persisted.
-          if (!isPlayground) {
-            context.read<RecordsListProvider>().updateRecordInCache(updatedRecord);
-          }
+                // Create updated record (don't save to DB yet)
+                final updatedRecord = _record!.copyWith(properties: updatedData);
 
-          // 2. Update focused features (trees, etc.) if map provider is available
-          // MapWidget listens to this to rebuild tree layers
-          final mapProvider = context.read<MapControllerProvider>();
-          if (mapProvider.focusedRecord?.id == _record!.id) {
-            mapProvider.setFocusedRecord(updatedRecord);
-          }
-        } catch (e) {
-        }
-      }
+                // 1. Update list/markers — skip in playground mode so the overview
+                //    does not show unsaved changes that will never be persisted.
+                if (!isPlayground) {
+                  context.read<RecordsListProvider>().updateRecordInCache(updatedRecord);
+                }
 
-      if (_originalJsonSchema != null) {
-        try {
-          // Apply conditional rules to original schema
-          // Deep copy is handled inside applyRules() to prevent mutation
-          final modifiedSchema = _conditionalRules.isNotEmpty
-              ? ConditionalRulesService().applyRules(
-                  schema: _originalJsonSchema!,
-                  formData: updatedData,
-                  rules: _conditionalRules,
-                )
-              : _originalJsonSchema!;
+                // 2. Update focused features (trees, etc.) if map provider is available
+                // MapWidget listens to this to rebuild tree layers
+                final mapProvider = context.read<MapControllerProvider>();
+                if (mapProvider.focusedRecord?.id == _record!.id) {
+                  mapProvider.setFocusedRecord(updatedRecord);
+                }
+              } catch (e) {}
+            }
 
-          if (_conditionalRules.isEmpty) {
-          }
-          ;
+            if (_originalJsonSchema != null) {
+              try {
+                // Apply conditional rules to original schema
+                // Deep copy is handled inside applyRules() to prevent mutation
+                final modifiedSchema = _conditionalRules.isNotEmpty
+                    ? ConditionalRulesService().applyRules(
+                        schema: _originalJsonSchema!,
+                        formData: updatedData,
+                        rules: _conditionalRules,
+                      )
+                    : _originalJsonSchema!;
 
-          // Merge properties with record metadata for TFM validation
-          // TFM needs: id, intkey, cluster_id, plot_id, and all properties
-          final currentDataWithMeta = {
-            ...updatedData,
-            if (_record?.id != null) 'id': _record!.id,
-            if (_record?.plotId != null) 'plot_id': _record!.plotId,
-            if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
-          };
+                if (_conditionalRules.isEmpty) {}
+                ;
 
-          // Generate intkey if we have the necessary data
-          if (_record != null &&
-              updatedData['cluster_name'] != null &&
-              updatedData['plot_name'] != null) {
-            currentDataWithMeta['intkey'] =
-                '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
-          }
+                if (!mounted || cycle != _validationCycle) return;
 
-          final previousDataWithMeta = _previousFormData != null
-              ? {
-                  ..._previousFormData!,
+                // Merge properties with record metadata for TFM validation
+                // TFM needs: id, intkey, cluster_id, plot_id, and all properties
+                final currentDataWithMeta = {
+                  ...updatedData,
                   if (_record?.id != null) 'id': _record!.id,
                   if (_record?.plotId != null) 'plot_id': _record!.plotId,
                   if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
-                  if (_previousFormData!['cluster_name'] != null &&
-                      _previousFormData!['plot_name'] != null)
-                    'intkey':
-                        '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
+                };
+
+                // Generate intkey if we have the necessary data
+                if (_record != null &&
+                    updatedData['cluster_name'] != null &&
+                    updatedData['plot_name'] != null) {
+                  currentDataWithMeta['intkey'] =
+                      '-${updatedData['cluster_name']}-${updatedData['plot_name']}-_${_record!.schemaName}';
                 }
-              : null;
 
-          // Fetch tree species lookup table for TFM validation
-          List<Map<String, dynamic>>? treeSpeciesLookup;
-          try {
-            final results = await db.getAll('SELECT * FROM lookup_tree_species');
-            if (results.isNotEmpty) {
-              treeSpeciesLookup = results.map((row) => Map<String, dynamic>.from(row)).toList();
-            } else {
+                final previousDataWithMeta = _previousFormData != null
+                    ? {
+                        ..._previousFormData!,
+                        if (_record?.id != null) 'id': _record!.id,
+                        if (_record?.plotId != null) 'plot_id': _record!.plotId,
+                        if (_record?.clusterId != null) 'cluster_id': _record!.clusterId,
+                        if (_previousFormData!['cluster_name'] != null &&
+                            _previousFormData!['plot_name'] != null)
+                          'intkey':
+                              '-${_previousFormData!['cluster_name']}-${_previousFormData!['plot_name']}-_${_record!.schemaName}',
+                      }
+                    : null;
+
+                // Fetch tree species lookup table for TFM validation
+                List<Map<String, dynamic>>? treeSpeciesLookup;
+                try {
+                  final results = await db.getAll('SELECT * FROM lookup_tree_species');
+                  if (results.isNotEmpty) {
+                    treeSpeciesLookup = results
+                        .map((row) => Map<String, dynamic>.from(row))
+                        .toList();
+                  } else {}
+                } catch (e) {}
+
+                if (!mounted || cycle != _validationCycle) return;
+
+                final result = await ValidationService.instance.validateWithTFM(
+                  schema: modifiedSchema,
+                  data: currentDataWithMeta,
+                  previousData: previousDataWithMeta,
+                  treeSpeciesLookup: treeSpeciesLookup,
+                );
+
+                if (!mounted || cycle != _validationCycle) return;
+
+                // Strip /plot/0 from paths if TFM validation was run
+                TFMValidationResult processedResult = result;
+                if (result.tfmAvailable) {
+                  // Strip /plot/0 from AJV error paths
+                  final processedAjvErrors = result.ajvErrors.map((error) {
+                    final path = error.instancePath;
+                    final strippedPath = path?.startsWith('/plot/0') == true
+                        ? path!.substring(7) // Remove '/plot/0'
+                        : path;
+                    return ValidationError(
+                      instancePath: strippedPath,
+                      schemaPath: error.schemaPath,
+                      keyword: error.keyword,
+                      message: error.message,
+                      params: error.params,
+                      rawError: {...error.rawError, 'instancePath': strippedPath},
+                    );
+                  }).toList();
+
+                  // Strip /plot/0 from TFM error paths
+                  final processedTfmErrors = result.tfmErrors.map((error) {
+                    final path = error.instancePath;
+                    final strippedPath = path?.startsWith('/plot/0') == true
+                        ? path!.substring(7) // Remove '/plot/0'
+                        : path;
+                    return TFMValidationError(
+                      instancePath: strippedPath,
+                      error: error.error,
+                      debugInfo: error.debugInfo,
+                    );
+                  }).toList();
+
+                  processedResult = TFMValidationResult(
+                    ajvValid: result.ajvValid,
+                    ajvErrors: processedAjvErrors,
+                    tfmAvailable: result.tfmAvailable,
+                    tfmErrors: processedTfmErrors,
+                  );
+                }
+
+                if (!mounted || cycle != _validationCycle) return;
+
+                setState(() {
+                  _validationResult = processedResult;
+                  _hasCompletedInitialValidation = true;
+                  // Update schema with conditional rules applied
+                  _jsonSchema = modifiedSchema;
+                });
+
+                // Auto-save after validation completes for existing records
+                if (_record?.id != null && !_isSaving) {
+                  final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
+                  if (!isPlayground && !_isAdminView && _hasUnsavedChanges) {
+                    save('save');
+                  }
+                }
+              } catch (e) {}
             }
-          } catch (e) {
-          }
-
-          final result = await ValidationService.instance.validateWithTFM(
-            schema: modifiedSchema,
-            data: currentDataWithMeta,
-            previousData: previousDataWithMeta,
-            treeSpeciesLookup: treeSpeciesLookup,
-          );
-
-          // Strip /plot/0 from paths if TFM validation was run
-          TFMValidationResult processedResult = result;
-          if (result.tfmAvailable) {
-            // Strip /plot/0 from AJV error paths
-            final processedAjvErrors = result.ajvErrors.map((error) {
-              final path = error.instancePath;
-              final strippedPath = path?.startsWith('/plot/0') == true
-                  ? path!.substring(7) // Remove '/plot/0'
-                  : path;
-              return ValidationError(
-                instancePath: strippedPath,
-                schemaPath: error.schemaPath,
-                keyword: error.keyword,
-                message: error.message,
-                params: error.params,
-                rawError: {...error.rawError, 'instancePath': strippedPath},
-              );
-            }).toList();
-
-            // Strip /plot/0 from TFM error paths
-            final processedTfmErrors = result.tfmErrors.map((error) {
-              final path = error.instancePath;
-              final strippedPath = path?.startsWith('/plot/0') == true
-                  ? path!.substring(7) // Remove '/plot/0'
-                  : path;
-              return TFMValidationError(
-                instancePath: strippedPath,
-                error: error.error,
-                debugInfo: error.debugInfo,
-              );
-            }).toList();
-
-            processedResult = TFMValidationResult(
-              ajvValid: result.ajvValid,
-              ajvErrors: processedAjvErrors,
-              tfmAvailable: result.tfmAvailable,
-              tfmErrors: processedTfmErrors,
-            );
-          }
-
-          if (mounted) {
-            setState(() {
-              _validationResult = processedResult;
-              _hasCompletedInitialValidation = true;
-              // Update schema with conditional rules applied
-              _jsonSchema = modifiedSchema;
-            });
-          }
-
-          // Auto-save after validation completes for existing records
-          if (mounted && _record?.id != null && !_isSaving) {
-            final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
-            if (!isPlayground && !_isAdminView && _hasUnsavedChanges) {
-              save('save');
-            }
-          }
-        } catch (e) {
-        }
-      }
+          })
+          .catchError((_) {});
     });
   }
 
@@ -878,8 +873,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     try {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.setFocusedRecord(_record);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _focusRecord(BuildContext context) {
@@ -892,10 +886,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         mapProvider.markManualInteraction();
         final latLng = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
         mapProvider.moveToLocation(latLng, zoom: 19.0);
-      } else {
-      }
-    } catch (e) {
-    }
+      } else {}
+    } catch (e) {}
   }
 
   void _navigateToTabFromError(String? tabId) {
