@@ -134,13 +134,29 @@ class _RecordPositionState extends State<RecordPosition> {
 
         final nmea = gpsProvider.currentNMEA;
 
+        // Validate GPS fix quality - only record positions with valid fix
+        // Valid NMEA quality codes: 1=GPS, 2=DGPS, 4=RTK Fixed, 5=RTK Float
+        // Invalid: 0=no fix, 6=estimated, 7=manual, 8=simulation
+        final fixQuality = nmea?.fixQuality;
+        int? parsedQuality;
+        if (fixQuality is int) {
+          parsedQuality = fixQuality as int;
+        } else if (fixQuality is String) {
+          parsedQuality = int.tryParse(fixQuality);
+        }
+
+        if (parsedQuality == null || parsedQuality == 0 || parsedQuality > 5) {
+          // No valid GPS fix - skip this position
+          return;
+        }
+
         setState(() {
           _recordedPositions.add({
             'latitude': position.latitude,
             'longitude': position.longitude,
             'accuracy': position.accuracy,
             'timestamp': DateTime.now().toIso8601String(),
-            'rtcm_age': null, // RTCM age not available in current NMEA
+            'rtcm_age': nmea?.dgpsAge, // Age of differential correction data (RTCM)
             'quality': nmea?.fixQuality,
             'satellites_count': nmea?.satellites,
             'pdop': nmea?.pdop,
@@ -249,8 +265,8 @@ class _RecordPositionState extends State<RecordPosition> {
 
     // Calculate mean position and quality metrics
     double sumLat = 0, sumLng = 0, sumAccuracy = 0;
-    double sumSatellites = 0, sumPdop = 0, sumHdop = 0;
-    int satellitesCount = 0, pdopCount = 0, hdopCount = 0;
+    double sumSatellites = 0, sumPdop = 0, sumHdop = 0, sumRtcmAge = 0;
+    int satellitesCount = 0, pdopCount = 0, hdopCount = 0, rtcmAgeCount = 0;
     List<double> latitudes = [], longitudes = [];
 
     // Helper to safely convert to double
@@ -285,6 +301,11 @@ class _RecordPositionState extends State<RecordPosition> {
       if (hdop != null) {
         sumHdop += hdop;
         hdopCount++;
+      }
+      final rtcmAge = _toDouble(pos['rtcm_age']);
+      if (rtcmAge != null) {
+        sumRtcmAge += rtcmAge;
+        rtcmAgeCount++;
       }
     }
 
@@ -325,7 +346,7 @@ class _RecordPositionState extends State<RecordPosition> {
     );
 
     return {
-      'rtcm_age': null, // Not available in current implementation
+      'rtcm_age': rtcmAgeCount > 0 ? sumRtcmAge / rtcmAgeCount : null,
       'quality': quality,
       'satellites_count_mean': satellitesCount > 0 ? sumSatellites / satellitesCount : null,
       'pdop_mean': pdopCount > 0 ? sumPdop / pdopCount : null,
@@ -456,11 +477,44 @@ class _RecordPositionState extends State<RecordPosition> {
     }
   }
 
+  /// Check if GPS has a valid fix and fresh data
+  bool _hasValidGpsFix(GpsPositionProvider gpsProvider) {
+    if (gpsProvider.lastPosition == null) {
+      return false;
+    }
+
+    // Check if data is fresh (not older than 5 seconds)
+    final age = DateTime.now().difference(gpsProvider.lastPosition!.timestamp);
+    if (age.inSeconds > 5) {
+      return false;
+    }
+
+    // Check if NMEA has valid fix quality
+    final nmea = gpsProvider.currentNMEA;
+    final fixQuality = nmea?.fixQuality;
+
+    // Valid NMEA quality codes: 1=GPS, 2=DGPS, 4=RTK Fixed, 5=RTK Float
+    // Invalid: 0=no fix, null, or > 5
+    int? parsedQuality;
+    if (fixQuality is int) {
+      parsedQuality = fixQuality as int;
+    } else if (fixQuality is String) {
+      parsedQuality = int.tryParse(fixQuality);
+    }
+
+    if (parsedQuality == null || parsedQuality == 0 || parsedQuality > 5) {
+      return false;
+    }
+
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final progress = _recordedPositions.length / _targetCount;
     final gpsProvider = context.watch<GpsPositionProvider>();
     final hasGpsDevice = gpsProvider.lastPosition != null;
+    final hasValidFix = _hasValidGpsFix(gpsProvider);
 
     // Get current quality for display (computed during build, no state mutation)
     final currentQuality = hasGpsDevice && !isRecording ? _getCurrentQuality(gpsProvider) : null;
@@ -502,7 +556,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     const SizedBox(width: 8),
                                   ],
                                   Text(
-                                    'Aktuelle GPS Information',
+                                    'Zuletzt gemessene GPS-Information',
                                     style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                 ],
@@ -530,6 +584,32 @@ class _RecordPositionState extends State<RecordPosition> {
                                   '${gpsProvider.lastPosition!.latitude}, ${gpsProvider.lastPosition!.longitude}',
                                 ),
 
+                              // Timestamp with freshness indicator
+                              if (gpsProvider.lastPosition != null)
+                                Builder(
+                                  builder: (context) {
+                                    final age = DateTime.now().difference(
+                                      gpsProvider.lastPosition!.timestamp,
+                                    );
+                                    QualityLevel freshnessLevel;
+                                    if (age.inSeconds > 300) {
+                                      // Over 5 minutes - red
+                                      freshnessLevel = QualityLevel.notAcceptable;
+                                    } else if (age.inSeconds > 2) {
+                                      // Over 2 seconds - yellow
+                                      freshnessLevel = QualityLevel.ok;
+                                    } else {
+                                      // Fresh - green
+                                      freshnessLevel = QualityLevel.good;
+                                    }
+                                    return _buildDataRow(
+                                      'Zeitpunkt',
+                                      _formatDateTime(gpsProvider.lastPosition!.timestamp),
+                                      qualityLevel: freshnessLevel,
+                                    );
+                                  },
+                                ),
+
                               // NMEA data if available
                               if (gpsProvider.currentNMEA != null) ...[
                                 _buildDataRow(
@@ -539,6 +619,15 @@ class _RecordPositionState extends State<RecordPosition> {
                                     gpsProvider.currentNMEA!.fixQuality,
                                   ),
                                 ),
+                                // Display RTCM age if available (only for DGPS/RTK fixes)
+                                if (gpsProvider.currentNMEA!.dgpsAge != null)
+                                  _buildDataRow(
+                                    'Alter Korrektursignal',
+                                    _formatRtcmAge(gpsProvider.currentNMEA!.dgpsAge!),
+                                    qualityLevel: _evaluateRtcmAge(
+                                      gpsProvider.currentNMEA!.dgpsAge!,
+                                    ),
+                                  ),
                                 if (gpsProvider.currentNMEA!.satellites != null)
                                   _buildDataRow(
                                     'Satelliten',
@@ -822,14 +911,28 @@ class _RecordPositionState extends State<RecordPosition> {
                             // Show start button when no data and not recording
                             if (_aggregatedData == null && !isRecording) ...[
                               Center(
-                                child: ElevatedButton.icon(
-                                  onPressed: hasGpsDevice ? _toggleRecording : null,
-                                  icon: const Icon(Icons.gps_fixed),
-                                  label: const Text('Einmessung starten'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                  ),
+                                child: Column(
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: hasValidFix ? _toggleRecording : null,
+                                      icon: const Icon(Icons.gps_fixed),
+                                      label: const Text('Einmessung starten'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                    if (hasGpsDevice && !hasValidFix) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Warte auf gültiges GPS-Signal...',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.orange,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],
@@ -1054,6 +1157,30 @@ class _RecordPositionState extends State<RecordPosition> {
     }
   }
 
+  String _formatRtcmAge(double ageSeconds) {
+    if (ageSeconds < 1) {
+      return '${(ageSeconds * 1000).toStringAsFixed(0)} ms';
+    } else if (ageSeconds < 60) {
+      return '${ageSeconds.toStringAsFixed(1)} s';
+    } else {
+      final minutes = (ageSeconds / 60).floor();
+      final seconds = (ageSeconds % 60).toStringAsFixed(0);
+      return '${minutes} min ${seconds} s';
+    }
+  }
+
+  QualityLevel _evaluateRtcmAge(double ageSeconds) {
+    // RTK/DGPS correction age quality thresholds
+    // Fresh corrections (<10s) are good, old corrections (>30s) are problematic
+    if (ageSeconds < 10) {
+      return QualityLevel.good; // Fresh corrections
+    } else if (ageSeconds < 30) {
+      return QualityLevel.ok; // Aging corrections
+    } else {
+      return QualityLevel.notAcceptable; // Stale corrections
+    }
+  }
+
   String _formatTimestamp(String isoString) {
     try {
       final dt = DateTime.parse(isoString);
@@ -1061,5 +1188,9 @@ class _RecordPositionState extends State<RecordPosition> {
     } catch (e) {
       return isoString;
     }
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
   }
 }

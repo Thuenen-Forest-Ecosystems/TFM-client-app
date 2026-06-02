@@ -28,6 +28,7 @@ class CurrentNMEA {
   double? latitude; // Latitude in degrees
   double? heading;
   double? speedKnots;
+  double? dgpsAge; // Age of differential GPS correction data in seconds (RTCM age)
 
   CurrentNMEA({
     this.pdop,
@@ -43,11 +44,12 @@ class CurrentNMEA {
     this.fixType,
     this.heading,
     this.speedKnots,
+    this.dgpsAge,
   });
 
   @override
   String toString() {
-    return 'NMEA(PDOP: $pdop, HDOP: $hdop, VDOP: $vdop, Satellites: $satellites, Altitude: $altitude, Fix: $fixQuality, Time: $timestamp, Longitude: $longitude, Latitude: $latitude, Mode: $mode, FixType: $fixType, Heading: $heading, SpeedKnots: $speedKnots)';
+    return 'NMEA(PDOP: $pdop, HDOP: $hdop, VDOP: $vdop, Satellites: $satellites, Altitude: $altitude, Fix: $fixQuality, Time: $timestamp, Longitude: $longitude, Latitude: $latitude, Mode: $mode, FixType: $fixType, Heading: $heading, SpeedKnots: $speedKnots, DgpsAge: $dgpsAge)';
   }
 }
 
@@ -754,6 +756,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
                 fixQuality: status.usedInFix >= 4 ? '1' : '0',
                 mode: null,
                 fixType: status.usedInFix >= 4 ? 3 : 0,
+                dgpsAge: _currentNMEA!.dgpsAge, // Preserve dgpsAge from NMEA
               );
               notifyListeners();
             }
@@ -796,6 +799,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               fixQuality: _lastGnssStatus!.usedInFix >= 4 ? '1' : '0',
               mode: null,
               fixType: _lastGnssStatus!.usedInFix >= 4 ? 3 : 0,
+              dgpsAge: null, // Not available from internal GPS
             );
           } else {
             // Fallback: estimate from accuracy (Windows, iOS, or Android without GNSS data)
@@ -815,6 +819,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               fixQuality: null,
               mode: null,
               fixType: null,
+              dgpsAge: null, // Not available from internal GPS
             );
           }
 

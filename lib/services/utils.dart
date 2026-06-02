@@ -381,6 +381,13 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
               String altitude = fields[9];
               String altitudeUnits = fields[10]; // Usually 'M' for meters
 
+              // Parse differential correction age if available (field 13)
+              // GGA format: $GPGGA,...,M,geoidSep,M,dgpsAge,stationId*checksum
+              String? dgpsAge;
+              if (fields.length > 13 && fields[13].isNotEmpty) {
+                dgpsAge = fields[13]; // Age of differential GPS data in seconds
+              }
+
               // nmeaState.timestamp = DateTime.tryParse(time) ?? DateTime.now(); // Basic time parsing
 
               // Update only if quality indicates a valid fix (quality > 0)
@@ -393,6 +400,10 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
                 // Store HDOP from GGA; keep any existing value if this field is empty
                 nmeaState.hdop = double.tryParse(horizontalDilution) ?? nmeaState.hdop;
                 nmeaState.fixQuality = quality;
+                // Store DGPS age (RTCM correction age)
+                if (dgpsAge != null) {
+                  nmeaState.dgpsAge = double.tryParse(dgpsAge);
+                }
               } else {
                 // Fix is not valid, maybe clear relevant fields?
                 // nmeaState.latitude = null;
