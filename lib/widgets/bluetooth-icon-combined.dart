@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart'
-    as classic;
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
@@ -53,24 +52,18 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
     final nmea = gpsProvider.currentNMEA;
     final isMockGPS = gpsProvider.isMockGpsActive;
     final isReceivingMockData = gpsProvider.isReceivingAndroidMockData;
-    final isInternalGPS =
-        gpsProvider.listeningPosition && !hasGPSConnection && !isMockGPS;
+    final isInternalGPS = gpsProvider.listeningPosition && !hasGPSConnection && !isMockGPS;
     final isPhoneGpsSource = isInternalGPS || isMockGPS;
     final lastPos = gpsProvider.lastPosition;
 
     // GPS has valid position if connected AND has valid lat/lon coordinates
     final hasValidPosition =
-        (hasGPSConnection &&
-            nmea != null &&
-            nmea.latitude != null &&
-            nmea.longitude != null) ||
+        (hasGPSConnection && nmea != null && nmea.latitude != null && nmea.longitude != null) ||
         (isPhoneGpsSource && lastPos != null);
 
     // Choose icon based on GPS source
     //final icon = isInternalGPS ? Icons.smartphone : (hasValidPosition ? Icons.bluetooth_connected : Icons.bluetooth);
-    final icon = isMockGPS
-        ? Icons.route
-        : (isInternalGPS ? Icons.smartphone : Icons.satellite_alt);
+    final icon = isMockGPS ? Icons.route : (isInternalGPS ? Icons.smartphone : Icons.satellite_alt);
     //final icon = Icons.satellite_alt;
 
     return IconButton(
@@ -78,9 +71,7 @@ class _BluetoothIconCombinedState extends State<BluetoothIconCombined> {
         icon,
         color: hasValidPosition
             ? Colors.green
-            : (hasGPSConnection || isGPSConnecting || isPhoneGpsSource
-                  ? Colors.orange
-                  : null),
+            : (hasGPSConnection || isGPSConnecting || isPhoneGpsSource ? Colors.orange : null),
       ),
       tooltip: hasValidPosition
           ? (isMockGPS
@@ -120,8 +111,7 @@ class BluetoothDeviceMenuSheet extends StatefulWidget {
   final bool popOnConnect;
 
   @override
-  State<BluetoothDeviceMenuSheet> createState() =>
-      _BluetoothDeviceMenuSheetState();
+  State<BluetoothDeviceMenuSheet> createState() => _BluetoothDeviceMenuSheetState();
 }
 
 class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
@@ -129,8 +119,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
   bool _isScanning = false;
   StreamSubscription<List<ble.ScanResult>>? _bleScanSubscription;
   classic.FlutterBluetoothSerial? _flutterBluetoothSerial;
-  StreamSubscription<classic.BluetoothDiscoveryResult>?
-  _classicScanSubscription;
+  StreamSubscription<classic.BluetoothDiscoveryResult>? _classicScanSubscription;
   Timer? _classicReconnectTimeout;
   late Future<bool> _bluetoothCheckFuture;
 
@@ -232,35 +221,31 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
         await _flutterBluetoothSerial!.cancelDiscovery();
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
-        _classicScanSubscription = _flutterBluetoothSerial!
-            .startDiscovery()
-            .listen(
-              (result) {
-                if (!mounted) return;
-                setState(() {
-                  final exists = _combinedDevices.any(
-                    (d) => d.id == result.device.address,
-                  );
-                  if (!exists) {
-                    _combinedDevices.add(
-                      CombinedBluetoothDevice(
-                        id: result.device.address,
-                        name: result.device.name ?? 'Unknown Classic Device',
-                        rssi: result.rssi,
-                        isBLE: false,
-                        classicDevice: result.device,
-                      ),
-                    );
-                  }
-                });
-              },
-              onError: (e) => debugPrint('Classic scan error: $e'),
-              onDone: () {
-                _classicReconnectTimeout?.cancel();
-                _classicReconnectTimeout = null;
-                if (mounted) setState(() => _isScanning = false);
-              },
-            );
+        _classicScanSubscription = _flutterBluetoothSerial!.startDiscovery().listen(
+          (result) {
+            if (!mounted) return;
+            setState(() {
+              final exists = _combinedDevices.any((d) => d.id == result.device.address);
+              if (!exists) {
+                _combinedDevices.add(
+                  CombinedBluetoothDevice(
+                    id: result.device.address,
+                    name: result.device.name ?? 'Unknown Classic Device',
+                    rssi: result.rssi,
+                    isBLE: false,
+                    classicDevice: result.device,
+                  ),
+                );
+              }
+            });
+          },
+          onError: (e) => debugPrint('Classic scan error: $e'),
+          onDone: () {
+            _classicReconnectTimeout?.cancel();
+            _classicReconnectTimeout = null;
+            if (mounted) setState(() => _isScanning = false);
+          },
+        );
         // Safety-net timer in case onDone never fires.
         _classicReconnectTimeout = Timer(const Duration(seconds: 14), () {
           _classicScanSubscription?.cancel();
@@ -280,9 +265,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
     if (!mounted) return;
     final gpsProvider = context.read<GpsPositionProvider>();
     gpsProvider.stopAll();
-    gpsProvider.connectDevice(
-      ble.BluetoothDevice.fromId(device.remoteId.toString()),
-    );
+    gpsProvider.connectDevice(ble.BluetoothDevice.fromId(device.remoteId.toString()));
     if (widget.popOnConnect && mounted) Navigator.pop(context);
   }
 
@@ -297,12 +280,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
               'Gerät "${device.name ?? device.address}" ist nicht gekoppelt.\n\n'
               'Bitte zuerst in den Bluetooth-Einstellungen koppeln.',
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
-              ),
-            ],
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
           ),
         );
       }
@@ -319,9 +297,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
       padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -334,11 +310,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                 'erreichbare GNSS Geräte',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              if (_isScanning)
-                IconButton(
-                  icon: const Icon(Icons.stop),
-                  onPressed: _stopAllScans,
-                ),
+              if (_isScanning) IconButton(icon: const Icon(Icons.stop), onPressed: _stopAllScans),
               if (!_isScanning)
                 Consumer<GpsPositionProvider>(
                   builder: (context, gpsProvider, child) {
@@ -355,18 +327,12 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                             padding: EdgeInsets.symmetric(horizontal: 8.0),
                             child: Text(
                               'Bluetooth Off',
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(color: Colors.orange, fontSize: 12),
                             ),
                           );
                         }
                         return IconButton(
-                          icon: Icon(
-                            Icons.refresh,
-                            color: hasActiveGPS ? Colors.grey : null,
-                          ),
+                          icon: Icon(Icons.refresh, color: hasActiveGPS ? Colors.grey : null),
                           onPressed: hasActiveGPS ? null : _startScan,
                         );
                       },
@@ -379,15 +345,12 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
           Consumer<GpsPositionProvider>(
             builder: (context, gpsProvider, child) {
               final isMockGpsActive = gpsProvider.isMockGpsActive;
-              final isReceivingMockData =
-                  gpsProvider.isReceivingAndroidMockData;
+              final isReceivingMockData = gpsProvider.isReceivingAndroidMockData;
               if (gpsProvider.connectedDevice != null) {
                 final device = gpsProvider.connectedDevice!;
                 final nmea = gpsProvider.currentNMEA;
                 final hasValidPosition =
-                    nmea != null &&
-                    nmea.latitude != null &&
-                    nmea.longitude != null;
+                    nmea != null && nmea.latitude != null && nmea.longitude != null;
                 return Column(
                   children: [
                     ListTile(
@@ -395,11 +358,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                         Icons.gps_fixed,
                         color: hasValidPosition ? Colors.green : Colors.orange,
                       ),
-                      title: Text(
-                        device.platformName.isEmpty
-                            ? 'GPS Device'
-                            : device.platformName,
-                      ),
+                      title: Text(device.platformName.isEmpty ? 'GPS Device' : device.platformName),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -407,25 +366,16 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                           if (hasValidPosition) ...[
                             Text(
                               'Sats: ${nmea.satellites ?? "N/A"} | HDOP: ${nmea.hdop?.toStringAsFixed(1) ?? "N/A"} | PDOP: ${nmea.pdop?.toStringAsFixed(1) ?? "N/A"}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                             Text(
                               'Lat: ${nmea.latitude!.toStringAsFixed(6)}, Lon: ${nmea.longitude!.toStringAsFixed(6)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           ] else
                             const Text(
                               'Waiting for GPS position...',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.orange,
-                              ),
+                              style: TextStyle(fontSize: 11, color: Colors.orange),
                             ),
                         ],
                       ),
@@ -444,9 +394,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                 final device = gpsProvider.connectedClassicDevice!;
                 final nmea = gpsProvider.currentNMEA;
                 final hasValidPosition =
-                    nmea != null &&
-                    nmea.latitude != null &&
-                    nmea.longitude != null;
+                    nmea != null && nmea.latitude != null && nmea.longitude != null;
                 return Column(
                   children: [
                     ListTile(
@@ -462,25 +410,16 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                           if (hasValidPosition) ...[
                             Text(
                               'Sats: ${nmea.satellites ?? "N/A"} | HDOP: ${nmea.hdop?.toStringAsFixed(1) ?? "N/A"} | PDOP: ${nmea.pdop?.toStringAsFixed(1) ?? "N/A"}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                             Text(
                               'Lat: ${nmea.latitude!.toStringAsFixed(6)}, Lon: ${nmea.longitude!.toStringAsFixed(6)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           ] else
                             const Text(
                               'Waiting for GPS position...',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.orange,
-                              ),
+                              style: TextStyle(fontSize: 11, color: Colors.orange),
                             ),
                         ],
                       ),
@@ -498,14 +437,11 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
               } else if (isMockGpsActive) {
                 final lastPos = gpsProvider.lastPosition;
                 final extras = gpsProvider.lastAndroidLocationExtras;
-                final extrasSatellites =
-                    gpsProvider.lastAndroidExtrasSatellites;
+                final extrasSatellites = gpsProvider.lastAndroidExtrasSatellites;
                 final extrasHdop = gpsProvider.lastAndroidExtrasHdop;
                 final extrasPdop = gpsProvider.lastAndroidExtrasPdop;
                 final hasExtrasQuality =
-                    extrasSatellites != null ||
-                    extrasHdop != null ||
-                    extrasPdop != null;
+                    extrasSatellites != null || extrasHdop != null || extrasPdop != null;
                 final extraKeysText = extras != null && extras.isNotEmpty
                     ? extras.keys.take(6).join(', ')
                     : null;
@@ -532,49 +468,31 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                           if (hasExtrasQuality)
                             Text(
                               'Location extras -> Sats: ${extrasSatellites ?? "N/A"} | HDOP: ${extrasHdop?.toStringAsFixed(2) ?? "N/A"} | PDOP: ${extrasPdop?.toStringAsFixed(2) ?? "N/A"}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           if (extraKeysText != null)
                             Text(
                               'Extras keys: $extraKeysText${extras!.length > 6 ? ', ...' : ''}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           if (!isReceivingMockData)
                             const Text(
                               'No mocked location received yet. Start your NTRIP/mock-location app and set it as mock location app in Android Developer Options.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.orange,
-                              ),
+                              style: TextStyle(fontSize: 11, color: Colors.orange),
                             ),
                           if (lastPos != null) ...[
                             Text(
                               'Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m | HDOP: ${extrasHdop?.toStringAsFixed(2) ?? "N/A"} | PDOP: ${extrasPdop?.toStringAsFixed(2) ?? "N/A"}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                             Text(
                               'Lat: ${lastPos.latitude.toStringAsFixed(8)}, Lon: ${lastPos.longitude.toStringAsFixed(8)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           ] else
                             const Text(
                               'Waiting for Android mocked position...',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.orange,
-                              ),
+                              style: TextStyle(fontSize: 11, color: Colors.orange),
                             ),
                         ],
                       ),
@@ -607,25 +525,16 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                           if (lastPos != null) ...[
                             Text(
                               'Accuracy: ${lastPos.accuracy.toStringAsFixed(1)}m | HDOP: ${nmea?.hdop?.toStringAsFixed(1) ?? "N/A"}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                             Text(
                               'Lat: ${lastPos.latitude.toStringAsFixed(6)}, Lon: ${lastPos.longitude.toStringAsFixed(6)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
                             ),
                           ] else
                             const Text(
                               'Waiting for GPS position...',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.orange,
-                              ),
+                              style: TextStyle(fontSize: 11, color: Colors.orange),
                             ),
                         ],
                       ),
@@ -681,10 +590,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
 
                 if (Platform.isAndroid && index == 1) {
                   return ListTile(
-                    leading: Icon(
-                      Icons.route,
-                      color: isMockGPS ? Colors.green : Colors.grey,
-                    ),
+                    leading: Icon(Icons.route, color: isMockGPS ? Colors.green : Colors.grey),
                     title: const Text('Mocked GPS (Android/NTRIP)'),
                     subtitle: const Text('Uses Android mock-location provider'),
                     trailing: isMockGPS
@@ -699,8 +605,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                 }
 
                 final deviceIndex = index - (Platform.isAndroid ? 2 : 1);
-                if (deviceIndex >= _combinedDevices.length)
-                  return const SizedBox.shrink();
+                if (deviceIndex >= _combinedDevices.length) return const SizedBox.shrink();
                 final device = _combinedDevices[deviceIndex];
                 return ListTile(
                   leading: Icon(
@@ -715,20 +620,12 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                           !device.classicDevice!.isBonded)
                         const Padding(
                           padding: EdgeInsets.only(left: 4.0),
-                          child: Icon(
-                            Icons.lock_open,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
+                          child: Icon(Icons.lock_open, size: 16, color: Colors.orange),
                         ),
                     ],
                   ),
-                  subtitle: Text(
-                    '${device.isBLE ? "BLE" : "Classic"} - ${device.id}',
-                  ),
-                  trailing: device.rssi != null
-                      ? Text('${device.rssi} dBm')
-                      : null,
+                  subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
+                  trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
                   onTap: () {
                     if (device.isBLE && device.bleDevice != null) {
                       _connectToBLEDevice(device.bleDevice!);
@@ -737,16 +634,9 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                     }
                   },
                   selected: (device.isBLE
-                      ? context
-                                .watch<GpsPositionProvider>()
-                                .connectedDevice
-                                ?.remoteId
-                                .toString() ==
+                      ? context.watch<GpsPositionProvider>().connectedDevice?.remoteId.toString() ==
                             device.id
-                      : context
-                                .watch<GpsPositionProvider>()
-                                .connectedClassicDevice
-                                ?.address ==
+                      : context.watch<GpsPositionProvider>().connectedClassicDevice?.address ==
                             device.id),
                 );
               },

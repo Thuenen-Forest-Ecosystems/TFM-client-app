@@ -5,9 +5,7 @@ import 'package:flutter/services.dart';
 /// Provides satellite count, signal strengths, and other GNSS metrics
 class GnssService {
   static const MethodChannel _channel = MethodChannel('com.thuenen.tfm/gnss');
-  static const EventChannel _statusChannel = EventChannel(
-    'com.thuenen.tfm/gnss_status',
-  );
+  static const EventChannel _statusChannel = EventChannel('com.thuenen.tfm/gnss_status');
   static const EventChannel _locationExtrasChannel = EventChannel(
     'com.thuenen.tfm/location_extras',
   );
@@ -19,9 +17,7 @@ class GnssService {
   /// Get the current GNSS status stream
   /// Returns satellite count, used satellites, and individual satellite data
   Stream<GnssStatus> getGnssStatusStream() {
-    _statusStream ??= _statusChannel.receiveBroadcastStream().map((
-      dynamic event,
-    ) {
+    _statusStream ??= _statusChannel.receiveBroadcastStream().map((dynamic event) {
       if (event is Map) {
         return GnssStatus.fromMap(Map<String, dynamic>.from(event));
       }
@@ -62,14 +58,12 @@ class GnssService {
 
   /// Stream of raw Android Location extras and selected debug fields.
   Stream<LocationExtrasData> getLocationExtrasStream() {
-    _locationExtrasStream ??= _locationExtrasChannel
-        .receiveBroadcastStream()
-        .map((dynamic event) {
-          if (event is Map) {
-            return LocationExtrasData.fromMap(Map<String, dynamic>.from(event));
-          }
-          return LocationExtrasData.empty();
-        });
+    _locationExtrasStream ??= _locationExtrasChannel.receiveBroadcastStream().map((dynamic event) {
+      if (event is Map) {
+        return LocationExtrasData.fromMap(Map<String, dynamic>.from(event));
+      }
+      return LocationExtrasData.empty();
+    });
     return _locationExtrasStream!;
   }
 
@@ -126,9 +120,7 @@ class LocationExtrasData {
       satellites: (map['satellites'] as num?)?.toInt(),
       hdop: (map['hdop'] as num?)?.toDouble(),
       pdop: (map['pdop'] as num?)?.toDouble(),
-      extras: extrasMap is Map
-          ? Map<String, dynamic>.from(extrasMap)
-          : <String, dynamic>{},
+      extras: extrasMap is Map ? Map<String, dynamic>.from(extrasMap) : <String, dynamic>{},
       timestamp: DateTime.now(),
     );
   }
@@ -165,20 +157,13 @@ class GnssStatus {
     return GnssStatus(
       satelliteCount: map['satelliteCount'] as int? ?? 0,
       usedInFix: map['usedInFix'] as int? ?? 0,
-      satellites: satList
-          .map((s) => SatelliteInfo.fromMap(Map<String, dynamic>.from(s)))
-          .toList(),
+      satellites: satList.map((s) => SatelliteInfo.fromMap(Map<String, dynamic>.from(s))).toList(),
       timestamp: DateTime.now(),
     );
   }
 
   factory GnssStatus.empty() {
-    return GnssStatus(
-      satelliteCount: 0,
-      usedInFix: 0,
-      satellites: [],
-      timestamp: DateTime.now(),
-    );
+    return GnssStatus(satelliteCount: 0, usedInFix: 0, satellites: [], timestamp: DateTime.now());
   }
 
   /// Calculate approximate HDOP from satellite data

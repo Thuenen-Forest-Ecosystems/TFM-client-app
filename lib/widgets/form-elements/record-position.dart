@@ -49,8 +49,7 @@ class _RecordPositionState extends State<RecordPosition> {
   StreamSubscription? _gpsSubscription;
   int _targetCount = 100;
   Map<String, dynamic>? _aggregatedData;
-  Map<String, dynamic>?
-  _savedAggregatedData; // Store previous data when recording
+  Map<String, dynamic>? _savedAggregatedData; // Store previous data when recording
   Map<String, dynamic>?
   _initialSavedData; // Store initial data from form (for display in saved card)
   bool _isDataSaved = true; // Track if current aggregated data has been saved
@@ -72,9 +71,7 @@ class _RecordPositionState extends State<RecordPosition> {
         widget.data![widget.propertyName!] != null) {
       // Only set _initialSavedData for Card 2 (Gespeicherte Messung)
       // Leave _aggregatedData as null so Card 3 shows "Einmessung starten" button
-      _initialSavedData = Map<String, dynamic>.from(
-        widget.data![widget.propertyName!],
-      );
+      _initialSavedData = Map<String, dynamic>.from(widget.data![widget.propertyName!]);
     }
   }
 
@@ -118,9 +115,7 @@ class _RecordPositionState extends State<RecordPosition> {
 
     try {
       final gpsProvider = context.read<GpsPositionProvider>();
-      _gpsSubscription = gpsProvider.positionStreamController.listen((
-        position,
-      ) {
+      _gpsSubscription = gpsProvider.positionStreamController.listen((position) {
         // Check count before setState to prevent race conditions
         if (!isRecording || _recordedPositions.length >= _targetCount) {
           return;
@@ -161,8 +156,7 @@ class _RecordPositionState extends State<RecordPosition> {
             'longitude': position.longitude,
             'accuracy': position.accuracy,
             'timestamp': DateTime.now().toIso8601String(),
-            'rtcm_age':
-                nmea?.dgpsAge, // Age of differential correction data (RTCM)
+            'rtcm_age': nmea?.dgpsAge, // Age of differential correction data (RTCM)
             'quality': nmea?.fixQuality,
             'satellites_count': nmea?.satellites,
             'pdop': nmea?.pdop,
@@ -330,9 +324,7 @@ class _RecordPositionState extends State<RecordPosition> {
     // We can be stricter with quality assessment since we filtered for best fix
     if (meanAccuracy < 2.0 && hdopCount > 0 && (sumHdop / hdopCount) < 1.5) {
       quality = 1;
-    } else if (meanAccuracy < 5.0 &&
-        hdopCount > 0 &&
-        (sumHdop / hdopCount) < 3.0) {
+    } else if (meanAccuracy < 5.0 && hdopCount > 0 && (sumHdop / hdopCount) < 3.0) {
       quality = 2;
     } else if (meanAccuracy < 10.0) {
       quality = 3;
@@ -342,27 +334,21 @@ class _RecordPositionState extends State<RecordPosition> {
     final overallQuality = _qualityCriteria.evaluateQuality(
       hdopValue: hdopCount > 0 ? sumHdop / hdopCount : null,
       pdopValue: pdopCount > 0 ? sumPdop / pdopCount : null,
-      satellitesValue: satellitesCount > 0
-          ? (sumSatellites / satellitesCount).round()
-          : null,
+      satellitesValue: satellitesCount > 0 ? (sumSatellites / satellitesCount).round() : null,
       measurementCountValue: positionsToUse.length,
     );
 
     final detailedQuality = _qualityCriteria.evaluateDetailed(
       hdopValue: hdopCount > 0 ? sumHdop / hdopCount : null,
       pdopValue: pdopCount > 0 ? sumPdop / pdopCount : null,
-      satellitesValue: satellitesCount > 0
-          ? (sumSatellites / satellitesCount).round()
-          : null,
+      satellitesValue: satellitesCount > 0 ? (sumSatellites / satellitesCount).round() : null,
       measurementCountValue: positionsToUse.length,
     );
 
     return {
       'rtcm_age': rtcmAgeCount > 0 ? sumRtcmAge / rtcmAgeCount : null,
       'quality': quality,
-      'satellites_count_mean': satellitesCount > 0
-          ? sumSatellites / satellitesCount
-          : null,
+      'satellites_count_mean': satellitesCount > 0 ? sumSatellites / satellitesCount : null,
       'pdop_mean': pdopCount > 0 ? sumPdop / pdopCount : null,
       'hdop_mean': hdopCount > 0 ? sumHdop / hdopCount : null,
       'position_mean': {'latitude': meanLat, 'longitude': meanLng},
@@ -439,9 +425,7 @@ class _RecordPositionState extends State<RecordPosition> {
   }
 
   void _saveToForm() {
-    if (_aggregatedData != null &&
-        widget.onDataChanged != null &&
-        widget.propertyName != null) {
+    if (_aggregatedData != null && widget.onDataChanged != null && widget.propertyName != null) {
       final newData = Map<String, dynamic>.from(widget.data ?? {});
       newData[widget.propertyName!] = _aggregatedData;
       widget.onDataChanged!(newData);
@@ -533,9 +517,7 @@ class _RecordPositionState extends State<RecordPosition> {
     final hasValidFix = _hasValidGpsFix(gpsProvider);
 
     // Get current quality for display (computed during build, no state mutation)
-    final currentQuality = hasGpsDevice && !isRecording
-        ? _getCurrentQuality(gpsProvider)
-        : null;
+    final currentQuality = hasGpsDevice && !isRecording ? _getCurrentQuality(gpsProvider) : null;
     final displayQualityLevel = isRecording
         ? _currentQualityLevel
         : currentQuality?['level'] as QualityLevel?;
@@ -557,12 +539,9 @@ class _RecordPositionState extends State<RecordPosition> {
                 runSpacing: 16.0,
                 children: [
                   // Card 1: Current GPS Information
-                  if (gpsProvider.lastPosition != null ||
-                      gpsProvider.isConnecting)
+                  if (gpsProvider.lastPosition != null || gpsProvider.isConnecting)
                     Container(
-                      width: isWideScreen
-                          ? (constraints.maxWidth - 16) / 2
-                          : constraints.maxWidth,
+                      width: isWideScreen ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth,
                       child: Card(
                         elevation: 2,
                         child: Padding(
@@ -578,9 +557,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   ],
                                   Text(
                                     'Zuletzt gemessene GPS-Information',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
+                                    style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                 ],
                               ),
@@ -593,8 +570,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     ? 'Bluetooth: ${gpsProvider.connectedDevice!.platformName}'
                                     : gpsProvider.connectedClassicDevice != null
                                     ? 'Bluetooth Classic: ${gpsProvider.connectedClassicDevice!.name ?? "Unbekannt"}'
-                                    : gpsProvider.connectedSerialPortName !=
-                                          null
+                                    : gpsProvider.connectedSerialPortName != null
                                     ? 'Seriell: ${gpsProvider.connectedSerialPortName}'
                                     : gpsProvider.isMockGpsActive
                                     ? 'Mocked GPS (Android/NTRIP)'
@@ -620,8 +596,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     QualityLevel freshnessLevel;
                                     if (age.inSeconds > 300) {
                                       // Over 5 minutes - red
-                                      freshnessLevel =
-                                          QualityLevel.notAcceptable;
+                                      freshnessLevel = QualityLevel.notAcceptable;
                                     } else if (age.inSeconds > 2) {
                                       // Over 2 seconds - yellow
                                       freshnessLevel = QualityLevel.ok;
@@ -631,9 +606,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     }
                                     return _buildDataRow(
                                       'Zeitpunkt',
-                                      _formatDateTime(
-                                        gpsProvider.lastPosition!.timestamp,
-                                      ),
+                                      _formatDateTime(gpsProvider.lastPosition!.timestamp),
                                       qualityLevel: freshnessLevel,
                                     );
                                   },
@@ -643,21 +616,16 @@ class _RecordPositionState extends State<RecordPosition> {
                               if (gpsProvider.currentNMEA != null) ...[
                                 _buildDataRow(
                                   'Korrektursignal',
-                                  _getCorrectionSignalText(
+                                  _getCorrectionSignalText(gpsProvider.currentNMEA!.fixQuality),
+                                  qualityLevel: GpsQualityCriteria.evaluateCorrectionSignal(
                                     gpsProvider.currentNMEA!.fixQuality,
                                   ),
-                                  qualityLevel:
-                                      GpsQualityCriteria.evaluateCorrectionSignal(
-                                        gpsProvider.currentNMEA!.fixQuality,
-                                      ),
                                 ),
                                 // Display RTCM age if available (only for DGPS/RTK fixes)
                                 if (gpsProvider.currentNMEA!.dgpsAge != null)
                                   _buildDataRow(
                                     'Alter Korrektursignal',
-                                    _formatRtcmAge(
-                                      gpsProvider.currentNMEA!.dgpsAge!,
-                                    ),
+                                    _formatRtcmAge(gpsProvider.currentNMEA!.dgpsAge!),
                                     qualityLevel: _evaluateRtcmAge(
                                       gpsProvider.currentNMEA!.dgpsAge!,
                                     ),
@@ -665,15 +633,12 @@ class _RecordPositionState extends State<RecordPosition> {
                                 if (gpsProvider.currentNMEA!.satellites != null)
                                   _buildDataRow(
                                     'Satelliten',
-                                    gpsProvider.currentNMEA!.satellites
-                                        .toString(),
-                                    qualityLevel: _qualityCriteria.satellites
-                                        .evaluate(
-                                          gpsProvider.currentNMEA!.satellites!,
-                                        ),
+                                    gpsProvider.currentNMEA!.satellites.toString(),
+                                    qualityLevel: _qualityCriteria.satellites.evaluate(
+                                      gpsProvider.currentNMEA!.satellites!,
+                                    ),
                                   ),
-                                if (gpsProvider.currentNMEA!.satellites ==
-                                        null &&
+                                if (gpsProvider.currentNMEA!.satellites == null &&
                                     gpsProvider.isMockGpsActive)
                                   _buildDataRow(
                                     'Satelliten',
@@ -682,12 +647,10 @@ class _RecordPositionState extends State<RecordPosition> {
                                 if (gpsProvider.currentNMEA!.hdop != null)
                                   _buildDataRow(
                                     'HDOP',
-                                    gpsProvider.currentNMEA!.hdop!
-                                        .toStringAsFixed(2),
-                                    qualityLevel: _qualityCriteria.hdop
-                                        .evaluate(
-                                          gpsProvider.currentNMEA!.hdop!,
-                                        ),
+                                    gpsProvider.currentNMEA!.hdop!.toStringAsFixed(2),
+                                    qualityLevel: _qualityCriteria.hdop.evaluate(
+                                      gpsProvider.currentNMEA!.hdop!,
+                                    ),
                                   ),
                                 if (gpsProvider.currentNMEA!.hdop == null &&
                                     gpsProvider.isMockGpsActive)
@@ -698,12 +661,10 @@ class _RecordPositionState extends State<RecordPosition> {
                                 if (gpsProvider.currentNMEA!.pdop != null)
                                   _buildDataRow(
                                     'PDOP',
-                                    gpsProvider.currentNMEA!.pdop!
-                                        .toStringAsFixed(2),
-                                    qualityLevel: _qualityCriteria.pdop
-                                        .evaluate(
-                                          gpsProvider.currentNMEA!.pdop!,
-                                        ),
+                                    gpsProvider.currentNMEA!.pdop!.toStringAsFixed(2),
+                                    qualityLevel: _qualityCriteria.pdop.evaluate(
+                                      gpsProvider.currentNMEA!.pdop!,
+                                    ),
                                   ),
                                 if (gpsProvider.currentNMEA!.pdop == null &&
                                     gpsProvider.isMockGpsActive)
@@ -719,17 +680,15 @@ class _RecordPositionState extends State<RecordPosition> {
                               ],
 
                               // Show message if no GPS data
-                              if (gpsProvider.lastPosition == null &&
-                                  !gpsProvider.isConnecting)
+                              if (gpsProvider.lastPosition == null && !gpsProvider.isConnecting)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Text(
                                     'Keine GPS-Daten verfügbar',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Colors.orange,
-                                          fontStyle: FontStyle.italic,
-                                        ),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.orange,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -741,9 +700,7 @@ class _RecordPositionState extends State<RecordPosition> {
                   // Card 2: Saved Measurements from form
                   if (_initialSavedData != null)
                     Container(
-                      width: isWideScreen
-                          ? (constraints.maxWidth - 16) / 2
-                          : constraints.maxWidth,
+                      width: isWideScreen ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth,
                       child: Card(
                         elevation: 2,
                         child: Padding(
@@ -753,8 +710,7 @@ class _RecordPositionState extends State<RecordPosition> {
                             children: [
                               Row(
                                 children: [
-                                  if (_initialSavedData!['overall_quality'] !=
-                                      null) ...[
+                                  if (_initialSavedData!['overall_quality'] != null) ...[
                                     _buildQualityCircle(
                                       QualityLevel.values.firstWhere(
                                         (e) =>
@@ -766,13 +722,10 @@ class _RecordPositionState extends State<RecordPosition> {
                                   ],
                                   Text(
                                     'Gespeicherte Messung',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
+                                    style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                   const SizedBox(width: 8),
-                                  if (_initialSavedData!['overall_quality'] !=
-                                      null)
+                                  if (_initialSavedData!['overall_quality'] != null)
                                     Chip(
                                       label: Text(
                                         _getQualityLabel(
@@ -796,17 +749,13 @@ class _RecordPositionState extends State<RecordPosition> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              if (_initialSavedData!['measurement_count'] !=
-                                  null)
+                              if (_initialSavedData!['measurement_count'] != null)
                                 _buildDataRow(
                                   'Messungen',
                                   '${_initialSavedData!['measurement_count']}',
-                                  qualityLevel: _qualityCriteria
-                                      .measurementCount
-                                      .evaluate(
-                                        _initialSavedData!['measurement_count']
-                                            as int,
-                                      ),
+                                  qualityLevel: _qualityCriteria.measurementCount.evaluate(
+                                    _initialSavedData!['measurement_count'] as int,
+                                  ),
                                 ),
                               if (_initialSavedData!['position_mean'] != null)
                                 _buildDataRow(
@@ -818,33 +767,26 @@ class _RecordPositionState extends State<RecordPosition> {
                                 _getCorrectionSignalText(
                                   _initialSavedData!['aggregation_quality_code'],
                                 ),
-                                qualityLevel:
-                                    _initialSavedData!['aggregation_quality_code'] !=
-                                        null
+                                qualityLevel: _initialSavedData!['aggregation_quality_code'] != null
                                     ? GpsQualityCriteria.evaluateCorrectionSignal(
                                         _initialSavedData!['aggregation_quality_code'],
                                       )
                                     : null,
                               ),
-                              if (_initialSavedData!['satellites_count_mean'] !=
-                                  null)
+                              if (_initialSavedData!['satellites_count_mean'] != null)
                                 _buildDataRow(
                                   'Satelliten (avg)',
                                   '${_initialSavedData!['satellites_count_mean'].toStringAsFixed(1)}',
-                                  qualityLevel: _qualityCriteria.satellites
-                                      .evaluate(
-                                        (_initialSavedData!['satellites_count_mean']
-                                                as num)
-                                            .round(),
-                                      ),
+                                  qualityLevel: _qualityCriteria.satellites.evaluate(
+                                    (_initialSavedData!['satellites_count_mean'] as num).round(),
+                                  ),
                                 ),
                               if (_initialSavedData!['hdop_mean'] != null)
                                 _buildDataRow(
                                   'HDOP (avg)',
                                   '${_initialSavedData!['hdop_mean'].toStringAsFixed(2)}',
                                   qualityLevel: _qualityCriteria.hdop.evaluate(
-                                    (_initialSavedData!['hdop_mean'] as num)
-                                        .toDouble(),
+                                    (_initialSavedData!['hdop_mean'] as num).toDouble(),
                                   ),
                                 ),
                               if (_initialSavedData!['pdop_mean'] != null)
@@ -852,27 +794,22 @@ class _RecordPositionState extends State<RecordPosition> {
                                   'PDOP (avg)',
                                   '${_initialSavedData!['pdop_mean'].toStringAsFixed(2)}',
                                   qualityLevel: _qualityCriteria.pdop.evaluate(
-                                    (_initialSavedData!['pdop_mean'] as num)
-                                        .toDouble(),
+                                    (_initialSavedData!['pdop_mean'] as num).toDouble(),
                                   ),
                                 ),
 
-                              if (_initialSavedData!['start_measurement'] !=
-                                  null)
+                              if (_initialSavedData!['start_measurement'] != null)
                                 _buildDataRow(
                                   'Start Time',
                                   _formatTimestamp(
-                                    _initialSavedData!['start_measurement']
-                                        as String,
+                                    _initialSavedData!['start_measurement'] as String,
                                   ),
                                 ),
-                              if (_initialSavedData!['stop_measurement'] !=
-                                  null)
+                              if (_initialSavedData!['stop_measurement'] != null)
                                 _buildDataRow(
                                   'End Time',
                                   _formatTimestamp(
-                                    _initialSavedData!['stop_measurement']
-                                        as String,
+                                    _initialSavedData!['stop_measurement'] as String,
                                   ),
                                 ),
                             ],
@@ -883,9 +820,7 @@ class _RecordPositionState extends State<RecordPosition> {
 
                   // Card 3: New Measurement (Aggregierte Daten) - Always visible
                   Container(
-                    width: isWideScreen
-                        ? (constraints.maxWidth - 16) / 2
-                        : constraints.maxWidth,
+                    width: isWideScreen ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth,
                     child: Card(
                       elevation: 2,
                       child: Padding(
@@ -897,8 +832,7 @@ class _RecordPositionState extends State<RecordPosition> {
                             Row(
                               children: [
                                 if (_aggregatedData != null &&
-                                    _aggregatedData!['overall_quality'] !=
-                                        null) ...[
+                                    _aggregatedData!['overall_quality'] != null) ...[
                                   _buildQualityCircle(
                                     QualityLevel.values.firstWhere(
                                       (e) =>
@@ -909,9 +843,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   const SizedBox(width: 8),
                                   Text(
                                     'Aktuelle Messung',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
+                                    style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                   const SizedBox(width: 8),
                                 ],
@@ -946,14 +878,11 @@ class _RecordPositionState extends State<RecordPosition> {
                               LinearProgressIndicator(value: progress),
                               const SizedBox(height: 8),
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Recording: ${_recordedPositions.length} / $_targetCount positions',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    style: Theme.of(context).textTheme.bodySmall,
                                   ),
                                   IconButton(
                                     onPressed: _toggleRecording,
@@ -966,17 +895,15 @@ class _RecordPositionState extends State<RecordPosition> {
                               const SizedBox(height: 12),
                             ]
                             // Completion indicator (only when NOT recording)
-                            else if (_aggregatedData != null &&
-                                _isDataSaved) ...[
+                            else if (_aggregatedData != null && _isDataSaved) ...[
                               LinearProgressIndicator(value: 1.0),
                               const SizedBox(height: 8),
                               Text(
                                 'Abgeschlossen: ${_aggregatedData!['measurement_count']} Positionen aufgezeichnet',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               // Button to start new measurement after completion
@@ -1007,9 +934,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                 child: Column(
                                   children: [
                                     ElevatedButton.icon(
-                                      onPressed: hasValidFix
-                                          ? _toggleRecording
-                                          : null,
+                                      onPressed: hasValidFix ? _toggleRecording : null,
                                       icon: const Icon(Icons.gps_fixed),
                                       label: const Text('Einmessung starten'),
                                       style: ElevatedButton.styleFrom(
@@ -1021,13 +946,10 @@ class _RecordPositionState extends State<RecordPosition> {
                                       const SizedBox(height: 8),
                                       Text(
                                         'Warte auf gültiges GPS-Signal...',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Colors.orange,
-                                              fontStyle: FontStyle.italic,
-                                            ),
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.orange,
+                                          fontStyle: FontStyle.italic,
+                                        ),
                                       ),
                                     ],
                                   ],
@@ -1041,12 +963,9 @@ class _RecordPositionState extends State<RecordPosition> {
                                 _buildDataRow(
                                   'Messungen',
                                   '${_aggregatedData!['measurement_count']}',
-                                  qualityLevel: _qualityCriteria
-                                      .measurementCount
-                                      .evaluate(
-                                        _aggregatedData!['measurement_count']
-                                            as int,
-                                      ),
+                                  qualityLevel: _qualityCriteria.measurementCount.evaluate(
+                                    _aggregatedData!['measurement_count'] as int,
+                                  ),
                                 ),
                               if (_aggregatedData!['position_mean'] != null)
                                 _buildDataRow(
@@ -1058,34 +977,27 @@ class _RecordPositionState extends State<RecordPosition> {
                                 _getCorrectionSignalText(
                                   _aggregatedData!['aggregation_quality_code'],
                                 ),
-                                qualityLevel:
-                                    _aggregatedData!['aggregation_quality_code'] !=
-                                        null
+                                qualityLevel: _aggregatedData!['aggregation_quality_code'] != null
                                     ? GpsQualityCriteria.evaluateCorrectionSignal(
                                         _aggregatedData!['aggregation_quality_code'],
                                       )
                                     : null,
                               ),
 
-                              if (_aggregatedData!['satellites_count_mean'] !=
-                                  null)
+                              if (_aggregatedData!['satellites_count_mean'] != null)
                                 _buildDataRow(
                                   'Satelliten (avg)',
                                   '${_aggregatedData!['satellites_count_mean'].toStringAsFixed(1)}',
-                                  qualityLevel: _qualityCriteria.satellites
-                                      .evaluate(
-                                        (_aggregatedData!['satellites_count_mean']
-                                                as num)
-                                            .round(),
-                                      ),
+                                  qualityLevel: _qualityCriteria.satellites.evaluate(
+                                    (_aggregatedData!['satellites_count_mean'] as num).round(),
+                                  ),
                                 ),
                               if (_aggregatedData!['hdop_mean'] != null)
                                 _buildDataRow(
                                   'HDOP (avg)',
                                   '${_aggregatedData!['hdop_mean'].toStringAsFixed(2)}',
                                   qualityLevel: _qualityCriteria.hdop.evaluate(
-                                    (_aggregatedData!['hdop_mean'] as num)
-                                        .toDouble(),
+                                    (_aggregatedData!['hdop_mean'] as num).toDouble(),
                                   ),
                                 ),
                               if (_aggregatedData!['pdop_mean'] != null)
@@ -1093,48 +1005,38 @@ class _RecordPositionState extends State<RecordPosition> {
                                   'PDOP (avg)',
                                   '${_aggregatedData!['pdop_mean'].toStringAsFixed(2)}',
                                   qualityLevel: _qualityCriteria.pdop.evaluate(
-                                    (_aggregatedData!['pdop_mean'] as num)
-                                        .toDouble(),
+                                    (_aggregatedData!['pdop_mean'] as num).toDouble(),
                                   ),
                                 ),
 
                               if (_aggregatedData!['start_measurement'] != null)
                                 _buildDataRow(
                                   'Start Time',
-                                  _formatTimestamp(
-                                    _aggregatedData!['start_measurement']
-                                        as String,
-                                  ),
+                                  _formatTimestamp(_aggregatedData!['start_measurement'] as String),
                                 ),
                               if (_aggregatedData!['stop_measurement'] != null)
                                 _buildDataRow(
                                   'End Time',
-                                  _formatTimestamp(
-                                    _aggregatedData!['stop_measurement']
-                                        as String,
-                                  ),
+                                  _formatTimestamp(_aggregatedData!['stop_measurement'] as String),
                                 ),
 
                               const SizedBox(height: 12),
 
                               // Save button - only visible if data not saved yet
-                              if (!_isDataSaved &&
-                                  _aggregatedData!['overall_quality'] != null)
+                              if (!_isDataSaved && _aggregatedData!['overall_quality'] != null)
                                 Builder(
                                   builder: (context) {
                                     // Check if required GPS metrics are available
                                     // pdop is optional — not all receivers provide it
                                     final hasRequiredMetrics =
                                         _aggregatedData!['hdop_mean'] != null &&
-                                        _aggregatedData!['satellites_count_mean'] !=
-                                            null;
+                                        _aggregatedData!['satellites_count_mean'] != null;
 
-                                    final overallQuality = QualityLevel.values
-                                        .firstWhere(
-                                          (e) =>
-                                              e.toString().split('.').last ==
-                                              _aggregatedData!['overall_quality'],
-                                        );
+                                    final overallQuality = QualityLevel.values.firstWhere(
+                                      (e) =>
+                                          e.toString().split('.').last ==
+                                          _aggregatedData!['overall_quality'],
+                                    );
 
                                     final hasAcceptableQuality =
                                         overallQuality == QualityLevel.good ||
@@ -1143,16 +1045,14 @@ class _RecordPositionState extends State<RecordPosition> {
                                     // Enable save only if both conditions are met
                                     //final canSave = hasRequiredMetrics && hasAcceptableQuality;
                                     final canSave = true;
-                                    final isOverwriting =
-                                        _initialSavedData != null;
+                                    final isOverwriting = _initialSavedData != null;
 
                                     return Padding(
                                       padding: const EdgeInsets.only(top: 16.0),
                                       child: Column(
                                         children: [
                                           Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
+                                            mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
                                               TextButton(
                                                 onPressed: () {
@@ -1163,23 +1063,16 @@ class _RecordPositionState extends State<RecordPosition> {
                                                     _startMeasurement = null;
                                                     _stopMeasurement = null;
                                                     _currentQualityLevel = null;
-                                                    _currentDetailedQuality =
-                                                        null;
+                                                    _currentDetailedQuality = null;
                                                   });
                                                 },
-                                                child: const Text(
-                                                  'Messung verwerfen',
-                                                ),
+                                                child: const Text('Messung verwerfen'),
                                               ),
                                               const SizedBox(width: 12),
                                               ElevatedButton.icon(
-                                                onPressed: canSave
-                                                    ? _saveToForm
-                                                    : null,
+                                                onPressed: canSave ? _saveToForm : null,
                                                 icon: Icon(
-                                                  isOverwriting
-                                                      ? Icons.warning
-                                                      : Icons.save,
+                                                  isOverwriting ? Icons.warning : Icons.save,
                                                 ),
                                                 label: Text(
                                                   isOverwriting
@@ -1191,10 +1084,8 @@ class _RecordPositionState extends State<RecordPosition> {
                                                       ? Colors.orange
                                                       : Colors.green,
                                                   foregroundColor: Colors.white,
-                                                  disabledBackgroundColor:
-                                                      Colors.grey,
-                                                  disabledForegroundColor:
-                                                      Colors.white70,
+                                                  disabledBackgroundColor: Colors.grey,
+                                                  disabledForegroundColor: Colors.white70,
                                                 ),
                                               ),
                                             ],
@@ -1223,18 +1114,11 @@ class _RecordPositionState extends State<RecordPosition> {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: _getQualityColor(level),
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: _getQualityColor(level)),
     );
   }
 
-  Widget _buildDataRow(
-    String label,
-    String value, {
-    QualityLevel? qualityLevel,
-  }) {
+  Widget _buildDataRow(String label, String value, {QualityLevel? qualityLevel}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
@@ -1246,10 +1130,7 @@ class _RecordPositionState extends State<RecordPosition> {
           ],
           SizedBox(
             width: qualityLevel != null ? 102 : 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
+            child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
           Expanded(child: Text(value)),
         ],
