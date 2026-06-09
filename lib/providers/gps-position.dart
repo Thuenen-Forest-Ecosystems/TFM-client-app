@@ -8,7 +8,8 @@ import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart'
+    as classic;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
@@ -28,7 +29,8 @@ class CurrentNMEA {
   double? latitude; // Latitude in degrees
   double? heading;
   double? speedKnots;
-  double? dgpsAge; // Age of differential GPS correction data in seconds (RTCM age)
+  double?
+  dgpsAge; // Age of differential GPS correction data in seconds (RTCM age)
 
   CurrentNMEA({
     this.pdop,
@@ -58,6 +60,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   bool _listeningPosition = false;
   bool _isConnecting = false;
   StreamSubscription<Position>? _positionStream;
+  bool _isMockGpsActive = false;
+  bool _isReceivingAndroidMockData = false;
   Map? _navigationTarget;
   LocationPermission? _permission;
 
@@ -80,6 +84,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   GnssService? _gnssService;
   StreamSubscription<GnssStatus>? _gnssStatusSubscription;
   GnssStatus? _lastGnssStatus;
+  StreamSubscription<LocationExtrasData>? _locationExtrasSubscription;
+  LocationExtrasData? _lastLocationExtrasData;
 
   // Compass (magnetometer) for heading when stationary
   StreamSubscription<CompassEvent>? _compassSubscription;
@@ -92,8 +98,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   late final StreamController<LocationMarkerHeading> _headingStreamController;
 
   GpsPositionProvider() {
-    _positionStreamController = StreamController<LocationMarkerPosition>.broadcast();
-    _headingStreamController = StreamController<LocationMarkerHeading>.broadcast();
+    _positionStreamController =
+        StreamController<LocationMarkerPosition>.broadcast();
+    _headingStreamController =
+        StreamController<LocationMarkerHeading>.broadcast();
   }
 
   Position? get lastPosition => _lastPosition;
@@ -101,19 +109,30 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   Map? get navigationTarget => _navigationTarget;
   bool get isConnecting => _isConnecting;
   StreamSubscription? get positionStream => _positionStream;
-  Stream<LocationMarkerPosition> get positionStreamController => _positionStreamController.stream;
-  Stream<LocationMarkerHeading> get headingStreamController => _headingStreamController.stream;
+  Stream<LocationMarkerPosition> get positionStreamController =>
+      _positionStreamController.stream;
+  Stream<LocationMarkerHeading> get headingStreamController =>
+      _headingStreamController.stream;
   LocationPermission? get permission => _permission;
   CurrentNMEA? get currentNMEA => _currentNMEA;
   String get headingSource => _headingSource;
+  bool get isMockGpsActive => _isMockGpsActive;
+  bool get isReceivingAndroidMockData => _isReceivingAndroidMockData;
+  Map<String, dynamic>? get lastAndroidLocationExtras =>
+      _lastLocationExtrasData?.extras;
+  int? get lastAndroidExtrasSatellites => _lastLocationExtrasData?.satellites;
+  double? get lastAndroidExtrasHdop => _lastLocationExtrasData?.hdop;
+  double? get lastAndroidExtrasPdop => _lastLocationExtrasData?.pdop;
 
   // Serial port (USB/COM) connection name
   String? connectedSerialPortName;
-  String _serialPortBuffer = ''; // Buffer for partial NMEA sentences (needed at high baud rates)
+  String _serialPortBuffer =
+      ''; // Buffer for partial NMEA sentences (needed at high baud rates)
 
   /// Whether position data comes from an external GNSS device (BLE or Classic Bluetooth).
   /// When true, compass heading is unreliable (phone orientation != walking direction).
-  bool get isUsingExternalGnss => connectedDevice != null || connectedClassicDevice != null;
+  bool get isUsingExternalGnss =>
+      connectedDevice != null || connectedClassicDevice != null;
 
   /// Location settings for the internal Geolocator stream.
   ///
@@ -126,10 +145,33 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   /// only causes more frequent polling without improving accuracy, so we
   /// use `medium` and a longer interval to reduce CPU / radio wakeups.
   /// On Android / iOS we keep the original high-accuracy 1 s behaviour.
-  LocationSettings get locationSettings {
-    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-      return const LocationSettings(accuracy: LocationAccuracy.medium, distanceFilter: 0);
+  LocationSettings _buildLocationSettings({required bool onlyMockedLocations}) {
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      return const LocationSettings(
+        accuracy: LocationAccuracy.medium,
+        distanceFilter: 0,
+      );
     }
+
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: onlyMockedLocations
+            ? LocationAccuracy.bestForNavigation
+            : LocationAccuracy.high,
+        distanceFilter: 0,
+        forceLocationManager: onlyMockedLocations,
+        intervalDuration: onlyMockedLocations
+            ? const Duration(milliseconds: 250)
+            : const Duration(seconds: 1),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: "App keeps location active in background",
+          notificationTitle: "TFM Location Service",
+          enableWakeLock: true,
+        ),
+      );
+    }
+
     return AndroidSettings(
       accuracy: LocationAccuracy.high,
       //distanceFilter: 100,
@@ -211,7 +253,8 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     stopAll();
 
     ble.BluetoothDevice device = ble.BluetoothDevice.fromId(deviceId);
-    if (connectedDevice != null && connectedDevice!.remoteId == device.remoteId) {
+    if (connectedDevice != null &&
+        connectedDevice!.remoteId == device.remoteId) {
     } else {
       connectDevice(device);
     }
@@ -356,7 +399,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     try {
       // Connect to the device with proper error handling
       try {
-        classicConnection = await classic.BluetoothConnection.toAddress(device.address);
+        classicConnection = await classic.BluetoothConnection.toAddress(
+          device.address,
+        );
       } catch (e) {
         // If connection fails, reset the reconnecting flag and schedule retry
         _isConnecting = false;
@@ -491,7 +536,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // Helper method to update position from NMEA data (shared by BLE and Classic)
   void _updatePositionFromNMEA() {
-    if (_currentNMEA == null || _currentNMEA!.latitude == null || _currentNMEA!.longitude == null) {
+    if (_currentNMEA == null ||
+        _currentNMEA!.latitude == null ||
+        _currentNMEA!.longitude == null) {
       return;
     }
 
@@ -532,7 +579,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _hasReliableGpsHeading = true;
       _headingSource = 'gps';
       _headingStreamController.add(
-        LocationMarkerHeading(heading: _currentNMEA!.heading!, accuracy: estimatedHeadingAccuracy),
+        LocationMarkerHeading(
+          heading: _currentNMEA!.heading!,
+          accuracy: estimatedHeadingAccuracy,
+        ),
       );
     } else {
       // Stationary or no GPS heading
@@ -550,7 +600,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         );
       } else {
         _headingSource = 'none';
-        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+        _headingStreamController.add(
+          LocationMarkerHeading(heading: 0, accuracy: 0),
+        );
       }
     }
 
@@ -588,10 +640,15 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
         // If GPS heading is not reliable and we're using internal GPS, emit compass heading.
         // Skip when using external GNSS — phone orientation != walking direction.
-        if (!_hasReliableGpsHeading && _lastPosition != null && !isUsingExternalGnss) {
+        if (!_hasReliableGpsHeading &&
+            _lastPosition != null &&
+            !isUsingExternalGnss) {
           _headingSource = 'compass';
           _headingStreamController.add(
-            LocationMarkerHeading(heading: _lastCompassHeading!, accuracy: _lastCompassAccuracy!),
+            LocationMarkerHeading(
+              heading: _lastCompassHeading!,
+              accuracy: _lastCompassAccuracy!,
+            ),
           );
         }
       }
@@ -604,6 +661,58 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _compassSubscription = null;
     _lastCompassHeading = null;
     _lastCompassAccuracy = null;
+  }
+
+  Future<void> _startLocationExtrasDiagnostics() async {
+    if (!Platform.isAndroid) return;
+
+    _gnssService ??= GnssService();
+
+    final started = await _gnssService!.startLocationExtrasListener();
+    if (!started) return;
+
+    await _locationExtrasSubscription?.cancel();
+    _locationExtrasSubscription = _gnssService!
+        .getLocationExtrasStream()
+        .listen((extrasData) {
+          _lastLocationExtrasData = extrasData;
+          final hasQualityData =
+              extrasData.satellites != null ||
+              extrasData.hdop != null ||
+              extrasData.pdop != null;
+
+          if (hasQualityData) {
+            final previous = _currentNMEA;
+            _currentNMEA = CurrentNMEA(
+              latitude: previous?.latitude,
+              longitude: previous?.longitude,
+              altitude: previous?.altitude,
+              heading: previous?.heading,
+              speedKnots: previous?.speedKnots,
+              timestamp: previous?.timestamp,
+              satellites: extrasData.satellites ?? previous?.satellites,
+              hdop: extrasData.hdop ?? previous?.hdop,
+              pdop: extrasData.pdop ?? previous?.pdop,
+              vdop: previous?.vdop,
+              fixQuality: previous?.fixQuality,
+              mode: previous?.mode,
+              fixType: previous?.fixType,
+              dgpsAge: previous?.dgpsAge,
+            );
+          }
+
+          notifyListeners();
+        }, onError: (Object _) {});
+  }
+
+  Future<void> _stopLocationExtrasDiagnostics() async {
+    await _locationExtrasSubscription?.cancel();
+    _locationExtrasSubscription = null;
+    _lastLocationExtrasData = null;
+
+    if (Platform.isAndroid && _gnssService != null) {
+      await _gnssService!.stopLocationExtrasListener();
+    }
   }
 
   @override
@@ -647,15 +756,22 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     classicConnection = null;
     connectedClassicDevice = null;
 
+    _isMockGpsActive = false;
+    _isReceivingAndroidMockData = false;
+
     _positionStream?.cancel();
     _listeningPosition = false;
 
     // Stop Android GNSS listener
     _gnssStatusSubscription?.cancel();
     _gnssStatusSubscription = null;
+    _locationExtrasSubscription?.cancel();
+    _locationExtrasSubscription = null;
     _lastGnssStatus = null;
+    _lastLocationExtrasData = null;
     if (Platform.isAndroid && _gnssService != null) {
       _gnssService?.stopGnssListener();
+      _gnssService?.stopLocationExtrasListener();
     }
 
     _currentNMEA = null;
@@ -675,6 +791,16 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (!isListening) {
       startTrackingLocation();
     }
+  }
+
+  Future<void> startMockGps() async {
+    if (!Platform.isAndroid) return;
+
+    stopAll();
+    _isMockGpsActive = true;
+    _isReceivingAndroidMockData = false;
+    _lastLocationExtrasData = null;
+    await startTrackingLocation(onlyMockedLocations: true);
   }
 
   void startExternalGps() {
@@ -706,7 +832,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     }
   }
 
-  void startTrackingLocation() async {
+  Future<void> startTrackingLocation({bool onlyMockedLocations = false}) async {
     // Check permissions and service status first
     try {
       Map<Permission, PermissionStatus> statuses = await [
@@ -714,10 +840,20 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         Permission.storage,
       ].request();
       if (statuses[Permission.location] != PermissionStatus.granted) {
+        if (onlyMockedLocations) {
+          _isMockGpsActive = false;
+          _isReceivingAndroidMockData = false;
+          notifyListeners();
+        }
         // Optionally show a message to the user
         return;
       }
     } catch (e) {
+      if (onlyMockedLocations) {
+        _isMockGpsActive = false;
+        _isReceivingAndroidMockData = false;
+        notifyListeners();
+      }
       // Handle error (e.g., show message if service disabled)
       return;
     }
@@ -726,16 +862,31 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _positionStream?.cancel();
     }
 
-    setCurrentLocation(); // Attempt to get last known location
+    // In mock mode we wait for live updates from the mock provider to avoid
+    // showing stale last-known sensor positions as if they were mocked input.
+    if (!onlyMockedLocations) {
+      setCurrentLocation(); // Attempt to get last known location
+    }
 
-    // Initialize Android GNSS service for satellite data
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid && onlyMockedLocations) {
+      await _startLocationExtrasDiagnostics();
+    } else if (Platform.isAndroid) {
+      await _stopLocationExtrasDiagnostics();
+    }
+
+    // Initialize Android GNSS service for satellite data.
+    // For Android mocked locations (e.g. NTRIP mock provider), GNSS satellite
+    // metrics from the device sensor are not representative of the injected
+    // location feed, so we skip GNSS enrichment in that mode.
+    if (Platform.isAndroid && !onlyMockedLocations) {
       _gnssService ??= GnssService();
       try {
         final isAvailable = await _gnssService!.isGnssAvailable();
         if (isAvailable) {
           await _gnssService!.startGnssListener();
-          _gnssStatusSubscription = _gnssService!.getGnssStatusStream().listen((status) {
+          _gnssStatusSubscription = _gnssService!.getGnssStatusStream().listen((
+            status,
+          ) {
             _lastGnssStatus = status;
             // Update NMEA with satellite data if we have a valid position
             if (_currentNMEA != null &&
@@ -771,18 +922,35 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     // Start compass as heading fallback when stationary
     _startCompass();
 
+    final locationSettings = _buildLocationSettings(
+      onlyMockedLocations: onlyMockedLocations,
+    );
+
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
         .handleError((error) {
           // <-- Add error handling for the stream
           // Handle specific errors if needed
           _isConnecting = false;
+          if (onlyMockedLocations) {
+            _isReceivingAndroidMockData = false;
+          }
+          notifyListeners();
         })
         .listen((Position position) {
+          if (onlyMockedLocations) {
+            // Some Android/provider combinations do not expose the mocked flag
+            // reliably, even though updates come from the selected mock app.
+            // In explicit mock mode, treat any fresh location update as input.
+            _isReceivingAndroidMockData = true;
+          }
+
           _lastPosition = position;
 
           // Create NMEA object from internal GPS Position data
           // On Android, enhance with real satellite data from GNSS service
-          if (Platform.isAndroid && _lastGnssStatus != null) {
+          if (Platform.isAndroid &&
+              _lastGnssStatus != null &&
+              !onlyMockedLocations) {
             // Use actual satellite data from Android GNSS
             _currentNMEA = CurrentNMEA(
               latitude: position.latitude,
@@ -802,6 +970,18 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               dgpsAge: null, // Not available from internal GPS
             );
           } else {
+            final extrasSatellites = onlyMockedLocations
+                ? _lastLocationExtrasData?.satellites
+                : null;
+            final extrasHdop = onlyMockedLocations
+                ? _lastLocationExtrasData?.hdop
+                : null;
+            final extrasPdop = onlyMockedLocations
+                ? _lastLocationExtrasData?.pdop
+                : null;
+            final estimatedHdop = onlyMockedLocations
+                ? null
+                : position.accuracy / 5.0;
             // Fallback: estimate from accuracy (Windows, iOS, or Android without GNSS data)
             _currentNMEA = CurrentNMEA(
               latitude: position.latitude,
@@ -811,11 +991,12 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
               speedKnots: position.speed * 1.94384, // Convert m/s to knots
               timestamp: position.timestamp,
               // Estimate HDOP from accuracy (rough approximation: accuracy ≈ HDOP * 5)
-              hdop: position.accuracy / 5.0,
+              hdop: extrasHdop ?? estimatedHdop,
               // These are not available without external GPS or Android GNSS:
-              satellites: null,
-              pdop: null,
+              satellites: extrasSatellites,
+              pdop: extrasPdop,
               vdop: null,
+              // Keep null to avoid inventing fix metadata in mock mode.
               fixQuality: null,
               mode: null,
               fixType: null,
@@ -838,7 +1019,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
             _headingStreamController.add(
               LocationMarkerHeading(
                 heading: position.heading,
-                accuracy: position.headingAccuracy > 0 ? position.headingAccuracy : 10.0,
+                accuracy: position.headingAccuracy > 0
+                    ? position.headingAccuracy
+                    : 10.0,
               ),
             );
           } else if (_lastCompassHeading != null) {
@@ -853,7 +1036,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           } else {
             _hasReliableGpsHeading = false;
             _headingSource = 'none';
-            _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+            _headingStreamController.add(
+              LocationMarkerHeading(heading: 0, accuracy: 0),
+            );
           }
           _listeningPosition = true;
           _isConnecting = false;
@@ -892,7 +1077,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     }
 
     // Update position if we have valid coordinates
-    if (_currentNMEA != null && _currentNMEA!.latitude != null && _currentNMEA!.longitude != null) {
+    if (_currentNMEA != null &&
+        _currentNMEA!.latitude != null &&
+        _currentNMEA!.longitude != null) {
       // Calculate accuracy from HDOP (horizontal dilution of precision)
       // HDOP * 5 gives approximate accuracy in meters (rough estimation)
       double calculatedAccuracy = (_currentNMEA!.hdop ?? 1.0) * 5.0;
@@ -926,8 +1113,10 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         }
 
         // Increase uncertainty significantly if speed is very low
-        if (_currentNMEA?.speedKnots != null && _currentNMEA!.speedKnots! < 0.5) {
-          estimatedHeadingAccuracy = 30.0; // Very uncertain when slow/stationary
+        if (_currentNMEA?.speedKnots != null &&
+            _currentNMEA!.speedKnots! < 0.5) {
+          estimatedHeadingAccuracy =
+              30.0; // Very uncertain when slow/stationary
         }
 
         _headingStreamController.add(
@@ -937,7 +1126,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           ),
         );
       } else {
-        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+        _headingStreamController.add(
+          LocationMarkerHeading(heading: 0, accuracy: 0),
+        );
       }
 
       // Add position to stream for map widget

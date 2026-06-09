@@ -33,6 +33,20 @@ class MainActivity : FlutterActivity() {
                 gnssHandler?.setEventSink(null)
             }
         })
+
+        // Setup Android Location extras debug stream
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            GnssChannelHandler.LOCATION_EXTRAS_EVENT_CHANNEL
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                gnssHandler?.setLocationExtrasEventSink(events)
+            }
+
+            override fun onCancel(arguments: Any?) {
+                gnssHandler?.setLocationExtrasEventSink(null)
+            }
+        })
     }
 
     override fun onDestroy() {
