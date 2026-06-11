@@ -60,18 +60,28 @@ class ArrayFilterRule {
 class ArrayFilterDialog extends StatefulWidget {
   final List<ArrayFilterRule> filters;
   final Set<int> activeFilterIndices;
+  final ValueChanged<Set<int>>? onChanged;
 
-  const ArrayFilterDialog({super.key, required this.filters, required this.activeFilterIndices});
+  const ArrayFilterDialog({
+    super.key,
+    required this.filters,
+    required this.activeFilterIndices,
+    this.onChanged,
+  });
 
-  static Future<Set<int>?> show({
+  static Future<void> show({
     required BuildContext context,
     required List<ArrayFilterRule> filters,
     required Set<int> activeFilterIndices,
+    ValueChanged<Set<int>>? onChanged,
   }) async {
-    return showDialog<Set<int>>(
+    return showDialog<void>(
       context: context,
-      builder: (context) =>
-          ArrayFilterDialog(filters: filters, activeFilterIndices: activeFilterIndices),
+      builder: (context) => ArrayFilterDialog(
+        filters: filters,
+        activeFilterIndices: activeFilterIndices,
+        onChanged: onChanged,
+      ),
     );
   }
 
@@ -80,12 +90,9 @@ class ArrayFilterDialog extends StatefulWidget {
 }
 
 class _ArrayFilterDialogState extends State<ArrayFilterDialog> {
-  late Set<int> _activeIndices;
-
   @override
   void initState() {
     super.initState();
-    _activeIndices = Set.from(widget.activeFilterIndices);
   }
 
   @override
@@ -109,7 +116,7 @@ class _ArrayFilterDialogState extends State<ArrayFilterDialog> {
                 itemCount: widget.filters.length,
                 itemBuilder: (context, index) {
                   final filter = widget.filters[index];
-                  final isActive = _activeIndices.contains(index);
+                  final isActive = widget.activeFilterIndices.contains(index);
 
                   return SwitchListTile(
                     title: Text(filter.label),
@@ -120,22 +127,17 @@ class _ArrayFilterDialogState extends State<ArrayFilterDialog> {
                     onChanged: (value) {
                       setState(() {
                         if (value) {
-                          _activeIndices.add(index);
+                          widget.activeFilterIndices.add(index);
                         } else {
-                          _activeIndices.remove(index);
+                          widget.activeFilterIndices.remove(index);
                         }
+                        widget.onChanged?.call(widget.activeFilterIndices);
                       });
                     },
                   );
                 },
               ),
       ),
-      actions: [
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_activeIndices),
-          child: const Text('Übernehmen'),
-        ),
-      ],
     );
   }
 }

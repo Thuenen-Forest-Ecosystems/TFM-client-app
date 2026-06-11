@@ -247,22 +247,21 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
   Future<void> _showFilterDialog() async {
     if (_filters.isEmpty) return;
 
-    final result = await ArrayFilterDialog.show(
+    await ArrayFilterDialog.show(
       context: context,
       filters: _filters,
       activeFilterIndices: _activeFilterIndices,
+      onChanged: (newIndices) {
+        if (!mounted) return;
+        setState(() {
+          _activeFilterIndices = newIndices;
+          _rows = _buildRows();
+          _stateManager?.removeAllRows();
+          _stateManager?.appendRows(_rows);
+        });
+        _saveFilterState();
+      },
     );
-
-    if (result != null) {
-      if (!mounted) return;
-      setState(() {
-        _activeFilterIndices = result;
-        _rows = _buildRows();
-        _stateManager?.removeAllRows();
-        _stateManager?.appendRows(_rows);
-      });
-      await _saveFilterState();
-    }
   }
 
   @override
@@ -2704,7 +2703,124 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     });
   }
 
+  void _applyFiltersToCurrentState() {
+    if (_stateManager == null) return;
+
+    bool changed = false;
+
+    // 1. Check currently visible rows to see if any should be hidden
+    final rowsToRemove = <TrinaRow>[];
+    for (final row in _stateManager!.rows) {
+      final originalIndex = row.cells['__original_index__']?.value as int?;
+      if (originalIndex == null) continue;
+
+      final rowData = <String, dynamic>{};
+      row.cells.forEach((key, cell) {
+        if (!key.startsWith('__')) {
+          rowData[key] = cell.value;
+        }
+      });
+
+      bool passesFilters = true;
+      if (rowData['_deprecated'] == true) {
+        passesFilters = false;
+      } else if (_filters.isNotEmpty && _activeFilterIndices.isNotEmpty) {
+        for (final filterIndex in _activeFilterIndices) {
+          if (filterIndex >= _filters.length) continue;
+          final filter = _filters[filterIndex];
+          if (!filter.matches(rowData[filter.field])) {
+            passesFilters = false;
+            break;
+          }
+        }
+      }
+
+      if (!passesFilters) {
+        rowsToRemove.add(row);
+        _hiddenRowsByOriginalIndex[originalIndex] = rowData;
+      }
+    }
+
+    if (rowsToRemove.isNotEmpty) {
+      _stateManager!.removeRows(rowsToRemove);
+      for (final row in rowsToRemove) {
+        _rows.remove(row);
+      }
+
+      final currentCell = _stateManager!.currentCell;
+      if (currentCell != null && rowsToRemove.any((r) => r.cells.values.contains(currentCell))) {
+        _stateManager!.clearCurrentCell();
+      }
+      changed = true;
+    }
+
+    // 2. Check hidden rows to see if any should be shown
+    final indicesToShow = <int>[];
+    _hiddenRowsByOriginalIndex.forEach((index, hiddenData) {
+      bool passesFilters = true;
+      if (hiddenData['_deprecated'] == true) {
+        passesFilters = false;
+      } else if (_filters.isNotEmpty && _activeFilterIndices.isNotEmpty) {
+        for (final filterIndex in _activeFilterIndices) {
+          if (filterIndex >= _filters.length) continue;
+          final filter = _filters[filterIndex];
+          if (!filter.matches(hiddenData[filter.field])) {
+            passesFilters = false;
+            break;
+          }
+        }
+      }
+
+      if (passesFilters) {
+        indicesToShow.add(index);
+      }
+    });
+
+    if (indicesToShow.isNotEmpty) {
+      final rowsToAdd = <TrinaRow>[];
+      for (final index in indicesToShow) {
+        final rowData = _hiddenRowsByOriginalIndex.remove(index)!;
+
+        final cells = <String, TrinaCell>{};
+        for (final column in _columns) {
+          if (column.field == '__row_number__' ||
+              column.field == '__row_menu__' ||
+              column.field == '__validation_status__') {
+            cells[column.field] = TrinaCell(value: null);
+          } else {
+            // Apply value or null
+            cells[column.field] = TrinaCell(value: rowData[column.field]);
+          }
+        }
+
+        rowData.forEach((key, value) {
+          if (!cells.containsKey(key)) {
+            cells[key] = TrinaCell(value: value);
+          }
+        });
+
+        cells['__original_index__'] = TrinaCell(value: index);
+
+        final newRow = TrinaRow(cells: cells);
+        rowsToAdd.add(newRow);
+        _rows.add(newRow);
+      }
+
+      for (final newRow in rowsToAdd) {
+        final insertIdx = _sortedInsertIndex(newRow);
+        _stateManager!.insertRows(insertIdx, [newRow]);
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      _stateManager!.notifyListeners();
+    }
+  }
+
   void _notifyDataChanged([bool forceData = false]) {
+    _applyFiltersToCurrentState();
+
     // Sync _rows from state manager if available (source of truth)
     final rowsToUse = _stateManager?.rows ?? _rows;
 
