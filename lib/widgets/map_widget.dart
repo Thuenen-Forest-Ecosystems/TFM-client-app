@@ -1239,6 +1239,9 @@ class _MapWidgetState extends State<MapWidget> {
           final lat = coords['latitude']!;
           final lng = coords['longitude']!;
 
+          // Green when the record has been finished by the troop, otherwise red.
+          final isFinished = record.completedAtTroop != null;
+
           return Marker(
             point: LatLng(lat, lng),
             width: 16,
@@ -1251,7 +1254,7 @@ class _MapWidgetState extends State<MapWidget> {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.red,
+                  color: isFinished ? Colors.green : Colors.red,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),

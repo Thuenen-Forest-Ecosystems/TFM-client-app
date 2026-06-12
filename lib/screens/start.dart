@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
@@ -35,7 +36,6 @@ class _StartState extends State<Start> {
   late final BeamerDelegate _beamerDelegate;
   double _currentSheetSize = 0.25; // Track current sheet size
   bool _isLoadingData = true;
-  bool _wasKeyboardVisible = false;
   StreamSubscription? _recordsWatchSubscription;
   final OrganizationSelectionService _selectionService = OrganizationSelectionService();
   String? _selectedTroopName;
@@ -513,28 +513,6 @@ class _StartState extends State<Start> {
     final maxHeight = screenHeight - (0 + MediaQuery.of(context).padding.top);
     _maxChildSize = maxHeight / screenHeight;
 
-    // Get keyboard height
-    //final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final keyboardHeight =
-        0.0; // Disable keyboard handling for now due to build collisions during drag (see _onSheetChanged)
-    final hasKeyboard = keyboardHeight > 0;
-
-    // Auto-expand sheet when keyboard appears (only trigger once)
-    if (hasKeyboard && !_wasKeyboardVisible) {
-      if (_sheetController.isAttached) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_sheetController.isAttached && _sheetController.size < 0.6) {
-            _sheetController.animateTo(
-              0.8,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      }
-    }
-    _wasKeyboardVisible = hasKeyboard;
-
     return DraggableScrollableSheet(
       controller: _sheetController,
       initialChildSize: _initialChildSize,
@@ -587,15 +565,31 @@ class _StartState extends State<Start> {
                 Expanded(
                   child: LayoutBuilder(
                     builder: (ctx, constraints) {
-                      final bottomPadding = keyboardHeight > 0
-                          ? keyboardHeight
+                      // Soft-keyboard inset. Used only for layout (bottom padding +
+                      // min-height clamp), never to drive the sheet size — feeding it
+                      // back into the sheet size previously caused build collisions
+                      // during drag.
+                      final keyboardInset = MediaQuery.of(ctx).viewInsets.bottom;
+                      final bottomPadding = keyboardInset > 0
+                          ? keyboardInset
                           : MediaQuery.of(ctx).padding.bottom;
+
+                      // Never let the content collapse: when the keyboard shrinks the
+                      // viewport (especially in landscape) keep a usable height and let
+                      // this ListView scroll, instead of squeezing the TabBarView into
+                      // a RenderFlex overflow.
+                      const minContentHeight = 320.0;
+                      final contentHeight = math.max(
+                        constraints.maxHeight - bottomPadding,
+                        minContentHeight,
+                      );
+
                       return ListView(
                         controller: scrollController,
                         padding: EdgeInsets.only(bottom: bottomPadding),
                         children: [
                           SizedBox(
-                            height: constraints.maxHeight - bottomPadding,
+                            height: contentHeight,
                             child: Beamer(routerDelegate: _beamerDelegate),
                           ),
                         ],
