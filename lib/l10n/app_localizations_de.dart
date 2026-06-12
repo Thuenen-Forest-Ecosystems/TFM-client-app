@@ -204,6 +204,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get gridRowEditTitle => 'Zeile bearbeiten';
 
   @override
+  String get gridRowEditSave => 'Speichern';
+
+  @override
+  String get gridRowAddSave => 'Hinzufügen';
+
+  @override
   String get gridRowAddTitle => 'Zeile hinzufügen';
 
   @override

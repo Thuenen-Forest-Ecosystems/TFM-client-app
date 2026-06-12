@@ -98,6 +98,8 @@
     "gridAddRowFormTooltip": "Add row via form",
     "gridNoEntryRequired": "No entry required",
     "gridRowEditTitle": "Edit row",
+    "gridRowEditSave": "Save",
+    "gridRowAddSave": "Add",
     "gridRowAddTitle": "Add row",
     "gridRowAddTitleDefault": "Add new row",
     "gridSave": "Save",

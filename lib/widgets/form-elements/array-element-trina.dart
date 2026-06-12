@@ -2152,6 +2152,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       columnItems: widget.columnItems,
       layoutOptions: widget.layoutOptions,
       title: AppLocalizations.of(context)!.gridRowEditTitle,
+      saveButtonText: AppLocalizations.of(context)!.gridRowEditSave,
       readOnly: _isArrayReadOnly,
       previousRowData: previousRowData,
       rowValidationResult: rowValidationResult,
@@ -2345,6 +2346,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       columnItems: widget.columnItems,
       layoutOptions: widget.layoutOptions,
       title: AppLocalizations.of(context)!.gridRowAddTitle,
+      saveButtonText: AppLocalizations.of(context)!.gridRowAddSave,
       readOnly: _isArrayReadOnly,
     );
 

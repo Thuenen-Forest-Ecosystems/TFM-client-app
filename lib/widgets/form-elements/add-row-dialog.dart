@@ -6,18 +6,32 @@ class AddRowDialog extends StatefulWidget {
   final String propertyName;
   final Function(Map<String, dynamic>) onRowAdded;
 
-  const AddRowDialog({super.key, required this.jsonSchema, required this.propertyName, required this.onRowAdded});
+  const AddRowDialog({
+    super.key,
+    required this.jsonSchema,
+    required this.propertyName,
+    required this.onRowAdded,
+  });
 
   @override
   State<AddRowDialog> createState() => _AddRowDialogState();
 
-  static Future<void> show({required BuildContext context, required Map<String, dynamic> jsonSchema, required String propertyName, required Function(Map<String, dynamic>) onRowAdded}) async {
+  static Future<void> show({
+    required BuildContext context,
+    required Map<String, dynamic> jsonSchema,
+    required String propertyName,
+    required Function(Map<String, dynamic>) onRowAdded,
+  }) async {
     await showDialog(
       context: context,
       barrierDismissible: false,
       useSafeArea: true,
       builder: (BuildContext context) {
-        return AddRowDialog(jsonSchema: jsonSchema, propertyName: propertyName, onRowAdded: onRowAdded);
+        return AddRowDialog(
+          jsonSchema: jsonSchema,
+          propertyName: propertyName,
+          onRowAdded: onRowAdded,
+        );
       },
     );
   }
@@ -120,14 +134,20 @@ class _AddRowDialogState extends State<AddRowDialog> {
     return Dialog.fullscreen(
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Neuen ${_getDisplayName()} hinzufügen', style: TextStyle(fontSize: isTablet ? 20 : 18)),
+          title: Text(
+            'Neuen ${_getDisplayName()} hinzufügen',
+            style: TextStyle(fontSize: isTablet ? 20 : 18),
+          ),
           leading: IconButton(icon: const Icon(Icons.close), onPressed: _handleCancel),
           actions: [
             if (isTablet) ...[
               TextButton(onPressed: _handleCancel, child: const Text('Abbrechen')),
               ElevatedButton(
                 onPressed: _handleSave,
-                style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, foregroundColor: theme.colorScheme.onPrimary),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                ),
                 child: const Text('Hinzufügen'),
               ),
               const SizedBox(width: 16),
@@ -143,7 +163,13 @@ class _AddRowDialogState extends State<AddRowDialog> {
               padding: EdgeInsets.all(isTablet ? 24 : 16),
               child: Form(
                 key: _formKey,
-                child: GenericForm(jsonSchema: _itemSchema['properties'], data: _formData, propertyName: null, validationResult: null, onDataChanged: _handleFormDataChanged),
+                child: GenericForm(
+                  jsonSchema: _itemSchema['properties'],
+                  data: _formData,
+                  propertyName: null,
+                  validationResult: null,
+                  onDataChanged: _handleFormDataChanged,
+                ),
               ),
             ),
           ),
@@ -160,7 +186,9 @@ class _AddRowDialogState extends State<AddRowDialog> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _handleCancel,
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                         child: const Text('Abbrechen'),
                       ),
                     ),
@@ -168,7 +196,11 @@ class _AddRowDialogState extends State<AddRowDialog> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: _handleSave,
-                        style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, foregroundColor: theme.colorScheme.onPrimary, padding: const EdgeInsets.symmetric(vertical: 16)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                         child: const Text('Eintrag hinzufügen'),
                       ),
                     ),

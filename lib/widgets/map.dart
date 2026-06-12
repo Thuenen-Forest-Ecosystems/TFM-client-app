@@ -126,7 +126,9 @@ class _TFMMapState extends State<TFMMap> {
         initialCenter: _currentCenter,
         initialZoom: _currentZoom,
         cameraConstraint: CameraConstraint.containCenter(bounds: germanyBounds),
-        interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
         minZoom: 5.0,
         maxZoom: 22.0,
       );
@@ -202,30 +204,6 @@ class _TFMMapState extends State<TFMMap> {
 
   void _handleMapEvent(MapEvent event) {}
 
-  /*void _zoomIn() {
-    context.read<MapState>().zoomIn();
-  }
-
-  void _zoomOut() {
-    context.read<MapState>().zoomOut();
-  }
-
-  void _flatPlots() {
-    _plot_locations.clear();
-    if (clusters == null) return;
-
-    for (var cluster in clusters!) {
-      if (cluster['plot'] == null) continue;
-      for (var plot in cluster['plot']) {
-        if (plot['plot_location'] == null) continue;
-        for (var plot_location in plot['plot_location']) {
-          _plot_locations.add(plot_location);
-        }
-      }
-    }
-    setState(() {});
-  }*/
-
   Widget _plotLayer() {
     return GestureDetector(
       onTapUp: (details) {
@@ -240,18 +218,17 @@ class _TFMMapState extends State<TFMMap> {
       },
       child: CircleLayer(
         hitNotifier: _plotHitNotifier,
-        circles:
-            _plotList.map<CircleMarker<Object>>((plot) {
-              Map plotLocation = plot['plot_coordinates'][0]['center_location'];
+        circles: _plotList.map<CircleMarker<Object>>((plot) {
+          Map plotLocation = plot['plot_coordinates'][0]['center_location'];
 
-              return CircleMarker<Object>(
-                point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
-                radius: 5000,
-                useRadiusInMeter: true,
-                color: Colors.red, // Color(0xFF008CD2).withAlpha(150),
-                hitValue: plot,
-              );
-            }).toList(),
+          return CircleMarker<Object>(
+            point: LatLng(plotLocation['coordinates'][1], plotLocation['coordinates'][0]),
+            radius: 5000,
+            useRadiusInMeter: true,
+            color: Colors.red, // Color(0xFF008CD2).withAlpha(150),
+            hitValue: plot,
+          );
+        }).toList(),
       ),
     );
   }
@@ -266,30 +243,36 @@ class _TFMMapState extends State<TFMMap> {
       future: db.getAll('SELECT * FROM tree WHERE plot_id=?', [targetPlot['target']['id']]),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          Map<String, dynamic> jsonCoordinates = jsonDecode(targetPlot['target']['center_location_json']);
+          Map<String, dynamic> jsonCoordinates = jsonDecode(
+            targetPlot['target']['center_location_json'],
+          );
 
           return CircleLayer(
-            circles:
-                snapshot.data!.map<CircleMarker<Object>>((tree) {
-                  double dbh = 1000;
-                  Color color = Colors.black;
-                  double distance = double.parse(tree['distance']);
-                  double azimuth = double.parse(tree['azimuth']);
-                  if (tree['dbh'] != null) {
-                    dbh = double.parse(tree['dbh']);
-                    color = Colors.red;
-                  }
+            circles: snapshot.data!.map<CircleMarker<Object>>((tree) {
+              double dbh = 1000;
+              Color color = Colors.black;
+              double distance = double.parse(tree['distance']);
+              double azimuth = double.parse(tree['azimuth']);
+              if (tree['dbh'] != null) {
+                dbh = double.parse(tree['dbh']);
+                color = Colors.red;
+              }
 
-                  Point dest = destination(Point.fromJson(jsonCoordinates), distance, azimuth, Unit.centimeters);
+              Point dest = destination(
+                Point.fromJson(jsonCoordinates),
+                distance,
+                azimuth,
+                Unit.centimeters,
+              );
 
-                  return CircleMarker<Object>(
-                    point: LatLng(dest.coordinates.lat.toDouble(), dest.coordinates.lng.toDouble()),
-                    radius: dbh / 1000 / 2,
-                    useRadiusInMeter: true,
-                    color: color,
-                    //hitValue: plot,
-                  );
-                }).toList(),
+              return CircleMarker<Object>(
+                point: LatLng(dest.coordinates.lat.toDouble(), dest.coordinates.lng.toDouble()),
+                radius: dbh / 1000 / 2,
+                useRadiusInMeter: true,
+                color: color,
+                //hitValue: plot,
+              );
+            }).toList(),
           );
         }
         return Container();
@@ -316,8 +299,16 @@ class _TFMMapState extends State<TFMMap> {
             child: Container(
               width: 20.0,
               height: 20.0,
-              decoration: BoxDecoration(color: Color(0xFF333333), borderRadius: BorderRadius.circular(10)),
-              child: Center(child: Text(plot['plot_name'].toString(), style: const TextStyle(color: Colors.white))),
+              decoration: BoxDecoration(
+                color: Color(0xFF333333),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  plot['plot_name'].toString(),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
             ),
           ),
         ),
@@ -336,7 +327,10 @@ class _TFMMapState extends State<TFMMap> {
           String clusterName = (markers[0].key as ValueKey).value.toString().split('_')[1];
 
           return Container(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: Color(0xFF008CD2)),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Color(0xFF008CD2),
+            ),
             /*child: Center(
               child: Text(
                 clusterName, //markers.length.toString(),
@@ -375,7 +369,10 @@ class _TFMMapState extends State<TFMMap> {
       polylines: [
         Polyline(
           points: [
-            LatLng(gpsPositionProvider.lastPosition.latitude, gpsPositionProvider.lastPosition.longitude),
+            LatLng(
+              gpsPositionProvider.lastPosition.latitude,
+              gpsPositionProvider.lastPosition.longitude,
+            ),
             targetPlot['position'], //_nearestPlot!['position'],
           ],
           color: Color(0xFF008CD2),
@@ -390,7 +387,14 @@ class _TFMMapState extends State<TFMMap> {
       positionStream: gpsPositionProvider.positionStreamController.asBroadcastStream(),
       alignPositionOnUpdate: AlignOnUpdate.never,
       alignDirectionOnUpdate: AlignOnUpdate.never,
-      style: const LocationMarkerStyle(marker: DefaultLocationMarker(color: Color(0xFF008CD2), child: Icon(Icons.navigation, color: Colors.white, size: 10)), markerSize: Size(20, 20), markerDirection: MarkerDirection.heading),
+      style: const LocationMarkerStyle(
+        marker: DefaultLocationMarker(
+          color: Color(0xFF008CD2),
+          child: Icon(Icons.navigation, color: Colors.white, size: 10),
+        ),
+        markerSize: Size(20, 20),
+        markerDirection: MarkerDirection.heading,
+      ),
     );
   }
 
@@ -405,7 +409,10 @@ class _TFMMapState extends State<TFMMap> {
 
   _dopLayer() {
     return TileLayer(
-      wmsOptions: WMSTileLayerOptions(baseUrl: 'https://{s}.s2maps-tiles.eu/wms/?', layers: const ['s2cloudless-2021_3857']),
+      wmsOptions: WMSTileLayerOptions(
+        baseUrl: 'https://{s}.s2maps-tiles.eu/wms/?',
+        layers: const ['s2cloudless-2021_3857'],
+      ),
       subdomains: const ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
       userAgentPackageName: 'dev.fleaflet.flutter_map.example',
       //tileProvider: CancellableNetworkTileProvider(),
@@ -416,22 +423,44 @@ class _TFMMapState extends State<TFMMap> {
   _wmsDtk25Layer() {
     // https://gdz.bkg.bund.de/index.php/default/dienste_in_webanwendungen/
     return TileLayer(
-      wmsOptions: WMSTileLayerOptions(baseUrl: 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?', layers: const ['dtk25'], format: 'image/jpeg'),
+      wmsOptions: WMSTileLayerOptions(
+        baseUrl: 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?',
+        layers: const ['dtk25'],
+        format: 'image/jpeg',
+      ),
       userAgentPackageName: 'de.thuenen.tfm',
       //tileProvider: CancellableNetworkTileProvider(),
-      tileProvider: kIsWeb ? CancellableNetworkTileProvider() : FMTCStore('wms_dtk25__').getTileProvider(),
-      additionalOptions: {'userAgent': 'dev.fleaflet.flutter_map.example', 'layers': 'your-layer-name', 'format': 'image/png', 'transparent': 'true'},
+      tileProvider: kIsWeb
+          ? CancellableNetworkTileProvider()
+          : FMTCStore('wms_dtk25__').getTileProvider(),
+      additionalOptions: {
+        'userAgent': 'dev.fleaflet.flutter_map.example',
+        'layers': 'your-layer-name',
+        'format': 'image/png',
+        'transparent': 'true',
+      },
     );
   }
 
   _gdzLayer() {
     // https://sg.geodatenzentrum.de/wms_dop?request=GetCapabilities&service=WMS
     return TileLayer(
-      wmsOptions: WMSTileLayerOptions(baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?', layers: const ['rgb'], format: 'image/jpeg'), // https://sg.geodatenzentrum.de/wms_dtk25?request=GetCapabilities&service=WMS
+      wmsOptions: WMSTileLayerOptions(
+        baseUrl: 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
+        layers: const ['rgb'],
+        format: 'image/jpeg',
+      ), // https://sg.geodatenzentrum.de/wms_dtk25?request=GetCapabilities&service=WMS
       userAgentPackageName: 'de.thuenen.tfm',
       //tileProvider: CancellableNetworkTileProvider(),
-      tileProvider: kIsWeb ? CancellableNetworkTileProvider() : FMTCStore('wms_dop__').getTileProvider(),
-      additionalOptions: {'userAgent': 'dev.fleaflet.flutter_map.example', 'layers': 'your-layer-name', 'format': 'image/png', 'transparent': 'true'},
+      tileProvider: kIsWeb
+          ? CancellableNetworkTileProvider()
+          : FMTCStore('wms_dop__').getTileProvider(),
+      additionalOptions: {
+        'userAgent': 'dev.fleaflet.flutter_map.example',
+        'layers': 'your-layer-name',
+        'format': 'image/png',
+        'transparent': 'true',
+      },
     );
   }
 
@@ -457,23 +486,18 @@ class _TFMMapState extends State<TFMMap> {
       if (point.longitude > maxLng) maxLng = point.longitude;
     }
 
-    _mapController.fitCamera(CameraFit.bounds(bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)), padding: const EdgeInsets.all(20)));
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)),
+        padding: const EdgeInsets.all(20),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     bool isMapOpen = context.watch<MapState>().mapOpen;
 
-    /*final zoom = context.watch<MapState>().zoom;
-    if (zoom != _zoomState) {
-      zoom > _zoomState ? _zoomIn() : _zoomOut();
-      _zoomState = zoom;
-    }
-    final newFocus = context.watch<MapState>().focusAll;
-    if (_focusAllCluster != newFocus) {
-      focusAllCluster();
-      _focusAllCluster = newFocus;
-    }*/
     // Only render the map when controller is initialized
     if (!_isControllerInitialized) {
       return Center(child: CircularProgressIndicator());
@@ -488,8 +512,17 @@ class _TFMMapState extends State<TFMMap> {
 
             options: options,
             children: [
-              Visibility(child: _wmsDtk25Layer(), visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY')),
-              Visibility(child: _gdzLayer(), visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY') && context.read<MapState>().isDop),
+              Visibility(
+                child: _wmsDtk25Layer(),
+                visible: isMapOpen && dotenv.env.containsKey('DMZ_KEY'),
+              ),
+              Visibility(
+                child: _gdzLayer(),
+                visible:
+                    isMapOpen &&
+                    dotenv.env.containsKey('DMZ_KEY') &&
+                    context.read<MapState>().isDop,
+              ),
               if (!dotenv.env.containsKey('DMZ_KEY')) _osmLayer(),
               _plotLayer(),
               FutureBuilder(
@@ -505,7 +538,10 @@ class _TFMMapState extends State<TFMMap> {
                 builder: (context, gpsPositionProvider, child) {
                   // check if lastPosition.timestamp is older than 5 seconds
                   if (gpsPositionProvider.lastPosition == null) return Container();
-                  if (gpsPositionProvider.lastPosition!.timestamp.isBefore(DateTime.now().subtract(const Duration(seconds: 10)))) return Container();
+                  if (gpsPositionProvider.lastPosition!.timestamp.isBefore(
+                    DateTime.now().subtract(const Duration(seconds: 10)),
+                  ))
+                    return Container();
 
                   return Stack(
                     children: [
@@ -538,8 +574,19 @@ class _TFMMapState extends State<TFMMap> {
               child: Container(
                 margin: const EdgeInsets.all(5),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.all(Radius.circular(20))),
-                child: Row(children: [Icon(Icons.open_in_full, size: 20), Text(' ${_nearestPlot!['prettyDistance']}'), VerticalDivider(), Icon(Icons.explore, size: 20), Text(' ${_nearestPlot!['bearing'].toStringAsFixed(2)} °')]),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  borderRadius: const BorderRadius.all(Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.open_in_full, size: 20),
+                    Text(' ${_nearestPlot!['prettyDistance']}'),
+                    VerticalDivider(),
+                    Icon(Icons.explore, size: 20),
+                    Text(' ${_nearestPlot!['bearing'].toStringAsFixed(2)} °'),
+                  ],
+                ),
               ),
             );
           },

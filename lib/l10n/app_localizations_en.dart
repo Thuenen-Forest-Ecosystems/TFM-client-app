@@ -203,6 +203,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gridRowEditTitle => 'Edit row';
 
   @override
+  String get gridRowEditSave => 'Save';
+
+  @override
+  String get gridRowAddSave => 'Add';
+
+  @override
   String get gridRowAddTitle => 'Add row';
 
   @override

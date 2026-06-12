@@ -156,8 +156,7 @@ class _MapWidgetState extends State<MapWidget> {
         try {
           final mapControllerProvider = context.read<MapControllerProvider>();
           mapControllerProvider.setFlutterMapController(_mapController);
-        } catch (e) {
-        }
+        } catch (e) {}
 
         // Set up listener for MapControllerProvider focus bounds
         final mapControllerProvider = context.read<MapControllerProvider>();
@@ -202,8 +201,7 @@ class _MapWidgetState extends State<MapWidget> {
       if (manualMoveTimestamp != null && manualMoveTimestamp != _lastManualFocusTime) {
         _lastManualFocusTime = manualMoveTimestamp;
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   /// Check if center position changed and recalculate positions
@@ -243,8 +241,7 @@ class _MapWidgetState extends State<MapWidget> {
           }
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _checkForFocusedRecord() async {
@@ -298,8 +295,7 @@ class _MapWidgetState extends State<MapWidget> {
           });
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<List<Map<String, dynamic>>> _calculateTreePositions(
@@ -586,7 +582,6 @@ class _MapWidgetState extends State<MapWidget> {
     final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
     final properties = params['properties'] as Map<String, dynamic>;
 
-
     if (recordCoords == null) return positions;
 
     final centerLat = recordCoords['latitude'] as double;
@@ -628,7 +623,6 @@ class _MapWidgetState extends State<MapWidget> {
           // Convert distance from cm to meters then to kilometers
           final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
 
-
           // Use Turf's destination to calculate the new position
           final destinationPoint = turf.destination(
             centerPoint,
@@ -652,8 +646,7 @@ class _MapWidgetState extends State<MapWidget> {
           });
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
 
     return positions;
   }
@@ -717,8 +710,7 @@ class _MapWidgetState extends State<MapWidget> {
           results.add({'points': currentPolyline, 'edge_number': edgeGroup['edge_number']});
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
 
     return results;
   }
@@ -727,7 +719,6 @@ class _MapWidgetState extends State<MapWidget> {
     final List<Map<String, dynamic>> positions = [];
     final recordCoords = params['recordCoords'] as Map<String, dynamic>?;
     final properties = params['properties'] as Map<String, dynamic>;
-
 
     if (recordCoords == null) return positions;
 
@@ -759,7 +750,6 @@ class _MapWidgetState extends State<MapWidget> {
           // Convert distance from cm to meters then to kilometers
           final distanceKm = (distance as num).toDouble() / 100.0 / 1000.0;
 
-
           // Use Turf's destination to calculate the center position of the subplot
           final destinationPoint = turf.destination(
             centerPoint,
@@ -781,8 +771,7 @@ class _MapWidgetState extends State<MapWidget> {
           });
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
 
     return positions;
   }
@@ -875,8 +864,7 @@ class _MapWidgetState extends State<MapWidget> {
       final savedShowRettungspunkte = prefs.getBool('show_rettungspunkte');
       if (savedShowRettungspunkte != null)
         setState(() => _showRettungspunkte = savedShowRettungspunkte);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _saveMapSettings() async {
@@ -891,8 +879,7 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setBool('show_cluster_polygons', _showClusterPolygons);
       await prefs.setBool('show_probekreise', _showProbekreise);
       await prefs.setBool('show_rettungspunkte', _showRettungspunkte);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _loadRettungspunkte() async {
@@ -904,8 +891,7 @@ class _MapWidgetState extends State<MapWidget> {
           _rettungspunkte = points;
         });
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _loadTreeSpeciesLookup() async {
@@ -933,8 +919,7 @@ class _MapWidgetState extends State<MapWidget> {
           _treeSpeciesLookup = lookup;
         });
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   @override
@@ -989,7 +974,6 @@ class _MapWidgetState extends State<MapWidget> {
         }
         _lastRecordsFingerprint = fingerprint;
 
-
         if (!_isDisposed && mounted) {
           setState(() {
             _records = recordsWithCoords;
@@ -1040,8 +1024,7 @@ class _MapWidgetState extends State<MapWidget> {
           _lastRecordsFingerprint = null;
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _checkForFocusBounds() {
@@ -1057,7 +1040,6 @@ class _MapWidgetState extends State<MapWidget> {
         _lastFocusTimestamp = timestamp;
         _lastManualFocusTime = DateTime.now(); // Track manual focus
 
-
         // Fit camera to the requested bounds
         _mapController.fitCamera(
           CameraFit.bounds(bounds: focusBounds, padding: const EdgeInsets.all(50)),
@@ -1070,8 +1052,7 @@ class _MapWidgetState extends State<MapWidget> {
           }
         });
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _subscribeToGPS() {
@@ -1089,27 +1070,20 @@ class _MapWidgetState extends State<MapWidget> {
             _currentAccuracy = position.accuracy;
           });
         },
-        onError: (error) {
-        },
-        onDone: () {
-        },
+        onError: (error) {},
+        onDone: () {},
       );
 
       _headingSubscription?.cancel();
-      _headingSubscription = gpsProvider.headingStreamController.listen(
-        (heading) {
-          if (_isDisposed) return;
-          setState(() {
-            _currentHeading = heading.heading;
-            _currentHeadingAccuracy = heading.accuracy;
-            _headingSource = gpsProvider.headingSource;
-          });
-        },
-        onError: (error) {
-        },
-      );
-    } catch (e) {
-    }
+      _headingSubscription = gpsProvider.headingStreamController.listen((heading) {
+        if (_isDisposed) return;
+        setState(() {
+          _currentHeading = heading.heading;
+          _currentHeadingAccuracy = heading.accuracy;
+          _headingSource = gpsProvider.headingSource;
+        });
+      }, onError: (error) {});
+    } catch (e) {}
   }
 
   Future<void> _updateVisibleRecords() async {
@@ -1129,8 +1103,7 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.setCurrentMapBounds(bounds);
-    } catch (e) {
-    }
+    } catch (e) {}
 
     // Only update if bounds changed significantly (avoid micro-updates during pan)
     if (_lastBounds != null) {
@@ -1235,7 +1208,6 @@ class _MapWidgetState extends State<MapWidget> {
       // Add some padding (10% of the range)
       final latPadding = (maxLat - minLat) * 0.1;
       final lngPadding = (maxLng - minLng) * 0.1;
-
 
       final bounds = LatLngBounds(
         LatLng(minLat - latPadding, minLng - lngPadding),
@@ -1349,7 +1321,6 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   void _onMarkerTapped(Record record) {
-
     // Mark as manual interaction to prevent auto-fit
     _lastManualFocusTime = DateTime.now();
 
@@ -1367,8 +1338,7 @@ class _MapWidgetState extends State<MapWidget> {
       final navPath =
           '/properties-edit/${Uri.encodeComponent(record.clusterId)}/${Uri.encodeComponent(record.plotName ?? '')}';
       mapControllerProvider.requestNavigation(navPath);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _onClusterTapped(List<Marker> markers) {
@@ -1383,16 +1353,14 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('tree', treeNumber);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _onEdgeCircleTapped(int edgeNumber) {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('edges', edgeNumber);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Widget _buildClusterMarker(BuildContext context, List<Marker> markers) {
@@ -1577,8 +1545,7 @@ class _MapWidgetState extends State<MapWidget> {
 
       final recordsProvider = context.read<RecordsListProvider>();
       recordsProvider.removeListener(_onProviderChanged);
-    } catch (e) {
-    }
+    } catch (e) {}
 
     super.dispose();
   }
@@ -1794,10 +1761,8 @@ class _MapWidgetState extends State<MapWidget> {
                   errorMsg.contains('certificate') ||
                   errorMsg.contains('proxy') ||
                   errorMsg.contains('connection')) {
-              } else {
-              }
-              if (stackTrace != null) {
-              }
+              } else {}
+              if (stackTrace != null) {}
             },
           ),
 
@@ -2207,6 +2172,25 @@ class _MapWidgetState extends State<MapWidget> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.settings,
+                                size: 20,
+                                color: Theme.of(ctx).colorScheme.onSurface,
+                              ),
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () {
+                                // open map settings
+                                _openMapSettings();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Container(
                             decoration: BoxDecoration(
                               color: Theme.of(ctx).colorScheme.surface,

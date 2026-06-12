@@ -23,6 +23,7 @@ class ArrayRowFormDialog extends StatefulWidget {
   final List<dynamic>? columnItems;
   final Map<String, dynamic>? layoutOptions;
   final String title;
+  final String? saveButtonText;
   final bool readOnly;
 
   /// Optional previous row data for computed fields that depend on previous inventory
@@ -41,6 +42,7 @@ class ArrayRowFormDialog extends StatefulWidget {
     this.columnItems,
     this.layoutOptions,
     this.title = '',
+    this.saveButtonText,
     this.readOnly = false,
     this.previousRowData,
     this.rowValidationResult,
@@ -55,6 +57,7 @@ class ArrayRowFormDialog extends StatefulWidget {
     List<dynamic>? columnItems,
     Map<String, dynamic>? layoutOptions,
     String? title,
+    String? saveButtonText,
     bool readOnly = false,
     Map<String, dynamic>? previousRowData,
     TFMValidationResult? rowValidationResult,
@@ -69,6 +72,7 @@ class ArrayRowFormDialog extends StatefulWidget {
         columnItems: columnItems,
         layoutOptions: layoutOptions,
         title: title ?? '',
+        saveButtonText: saveButtonText,
         readOnly: readOnly,
         previousRowData: previousRowData,
         rowValidationResult: rowValidationResult,
@@ -804,7 +808,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                   if (!widget.readOnly)
                     ElevatedButton(
                       onPressed: _handleSave,
-                      child: Text(AppLocalizations.of(context)!.gridSave),
+                      child: Text(widget.saveButtonText ?? AppLocalizations.of(context)!.gridSave),
                     ),
                 ],
               ),

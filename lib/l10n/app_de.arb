@@ -74,6 +74,8 @@
     "gridAddRowFormTooltip": "Zeile \u00fcber Formular hinzuf\u00fcgen",
     "gridNoEntryRequired": "Kein Eintrag erforderlich",
     "gridRowEditTitle": "Zeile bearbeiten",
+    "gridRowEditSave": "Speichern",
+    "gridRowAddSave": "Hinzuf\u00fcgen",
     "gridRowAddTitle": "Zeile hinzuf\u00fcgen",
     "gridRowAddTitleDefault": "Neue Zeile hinzuf\u00fcgen",
     "gridSave": "Speichern",

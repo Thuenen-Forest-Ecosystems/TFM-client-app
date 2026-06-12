@@ -470,6 +470,18 @@ abstract class AppLocalizations {
   /// **'Edit row'**
   String get gridRowEditTitle;
 
+  /// No description provided for @gridRowEditSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get gridRowEditSave;
+
+  /// No description provided for @gridRowAddSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get gridRowAddSave;
+
   /// No description provided for @gridRowAddTitle.
   ///
   /// In en, this message translates to:
