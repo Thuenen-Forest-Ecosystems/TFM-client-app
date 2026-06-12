@@ -102,5 +102,16 @@
     },
     "versionOpenRelease": "Release der neuen Version öffnen",
     "versionOpenAllReleases": "Alle Releases öffnen",
-    "versionCheckForUpdates": "Nach Updates suchen"
+    "versionCheckForUpdates": "Nach Updates suchen",
+
+    "messageAddTitle": "Nachricht hinzufügen",
+    "messageHint": "Nachricht eingeben…",
+    "messageCancel": "Abbrechen",
+    "messageSend": "Senden",
+    "messageEmpty": "Keine Nachrichten",
+    "messageDeleteTitle": "Nachricht löschen",
+    "messageDeleteConfirm": "Möchten Sie diese Nachricht wirklich löschen?",
+    "messageDelete": "Löschen",
+    "messageSendError": "Fehler beim Senden der Nachricht: {error}",
+    "messageDeleteError": "Fehler beim Löschen der Nachricht: {error}"
 }

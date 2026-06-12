@@ -259,4 +259,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get versionCheckForUpdates => 'Check for updates';
+
+  @override
+  String get messageAddTitle => 'Add message';
+
+  @override
+  String get messageHint => 'Enter message…';
+
+  @override
+  String get messageCancel => 'Cancel';
+
+  @override
+  String get messageSend => 'Send';
+
+  @override
+  String get messageEmpty => 'No messages';
+
+  @override
+  String get messageDeleteTitle => 'Delete message';
+
+  @override
+  String get messageDeleteConfirm =>
+      'Do you really want to delete this message?';
+
+  @override
+  String get messageDelete => 'Delete';
+
+  @override
+  String messageSendError(String error) {
+    return 'Error sending message: $error';
+  }
+
+  @override
+  String messageDeleteError(String error) {
+    return 'Error deleting message: $error';
+  }
 }

@@ -260,4 +260,39 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get versionCheckForUpdates => 'Nach Updates suchen';
+
+  @override
+  String get messageAddTitle => 'Nachricht hinzufügen';
+
+  @override
+  String get messageHint => 'Nachricht eingeben…';
+
+  @override
+  String get messageCancel => 'Abbrechen';
+
+  @override
+  String get messageSend => 'Senden';
+
+  @override
+  String get messageEmpty => 'Keine Nachrichten';
+
+  @override
+  String get messageDeleteTitle => 'Nachricht löschen';
+
+  @override
+  String get messageDeleteConfirm =>
+      'Möchten Sie diese Nachricht wirklich löschen?';
+
+  @override
+  String get messageDelete => 'Löschen';
+
+  @override
+  String messageSendError(String error) {
+    return 'Fehler beim Senden der Nachricht: $error';
+  }
+
+  @override
+  String messageDeleteError(String error) {
+    return 'Fehler beim Löschen der Nachricht: $error';
+  }
 }

@@ -577,6 +577,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Check for updates'**
   String get versionCheckForUpdates;
+
+  /// No description provided for @messageAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add message'**
+  String get messageAddTitle;
+
+  /// No description provided for @messageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter message…'**
+  String get messageHint;
+
+  /// No description provided for @messageCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get messageCancel;
+
+  /// No description provided for @messageSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get messageSend;
+
+  /// No description provided for @messageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages'**
+  String get messageEmpty;
+
+  /// No description provided for @messageDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete message'**
+  String get messageDeleteTitle;
+
+  /// No description provided for @messageDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you really want to delete this message?'**
+  String get messageDeleteConfirm;
+
+  /// No description provided for @messageDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get messageDelete;
+
+  /// No description provided for @messageSendError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error sending message: {error}'**
+  String messageSendError(String error);
+
+  /// No description provided for @messageDeleteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error deleting message: {error}'**
+  String messageDeleteError(String error);
 }
 
 class _AppLocalizationsDelegate

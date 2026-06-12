@@ -126,5 +126,26 @@
     },
     "versionOpenRelease": "Open new version release",
     "versionOpenAllReleases": "Open all releases",
-    "versionCheckForUpdates": "Check for updates"
+    "versionCheckForUpdates": "Check for updates",
+
+    "messageAddTitle": "Add message",
+    "messageHint": "Enter message…",
+    "messageCancel": "Cancel",
+    "messageSend": "Send",
+    "messageEmpty": "No messages",
+    "messageDeleteTitle": "Delete message",
+    "messageDeleteConfirm": "Do you really want to delete this message?",
+    "messageDelete": "Delete",
+    "messageSendError": "Error sending message: {error}",
+    "@messageSendError": {
+        "placeholders": {
+            "error": {"type": "String"}
+        }
+    },
+    "messageDeleteError": "Error deleting message: {error}",
+    "@messageDeleteError": {
+        "placeholders": {
+            "error": {"type": "String"}
+        }
+    }
 }

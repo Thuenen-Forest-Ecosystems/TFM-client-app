@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class MessagesChat extends StatefulWidget {
@@ -38,8 +39,7 @@ class _MessagesChatState extends State<MessagesChat> {
       setState(() {
         _currentUserId = user?.id;
       });
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _watchMessages() {
@@ -100,16 +100,11 @@ class _MessagesChatState extends State<MessagesChat> {
 
       _messageController.clear();
       FocusManager.instance.primaryFocus?.unfocus();
-
-      // Verify what was actually saved
-      final saved = await db.get('SELECT id, records_id, note FROM records_messages WHERE id = ?', [
-        await messageId,
-      ]);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Fehler beim Senden der Nachricht: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.messageSendError(e.toString()))),
+        );
       }
     }
   }
@@ -119,28 +114,68 @@ class _MessagesChatState extends State<MessagesChat> {
       await db.execute('DELETE FROM records_messages WHERE id = ?', [messageId]);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Fehler beim Löschen der Nachricht: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.messageDeleteError(e.toString()))),
+        );
       }
     }
   }
 
+  void _showAddMessageDialog() {
+    final l10n = AppLocalizations.of(context)!;
+    _messageController.clear();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.messageAddTitle),
+        content: TextField(
+          controller: _messageController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: l10n.messageHint,
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          minLines: 3,
+          maxLines: 5,
+          textInputAction: TextInputAction.newline,
+          keyboardType: TextInputType.multiline,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.messageCancel),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.send),
+            label: Text(l10n.messageSend),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _sendMessage();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeleteConfirmation(String messageId) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Nachricht löschen'),
-        content: const Text('Möchten Sie diese Nachricht wirklich löschen?'),
+        title: Text(l10n.messageDeleteTitle),
+        content: Text(l10n.messageDeleteConfirm),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l10n.messageCancel)),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
               _deleteMessage(messageId);
               FocusManager.instance.primaryFocus?.unfocus();
             },
-            child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.messageDelete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -203,7 +238,7 @@ class _MessagesChatState extends State<MessagesChat> {
       builder: (context, constraints) {
         // Check if we have bounded constraints
         final hasHeight = constraints.maxHeight != double.infinity;
-        const minHeight = 200.0; // Minimum height for chat to be usable
+        const minHeight = 50.0; // Minimum height for chat to be usable
 
         // Determine the height to apply
         double? height;
@@ -219,49 +254,47 @@ class _MessagesChatState extends State<MessagesChat> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _messages.isEmpty
-                  ? const Center(
-                      child: Text('Keine Nachrichten', style: TextStyle(color: Colors.grey)),
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.messageEmpty,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
                     )
                   : ListView.builder(
                       controller: _scrollController,
+                      // Leave room so the floating action button does not cover the last message.
+                      padding: widget.readOnly ? null : const EdgeInsets.only(bottom: 80),
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
                         return _buildMessageBubble(_messages[index]);
                       },
                     ),
             ),
-            if (!widget.readOnly)
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        decoration: const InputDecoration(
-                          hintText: 'Nachricht eingeben...',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        minLines: 1,
-                        maxLines: 5,
-                        textInputAction: TextInputAction.newline,
-                        keyboardType: TextInputType.multiline,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(onPressed: _sendMessage, icon: const Icon(Icons.send)),
-                  ],
-                ),
-              ),
           ],
         );
 
         if (height != null) {
-          return SizedBox(height: height, child: content);
+          content = SizedBox(height: height, child: content);
         }
 
-        return content;
+        if (widget.readOnly) {
+          return content;
+        }
+
+        return Stack(
+          children: [
+            content,
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: _showAddMessageDialog,
+                tooltip: AppLocalizations.of(context)!.messageAddTitle,
+                child: const Icon(Icons.add),
+              ),
+            ),
+          ],
+        );
       },
     );
   }
