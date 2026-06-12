@@ -151,6 +151,9 @@ class TrinaCell {
       return;
     }
     _value = changed;
+    // Invalidate the cached sort value so sorting reflects the new value.
+    // It is lazily recomputed in [valueForSorting].
+    _valueForSorting = null;
   }
 
   /// Helper method to store the old value when change tracking is enabled

@@ -22,6 +22,11 @@ class NestedTabs extends StatefulWidget {
 class _NestedTabsState extends State<NestedTabs> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // Indices of tabs that have been visited. Visited tabs stay in the tree
+  // (offstage when inactive) so their state — e.g. TrinaGrid sorting and
+  // scroll position — survives tab switches. Unvisited tabs are not built.
+  final Set<int> _builtTabIndices = {};
+
   @override
   void initState() {
     super.initState();
@@ -60,11 +65,30 @@ class _NestedTabsState extends State<NestedTabs> with SingleTickerProviderStateM
             child: AnimatedBuilder(
               animation: _tabController,
               builder: (context, child) {
-                // Build only the current tab's content
-                final currentItem = widget.tabsLayout.items[_tabController.index];
-                final content = widget.buildWidgetFromLayout(currentItem, widget.schemaProperties);
-                // Only wrap in ScrollView if scrollableTabView is true
-                return scrollableTabView ? SingleChildScrollView(child: content) : content;
+                final currentIndex = _tabController.index;
+                _builtTabIndices.add(currentIndex);
+
+                // Keep visited tabs in the tree (offstage when inactive) so
+                // their state survives tab switches; lazily skip unvisited ones.
+                final children = List<Widget>.generate(widget.tabsLayout.items.length, (i) {
+                  if (!_builtTabIndices.contains(i)) return const SizedBox.shrink();
+
+                  final item = widget.tabsLayout.items[i];
+                  final content = widget.buildWidgetFromLayout(item, widget.schemaProperties);
+                  // Only wrap in ScrollView if scrollableTabView is true
+                  return Visibility(
+                    key: ValueKey(item.id),
+                    visible: i == currentIndex,
+                    maintainState: true,
+                    child: scrollableTabView ? SingleChildScrollView(child: content) : content,
+                  );
+                });
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                );
               },
             ),
           ),

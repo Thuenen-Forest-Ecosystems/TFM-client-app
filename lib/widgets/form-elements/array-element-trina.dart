@@ -74,7 +74,12 @@ class ArrayElementTrina extends StatefulWidget {
   State<ArrayElementTrina> createState() => ArrayElementTrinaState();
 }
 
-class ArrayElementTrinaState extends State<ArrayElementTrina> {
+class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeepAliveClientMixin {
+  // Keep the grid alive when its tab is off-screen so sorting and scroll
+  // position survive tab switches (TabBarView disposes inactive children).
+  @override
+  bool get wantKeepAlive => true;
+
   List<TrinaColumn> _columns = [];
   List<TrinaRow> _rows = [];
   List<TrinaColumnGroup> _columnGroups = [];
@@ -856,6 +861,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
           nestedArrayConfig = itemConfig;
         } else if (propertySchema.containsKey('enum')) {
           isEnum = true;
+          columnType = const EnumCodeColumnType();
         } else if (type == 'boolean') {
           isBoolean = true;
         } else if (type == 'integer' || type == 'number') {
@@ -1039,7 +1045,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         isCalculated = true;
       } else if (propertySchema.containsKey('enum')) {
         // Enum column - will use custom renderer with GenericEnumDialog
-        columnType = TrinaColumnTypeText();
+        columnType = const EnumCodeColumnType();
         isEnum = true;
       } else if (type == 'boolean') {
         columnType = TrinaColumnTypeText();
@@ -2640,17 +2646,29 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
     final ascending = sortEntry.value == 1;
     final newValue = newRow.cells[sortField]?.value;
 
+    // Use the column's own comparator so the insert position matches the
+    // grid's sort order (e.g. numeric enum codes, formatted numbers).
+    TrinaColumn? sortColumn;
+    for (final col in _columns) {
+      if (col.field == sortField) {
+        sortColumn = col;
+        break;
+      }
+    }
+
     final rows = _stateManager!.rows;
     for (int i = 0; i < rows.length; i++) {
       final existingValue = rows[i].cells[sortField]?.value;
-      if (_compareRowValues(newValue, existingValue, ascending) < 0) return i;
+      if (_compareRowValues(newValue, existingValue, ascending, sortColumn?.type) < 0) return i;
     }
     return rows.length;
   }
 
-  int _compareRowValues(dynamic a, dynamic b, bool ascending) {
+  int _compareRowValues(dynamic a, dynamic b, bool ascending, [TrinaColumnType? columnType]) {
     int result;
-    if (a == null && b == null) {
+    if (columnType != null) {
+      result = columnType.compare(a, b);
+    } else if (a == null && b == null) {
       result = 0;
     } else if (a == null) {
       result = 1; // nulls sort last
@@ -2894,6 +2912,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     if (_columns.isEmpty) {
       return const Center(child: Text('No schema properties found'));
     }
@@ -3178,5 +3197,27 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> {
         ),
       ],
     );
+  }
+}
+
+/// Column type for enum columns: cell values are the raw codes, so sorting
+/// compares them as numbers when both parse as numbers (2 before 10), and
+/// alphabetically otherwise (e.g. Bundesland codes like "HB", "BY").
+class EnumCodeColumnType extends TrinaColumnTypeText {
+  const EnumCodeColumnType();
+
+  @override
+  int compare(dynamic a, dynamic b) {
+    if (a == null || b == null) {
+      return a == b
+          ? 0
+          : a == null
+          ? -1
+          : 1;
+    }
+    final numA = a is num ? a : num.tryParse(a.toString());
+    final numB = b is num ? b : num.tryParse(b.toString());
+    if (numA != null && numB != null) return numA.compareTo(numB);
+    return a.toString().compareTo(b.toString());
   }
 }
