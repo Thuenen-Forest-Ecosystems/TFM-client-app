@@ -86,14 +86,21 @@ jobs:
       - name: Clean CMake cache (prevents generator mismatch after runner updates)
         shell: powershell
         run: |
-          $buildDir = "build\windows\x64"
-          if (Test-Path "$buildDir\CMakeCache.txt") {
-            Remove-Item "$buildDir\CMakeCache.txt" -Force
-            Write-Host "Removed CMakeCache.txt"
-          }
-          if (Test-Path "$buildDir\CMakeFiles") {
-            Remove-Item "$buildDir\CMakeFiles" -Recurse -Force
-            Write-Host "Removed CMakeFiles directory"
+          # The runner image migration (windows-latest -> VS 18 2026) changes the
+          # CMake generator. A restored build cache still pins "Visual Studio 17 2022",
+          # so every stale CMakeCache.txt must be removed -- including nested
+          # FetchContent sub-builds (e.g. objectbox-download-subbuild), not just the
+          # top-level one. Recurse to catch them all.
+          $buildDir = "build\windows"
+          if (Test-Path $buildDir) {
+            Get-ChildItem -Path $buildDir -Recurse -Filter "CMakeCache.txt" -ErrorAction SilentlyContinue | ForEach-Object {
+              Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+              Write-Host "Removed $($_.FullName)"
+            }
+            Get-ChildItem -Path $buildDir -Recurse -Directory -Filter "CMakeFiles" -ErrorAction SilentlyContinue | ForEach-Object {
+              Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "Removed $($_.FullName)"
+            }
           }
 
       - name: Build Windows Release
