@@ -83,6 +83,19 @@ jobs:
           New-Item -Path . -Name ".env" -ItemType "file" -Force
           Add-Content -Path .env -Value "DMZ_KEY=${{ secrets.DMZ_KEY }}"
 
+      - name: Clean CMake cache (prevents generator mismatch after runner updates)
+        shell: powershell
+        run: |
+          $buildDir = "build\windows\x64"
+          if (Test-Path "$buildDir\CMakeCache.txt") {
+            Remove-Item "$buildDir\CMakeCache.txt" -Force
+            Write-Host "Removed CMakeCache.txt"
+          }
+          if (Test-Path "$buildDir\CMakeFiles") {
+            Remove-Item "$buildDir\CMakeFiles" -Recurse -Force
+            Write-Host "Removed CMakeFiles directory"
+          }
+
       - name: Build Windows Release
         run: flutter build windows --release
 
