@@ -1632,20 +1632,23 @@ class _MapWidgetState extends State<MapWidget> {
           final newZoom = position.zoom;
 
           // Immediate setState when crossing any threshold that changes the
-          // widget tree: 9.5 / 13.5 for OCM tile-band switching, 13 for labels.
+          // widget tree: 9.5 / 13.5 / 16.5 for OCM tile-band switching, 13 for labels.
           final wasLow = _currentZoom < 9.5;
           final wasMid = _currentZoom >= 9.5 && _currentZoom < 13.5;
-          final wasHigh = _currentZoom >= 13.5;
+          final wasHigh = _currentZoom >= 13.5 && _currentZoom < 16.5;
+          final wasVeryHigh = _currentZoom >= 16.5;
           final wasShowingLabels = _currentZoom >= 13;
 
           final isLow = newZoom < 9.5;
           final isMid = newZoom >= 9.5 && newZoom < 13.5;
-          final isHigh = newZoom >= 13.5;
+          final isHigh = newZoom >= 13.5 && newZoom < 16.5;
+          final isVeryHigh = newZoom >= 16.5;
           final shouldShowLabels = newZoom >= 13;
 
           if (isLow != wasLow ||
               isMid != wasMid ||
               isHigh != wasHigh ||
+              isVeryHigh != wasVeryHigh ||
               shouldShowLabels != wasShowingLabels) {
             setState(() {
               _currentZoom = newZoom;
@@ -1668,12 +1671,16 @@ class _MapWidgetState extends State<MapWidget> {
       children: [
         // Tile Layers - rendered in order: OpenCycleMap → ESRI Satellite → DOP (top)
 
-        // Layer 1: OpenCycleMap — three mutually exclusive TileLayers, one per
-        // downloaded zoom band (4 / 10 / 14).  Only ONE is ever present in the
+        // Layer 1: OpenCycleMap — four mutually exclusive TileLayers, one per
+        // zoom band (4 / 10 / 14 / 17).  Only ONE is ever present in the
         // widget tree at a time (selected by _currentZoom), so flutter_map has
         // a single tile-event subscription and calculates tile coordinates at
-        // exactly the cached zoom level via minNativeZoom == maxNativeZoom.
+        // exactly the native zoom level via minNativeZoom == maxNativeZoom.
         // flutter_map then scales those tiles itself to fill the screen.
+        // Bands 4 / 10 / 14 are pre-downloaded for offline use; the native-17
+        // band is only fetched live when online (CacheBehavior.cacheFirst) and
+        // shown offline only where those tiles were previously cached. CyclOSM
+        // serves up to native zoom 20, so 17 is a safe source level.
         // (Using minZoom/maxZoom params inside TileLayer does NOT work for this:
         //  flutter_map checks _outsideZoomLimits against the clamped native zoom,
         //  not the actual map zoom, so tiles are loaded at every zoom level.)
@@ -1709,13 +1716,29 @@ class _MapWidgetState extends State<MapWidget> {
               ),
             )),
           ),
-        if (_selectedBasemaps.contains('opencycle') && _storesInitialized && _currentZoom >= 13.5)
+        if (_selectedBasemaps.contains('opencycle') &&
+            _storesInitialized &&
+            _currentZoom >= 13.5 &&
+            _currentZoom < 16.5)
           TileLayer(
             urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             subdomains: const ['a', 'b', 'c'],
             minNativeZoom: 14,
             maxNativeZoom: 14, // clamp all requests to cached zoom 14
+            tileProvider: (_ocmProvider ??= _ManagedTileProvider(
+              FMTCStore('OpenCycleMap').getTileProvider(
+                settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+              ),
+            )),
+          ),
+        if (_selectedBasemaps.contains('opencycle') && _storesInitialized && _currentZoom >= 16.5)
+          TileLayer(
+            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            subdomains: const ['a', 'b', 'c'],
+            minNativeZoom: 17,
+            maxNativeZoom: 17, // sharp detail at high zoom; live-fetched when online
             tileProvider: (_ocmProvider ??= _ManagedTileProvider(
               FMTCStore('OpenCycleMap').getTileProvider(
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
