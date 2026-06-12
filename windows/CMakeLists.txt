@@ -40,6 +40,14 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# VS 18 2026 / MSVC 14.51 turns <experimental/coroutine> into a hard error
+# (STL1011). Some third-party plugins (flutter_inappwebview_windows,
+# local_auth_windows, permission_handler_windows) still include it, so silence
+# the deprecation globally until those plugins migrate to C++20 <coroutine>.
+# Defined here (before the plugin add_subdirectory/include calls below) so it
+# propagates to every plugin target as well as the runner.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
