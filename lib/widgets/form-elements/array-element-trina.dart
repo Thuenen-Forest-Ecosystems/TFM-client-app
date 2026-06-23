@@ -1898,6 +1898,32 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     );
   }
 
+  /// Find the previous-survey row matching [currentRowData], using the
+  /// configured [identifierField] (or common fallbacks) to pair rows.
+  Map<String, dynamic>? _findMatchingPreviousRow(Map<String, dynamic> currentRowData) {
+    if (widget.previousData == null) return null;
+
+    // Use configured identifier field or fall back to common fields
+    final identifierFields = widget.identifierField != null
+        ? [widget.identifierField!]
+        : ['tree_number', 'edge_number', 'row_number', 'id'];
+
+    for (final idField in identifierFields) {
+      if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
+        final currentId = currentRowData[idField];
+
+        // Find matching row in previousData by this identifier
+        final match = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
+          (prevRow) => prevRow != null && prevRow[idField] == currentId,
+          orElse: () => null,
+        );
+
+        if (match != null) return match;
+      }
+    }
+    return null;
+  }
+
   Future<void> _openNestedArrayDialog(
     TrinaColumnRendererContext rendererContext,
     Map<String, dynamic> propertySchema,
@@ -1918,6 +1944,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
         ? '${widget.propertyName}/$rowIndex/$fieldKey'
         : '$rowIndex/$fieldKey';
 
+    // Find the matching previous-survey row for this grid row and slice its
+    // nested array, so the nested grid's cell info dialogs can show previous
+    // values too.
+    final currentRowData = rendererContext.row.cells.map((key, cell) => MapEntry(key, cell.value));
+    final previousRow = _findMatchingPreviousRow(currentRowData);
+    final previousNested = previousRow?[fieldKey];
+    final previousData = previousNested is List ? previousNested : null;
+
     final result = await ArrayGridDialog.show(
       context: context,
       nestedArraySchema: nestedArraySchema,
@@ -1928,6 +1962,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       columnConfig: nestedColumns,
       layoutOptions: nestedOptions,
       parentReadOnly: _isArrayReadOnly,
+      previousData: previousData,
+      identifierField: nestedColumns?['identifierField'] as String?,
     );
 
     if (result != null) {
@@ -1962,29 +1998,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final currentRowData = rendererContext.row.cells.map((key, cell) => MapEntry(key, cell.value));
 
     // Find matching previous row by identifier (tree_number, edge_number, etc.)
-    Map<String, dynamic>? previousRowData;
-    if (widget.previousData != null) {
-      // Use configured identifier field or fall back to common fields
-      final identifierFields = widget.identifierField != null
-          ? [widget.identifierField!]
-          : ['tree_number', 'edge_number', 'row_number', 'id'];
-
-      for (final idField in identifierFields) {
-        if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
-          final currentId = currentRowData[idField];
-
-          // Find matching row in previousData by this identifier
-          previousRowData = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
-            (prevRow) => prevRow != null && prevRow[idField] == currentId,
-            orElse: () => null,
-          );
-
-          if (previousRowData != null) {
-            break;
-          }
-        }
-      }
-    }
+    final previousRowData = _findMatchingPreviousRow(currentRowData);
 
     // Get field options from column config or columnItems
     Map<String, dynamic>? fieldOptions;

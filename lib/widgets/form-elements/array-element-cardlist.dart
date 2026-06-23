@@ -17,6 +17,13 @@ class ArrayElementCardList extends StatefulWidget {
   final List<dynamic>? data;
   final String? propertyName;
 
+  /// Previous data array – rows carried over from the previous inventory.
+  /// Rows matching an entry here (by [identifierField]) cannot be deleted.
+  final List<dynamic>? previousData;
+
+  /// Optional identifier field for matching rows between current and previous data.
+  final String? identifierField;
+
   /// Column items array (same format as datagrid `items`) – drives visible fields + defaults.
   final List<dynamic>? columnItems;
 
@@ -34,6 +41,8 @@ class ArrayElementCardList extends StatefulWidget {
     required this.jsonSchema,
     required this.data,
     this.propertyName,
+    this.previousData,
+    this.identifierField,
     this.columnItems,
     this.layoutOptions,
     this.label,
@@ -73,6 +82,32 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
 
   void _notifyDataChanged() {
     widget.onDataChanged?.call(List<dynamic>.from(_rows));
+  }
+
+  /// Check if a row has matching data in the previous inventory (by identifier).
+  /// Rows carried over from the previous inventory must not be deletable; only
+  /// newly added rows may be removed. Mirrors the logic in ArrayElementTrina.
+  bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) {
+    if (widget.previousData == null) return false;
+
+    // Use configured identifier field or fall back to common fields
+    final identifierFields = widget.identifierField != null
+        ? [widget.identifierField!]
+        : ['tree_number', 'edge_number', 'row_number', 'id'];
+
+    for (final idField in identifierFields) {
+      if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
+        final currentId = currentRowData[idField];
+
+        final matchFound = (widget.previousData as List).cast<Map<String, dynamic>?>().any(
+          (prevRow) => prevRow != null && prevRow[idField] == currentId,
+        );
+
+        if (matchFound) return true;
+      }
+    }
+
+    return false;
   }
 
   // ── Defaults ──────────────────────────────────────────────────────────────
@@ -392,8 +427,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
 
     final maxRows = (widget.layoutOptions?['maxRows'] as num?)?.toInt();
     final atMax = maxRows != null && _rows.length >= maxRows;
-    final margin = 0.0;
-    //(widget.layoutOptions?['margin'] as num?)?.toDouble() ?? 0.0;
+    final margin = (widget.layoutOptions?['margin'] as num?)?.toDouble() ?? 4.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
@@ -405,6 +439,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
           ..._rows.asMap().entries.map((entry) {
             final index = entry.key;
             final rowData = entry.value;
+            final hasPreviousData = _hasMatchingPreviousData(rowData);
 
             return Padding(
               padding: EdgeInsets.only(left: margin, right: margin, top: margin, bottom: margin),
@@ -436,10 +471,14 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          // Rows carried over from the previous inventory must
+                          // not be deletable; only newly added rows may be removed.
                           IconButton(
                             icon: const Icon(Icons.delete_outline, size: 18),
-                            onPressed: () => _deleteRow(index),
-                            tooltip: 'Eintrag löschen',
+                            onPressed: hasPreviousData ? null : () => _deleteRow(index),
+                            tooltip: hasPreviousData
+                                ? 'Aus Vorinventur übernommen – nicht löschbar'
+                                : 'Eintrag löschen',
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),
                           ),

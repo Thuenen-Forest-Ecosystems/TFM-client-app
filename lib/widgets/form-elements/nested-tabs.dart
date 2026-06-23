@@ -77,7 +77,11 @@ class _NestedTabsState extends State<NestedTabs> with SingleTickerProviderStateM
                   final content = widget.buildWidgetFromLayout(item, widget.schemaProperties);
                   // Only wrap in ScrollView if scrollableTabView is true
                   return Visibility(
-                    key: ValueKey(item.id),
+                    // Fold in the index so sibling tabs with the same id (e.g.
+                    // multiple unnamed 'column' layouts) don't collide. The
+                    // index is stable within this list, so visited-tab state
+                    // still survives tab switches.
+                    key: ValueKey('${item.id}_$i'),
                     visible: i == currentIndex,
                     maintainState: true,
                     child: scrollableTabView ? SingleChildScrollView(child: content) : content,

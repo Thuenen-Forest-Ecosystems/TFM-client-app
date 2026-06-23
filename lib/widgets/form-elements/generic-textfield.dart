@@ -7,8 +7,9 @@ import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-enum-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-info-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
-import 'package:math_expressions/math_expressions.dart';
+//import 'package:math_expressions/math_expressions.dart';
 //import 'package:terrestrial_forest_monitor/widgets/speech_to_text_button.dart';
 
 class GenericTextField extends StatefulWidget {
@@ -271,6 +272,56 @@ class _GenericTextFieldState extends State<GenericTextField> {
       if (enDesc != null) return enDesc;
     }
     return widget.fieldSchema['description'] as String?;
+  }
+
+  /// Formats a raw field value for display in the info dialog. Resolves enum
+  /// codes to their "code | name" label using the lookup table / $tfm names,
+  /// mirroring the enum picker's display logic.
+  String _formatValue(dynamic value, String langCode) {
+    if (value == null) return '';
+    final enumValues = widget.fieldSchema['enum'] as List?;
+    if (enumValues != null && enumValues.isNotEmpty) {
+      final index = enumValues.indexOf(value);
+      if (index != -1) {
+        final tfmData = widget.fieldSchema['\$tfm'] as Map<String, dynamic>?;
+        final lookupTable = tfmData?['lookup_table'] as String? ?? 'lookup_${widget.fieldName}';
+        final resolved = LookupService.instance.getNameList(lookupTable, enumValues, langCode);
+        List? names = resolved.any((e) => e != null) ? resolved : null;
+        if (names == null) {
+          if (langCode == 'en') {
+            names = tfmData?['name_en'] as List? ?? tfmData?['name_de'] as List?;
+          } else {
+            names = tfmData?['name_de'] as List?;
+          }
+        }
+        if (names != null && index < names.length && names[index] != null) {
+          return '$value | ${names[index]}';
+        }
+      }
+    }
+    return value.toString();
+  }
+
+  /// Small info-circle button that opens [GenericInfoDialog] showing the
+  /// field's schema metadata (title, description, type, unit), the current
+  /// value and – when present – the previous survey value with a "Set" action.
+  Widget _buildInfoButton(String langCode) {
+    final previousValue = widget.previousData?[widget.fieldName];
+    final hasPrevious = previousValue != null;
+    return ExcludeFocus(
+      child: IconButton(
+        icon: const Icon(Icons.info),
+        tooltip: 'Info',
+        onPressed: () => GenericInfoDialog.show(
+          context: context,
+          fieldName: widget.fieldName,
+          fieldSchema: widget.fieldSchema,
+          currentValueLabel: _formatValue(widget.value, langCode),
+          previousValueLabel: hasPrevious ? _formatValue(previousValue, langCode) : null,
+          onApplyPrevious: hasPrevious ? () => widget.onChanged?.call(previousValue) : null,
+        ),
+      ),
+    );
   }
 
   String? _getErrorText() {
@@ -839,7 +890,10 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(50)),
                   ),
-                  suffixIcon: const Icon(Icons.arrow_drop_down),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [const Icon(Icons.arrow_drop_down), _buildInfoButton(langCode)],
+                  ),
                   filled: true,
                   isDense: widget.dense,
                   fillColor: Colors.grey.withOpacity(0.1),
@@ -1138,7 +1192,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                       : null,
                   suffixIcon: hasSpinner
                       ? SizedBox(
-                          width: unit != null && unit.isNotEmpty ? 100 : 48,
+                          width: unit != null && unit.isNotEmpty ? 148 : 96,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -1154,10 +1208,11 @@ class _GenericTextFieldState extends State<GenericTextField> {
                                   onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
                                 ),
                               ),
+                              _buildInfoButton(langCode),
                             ],
                           ),
                         )
-                      : null,
+                      : _buildInfoButton(langCode),
                   /*suffixIcon: SpeechToTextButton(
                     controller: _controller,
                     fieldType: type,
@@ -1233,6 +1288,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 filled: true,
                 isDense: widget.dense,
                 fillColor: Colors.white.withOpacity(0.1),
+                suffixIcon: _buildInfoButton(langCode),
                 /*suffixIcon: SpeechToTextButton(
                   controller: _controller,
                   fieldType: 'string',

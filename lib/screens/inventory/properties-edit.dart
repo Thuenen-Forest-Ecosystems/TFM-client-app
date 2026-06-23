@@ -7,7 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
-//import 'package:maplibre_gl/maplibre_gl.dart';
+
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 
@@ -1200,205 +1200,200 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     final isPlayground = context.watch<PlaygroundModeProvider>().isPlaygroundMode;
 
     return Scaffold(
-      body: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: Column(
-          children: [
-            // Custom AppBar
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-              clipBehavior: Clip.none,
-              child: Row(
-                children: [
-                  ClusterInfoButton(
-                    record: _record,
-                    rootSchema: _rootSchema,
-                    tooltip: 'Informationen',
-                  ),
-                  /*IconButton(
+      // This screen is hosted inside the draggable bottom sheet (see start.dart),
+      // which already handles the soft-keyboard inset (ListView bottom padding +
+      // clamped content height). Letting this Scaffold also subtract the keyboard
+      // inset would double-count it and collapse the body to zero, making the
+      // content disappear when a field is focused.
+      resizeToAvoidBottomInset: false,
+      // Custom AppBar lives in the appBar slot so the Scaffold lays it out
+      // separately from the body, keeping it out of the body's flex layout.
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+          clipBehavior: Clip.none,
+          child: Row(
+            children: [
+              ClusterInfoButton(record: _record, rootSchema: _rootSchema, tooltip: 'Informationen'),
+              /*IconButton(
                     icon: const Icon(Icons.map, size: 20),
                     onPressed: () => _focusRecord(context),
                   ),*/
-                  //const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Trakt: ${_record?.clusterName ?? widget.clusterId}',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (_loadedSchemaVersion != null)
-                          Text(
-                            'Ecke: ${widget.plotName}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.grey,
-                            ),
-                          ),
-                      ],
+              //const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Trakt: ${_record?.clusterName ?? widget.clusterId}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                    if (_loadedSchemaVersion != null)
+                      Text(
+                        'Ecke: ${widget.plotName}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.grey,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
 
-                  Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      // card background color
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(50),
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  // card background color
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed:
+                          (_isSaving ||
+                              !_hasCompletedInitialValidation ||
+                              !_hasUnsavedChanges ||
+                              isPlayground ||
+                              _isAdminView)
+                          ? null
+                          : () => save('save'),
+                      color: Theme.of(context).colorScheme.primary,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : Icon(Icons.save),
                     ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed:
-                              (_isSaving ||
-                                  !_hasCompletedInitialValidation ||
-                                  !_hasUnsavedChanges ||
-                                  isPlayground ||
-                                  _isAdminView)
-                              ? null
-                              : () => save('save'),
-                          color: Theme.of(context).colorScheme.primary,
-                          icon: _isSaving
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Icon(Icons.save),
+                    //Vertical divider
+                    Container(width: 1, height: 24, color: Colors.white54),
+                    Badge.count(
+                      count: _validationResult?.allIssues.length ?? 0,
+                      isLabelVisible:
+                          _validationResult != null && _validationResult!.allIssues.isNotEmpty,
+                      textColor: Colors.white,
+                      child: TextButton(
+                        onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
+                            ? saveRecord
+                            : null,
+                        child: const Text('FERTIG'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              IfDatabaseAdmin(
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () {
+                    showMenu<String>(
+                      context: context,
+                      position: RelativeRect.fromLTRB(
+                        MediaQuery.of(context).size.width,
+                        kToolbarHeight,
+                        0,
+                        0,
+                      ),
+                      items: <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'json',
+                          child: Row(
+                            children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')],
+                          ),
                         ),
-                        //Vertical divider
-                        Container(width: 1, height: 24, color: Colors.white54),
-                        Badge.count(
-                          count: _validationResult?.allIssues.length ?? 0,
-                          isLabelVisible:
-                              _validationResult != null && _validationResult!.allIssues.isNotEmpty,
-                          textColor: Colors.white,
-                          child: TextButton(
-                            onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
-                                ? saveRecord
-                                : null,
-                            child: const Text('FERTIG'),
+                        PopupMenuItem<String>(
+                          value: 'schema',
+                          child: Row(
+                            children: [
+                              Icon(Icons.schema),
+                              SizedBox(width: 8),
+                              Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'style',
+                          child: Row(
+                            children: [Icon(Icons.palette), SizedBox(width: 8), Text('Show Style')],
+                          ),
+                        ),
+                        //Divider
+                        const PopupMenuDivider(),
+                        const PopupMenuItem<String>(
+                          value: 'select_schema',
+                          child: Row(
+                            children: [
+                              Icon(Icons.admin_panel_settings),
+                              SizedBox(width: 8),
+                              Text('Select Schema Version'),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                  ),
-
-                  IfDatabaseAdmin(
-                    child: IconButton(
-                      icon: const Icon(Icons.more_vert),
-                      onPressed: () {
-                        showMenu<String>(
-                          context: context,
-                          position: RelativeRect.fromLTRB(
-                            MediaQuery.of(context).size.width,
-                            kToolbarHeight,
-                            0,
-                            0,
-                          ),
-                          items: <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'json',
-                              child: Row(
-                                children: [Icon(Icons.code), SizedBox(width: 8), Text('Show JSON')],
-                              ),
-                            ),
-                            PopupMenuItem<String>(
-                              value: 'schema',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.schema),
-                                  SizedBox(width: 8),
-                                  Text('Schema: v${_loadedSchemaVersion ?? "Unknown"}'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'style',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.palette),
-                                  SizedBox(width: 8),
-                                  Text('Show Style'),
-                                ],
-                              ),
-                            ),
-                            //Divider
-                            const PopupMenuDivider(),
-                            const PopupMenuItem<String>(
-                              value: 'select_schema',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.admin_panel_settings),
-                                  SizedBox(width: 8),
-                                  Text('Select Schema Version'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ).then((value) {
-                          if (value == 'json') {
-                            _showCurrentAsJson();
-                          } else if (value == 'schema') {
-                            _showCurrentSchema();
-                          } else if (value == 'style') {
-                            _showCurrentStyle();
-                          } else if (value == 'select_schema') {
-                            _showSchemaSelector();
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                  /*IfDatabaseAdmin(
+                    ).then((value) {
+                      if (value == 'json') {
+                        _showCurrentAsJson();
+                      } else if (value == 'schema') {
+                        _showCurrentSchema();
+                      } else if (value == 'style') {
+                        _showCurrentStyle();
+                      } else if (value == 'select_schema') {
+                        _showSchemaSelector();
+                      }
+                    });
+                  },
+                ),
+              ),
+              /*IfDatabaseAdmin(
                     child: IconButton(
                       icon: const Icon(Icons.admin_panel_settings, size: 20),
                       onPressed: _showSchemaSelector,
                       tooltip: 'Select Schema Version',
                     ),
                   ),*/
-                ],
-              ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(_error!, style: const TextStyle(color: Colors.red)),
-                          const SizedBox(height: 16),
-                          ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
-                        ],
-                      ),
-                    )
-                  : _record == null
-                  ? const Center(child: Text('No record found'))
-                  : FormWrapper(
-                      key: _formWrapperKey,
-                      jsonSchema: _jsonSchema,
-                      rawRecord: _record,
-                      formData: _formData,
-                      previousFormData: _previousFormData,
-                      onFormDataChanged: _onFormDataChanged,
-                      validationResult: _validationResult,
-                      onNavigateToTab: _navigateToTabFromError,
-                      layoutStyleData: _styleData,
-                      layoutDirectory: _schemaDirectory, // Fallback for file loading
-                    ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 16),
+                    ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
+                  ],
+                ),
+              )
+            : _record == null
+            ? const Center(child: Text('No record found'))
+            : FormWrapper(
+                key: _formWrapperKey,
+                jsonSchema: _jsonSchema,
+                rawRecord: _record,
+                formData: _formData,
+                previousFormData: _previousFormData,
+                onFormDataChanged: _onFormDataChanged,
+                validationResult: _validationResult,
+                onNavigateToTab: _navigateToTabFromError,
+                layoutStyleData: _styleData,
+                layoutDirectory: _schemaDirectory, // Fallback for file loading
+              ),
       ),
     );
   }

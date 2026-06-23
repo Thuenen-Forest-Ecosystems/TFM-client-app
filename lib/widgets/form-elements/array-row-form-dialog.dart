@@ -260,6 +260,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                 propertySchema: propSchema,
                 nestedColumns: subItem['columns'] as Map<String, dynamic>?,
                 nestedOptions: subItem['options'] as Map<String, dynamic>?,
+                identifierField: subItem['identifierField'] as String?,
                 isReadOnly:
                     widget.readOnly ||
                     subItem['readonly'] == true ||
@@ -308,6 +309,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
             propertySchema: propSchema,
             nestedColumns: item['columns'] as Map<String, dynamic>?,
             nestedOptions: item['options'] as Map<String, dynamic>?,
+            identifierField: item['identifierField'] as String?,
             isReadOnly:
                 widget.readOnly ||
                 item['readonly'] == true ||
@@ -432,6 +434,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
           propertySchema: propertySchema,
           nestedColumns: columnConfig?['columns'] as Map<String, dynamic>?,
           nestedOptions: columnConfig?['options'] as Map<String, dynamic>?,
+          identifierField: columnConfig?['identifierField'] as String?,
           isReadOnly: isReadOnly,
         );
         includeProps.add(key);
@@ -853,6 +856,11 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   Future<void> _openNestedArrayDialog(String fieldName, _ArrayFieldInfo info) async {
     final currentData = _formData[fieldName] is List ? _formData[fieldName] as List<dynamic> : null;
 
+    // Slice the previous-survey value for this nested array from the previous
+    // row data so its cell info dialogs can show the previous values too.
+    final previousNested = widget.previousRowData?[fieldName];
+    final previousData = previousNested is List ? previousNested : null;
+
     final result = await ArrayGridDialog.show(
       context: context,
       nestedArraySchema: info.propertySchema,
@@ -861,6 +869,8 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       columnConfig: info.nestedColumns,
       layoutOptions: info.nestedOptions,
       parentReadOnly: info.isReadOnly,
+      previousData: previousData,
+      identifierField: info.identifierField,
     );
 
     if (result != null) {
@@ -886,6 +896,7 @@ class _ArrayFieldInfo {
   final Map<String, dynamic>? nestedColumns;
   final Map<String, dynamic>? nestedOptions;
   final bool isReadOnly;
+  final String? identifierField;
 
   _ArrayFieldInfo({
     required this.fieldName,
@@ -893,5 +904,6 @@ class _ArrayFieldInfo {
     this.nestedColumns,
     this.nestedOptions,
     this.isReadOnly = false,
+    this.identifierField,
   });
 }

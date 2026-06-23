@@ -20,6 +20,13 @@ class ArrayGridDialog extends StatefulWidget {
   final Map<String, dynamic>? layoutOptions;
   final bool parentReadOnly;
 
+  /// Previous-survey data for this nested array, used to surface previous
+  /// values in the cell info dialog (matched per-row by [identifierField]).
+  final List<dynamic>? previousData;
+
+  /// Field name used to match current rows with previous-survey rows.
+  final String? identifierField;
+
   const ArrayGridDialog({
     super.key,
     required this.nestedArraySchema,
@@ -30,6 +37,8 @@ class ArrayGridDialog extends StatefulWidget {
     this.columnConfig,
     this.layoutOptions,
     this.parentReadOnly = false,
+    this.previousData,
+    this.identifierField,
   });
 
   /// Show dialog and return updated data (or null if cancelled)
@@ -43,6 +52,8 @@ class ArrayGridDialog extends StatefulWidget {
     Map<String, dynamic>? columnConfig,
     Map<String, dynamic>? layoutOptions,
     bool parentReadOnly = false,
+    List<dynamic>? previousData,
+    String? identifierField,
   }) async {
     return showDialog<List<dynamic>?>(
       context: context,
@@ -56,6 +67,8 @@ class ArrayGridDialog extends StatefulWidget {
         columnConfig: columnConfig,
         layoutOptions: layoutOptions,
         parentReadOnly: parentReadOnly,
+        previousData: previousData,
+        identifierField: identifierField,
       ),
     );
   }
@@ -129,6 +142,8 @@ class _ArrayGridDialogState extends State<ArrayGridDialog> {
                 onDataChanged: _handleDataChanged,
                 columnConfig: widget.columnConfig,
                 layoutOptions: widget.layoutOptions,
+                previousData: widget.previousData,
+                identifierField: widget.identifierField,
               ),
             ),
 
