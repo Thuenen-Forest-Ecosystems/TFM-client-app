@@ -55,6 +55,11 @@ class ArrayElementTrina extends StatefulWidget {
   /// Optional filter configuration from layout
   final List<dynamic>? filterConfig;
 
+  /// When true, the grid sizes its height to fit all rows (no internal vertical
+  /// scrolling) and grows as rows are added, instead of filling its parent with
+  /// [Expanded]. The parent must NOT impose a fixed height in this mode.
+  final bool autoHeight;
+
   const ArrayElementTrina({
     super.key,
     required this.jsonSchema,
@@ -68,6 +73,7 @@ class ArrayElementTrina extends StatefulWidget {
     this.previousData,
     this.identifierField,
     this.filterConfig,
+    this.autoHeight = false,
   });
 
   @override
@@ -79,6 +85,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   // position survive tab switches (TabBarView disposes inactive children).
   @override
   bool get wantKeepAlive => true;
+
+  /// Auto-generated display columns whose cells are never part of the row data.
+  static const Set<String> _internalColumnFields = {
+    '__row_number__',
+    '__row_menu__',
+    '__validation_status__',
+    '__row_drag__',
+  };
 
   List<TrinaColumn> _columns = [];
   List<TrinaRow> _rows = [];
@@ -111,6 +125,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   bool _savedWidthsLoaded = false;
   Map<String, double> _lastKnownWidths = {};
   Timer? _widthSaveTimer;
+
+  bool get _isScrollable => widget.layoutOptions?['isScrollable'] != false;
+  bool get _usesAutoHeight => widget.autoHeight || !_isScrollable;
+  bool get _rowDragEnabled =>
+      widget.layoutOptions?['isDraggable'] == true && _isScrollable && !_isArrayReadOnly;
 
   @override
   void initState() {
@@ -616,6 +635,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final properties = itemSchema['properties'] as Map<String, dynamic>?;
     if (properties == null) {
       return columns;
+    }
+
+    // Add drag-handle column (leftmost, pinned) when the array is draggable.
+    // Setting enableRowDrag renders a drag_indicator icon in this column's
+    // cells; TrinaGrid auto-hides it while the grid is sorted/filtered/grouped
+    // (see canRowDrag), so a reorder can never corrupt the sort/validation map.
+    if (_rowDragEnabled) {
+      columns.add(
+        TrinaColumn(
+          title: '',
+          field: '__row_drag__',
+          type: TrinaColumnTypeText(),
+          width: 40,
+          frozen: TrinaColumnFrozen.start,
+          enableRowDrag: true,
+          enableSorting: false,
+          enableColumnDrag: false,
+          enableContextMenu: false,
+          enableDropToResize: false,
+          readOnly: true,
+          enableEditingMode: false,
+          renderer: (_) => const SizedBox.shrink(),
+        ),
+      );
     }
 
     // Add menu column (always second, pinned left)
@@ -1397,9 +1440,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
       for (final column in _columns) {
         // Skip auto-generated fields
-        if (column.field == '__row_number__' ||
-            column.field == '__row_menu__' ||
-            column.field == '__validation_status__') {
+        if (_internalColumnFields.contains(column.field)) {
           cells[column.field] = TrinaCell(value: null);
         } else {
           // Get value from data, or apply schema default if missing/null
@@ -2108,10 +2149,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final row = rows[rowIndex];
     final currentData = <String, dynamic>{};
     row.cells.forEach((key, cell) {
-      if (key != '__row_number__' &&
-          key != '__row_menu__' &&
-          key != '__original_index__' &&
-          key != '__validation_status__') {
+      if (!_internalColumnFields.contains(key) && key != '__original_index__') {
         currentData[key] = cell.value;
       }
     });
@@ -2397,7 +2435,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       // Create cells and add row
       final cells = <String, TrinaCell>{};
       for (final column in _columns) {
-        if (column.field == '__row_number__' || column.field == '__row_menu__') {
+        if (_internalColumnFields.contains(column.field)) {
           cells[column.field] = TrinaCell(value: null);
         } else {
           cells[column.field] = TrinaCell(value: newRow[column.field]);
@@ -2504,9 +2542,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final cells = <String, TrinaCell>{};
     for (final column in _columns) {
       // Skip auto-generated fields
-      if (column.field == '__row_number__' ||
-          column.field == '__row_menu__' ||
-          column.field == '__validation_status__') {
+      if (_internalColumnFields.contains(column.field)) {
         cells[column.field] = TrinaCell(value: null);
       } else {
         cells[column.field] = TrinaCell(value: newRow[column.field]);
@@ -2569,11 +2605,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
     rowToCopy.cells.forEach((key, cell) {
       // Skip auto-generated fields (including __original_index__ which will be reassigned)
-      if (key == '__row_number__' ||
-          key == '__row_menu__' ||
-          key == '__original_index__' ||
-          key == '__validation_status__') {
-        if (key == '__row_number__' || key == '__row_menu__' || key == '__validation_status__') {
+      if (_internalColumnFields.contains(key) || key == '__original_index__') {
+        if (_internalColumnFields.contains(key)) {
           newCells[key] = TrinaCell(value: null);
         }
         return;
@@ -2700,6 +2733,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
   /// Scrolls the grid to [newRow] and selects its first visible cell.
   void _scrollToRow(TrinaRow newRow) {
+    if (_usesAutoHeight) {
+      // In auto-height / non-scrollable mode, the grid should never keep an
+      // internal vertical offset. Keeping it would create a blank band below
+      // the last row and clip the same height at the top.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final vertical = _stateManager?.scroll.bodyRowsVertical;
+        if (vertical != null && vertical.hasClients && vertical.offset != 0) {
+          vertical.jumpTo(0);
+        }
+      });
+      return;
+    }
+
     // Two frames are needed: the first lets insertRows finish rebuilding the
     // grid, the second fires once the new row is actually laid out so that
     // setCurrentCell (which calls moveScrollByRow internally) can resolve the
@@ -2817,9 +2863,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
         final cells = <String, TrinaCell>{};
         for (final column in _columns) {
-          if (column.field == '__row_number__' ||
-              column.field == '__row_menu__' ||
-              column.field == '__validation_status__') {
+          if (_internalColumnFields.contains(column.field)) {
             cells[column.field] = TrinaCell(value: null);
           } else {
             // Apply value or null
@@ -2852,6 +2896,43 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     }
   }
 
+  /// Called after the user drag-reorders rows (only possible when not
+  /// sorted/filtered — see canRowDrag). The grid has already moved the rows, so
+  /// the current display order IS the desired data order. We emit data in that
+  /// order directly, bypassing the __original_index__ re-sort in
+  /// [_notifyDataChanged] (which would otherwise undo the move). The parent then
+  /// feeds the reordered data back and the grid rebuilds with fresh indices.
+  void _onRowsMoved(TrinaGridOnRowsMovedEvent event) {
+    final rows = _stateManager?.rows ?? _rows;
+    _rows = rows;
+
+    final data = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      final rowData = <String, dynamic>{};
+      row.cells.forEach((key, cell) {
+        if (!_internalColumnFields.contains(key) && key != '__original_index__') {
+          rowData[key] = cell.value;
+        }
+      });
+      data.add(rowData);
+    }
+
+    // Keep any rows hidden from the UI (deprecated rows) in the payload,
+    // appended in their original relative order. Filter-hidden rows can't occur
+    // here because dragging is disabled while a filter is active.
+    if (_hiddenRowsByOriginalIndex.isNotEmpty) {
+      final hidden = _hiddenRowsByOriginalIndex.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      for (final entry in hidden) {
+        data.add(Map<String, dynamic>.from(entry.value));
+      }
+    }
+
+    if (_rowDragEnabled) {
+      widget.onDataChanged?.call(data.isEmpty ? null : data);
+    }
+  }
+
   void _notifyDataChanged([bool forceData = false]) {
     _applyFiltersToCurrentState();
 
@@ -2871,10 +2952,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       final rowData = <String, dynamic>{};
       row.cells.forEach((key, cell) {
         // Skip auto-generated fields - they're not part of the data
-        if (key != '__row_number__' &&
-            key != '__row_menu__' &&
-            key != '__original_index__' &&
-            key != '__validation_status__') {
+        if (!_internalColumnFields.contains(key) && key != '__original_index__') {
           rowData[key] = cell.value;
         }
       });
@@ -2934,7 +3012,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     }
 
     if (_rows.isEmpty) {
-      return Padding(
+      final emptyState = Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
@@ -2976,6 +3054,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
           ),
         ),
       );
+      // In auto-height mode the parent imposes no fixed height, so give the
+      // empty state a bounded box; otherwise let it fill the parent as before.
+      return _usesAutoHeight ? SizedBox(height: 180, child: emptyState) : emptyState;
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -3061,158 +3142,183 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
           ),
         ),
         // Grid
-        Expanded(
-          child: Selector<MapControllerProvider, bool>(
-            selector: (_, provider) => provider.isSheetFullyExpanded,
-            builder: (context, isExpanded, child) {
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  // Wait for the async column-width load to complete so the
-                  // grid is built exactly once with the correct col.width values.
-                  // SharedPreferences is fast (<5 ms), so the blank is invisible.
-                  if (!_savedWidthsLoaded) return const SizedBox.shrink();
-                  _adjustColumnsToFitWidth(constraints.maxWidth);
-                  return Stack(
-                    children: [
-                      NotificationListener<ScrollNotification>(
-                        onNotification: (notification) {
-                          // Handover scroll to sheet if at top and scrolling up (dragging down)
-                          if (isExpanded && notification.metrics.pixels <= 0) {
-                            if (notification is ScrollUpdateNotification &&
-                                notification.scrollDelta != null) {
-                              final delta = notification.scrollDelta!;
-                              if (delta < 0) {
-                                // Dragging down at top -> Collapse sheet
-                                // Pass the delta to the sheet controller via provider
-                                context.read<MapControllerProvider>().dragSheet(delta);
-                              }
-                            } else if (notification is OverscrollNotification &&
-                                notification.overscroll < 0) {
-                              // Handle overscroll (iOS bounce or Android stretch)
-                              context.read<MapControllerProvider>().dragSheet(
-                                notification.overscroll,
-                              );
-                            }
-                          }
-                          return false;
-                        },
-                        child: TrinaGrid(
-                          columns: _columns,
-                          rows: _rows,
-                          columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
-                          onLoaded: (TrinaGridOnLoadedEvent event) {
-                            _stateManager = event.stateManager;
-                            _rows = event.stateManager.rows;
-                            // Seed baseline widths from live column objects.
-                            for (final col in event.stateManager.columns) {
-                              _lastKnownWidths[col.field] = col.width;
-                            }
-                            // resizingChangeNotifier is the notifier that
-                            // resizeColumn() fires (via notifyResizingListeners).
-                            // The main stateManager notifier is NOT called on
-                            // column resize, so we must listen here instead.
-                            event.stateManager.resizingChangeNotifier.addListener(
-                              _onColumnWidthChanged,
-                            );
-                          },
-                          onChanged: (TrinaGridOnChangedEvent event) {
-                            // Sync _rows from state manager
-                            _rows = _stateManager?.rows ?? _rows;
-                            _notifyDataChanged();
-                          },
-                          onSorted: (TrinaGridOnSortedEvent event) {
-                            final column = event.column;
-
-                            // Get current sort state for this column (default to 0 = none)
-                            final currentState = _columnSortStates[column.field] ?? 0;
-                            final nextState = (currentState + 1) % 3; // Cycle: 0 -> 1 -> 2 -> 0
-
-                            // Clear all other column states
-                            _columnSortStates.clear();
-                            _columnSortStates[column.field] = nextState;
-
-                            // Apply the sort based on next state
-                            if (nextState == 1) {
-                              // Ascending
-                              _stateManager?.sortAscending(column);
-                            } else if (nextState == 2) {
-                              // Descending
-                              _stateManager?.sortDescending(column);
-                            } else {
-                              // None - restore original order by rebuilding from source data
-                              final originalRows = _buildRows();
-                              _stateManager?.removeAllRows();
-                              _stateManager?.appendRows(originalRows);
-                              _rows = originalRows;
-                              // Clear the sort indicator
-                              column.sort = TrinaColumnSort.none;
-                              return;
-                            }
-
-                            _rows = _stateManager?.rows ?? _rows;
-                          },
-                          configuration: TrinaGridConfiguration(
-                            scrollbar: const TrinaGridScrollbarConfig(
-                              showVertical: false,
-                              showHorizontal: false,
-                            ),
-                            columnSize: const TrinaGridColumnSizeConfig(
-                              resizeMode: TrinaResizeMode.normal,
-                            ),
-                            enterKeyAction: TrinaGridEnterKeyAction.editingAndMoveDown,
-                            enableMoveDownAfterSelecting: true,
-                            enableMoveHorizontalInEditing: true,
-                            tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
-                            style: TrinaGridStyleConfig(
-                              rowHeight: GridDensityService.rowHeight,
-                              columnHeight: GridDensityService.columnHeight,
-                              iconSize: 18,
-                              gridBorderRadius: BorderRadius.zero,
-                              enableGridBorderShadow: false,
-                              gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                              rowColor: isDark ? const Color(0xFF252526) : Colors.white,
-                              activatedColor: isDark
-                                  ? const Color.fromARGB(10, 0, 255, 0)
-                                  : const Color(0xFFDCF2FF),
-                              cellTextStyle: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                                fontSize: 14,
-                              ),
-                              columnTextStyle: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              gridBorderColor: isDark
-                                  ? const Color(0xFF3E3E42)
-                                  : Colors.grey.shade300,
-                              borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
-                              activatedBorderColor: isDark
-                                  ? const Color.fromARGB(100, 0, 255, 0)
-                                  : Colors.blue,
-                              inactivatedBorderColor: isDark
-                                  ? const Color(0xFF3E3E42)
-                                  : Colors.grey.shade300,
-                              iconColor: isDark ? Colors.white70 : Colors.black54,
-                              disabledIconColor: isDark ? Colors.white24 : Colors.black26,
-                              menuBackgroundColor: isDark ? const Color(0xFF252526) : Colors.white,
-                              cellColorInEditState: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                              cellColorInReadOnlyState: isDark
-                                  ? const Color(0xFF2D2D30)
-                                  : Colors.grey.shade100,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ),
+        _gridBody(isDark),
       ],
     );
+  }
+
+  /// The TrinaGrid itself. In [autoHeight] mode it is wrapped in a [SizedBox]
+  /// whose height is computed to fit all rows (header + group header + rows),
+  /// so the grid grows as rows are added and never scrolls internally.
+  /// Otherwise it expands to fill the parent.
+  Widget _gridBody(bool isDark) {
+    final grid = Selector<MapControllerProvider, bool>(
+      selector: (_, provider) => provider.isSheetFullyExpanded,
+      builder: (context, isExpanded, child) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Wait for the async column-width load to complete so the
+            // grid is built exactly once with the correct col.width values.
+            // SharedPreferences is fast (<5 ms), so the blank is invisible.
+            if (!_savedWidthsLoaded) return const SizedBox.shrink();
+            _adjustColumnsToFitWidth(constraints.maxWidth);
+            return Stack(
+              children: [
+                NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    // Handover scroll to sheet if at top and scrolling up (dragging down)
+                    if (isExpanded && notification.metrics.pixels <= 0) {
+                      if (notification is ScrollUpdateNotification &&
+                          notification.scrollDelta != null) {
+                        final delta = notification.scrollDelta!;
+                        if (delta < 0) {
+                          // Dragging down at top -> Collapse sheet
+                          // Pass the delta to the sheet controller via provider
+                          context.read<MapControllerProvider>().dragSheet(delta);
+                        }
+                      } else if (notification is OverscrollNotification &&
+                          notification.overscroll < 0) {
+                        // Handle overscroll (iOS bounce or Android stretch)
+                        context.read<MapControllerProvider>().dragSheet(notification.overscroll);
+                      }
+                    }
+                    return false;
+                  },
+                  child: TrinaGrid(
+                    columns: _columns,
+                    rows: _rows,
+                    columnGroups: _columnGroups.isNotEmpty ? _columnGroups : null,
+                    onLoaded: (TrinaGridOnLoadedEvent event) {
+                      _stateManager = event.stateManager;
+                      _rows = event.stateManager.rows;
+                      // Seed baseline widths from live column objects.
+                      for (final col in event.stateManager.columns) {
+                        _lastKnownWidths[col.field] = col.width;
+                      }
+                      // resizingChangeNotifier is the notifier that
+                      // resizeColumn() fires (via notifyResizingListeners).
+                      // The main stateManager notifier is NOT called on
+                      // column resize, so we must listen here instead.
+                      event.stateManager.resizingChangeNotifier.addListener(_onColumnWidthChanged);
+                    },
+                    onChanged: (TrinaGridOnChangedEvent event) {
+                      // Sync _rows from state manager
+                      _rows = _stateManager?.rows ?? _rows;
+                      _notifyDataChanged();
+                    },
+                    onRowsMoved: _onRowsMoved,
+                    onSorted: (TrinaGridOnSortedEvent event) {
+                      final column = event.column;
+
+                      // Get current sort state for this column (default to 0 = none)
+                      final currentState = _columnSortStates[column.field] ?? 0;
+                      final nextState = (currentState + 1) % 3; // Cycle: 0 -> 1 -> 2 -> 0
+
+                      // Clear all other column states
+                      _columnSortStates.clear();
+                      _columnSortStates[column.field] = nextState;
+
+                      // Apply the sort based on next state
+                      if (nextState == 1) {
+                        // Ascending
+                        _stateManager?.sortAscending(column);
+                      } else if (nextState == 2) {
+                        // Descending
+                        _stateManager?.sortDescending(column);
+                      } else {
+                        // None - restore original order by rebuilding from source data
+                        final originalRows = _buildRows();
+                        _stateManager?.removeAllRows();
+                        _stateManager?.appendRows(originalRows);
+                        _rows = originalRows;
+                        // Clear the sort indicator
+                        column.sort = TrinaColumnSort.none;
+                        return;
+                      }
+
+                      _rows = _stateManager?.rows ?? _rows;
+                    },
+                    configuration: TrinaGridConfiguration(
+                      scrollbar: TrinaGridScrollbarConfig(
+                        showVertical: false,
+                        showHorizontal: false,
+                        enableVerticalScroll: _isScrollable,
+                      ),
+                      columnSize: const TrinaGridColumnSizeConfig(
+                        resizeMode: TrinaResizeMode.normal,
+                      ),
+                      enterKeyAction: TrinaGridEnterKeyAction.editingAndMoveDown,
+                      enableMoveDownAfterSelecting: true,
+                      enableMoveHorizontalInEditing: true,
+                      tabKeyAction: TrinaGridTabKeyAction.moveToNextOnEdge,
+                      style: TrinaGridStyleConfig(
+                        rowHeight: GridDensityService.rowHeight,
+                        columnHeight: GridDensityService.columnHeight,
+                        iconSize: 18,
+                        gridBorderRadius: BorderRadius.zero,
+                        enableGridBorderShadow: false,
+                        gridBackgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                        rowColor: isDark ? const Color(0xFF252526) : Colors.white,
+                        activatedColor: isDark
+                            ? const Color.fromARGB(10, 0, 255, 0)
+                            : const Color(0xFFDCF2FF),
+                        cellTextStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontSize: 14,
+                        ),
+                        columnTextStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        gridBorderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                        borderColor: isDark ? const Color(0xFF3E3E42) : Colors.grey.shade300,
+                        activatedBorderColor: isDark
+                            ? const Color.fromARGB(100, 0, 255, 0)
+                            : Colors.blue,
+                        inactivatedBorderColor: isDark
+                            ? const Color(0xFF3E3E42)
+                            : Colors.grey.shade300,
+                        iconColor: isDark ? Colors.white70 : Colors.black54,
+                        disabledIconColor: isDark ? Colors.white24 : Colors.black26,
+                        menuBackgroundColor: isDark ? const Color(0xFF252526) : Colors.white,
+                        cellColorInEditState: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                        cellColorInReadOnlyState: isDark
+                            ? const Color(0xFF2D2D30)
+                            : Colors.grey.shade100,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (_usesAutoHeight) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final vertical = _stateManager?.scroll.bodyRowsVertical;
+        if (vertical != null && vertical.hasClients && vertical.offset != 0) {
+          vertical.jumpTo(0);
+        }
+      });
+    }
+
+    if (!_usesAutoHeight) {
+      return Expanded(child: grid);
+    }
+
+    // Height = column header (+ group header if grouped) + one row per data row,
+    // plus a small border allowance. Grows by one row-height per added row.
+    final groupHeaderHeight = _columnGroups.isNotEmpty ? GridDensityService.columnHeight : 0.0;
+    final gridHeight =
+        GridDensityService.columnHeight +
+        groupHeaderHeight +
+        GridDensityService.rowHeight * _rows.length +
+        2.0;
+    return SizedBox(height: gridHeight, child: grid);
   }
 }
 

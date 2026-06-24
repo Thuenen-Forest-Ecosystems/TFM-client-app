@@ -84,11 +84,12 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     widget.onDataChanged?.call(List<dynamic>.from(_rows));
   }
 
-  /// Check if a row has matching data in the previous inventory (by identifier).
-  /// Rows carried over from the previous inventory must not be deletable; only
-  /// newly added rows may be removed. Mirrors the logic in ArrayElementTrina.
-  bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) {
-    if (widget.previousData == null) return false;
+  /// Find the previous-survey row matching [currentRowData], using the
+  /// configured [identifierField] (or common fallbacks) to pair rows. Mirrors
+  /// the logic in ArrayElementTrina so that the field info dialog can surface
+  /// the previous value ("Vorgängererhebung") per row.
+  Map<String, dynamic>? _findMatchingPreviousRow(Map<String, dynamic> currentRowData) {
+    if (widget.previousData == null) return null;
 
     // Use configured identifier field or fall back to common fields
     final identifierFields = widget.identifierField != null
@@ -99,16 +100,23 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
       if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
         final currentId = currentRowData[idField];
 
-        final matchFound = (widget.previousData as List).cast<Map<String, dynamic>?>().any(
+        final match = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
           (prevRow) => prevRow != null && prevRow[idField] == currentId,
+          orElse: () => null,
         );
 
-        if (matchFound) return true;
+        if (match != null) return match;
       }
     }
 
-    return false;
+    return null;
   }
+
+  /// Check if a row has matching data in the previous inventory (by identifier).
+  /// Rows carried over from the previous inventory must not be deletable; only
+  /// newly added rows may be removed.
+  bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) =>
+      _findMatchingPreviousRow(currentRowData) != null;
 
   // ── Defaults ──────────────────────────────────────────────────────────────
 
@@ -277,6 +285,10 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
   /// Groups consecutive primitive fields into a single [GenericForm], and
   /// renders component objects and nested arrays inline at their position.
   List<Widget> _buildCardBody(int index, Map<String, dynamic> rowData) {
+    // Match this row to its previous-survey counterpart (by identifierField) so
+    // the field info dialog can show the previous value ("Vorgängererhebung").
+    final previousRowData = _findMatchingPreviousRow(rowData);
+
     if (widget.columnItems == null) {
       // Fallback: render all schema properties as a single form
       final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
@@ -288,6 +300,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             key: ValueKey('row_fallback_$index'),
             jsonSchema: schemaForForm,
             data: rowData,
+            previous_properties: previousRowData,
             propertyName: widget.propertyName != null ? '${widget.propertyName}/$index' : null,
             validationResult: widget.validationResult,
             onDataChanged: (updatedData) => _updateRow(index, updatedData),
@@ -316,6 +329,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             key: ValueKey('row_${index}_fields_${fields.first}'),
             jsonSchema: schemaForForm,
             data: rowData,
+            previous_properties: previousRowData,
             propertyName: widget.propertyName != null ? '${widget.propertyName}/$index' : null,
             validationResult: widget.validationResult,
             includeProperties: fields,
@@ -351,10 +365,23 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
         flushFields();
         final fieldName = item['name'] as String;
         final nestedData = rowData[fieldName] as List<dynamic>?;
+        // Slice the matched previous row's nested array so the nested grid's
+        // cell info dialogs can show previous values too.
+        final previousNested = previousRowData?[fieldName];
+        final nestedPreviousData = previousNested is List ? previousNested : null;
         final nestedPropertySchema = properties?[fieldName] as Map<String, dynamic>?;
         final title = nestedPropertySchema?['title'] as String? ?? fieldName;
         final nestedColumns = item['columns'] as Map<String, dynamic>?;
-        final nestedOptions = item['options'] as Map<String, dynamic>?;
+        var nestedOptions = item['options'] as Map<String, dynamic>?;
+        // Allow `isDraggable`/`isScrollable` on the nested array item itself,
+        // normalizing into options (the single read point used by
+        // ArrayElementTrina).
+        if (item['isDraggable'] != null) {
+          nestedOptions = {...?nestedOptions, 'isDraggable': item['isDraggable']};
+        }
+        if (item['isScrollable'] != null) {
+          nestedOptions = {...?nestedOptions, 'isScrollable': item['isScrollable']};
+        }
 
         result.add(
           Padding(
@@ -371,22 +398,22 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                SizedBox(
-                  height: 250,
-                  child: ArrayElementTrina(
-                    key: ValueKey('nested_${index}_$fieldName'),
-                    jsonSchema: nestedPropertySchema ?? {},
-                    data: nestedData,
-                    propertyName: widget.propertyName != null
-                        ? '${widget.propertyName}/$index/$fieldName'
-                        : null,
-                    columnConfig: nestedColumns,
-                    layoutOptions: nestedOptions,
-                    validationResult: widget.validationResult,
-                    onDataChanged: (updatedData) {
-                      _updateRow(index, {fieldName: updatedData});
-                    },
-                  ),
+                ArrayElementTrina(
+                  key: ValueKey('nested_${index}_$fieldName'),
+                  jsonSchema: nestedPropertySchema ?? {},
+                  data: nestedData,
+                  previousData: nestedPreviousData,
+                  identifierField: nestedColumns?['identifierField'] as String?,
+                  propertyName: widget.propertyName != null
+                      ? '${widget.propertyName}/$index/$fieldName'
+                      : null,
+                  columnConfig: nestedColumns,
+                  layoutOptions: nestedOptions,
+                  validationResult: widget.validationResult,
+                  autoHeight: true,
+                  onDataChanged: (updatedData) {
+                    _updateRow(index, {fieldName: updatedData});
+                  },
                 ),
               ],
             ),

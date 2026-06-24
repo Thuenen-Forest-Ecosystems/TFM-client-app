@@ -142,6 +142,7 @@ class _ArrayGridDialogState extends State<ArrayGridDialog> {
                 onDataChanged: _handleDataChanged,
                 columnConfig: widget.columnConfig,
                 layoutOptions: widget.layoutOptions,
+                autoHeight: widget.layoutOptions?['isScrollable'] == false,
                 previousData: widget.previousData,
                 identifierField: widget.identifierField,
               ),

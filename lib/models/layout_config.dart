@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Layout configuration models for dynamic form rendering
 ///
 /// These models represent the structure defined in layout JSON files (e.g., ci2027.json)
@@ -186,7 +184,17 @@ class ArrayLayout extends LayoutItem {
 
   factory ArrayLayout.fromJson(Map<String, dynamic> json) {
     final items = json['items'] as List<dynamic>?;
-    if (items != null && items.isNotEmpty) {
+    if (items != null && items.isNotEmpty) {}
+
+    // Allow `isDraggable`/`isScrollable` to be authored either at the array
+    // element top level or inside `options`. Normalize them into `options` so
+    // widgets have a single read point.
+    var options = json['options'] as Map<String, dynamic>?;
+    if (json['isDraggable'] != null) {
+      options = {...?options, 'isDraggable': json['isDraggable']};
+    }
+    if (json['isScrollable'] != null) {
+      options = {...?options, 'isScrollable': json['isScrollable']};
     }
 
     return ArrayLayout(
@@ -194,7 +202,7 @@ class ArrayLayout extends LayoutItem {
       label: json['label'] as String?,
       property: json['property'] as String?,
       component: json['component'] as String? ?? 'datagrid',
-      options: json['options'] as Map<String, dynamic>?,
+      options: options,
       columns: json['columns'] as Map<String, dynamic>?,
       items: items,
       identifierField: json['identifierField'] as String?,

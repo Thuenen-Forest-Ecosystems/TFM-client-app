@@ -772,6 +772,10 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                           GenericForm(
                             jsonSchema: _effectiveSchema,
                             data: _formData,
+                            // Forward the matched previous-survey row so the
+                            // legacy (non-grouped) layout shows "Vorgängererhebung"
+                            // too — mirrors the grouped path's previousData wiring.
+                            previous_properties: widget.previousRowData,
                             layout: 'responsive-wrap',
                             includeProperties: _includeProperties,
                             fieldOptions: _fieldOptions,

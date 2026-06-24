@@ -91,8 +91,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       try {
         _mapControllerProvider = context.read<MapControllerProvider>();
         _mapControllerProvider!.addListener(_onMapGridRowSelection);
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
 
@@ -221,8 +220,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         directory: widget.layoutDirectory,
       );
       if (_layoutConfig != null) {
-      } else {
-      }
+      } else {}
     }
 
     // Capture the ID of the currently visible tab so we can restore it after
@@ -464,8 +462,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     if (tabIndex >= 0) {
       _tabController!.animateTo(tabIndex);
       _previousTabIndex = tabIndex;
-    } else {
-    }
+    } else {}
   }
 
   void _onTabChanged() {
@@ -827,6 +824,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       }
 
       if (layoutItem.component == 'datagrid') {
+        final autoHeight = layoutItem.options?['isScrollable'] == false;
         return ArrayElementTrina(
           key: key,
           jsonSchema: propertySchema,
@@ -838,6 +836,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           columnConfig: layoutItem.columns,
           columnItems: layoutItem.items, // NEW STRUCTURE
           layoutOptions: layoutItem.options,
+          autoHeight: autoHeight,
           filterConfig: layoutItem.filter, // Filter configuration
           onDataChanged: (updatedData) {
             LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
@@ -908,7 +907,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         return ManuellRelativePosition(formData: _localFormData, onFieldChanged: _updateField);
       }
       if (layoutItem.component == 'subplots_relative_position') {
-
         final children = <Widget>[];
         if (layoutItem.children != null) {
           for (final childItem in layoutItem.children!) {
@@ -1081,8 +1079,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
               Widget childWidget = _buildWidgetFromLayout(child, schemaProperties);
               // Wrap datagrid arrays in fixed height container since TrinaGrid requires bounded height
               if (child is ArrayLayout && child.component != 'cardlist') {
-                final height = (child.options?['height'] as num?)?.toDouble() ?? 400.0;
-                childWidget = SizedBox(height: height, child: childWidget);
+                final isScrollable = child.options?['isScrollable'] != false;
+                if (isScrollable) {
+                  final height = (child.options?['height'] as num?)?.toDouble() ?? 400.0;
+                  childWidget = SizedBox(height: height, child: childWidget);
+                }
               }
               return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: childWidget);
             }).toList(),

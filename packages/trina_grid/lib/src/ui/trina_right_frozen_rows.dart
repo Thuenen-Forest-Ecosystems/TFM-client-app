@@ -12,8 +12,7 @@ class TrinaRightFrozenRows extends TrinaStatefulWidget {
   TrinaRightFrozenRowsState createState() => TrinaRightFrozenRowsState();
 }
 
-class TrinaRightFrozenRowsState
-    extends TrinaStateWithChange<TrinaRightFrozenRows> {
+class TrinaRightFrozenRowsState extends TrinaStateWithChange<TrinaRightFrozenRows> {
   List<TrinaColumn> _columns = [];
 
   List<TrinaRow> _rows = [];
@@ -58,9 +57,7 @@ class TrinaRightFrozenRowsState
     _frozenBottomRows = stateManager.refRows.originalList
         .where((row) => row.frozen == TrinaRowFrozen.end)
         .toList();
-    _scrollableRows = _rows
-        .where((row) => row.frozen == TrinaRowFrozen.none)
-        .toList();
+    _scrollableRows = _rows.where((row) => row.frozen == TrinaRowFrozen.none).toList();
   }
 
   Widget _buildRow(TrinaRow row, int index) {
@@ -75,27 +72,25 @@ class TrinaRightFrozenRowsState
 
   @override
   Widget build(BuildContext context) {
+    final scrollConfig = stateManager.configuration.scrollbar;
     return Column(
       children: [
         // Frozen top rows
         if (_frozenTopRows.isNotEmpty)
           Column(
-            children: _frozenTopRows
-                .asMap()
-                .entries
-                .map((e) => _buildRow(e.value, e.key))
-                .toList(),
+            children: _frozenTopRows.asMap().entries.map((e) => _buildRow(e.value, e.key)).toList(),
           ),
         // Scrollable rows
         Expanded(
           child: ListView.builder(
             controller: _scroll,
             scrollDirection: Axis.vertical,
-            physics: const ClampingScrollPhysics(),
+            physics: scrollConfig.enableVerticalScroll
+                ? const ClampingScrollPhysics()
+                : const NeverScrollableScrollPhysics(),
             itemCount: _scrollableRows.length,
             // Remove fixed itemExtent for variable heights
-            itemBuilder: (ctx, i) =>
-                _buildRow(_scrollableRows[i], i + _frozenTopRows.length),
+            itemBuilder: (ctx, i) => _buildRow(_scrollableRows[i], i + _frozenTopRows.length),
           ),
         ),
         // Frozen bottom rows
@@ -105,10 +100,7 @@ class TrinaRightFrozenRowsState
                 .asMap()
                 .entries
                 .map(
-                  (e) => _buildRow(
-                    e.value,
-                    e.key + _frozenTopRows.length + _scrollableRows.length,
-                  ),
+                  (e) => _buildRow(e.value, e.key + _frozenTopRows.length + _scrollableRows.length),
                 )
                 .toList(),
           ),

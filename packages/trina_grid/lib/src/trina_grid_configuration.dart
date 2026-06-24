@@ -123,8 +123,7 @@ class TrinaGridConfiguration {
     this.enableMoveDownAfterSelecting = false,
     this.enableMoveHorizontalInEditing = false,
     this.enableAutoSelectFirstRow = true,
-    this.rowSelectionCheckBoxBehavior =
-        TrinaGridRowSelectionCheckBoxBehavior.none,
+    this.rowSelectionCheckBoxBehavior = TrinaGridRowSelectionCheckBoxBehavior.none,
     this.enterKeyAction = TrinaGridEnterKeyAction.editingAndMoveDown,
     this.tabKeyAction = TrinaGridTabKeyAction.normal,
     this.selectingMode = TrinaGridSelectingMode.cell,
@@ -142,8 +141,7 @@ class TrinaGridConfiguration {
     this.enableMoveDownAfterSelecting = false,
     this.enableMoveHorizontalInEditing = false,
     this.enableAutoSelectFirstRow = true,
-    this.rowSelectionCheckBoxBehavior =
-        TrinaGridRowSelectionCheckBoxBehavior.none,
+    this.rowSelectionCheckBoxBehavior = TrinaGridRowSelectionCheckBoxBehavior.none,
     this.enterKeyAction = TrinaGridEnterKeyAction.editingAndMoveDown,
     this.tabKeyAction = TrinaGridTabKeyAction.normal,
     this.selectingMode = TrinaGridSelectingMode.cell,
@@ -163,8 +161,7 @@ class TrinaGridConfiguration {
     TrinaFilterTypeStartsWith.name = localeText.filterStartsWith;
     TrinaFilterTypeEndsWith.name = localeText.filterEndsWith;
     TrinaFilterTypeGreaterThan.name = localeText.filterGreaterThan;
-    TrinaFilterTypeGreaterThanOrEqualTo.name =
-        localeText.filterGreaterThanOrEqualTo;
+    TrinaFilterTypeGreaterThanOrEqualTo.name = localeText.filterGreaterThanOrEqualTo;
     TrinaFilterTypeLessThan.name = localeText.filterLessThan;
     TrinaFilterTypeLessThanOrEqualTo.name = localeText.filterLessThanOrEqualTo;
   }
@@ -204,8 +201,7 @@ class TrinaGridConfiguration {
           enableMoveDownAfterSelecting ?? this.enableMoveDownAfterSelecting,
       enableMoveHorizontalInEditing:
           enableMoveHorizontalInEditing ?? this.enableMoveHorizontalInEditing,
-      enableAutoSelectFirstRow:
-          enableAutoSelectFirstRow ?? this.enableAutoSelectFirstRow,
+      enableAutoSelectFirstRow: enableAutoSelectFirstRow ?? this.enableAutoSelectFirstRow,
       rowSelectionCheckBoxBehavior:
           rowSelectionCheckBoxBehavior ?? this.rowSelectionCheckBoxBehavior,
       enterKeyAction: enterKeyAction ?? this.enterKeyAction,
@@ -225,13 +221,10 @@ class TrinaGridConfiguration {
     return identical(this, other) ||
         other is TrinaGridConfiguration &&
             runtimeType == other.runtimeType &&
-            enableMoveDownAfterSelecting ==
-                other.enableMoveDownAfterSelecting &&
-            enableMoveHorizontalInEditing ==
-                other.enableMoveHorizontalInEditing &&
+            enableMoveDownAfterSelecting == other.enableMoveDownAfterSelecting &&
+            enableMoveHorizontalInEditing == other.enableMoveHorizontalInEditing &&
             enableAutoSelectFirstRow == other.enableAutoSelectFirstRow &&
-            rowSelectionCheckBoxBehavior ==
-                other.rowSelectionCheckBoxBehavior &&
+            rowSelectionCheckBoxBehavior == other.rowSelectionCheckBoxBehavior &&
             enterKeyAction == other.enterKeyAction &&
             tabKeyAction == other.tabKeyAction &&
             selectingMode == other.selectingMode &&
@@ -262,15 +255,9 @@ class TrinaGridConfiguration {
 }
 
 class TrinaGridStyleConfig {
-  static const TextStyle defaultLightCellTextStyle = TextStyle(
-    fontSize: 14,
-    color: Colors.black,
-  );
+  static const TextStyle defaultLightCellTextStyle = TextStyle(fontSize: 14, color: Colors.black);
 
-  static const TextStyle defaultDarkCellTextStyle = TextStyle(
-    fontSize: 14,
-    color: Colors.white,
-  );
+  static const TextStyle defaultDarkCellTextStyle = TextStyle(fontSize: 14, color: Colors.white);
 
   const TrinaGridStyleConfig({
     this.enableGridBorderShadow = false,
@@ -342,8 +329,7 @@ class TrinaGridStyleConfig {
     this.gridPadding = TrinaGridSettings.gridPadding,
     this.gridBorderWidth = TrinaGridSettings.gridBorderWidth,
     this.cellVerticalBorderWidth = TrinaGridSettings.cellVerticalBorderWidth,
-    this.cellHorizontalBorderWidth =
-        TrinaGridSettings.cellHorizontalBorderWidth,
+    this.cellHorizontalBorderWidth = TrinaGridSettings.cellHorizontalBorderWidth,
     this.filterHeaderColor,
     this.filterPopupHeaderColor,
     this.filterHeaderIconColor,
@@ -425,8 +411,7 @@ class TrinaGridStyleConfig {
     this.gridPadding = TrinaGridSettings.gridPadding,
     this.gridBorderWidth = TrinaGridSettings.gridBorderWidth,
     this.cellVerticalBorderWidth = TrinaGridSettings.cellVerticalBorderWidth,
-    this.cellHorizontalBorderWidth =
-        TrinaGridSettings.cellHorizontalBorderWidth,
+    this.cellHorizontalBorderWidth = TrinaGridSettings.cellHorizontalBorderWidth,
     this.filterHeaderColor,
     this.filterPopupHeaderColor,
     this.filterHeaderIconColor,
@@ -723,63 +708,48 @@ class TrinaGridStyleConfig {
     // Preserve the dark style flag by using the appropriate constructor
     if (isDarkStyle) {
       return TrinaGridStyleConfig.dark(
-        cellVerticalBorderWidth:
-            cellVerticalBorderWidth ?? this.cellVerticalBorderWidth,
-        cellHorizontalBorderWidth:
-            cellHorizontalBorderWidth ?? this.cellHorizontalBorderWidth,
-        enableGridBorderShadow:
-            enableGridBorderShadow ?? this.enableGridBorderShadow,
-        enableColumnBorderVertical:
-            enableColumnBorderVertical ?? this.enableColumnBorderVertical,
+        cellVerticalBorderWidth: cellVerticalBorderWidth ?? this.cellVerticalBorderWidth,
+        cellHorizontalBorderWidth: cellHorizontalBorderWidth ?? this.cellHorizontalBorderWidth,
+        enableGridBorderShadow: enableGridBorderShadow ?? this.enableGridBorderShadow,
+        enableColumnBorderVertical: enableColumnBorderVertical ?? this.enableColumnBorderVertical,
         enableColumnBorderHorizontal:
             enableColumnBorderHorizontal ?? this.enableColumnBorderHorizontal,
-        enableCellBorderVertical:
-            enableCellBorderVertical ?? this.enableCellBorderVertical,
-        enableCellBorderHorizontal:
-            enableCellBorderHorizontal ?? this.enableCellBorderHorizontal,
-        enableRowColorAnimation:
-            enableRowColorAnimation ?? this.enableRowColorAnimation,
+        enableCellBorderVertical: enableCellBorderVertical ?? this.enableCellBorderVertical,
+        enableCellBorderHorizontal: enableCellBorderHorizontal ?? this.enableCellBorderHorizontal,
+        enableRowColorAnimation: enableRowColorAnimation ?? this.enableRowColorAnimation,
         filterIcon: filterIcon ?? this.filterIcon,
         gridBackgroundColor: gridBackgroundColor ?? this.gridBackgroundColor,
         rowColor: rowColor ?? this.rowColor,
         oddRowColor: oddRowColor == null ? this.oddRowColor : oddRowColor.value,
-        evenRowColor: evenRowColor == null
-            ? this.evenRowColor
-            : evenRowColor.value,
+        evenRowColor: evenRowColor == null ? this.evenRowColor : evenRowColor.value,
         activatedColor: activatedColor ?? this.activatedColor,
         columnCheckedColor: columnCheckedColor ?? this.columnCheckedColor,
         columnCheckedSide: columnCheckedSide ?? this.columnCheckedSide,
         cellCheckedColor: cellCheckedColor ?? this.cellCheckedColor,
         cellCheckedSide: cellCheckedSide ?? this.cellCheckedSide,
         cellColorInEditState: cellColorInEditState ?? this.cellColorInEditState,
-        cellColorInReadOnlyState:
-            cellColorInReadOnlyState ?? this.cellColorInReadOnlyState,
+        cellColorInReadOnlyState: cellColorInReadOnlyState ?? this.cellColorInReadOnlyState,
         cellReadonlyColor: cellReadonlyColor ?? this.cellReadonlyColor,
         cellColorGroupedRow: cellColorGroupedRow == null
             ? this.cellColorGroupedRow
             : cellColorGroupedRow.value,
-        dragTargetColumnColor:
-            dragTargetColumnColor ?? this.dragTargetColumnColor,
+        dragTargetColumnColor: dragTargetColumnColor ?? this.dragTargetColumnColor,
         iconColor: iconColor ?? this.iconColor,
         disabledIconColor: disabledIconColor ?? this.disabledIconColor,
         menuBackgroundColor: menuBackgroundColor ?? this.menuBackgroundColor,
         gridBorderColor: gridBorderColor ?? this.gridBorderColor,
         borderColor: borderColor ?? this.borderColor,
         activatedBorderColor: activatedBorderColor ?? this.activatedBorderColor,
-        inactivatedBorderColor:
-            inactivatedBorderColor ?? this.inactivatedBorderColor,
+        inactivatedBorderColor: inactivatedBorderColor ?? this.inactivatedBorderColor,
         iconSize: iconSize ?? this.iconSize,
         rowHeight: rowHeight ?? this.rowHeight,
         columnHeight: columnHeight ?? this.columnHeight,
         columnFilterHeight: columnFilterHeight ?? this.columnFilterHeight,
-        defaultColumnTitlePadding:
-            defaultColumnTitlePadding ?? this.defaultColumnTitlePadding,
-        defaultColumnFilterPadding:
-            defaultColumnFilterPadding ?? this.defaultColumnFilterPadding,
+        defaultColumnTitlePadding: defaultColumnTitlePadding ?? this.defaultColumnTitlePadding,
+        defaultColumnFilterPadding: defaultColumnFilterPadding ?? this.defaultColumnFilterPadding,
         defaultCellPadding: defaultCellPadding ?? this.defaultCellPadding,
         columnTextStyle: columnTextStyle ?? this.columnTextStyle,
-        columnUnselectedColor:
-            columnUnselectedColor ?? this.columnUnselectedColor,
+        columnUnselectedColor: columnUnselectedColor ?? this.columnUnselectedColor,
         columnActiveColor: columnActiveColor ?? this.columnActiveColor,
         cellUnselectedColor: cellUnselectedColor ?? this.cellUnselectedColor,
         cellActiveColor: cellActiveColor ?? this.cellActiveColor,
@@ -793,79 +763,60 @@ class TrinaGridStyleConfig {
             ? this.columnDescendingIcon
             : columnDescendingIcon.value,
         rowGroupExpandedIcon: rowGroupExpandedIcon ?? this.rowGroupExpandedIcon,
-        rowGroupCollapsedIcon:
-            rowGroupCollapsedIcon ?? this.rowGroupCollapsedIcon,
+        rowGroupCollapsedIcon: rowGroupCollapsedIcon ?? this.rowGroupCollapsedIcon,
         rowGroupEmptyIcon: rowGroupEmptyIcon ?? this.rowGroupEmptyIcon,
         gridBorderRadius: gridBorderRadius ?? this.gridBorderRadius,
-        gridPopupBorderRadius:
-            gridPopupBorderRadius ?? this.gridPopupBorderRadius,
+        gridPopupBorderRadius: gridPopupBorderRadius ?? this.gridPopupBorderRadius,
         gridPadding: gridPadding ?? this.gridPadding,
         gridBorderWidth: gridBorderWidth ?? this.gridBorderWidth,
         filterHeaderColor: filterHeaderColor ?? this.filterHeaderColor,
-        filterPopupHeaderColor:
-            filterPopupHeaderColor ?? this.filterPopupHeaderColor,
-        filterHeaderIconColor:
-            filterHeaderIconColor ?? this.filterHeaderIconColor,
+        filterPopupHeaderColor: filterPopupHeaderColor ?? this.filterPopupHeaderColor,
+        filterHeaderIconColor: filterHeaderIconColor ?? this.filterHeaderIconColor,
       );
     } else {
       return TrinaGridStyleConfig(
-        cellVerticalBorderWidth:
-            cellVerticalBorderWidth ?? this.cellVerticalBorderWidth,
-        cellHorizontalBorderWidth:
-            cellHorizontalBorderWidth ?? this.cellHorizontalBorderWidth,
-        enableGridBorderShadow:
-            enableGridBorderShadow ?? this.enableGridBorderShadow,
-        enableColumnBorderVertical:
-            enableColumnBorderVertical ?? this.enableColumnBorderVertical,
+        cellVerticalBorderWidth: cellVerticalBorderWidth ?? this.cellVerticalBorderWidth,
+        cellHorizontalBorderWidth: cellHorizontalBorderWidth ?? this.cellHorizontalBorderWidth,
+        enableGridBorderShadow: enableGridBorderShadow ?? this.enableGridBorderShadow,
+        enableColumnBorderVertical: enableColumnBorderVertical ?? this.enableColumnBorderVertical,
         enableColumnBorderHorizontal:
             enableColumnBorderHorizontal ?? this.enableColumnBorderHorizontal,
-        enableCellBorderVertical:
-            enableCellBorderVertical ?? this.enableCellBorderVertical,
-        enableCellBorderHorizontal:
-            enableCellBorderHorizontal ?? this.enableCellBorderHorizontal,
-        enableRowColorAnimation:
-            enableRowColorAnimation ?? this.enableRowColorAnimation,
+        enableCellBorderVertical: enableCellBorderVertical ?? this.enableCellBorderVertical,
+        enableCellBorderHorizontal: enableCellBorderHorizontal ?? this.enableCellBorderHorizontal,
+        enableRowColorAnimation: enableRowColorAnimation ?? this.enableRowColorAnimation,
         filterIcon: filterIcon ?? this.filterIcon,
         gridBackgroundColor: gridBackgroundColor ?? this.gridBackgroundColor,
         rowColor: rowColor ?? this.rowColor,
         oddRowColor: oddRowColor == null ? this.oddRowColor : oddRowColor.value,
-        evenRowColor: evenRowColor == null
-            ? this.evenRowColor
-            : evenRowColor.value,
+        evenRowColor: evenRowColor == null ? this.evenRowColor : evenRowColor.value,
         activatedColor: activatedColor ?? this.activatedColor,
         columnCheckedColor: columnCheckedColor ?? this.columnCheckedColor,
         columnCheckedSide: columnCheckedSide ?? this.columnCheckedSide,
         cellCheckedColor: cellCheckedColor ?? this.cellCheckedColor,
         cellCheckedSide: cellCheckedSide ?? this.cellCheckedSide,
         cellColorInEditState: cellColorInEditState ?? this.cellColorInEditState,
-        cellColorInReadOnlyState:
-            cellColorInReadOnlyState ?? this.cellColorInReadOnlyState,
+        cellColorInReadOnlyState: cellColorInReadOnlyState ?? this.cellColorInReadOnlyState,
         cellReadonlyColor: cellReadonlyColor ?? this.cellReadonlyColor,
         cellColorGroupedRow: cellColorGroupedRow == null
             ? this.cellColorGroupedRow
             : cellColorGroupedRow.value,
-        dragTargetColumnColor:
-            dragTargetColumnColor ?? this.dragTargetColumnColor,
+        dragTargetColumnColor: dragTargetColumnColor ?? this.dragTargetColumnColor,
         iconColor: iconColor ?? this.iconColor,
         disabledIconColor: disabledIconColor ?? this.disabledIconColor,
         menuBackgroundColor: menuBackgroundColor ?? this.menuBackgroundColor,
         gridBorderColor: gridBorderColor ?? this.gridBorderColor,
         borderColor: borderColor ?? this.borderColor,
         activatedBorderColor: activatedBorderColor ?? this.activatedBorderColor,
-        inactivatedBorderColor:
-            inactivatedBorderColor ?? this.inactivatedBorderColor,
+        inactivatedBorderColor: inactivatedBorderColor ?? this.inactivatedBorderColor,
         iconSize: iconSize ?? this.iconSize,
         rowHeight: rowHeight ?? this.rowHeight,
         columnHeight: columnHeight ?? this.columnHeight,
         columnFilterHeight: columnFilterHeight ?? this.columnFilterHeight,
-        defaultColumnTitlePadding:
-            defaultColumnTitlePadding ?? this.defaultColumnTitlePadding,
-        defaultColumnFilterPadding:
-            defaultColumnFilterPadding ?? this.defaultColumnFilterPadding,
+        defaultColumnTitlePadding: defaultColumnTitlePadding ?? this.defaultColumnTitlePadding,
+        defaultColumnFilterPadding: defaultColumnFilterPadding ?? this.defaultColumnFilterPadding,
         defaultCellPadding: defaultCellPadding ?? this.defaultCellPadding,
         columnTextStyle: columnTextStyle ?? this.columnTextStyle,
-        columnUnselectedColor:
-            columnUnselectedColor ?? this.columnUnselectedColor,
+        columnUnselectedColor: columnUnselectedColor ?? this.columnUnselectedColor,
         columnActiveColor: columnActiveColor ?? this.columnActiveColor,
         cellUnselectedColor: cellUnselectedColor ?? this.cellUnselectedColor,
         cellActiveColor: cellActiveColor ?? this.cellActiveColor,
@@ -879,19 +830,15 @@ class TrinaGridStyleConfig {
             ? this.columnDescendingIcon
             : columnDescendingIcon.value,
         rowGroupExpandedIcon: rowGroupExpandedIcon ?? this.rowGroupExpandedIcon,
-        rowGroupCollapsedIcon:
-            rowGroupCollapsedIcon ?? this.rowGroupCollapsedIcon,
+        rowGroupCollapsedIcon: rowGroupCollapsedIcon ?? this.rowGroupCollapsedIcon,
         rowGroupEmptyIcon: rowGroupEmptyIcon ?? this.rowGroupEmptyIcon,
         gridBorderRadius: gridBorderRadius ?? this.gridBorderRadius,
-        gridPopupBorderRadius:
-            gridPopupBorderRadius ?? this.gridPopupBorderRadius,
+        gridPopupBorderRadius: gridPopupBorderRadius ?? this.gridPopupBorderRadius,
         gridPadding: gridPadding ?? this.gridPadding,
         gridBorderWidth: gridBorderWidth ?? this.gridBorderWidth,
         filterHeaderColor: filterHeaderColor ?? this.filterHeaderColor,
-        filterPopupHeaderColor:
-            filterPopupHeaderColor ?? this.filterPopupHeaderColor,
-        filterHeaderIconColor:
-            filterHeaderIconColor ?? this.filterHeaderIconColor,
+        filterPopupHeaderColor: filterPopupHeaderColor ?? this.filterPopupHeaderColor,
+        filterHeaderIconColor: filterHeaderIconColor ?? this.filterHeaderIconColor,
       );
     }
   }
@@ -903,8 +850,7 @@ class TrinaGridStyleConfig {
             runtimeType == other.runtimeType &&
             enableGridBorderShadow == other.enableGridBorderShadow &&
             enableColumnBorderVertical == other.enableColumnBorderVertical &&
-            enableColumnBorderHorizontal ==
-                other.enableColumnBorderHorizontal &&
+            enableColumnBorderHorizontal == other.enableColumnBorderHorizontal &&
             enableCellBorderVertical == other.enableCellBorderVertical &&
             enableCellBorderHorizontal == other.enableCellBorderHorizontal &&
             enableRowColorAnimation == other.enableRowColorAnimation &&
@@ -1055,6 +1001,7 @@ class TrinaGridScrollbarConfig {
     this.showTrack = true,
     this.showHorizontal = true,
     this.showVertical = true,
+    this.enableVerticalScroll = true,
     this.thickness = 8.0,
     this.minThumbLength = 40.0,
     this.radius,
@@ -1092,6 +1039,12 @@ class TrinaGridScrollbarConfig {
   /// Whether to show the vertical scrollbar
   final bool showVertical;
 
+  /// Whether vertical body scrolling is enabled.
+  ///
+  /// When false, row lists use [NeverScrollableScrollPhysics] so parent
+  /// scrollables can handle vertical gestures.
+  final bool enableVerticalScroll;
+
   /// Thickness of the scrollbar
   final double thickness;
 
@@ -1117,19 +1070,16 @@ class TrinaGridScrollbarConfig {
   final bool columnShowScrollWidth;
 
   /// Get effective thumb color
-  Color get effectiveThumbColor =>
-      thumbColor ?? Colors.grey.withAlpha((153).toInt());
+  Color get effectiveThumbColor => thumbColor ?? Colors.grey.withAlpha((153).toInt());
 
   /// Get effective thumb hover color
-  Color get effectiveThumbHoverColor =>
-      thumbHoverColor ?? effectiveThumbColor.withAlpha(200);
+  Color get effectiveThumbHoverColor => thumbHoverColor ?? effectiveThumbColor.withAlpha(200);
 
   /// Get effective track color
   Color get effectiveTrackColor => trackColor ?? Colors.grey.withAlpha(51);
 
   /// Get effective track hover color
-  Color get effectiveTrackHoverColor =>
-      trackHoverColor ?? effectiveTrackColor.withAlpha(80);
+  Color get effectiveTrackHoverColor => trackHoverColor ?? effectiveTrackColor.withAlpha(80);
 
   /// Get effective radius for the scrollbar
   double get effectiveRadius => radius ?? thickness / 2;
@@ -1146,6 +1096,7 @@ class TrinaGridScrollbarConfig {
             showTrack == other.showTrack &&
             showHorizontal == other.showHorizontal &&
             showVertical == other.showVertical &&
+            enableVerticalScroll == other.enableVerticalScroll &&
             thickness == other.thickness &&
             minThumbLength == other.minThumbLength &&
             radius == other.radius &&
@@ -1165,6 +1116,7 @@ class TrinaGridScrollbarConfig {
     showTrack,
     showHorizontal,
     showVertical,
+    enableVerticalScroll,
     thickness,
     minThumbLength,
     radius,
@@ -1185,10 +1137,7 @@ extension TrinaGridConfigurationScrollbarExtension on TrinaGridConfiguration {
 typedef TrinaGridColumnFilterResolver = Function<T>();
 
 typedef TrinaGridResolveDefaultColumnFilter =
-    TrinaFilterType Function(
-      TrinaColumn column,
-      TrinaGridColumnFilterResolver resolver,
-    );
+    TrinaFilterType Function(TrinaColumn column, TrinaGridColumnFilterResolver resolver);
 
 class TrinaGridColumnFilterConfig {
   /// # Set the filter information of the column.
@@ -1259,14 +1208,12 @@ class TrinaGridColumnFilterConfig {
 
   bool get hasUserFilter => _userFilters != null && _userFilters.isNotEmpty;
 
-  List<TrinaFilterType> get filters =>
-      hasUserFilter ? _userFilters! : FilterHelper.defaultFilters;
+  List<TrinaFilterType> get filters => hasUserFilter ? _userFilters! : FilterHelper.defaultFilters;
 
   int get debounceMilliseconds => _debounceMilliseconds;
 
   TrinaFilterType resolver<T>() {
-    return filters.firstWhereOrNull((element) => element.runtimeType == T) ??
-        filters.first;
+    return filters.firstWhereOrNull((element) => element.runtimeType == T) ?? filters.first;
   }
 
   TrinaFilterType getDefaultColumnFilter(TrinaColumn column) {
@@ -1287,17 +1234,13 @@ class TrinaGridColumnFilterConfig {
         other is TrinaGridColumnFilterConfig &&
             runtimeType == other.runtimeType &&
             listEquals(_userFilters, other._userFilters) &&
-            _userResolveDefaultColumnFilter ==
-                other._userResolveDefaultColumnFilter &&
+            _userResolveDefaultColumnFilter == other._userResolveDefaultColumnFilter &&
             _debounceMilliseconds == other._debounceMilliseconds;
   }
 
   @override
-  int get hashCode => Object.hash(
-    _userFilters,
-    _userResolveDefaultColumnFilter,
-    _debounceMilliseconds,
-  );
+  int get hashCode =>
+      Object.hash(_userFilters, _userResolveDefaultColumnFilter, _debounceMilliseconds);
 }
 
 /// Automatically change the column width or set the mode when changing the width.
@@ -1358,16 +1301,13 @@ class TrinaGridColumnSizeConfig {
       restoreAutoSizeAfterHideColumn:
           restoreAutoSizeAfterHideColumn ?? this.restoreAutoSizeAfterHideColumn,
       restoreAutoSizeAfterFrozenColumn:
-          restoreAutoSizeAfterFrozenColumn ??
-          this.restoreAutoSizeAfterFrozenColumn,
+          restoreAutoSizeAfterFrozenColumn ?? this.restoreAutoSizeAfterFrozenColumn,
       restoreAutoSizeAfterMoveColumn:
           restoreAutoSizeAfterMoveColumn ?? this.restoreAutoSizeAfterMoveColumn,
       restoreAutoSizeAfterInsertColumn:
-          restoreAutoSizeAfterInsertColumn ??
-          this.restoreAutoSizeAfterInsertColumn,
+          restoreAutoSizeAfterInsertColumn ?? this.restoreAutoSizeAfterInsertColumn,
       restoreAutoSizeAfterRemoveColumn:
-          restoreAutoSizeAfterRemoveColumn ??
-          this.restoreAutoSizeAfterRemoveColumn,
+          restoreAutoSizeAfterRemoveColumn ?? this.restoreAutoSizeAfterRemoveColumn,
     );
   }
 
@@ -1378,16 +1318,11 @@ class TrinaGridColumnSizeConfig {
             runtimeType == other.runtimeType &&
             autoSizeMode == other.autoSizeMode &&
             resizeMode == other.resizeMode &&
-            restoreAutoSizeAfterHideColumn ==
-                other.restoreAutoSizeAfterHideColumn &&
-            restoreAutoSizeAfterFrozenColumn ==
-                other.restoreAutoSizeAfterFrozenColumn &&
-            restoreAutoSizeAfterMoveColumn ==
-                other.restoreAutoSizeAfterMoveColumn &&
-            restoreAutoSizeAfterInsertColumn ==
-                other.restoreAutoSizeAfterInsertColumn &&
-            restoreAutoSizeAfterRemoveColumn ==
-                other.restoreAutoSizeAfterRemoveColumn;
+            restoreAutoSizeAfterHideColumn == other.restoreAutoSizeAfterHideColumn &&
+            restoreAutoSizeAfterFrozenColumn == other.restoreAutoSizeAfterFrozenColumn &&
+            restoreAutoSizeAfterMoveColumn == other.restoreAutoSizeAfterMoveColumn &&
+            restoreAutoSizeAfterInsertColumn == other.restoreAutoSizeAfterInsertColumn &&
+            restoreAutoSizeAfterRemoveColumn == other.restoreAutoSizeAfterRemoveColumn;
   }
 
   @override
@@ -1513,8 +1448,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Page number',
     this.paginationCancelButton = 'Cancel',
     this.paginationGoButton = 'Go',
-    this.paginationInvalidPageNumberMessage =
-        'Please enter a valid page number',
+    this.paginationInvalidPageNumberMessage = 'Please enter a valid page number',
     this.paginationGoToPageTooltip = 'Go to page',
     // Time picker
     this.timePickerHourLabel = 'Hour',
@@ -1572,15 +1506,13 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Numéro de page',
     this.paginationCancelButton = 'Annuler',
     this.paginationGoButton = 'Aller',
-    this.paginationInvalidPageNumberMessage =
-        'Veuillez entrer un numéro de page valide',
+    this.paginationInvalidPageNumberMessage = 'Veuillez entrer un numéro de page valide',
     this.paginationGoToPageTooltip = 'Aller à la page',
     // Time picker
     this.timePickerHourLabel = 'Heure',
     this.timePickerMinuteLabel = 'Minute',
     this.timePickerInvalidHourMessage = 'L\'heure doit être entre 0 et 23',
-    this.timePickerInvalidMinuteMessage =
-        'Les minutes doivent être entre 0 et 59',
+    this.timePickerInvalidMinuteMessage = 'Les minutes doivent être entre 0 et 59',
     this.timePickerMinTimeMessage = 'L\'heure minimale est',
     this.timePickerMaxTimeMessage = 'L\'heure maximale est',
     this.timePickerInvalidValueMessage = 'Valeur invalide',
@@ -1748,8 +1680,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Номер страницы',
     this.paginationCancelButton = 'Отмена',
     this.paginationGoButton = 'Перейти',
-    this.paginationInvalidPageNumberMessage =
-        'Пожалуйста, введите действительный номер страницы',
+    this.paginationInvalidPageNumberMessage = 'Пожалуйста, введите действительный номер страницы',
     this.paginationGoToPageTooltip = 'Перейти к странице',
     // Time picker
     this.timePickerHourLabel = 'Час',
@@ -1807,8 +1738,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Číslo stránky',
     this.paginationCancelButton = 'Zrušit',
     this.paginationGoButton = 'Přejít',
-    this.paginationInvalidPageNumberMessage =
-        'Zadejte prosím platné číslo stránky',
+    this.paginationInvalidPageNumberMessage = 'Zadejte prosím platné číslo stránky',
     this.paginationGoToPageTooltip = 'Přejít na stránku',
     // Time picker
     this.timePickerHourLabel = 'Hodina',
@@ -1866,8 +1796,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Número da página',
     this.paginationCancelButton = 'Cancelar',
     this.paginationGoButton = 'Ir',
-    this.paginationInvalidPageNumberMessage =
-        'Por favor, insira um número de página válido',
+    this.paginationInvalidPageNumberMessage = 'Por favor, insira um número de página válido',
     this.paginationGoToPageTooltip = 'Ir para página',
     // Time picker
     this.timePickerHourLabel = 'Hora',
@@ -1925,8 +1854,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Número de página',
     this.paginationCancelButton = 'Cancelar',
     this.paginationGoButton = 'Ir',
-    this.paginationInvalidPageNumberMessage =
-        'Por favor, ingrese un número de página válido',
+    this.paginationInvalidPageNumberMessage = 'Por favor, ingrese un número de página válido',
     this.paginationGoToPageTooltip = 'Ir a página',
     // Time picker
     this.timePickerHourLabel = 'Hora',
@@ -1984,8 +1912,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'شماره صفحه',
     this.paginationCancelButton = 'لغو',
     this.paginationGoButton = 'برو',
-    this.paginationInvalidPageNumberMessage =
-        'لطفاً یک شماره صفحه معتبر وارد کنید',
+    this.paginationInvalidPageNumberMessage = 'لطفاً یک شماره صفحه معتبر وارد کنید',
     this.paginationGoToPageTooltip = 'رفتن به صفحه',
     // Time picker
     this.timePickerHourLabel = 'ساعت',
@@ -2101,8 +2028,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Sidenummer',
     this.paginationCancelButton = 'Avbryt',
     this.paginationGoButton = 'Gå',
-    this.paginationInvalidPageNumberMessage =
-        'Vennligst oppgi et gyldig sidenummer',
+    this.paginationInvalidPageNumberMessage = 'Vennligst oppgi et gyldig sidenummer',
     this.paginationGoToPageTooltip = 'Gå til side',
     // Time picker
     this.timePickerHourLabel = 'Time',
@@ -2160,16 +2086,13 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Seitennummer',
     this.paginationCancelButton = 'Abbrechen',
     this.paginationGoButton = 'Gehen',
-    this.paginationInvalidPageNumberMessage =
-        'Bitte geben Sie eine gültige Seitennummer ein',
+    this.paginationInvalidPageNumberMessage = 'Bitte geben Sie eine gültige Seitennummer ein',
     this.paginationGoToPageTooltip = 'Gehe zu Seite',
     // Time picker
     this.timePickerHourLabel = 'Stunde',
     this.timePickerMinuteLabel = 'Minute',
-    this.timePickerInvalidHourMessage =
-        'Die Stunde muss zwischen 0 und 23 liegen',
-    this.timePickerInvalidMinuteMessage =
-        'Die Minute muss zwischen 0 und 59 liegen',
+    this.timePickerInvalidHourMessage = 'Die Stunde muss zwischen 0 und 23 liegen',
+    this.timePickerInvalidMinuteMessage = 'Die Minute muss zwischen 0 und 59 liegen',
     this.timePickerMinTimeMessage = 'Die Mindestzeit ist',
     this.timePickerMaxTimeMessage = 'Die Höchstzeit ist',
     this.timePickerInvalidValueMessage = 'Ungültiger Wert',
@@ -2221,8 +2144,7 @@ class TrinaGridLocaleText {
     this.paginationGoToPageLabel = 'Sayfa numarası',
     this.paginationCancelButton = 'İptal',
     this.paginationGoButton = 'Git',
-    this.paginationInvalidPageNumberMessage =
-        'Lütfen geçerli bir sayfa numarası girin',
+    this.paginationInvalidPageNumberMessage = 'Lütfen geçerli bir sayfa numarası girin',
     this.paginationGoToPageTooltip = 'Sayfaya git',
     // Time picker
     this.timePickerHourLabel = 'Saat',
@@ -2405,11 +2327,9 @@ enum TrinaGridEnterKeyAction {
   /// Pressing the Enter key does nothing.
   none;
 
-  bool get isEditingAndMoveDown =>
-      this == TrinaGridEnterKeyAction.editingAndMoveDown;
+  bool get isEditingAndMoveDown => this == TrinaGridEnterKeyAction.editingAndMoveDown;
 
-  bool get isEditingAndMoveRight =>
-      this == TrinaGridEnterKeyAction.editingAndMoveRight;
+  bool get isEditingAndMoveRight => this == TrinaGridEnterKeyAction.editingAndMoveRight;
 
   bool get isToggleEditing => this == TrinaGridEnterKeyAction.toggleEditing;
 
