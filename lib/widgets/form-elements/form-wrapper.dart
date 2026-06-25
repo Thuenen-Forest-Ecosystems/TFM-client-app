@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
 import 'package:terrestrial_forest_monitor/services/layout_service.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';

@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
+import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
@@ -142,7 +143,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       };
       final validationSchema = {..._effectiveSchema, 'properties': validationProperties};
 
-      final result = await ValidationService.instance.validate(validationSchema, _formData);
+      final result = await ValidationServiceNative.instance.validate(validationSchema, _formData);
       if (mounted) {
         setState(() {
           _validationResult = TFMValidationResult(

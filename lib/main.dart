@@ -27,7 +27,8 @@ import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
+import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
 import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
 import 'package:terrestrial_forest_monitor/services/app_lifecycle_manager.dart';
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
@@ -59,7 +60,6 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           '/settings',
           '/admin',
           '/admin-permissions',
-          '/headless',
           '/',
           '/profile',
           '/logs',
@@ -128,7 +128,6 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
         //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),
         //'/admin': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminScreen(), type: BeamPageType.noTransition),
         //'/admin-permissions': (context, state, data) => BeamPage(key: ValueKey('admin-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: AdminPermissionsScreen(), type: BeamPageType.noTransition),
-        //'/headless': (context, state, data) => BeamPage(key: ValueKey('headless-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: StatelessTest(), type: BeamPageType.noTransition),
       },
     ).call,
   );
@@ -218,13 +217,9 @@ void main() async {
       await initializeAttachmentQueue(db);
     }
 
-    // Initialize validation service (flutter_inappwebview not supported on web or Windows desktop)
-    // On Windows the HeadlessInAppWebView (WebView2) runs a full browser process in the
-    // background and is the single largest source of energy consumption. Initialise
-    // lazily (on first form open) instead of at startup.
-    if (!kIsWeb && !Platform.isWindows) {
-      await ValidationService.instance.initialize();
-    }
+    // Validation runs in-process (native Dart schema validation + flutter_js
+    // plausibility) and is initialised lazily on first form open with the
+    // synced plausibility script, so no startup warm-up is needed.
 
     // Initialize app lifecycle manager to keep sync running in background
     await appLifecycleManager.initialize();
@@ -326,7 +321,7 @@ class _LayoutState extends State<Layout> with WindowListener {
                     Navigator.of(navigator.context).pop();
                     _isClosing = true;
                     try {
-                      await ValidationService.instance.dispose();
+                      await ValidationServiceNative.instance.dispose();
                     } catch (e) {}
                     await windowManager.setPreventClose(false);
                     await windowManager.close();

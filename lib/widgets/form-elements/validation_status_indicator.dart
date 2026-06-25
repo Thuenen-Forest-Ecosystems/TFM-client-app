@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 
 /// Helper class for displaying validation status indicators in grid rows

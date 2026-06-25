@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 
 /// Widget for manual entry of plot support points
 class PlotSupportPoints extends StatelessWidget {

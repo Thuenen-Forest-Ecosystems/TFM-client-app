@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
+import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Manages app lifecycle to ensure PowerSync continues syncing
@@ -84,7 +85,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
         // On iOS: sync continues for a limited time, then system decides
         // Free the WebView2 host process while backgrounded (biggest energy
         // win on Windows). Next validate() transparently re-initializes.
-        ValidationService.instance.handleAppPaused();
+        ValidationServiceNative.instance.handleAppPaused();
         break;
 
       case AppLifecycleState.detached:
@@ -95,7 +96,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       case AppLifecycleState.hidden:
         // App is hidden (e.g. window minimized on desktop, app hidden on iOS).
         // Free the WebView2 host process; re-initialized lazily on next use.
-        ValidationService.instance.handleAppPaused();
+        ValidationServiceNative.instance.handleAppPaused();
         break;
     }
   }

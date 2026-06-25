@@ -4,7 +4,7 @@
 /// used in layout configurations.
 
 import 'package:flutter/material.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 
 /// Custom Card Component for displaying object data in an expandable card

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:latlong2/latlong.dart';
 
@@ -15,7 +14,8 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/form-wrapper.da
 import 'package:terrestrial_forest_monitor/widgets/validation_errors_dialog.dart';
 import 'package:terrestrial_forest_monitor/models/acknowledged_error.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
+import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
 import 'package:terrestrial_forest_monitor/services/conditional_rules_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
@@ -159,11 +159,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _validationCycle++;
     _validationDebounceTimer?.cancel();
 
-    // On Windows the ValidationService is lazy-initialised (not started at
-    // startup). Dispose the HeadlessInAppWebView when the form closes so the
-    // background WebView2 process does not persist between form sessions.
-    if (!kIsWeb && Platform.isWindows) {
-      ValidationService.instance.dispose();
+    // Free the in-process JS plausibility engine when the form closes so it
+    // does not persist between form sessions (it re-initialises lazily on the
+    // next form open). The idle timer would also dispose it after a timeout.
+    if (!kIsWeb) {
+      ValidationServiceNative.instance.dispose();
     }
 
     // Clear distance line and focused record immediately when leaving
@@ -320,7 +320,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // Initialize TFM validation code if available
         if (tfmValidationCode != null) {
           try {
-            await ValidationService.instance.initialize(tfmValidationCode: tfmValidationCode);
+            await ValidationServiceNative.instance.initialize(tfmValidationCode: tfmValidationCode);
 
             // Small delay to ensure WebView is fully ready
             await Future.delayed(Duration(milliseconds: 200));
@@ -797,7 +797,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
                 if (!mounted || cycle != _validationCycle) return;
 
-                final result = await ValidationService.instance.validateWithTFM(
+                final result = await ValidationServiceNative.instance.validateWithTFM(
                   schema: modifiedSchema,
                   data: currentDataWithMeta,
                   previousData: previousDataWithMeta,

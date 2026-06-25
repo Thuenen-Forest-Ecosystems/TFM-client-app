@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
-import 'package:terrestrial_forest_monitor/services/validation_service.dart';
+import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 
 /// ArrayGridDialog - Dialog for editing nested arrays within datagrids

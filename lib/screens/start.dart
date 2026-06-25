@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
 //import 'package:maplibre_gl/maplibre_gl.dart'; // not supported in windows
-//import 'package:terrestrial_forest_monitor/screens/inventory/test-ajv.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
 import 'package:terrestrial_forest_monitor/widgets/serial-port-gps-icon.dart';
 //import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon.dart';
