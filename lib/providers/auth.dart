@@ -127,14 +127,31 @@ class AuthProvider extends ChangeNotifier {
       _sessionExpiredError = true;
     }
 
-    // On sign-in, switch to the user's personal database BEFORE calling
-    // _getUser() so that navigation (triggered by notifyListeners inside
-    // _getUser) never sees the previous user's data.
-    if (data.event == AuthChangeEvent.signedIn && data.session?.user.id != null) {
+    // Whenever we have a valid session, point the global [db] at that user's
+    // personal database BEFORE calling _getUser() so that navigation
+    // (triggered by notifyListeners inside _getUser) never sees the previous
+    // user's data and writes never land in the legacy shared tfm.db.
+    //
+    // This must cover initialSession and tokenRefreshed, not just signedIn:
+    // on app restart Supabase restores the persisted session and replays
+    // initialSession (or tokenRefreshed when the stored token had expired and
+    // was refreshed online) — never signedIn. Relying on signedIn alone left
+    // the db on the legacy tfm.db, so offline-restored users wrote to the
+    // wrong file. switchUserDatabase is idempotent, so calling it on every
+    // session-bearing event is safe.
+    final sessionUserId = data.session?.user.id;
+    if (sessionUserId != null &&
+        (data.event == AuthChangeEvent.signedIn ||
+            data.event == AuthChangeEvent.initialSession ||
+            data.event == AuthChangeEvent.tokenRefreshed)) {
       try {
-        await switchUserDatabase(data.session!.user.id);
-        // Connect the freshly-initialised per-user db to PowerSync.
-        db.connect(connector: SupabaseConnector());
+        final didSwitch = await switchUserDatabase(sessionUserId);
+        // Only (re)connect when we actually swapped to a new per-user db.
+        // Calling db.connect() on every tokenRefreshed would restart the sync
+        // connection and make in-progress downloads start over from scratch.
+        if (didSwitch) {
+          db.connect(connector: SupabaseConnector());
+        }
       } catch (e) {
       }
     }

@@ -77,15 +77,17 @@ Future<String> getDatabasePath({String? userId}) async {
 String? _currentDbUserId;
 
 /// Switch the global [db] to the SQLite file that belongs to [userId].
-/// If the current [db] is already the correct user's database, this is a
-/// no-op — callers should still call [db.connect] afterwards.
+/// Returns `true` when the db was actually swapped, `false` when it was
+/// already the correct user's database (a no-op). Callers use the return
+/// value to decide whether a [db.connect] is needed — reconnecting on every
+/// auth event (e.g. tokenRefreshed) would restart in-progress syncs.
 /// Initialises the new database before swapping the global reference so that
 /// any code using [db] never sees an uninitialised instance.
 /// The old database is only disconnected (not closed) to prevent a
 /// ClosedException in any streams or watchers that still hold a reference.
-Future<void> switchUserDatabase(String userId) async {
+Future<bool> switchUserDatabase(String userId) async {
   if (_currentDbUserId == userId) {
-    return;
+    return false;
   }
 
   final oldDb = db;
@@ -110,6 +112,25 @@ Future<void> switchUserDatabase(String userId) async {
   } catch (e) {
   }
 
+  return true;
+}
+
+/// Path of the legacy shared (pre per-user) database `tfm.db`, but only when
+/// it exists on disk AND is not the database currently in use. Returns null
+/// when there is nothing to inspect (web, no user switched in yet, or the file
+/// is absent). Used to surface leftover data that was written to the shared db
+/// before per-user isolation / the initialSession switch fix.
+Future<String?> getLegacyDatabasePathIfPresent() async {
+  if (kIsWeb) return null;
+  // The active db is only a per-user file once a user has been switched in.
+  // While still on the legacy db there is nothing "left behind" to show.
+  if (_currentDbUserId == null) return null;
+
+  final legacyPath = await getDatabasePath();
+  final activePath = await getDatabasePath(userId: _currentDbUserId);
+  if (legacyPath == activePath) return null;
+
+  return await File(legacyPath).exists() ? legacyPath : null;
 }
 
 bool isLoggedIn() {
