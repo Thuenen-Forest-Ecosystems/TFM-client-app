@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/services/gnss_service.dart';
+import 'package:terrestrial_forest_monitor/services/power_profile_service.dart';
 
 class CurrentNMEA {
   String? mode;
@@ -99,7 +100,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   // context.read consumers; only the *visible* updates (stream pushes +
   // notifyListeners) are limited to ~1 Hz, with a trailing emit so the most
   // recent fix is never dropped.
-  static const Duration _uiThrottleInterval = Duration(milliseconds: 1000);
+  // ~1 Hz on AC power; widened to ~0.5 Hz on battery (see PowerProfileService)
+  // to halve map/UI rebuilds while unplugged in the field.
+  Duration get _uiThrottleInterval => PowerProfileService.instance.powerSaveActive
+      ? const Duration(milliseconds: 2000)
+      : const Duration(milliseconds: 1000);
   DateTime? _lastUiEmit;
   Timer? _trailingEmitTimer;
   LocationMarkerPosition? _pendingPosition;
@@ -124,6 +129,12 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   // Serial port (USB/COM) connection name
   String? connectedSerialPortName;
   String _serialPortBuffer = ''; // Buffer for partial NMEA sentences (needed at high baud rates)
+
+  /// When false (default), high-volume satellites-in-view (GSV) NMEA sentences
+  /// are skipped while parsing serial GPS data to save CPU/battery. A sky-plot
+  /// diagnostics screen can set this true while open to receive per-satellite
+  /// detail, then reset it to false on close.
+  bool gnssDiagnosticsActive = false;
 
   /// Whether position data comes from an external GNSS device (BLE or Classic Bluetooth).
   /// When true, compass heading is unreliable (phone orientation != walking direction).
@@ -945,6 +956,19 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _serialPortBuffer = _serialPortBuffer.substring(index + 1);
 
       if (line.isEmpty) continue;
+
+      // Skip satellites-in-view (GSV) sentences during normal operation. GSV is
+      // the highest-volume NMEA group (one sentence per ~4 satellites, several
+      // per fix cycle) and is only needed for a sky-plot diagnostics view — the
+      // satellites-in-fix count we display comes from GGA. Parsing it otherwise
+      // is pure CPU/battery cost on Windows field tablets streaming at high baud.
+      if (!gnssDiagnosticsActive &&
+          line.length >= 6 &&
+          line.startsWith(r'$') &&
+          line.substring(3, 6) == 'GSV') {
+        continue;
+      }
+
       _currentNMEA = parseData(line.codeUnits, _currentNMEA);
     }
 

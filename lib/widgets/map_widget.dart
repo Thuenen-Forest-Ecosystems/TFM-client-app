@@ -1361,21 +1361,8 @@ class _MapWidgetState extends State<MapWidget> {
   Widget _buildClusterMarker(BuildContext context, List<Marker> markers) {
     final pointCount = markers.length;
 
-    // Determine color based on point count
-    Color markerColor;
-    if (pointCount <= 4) {
-      markerColor = Colors.red;
-    } else if (pointCount < 250) {
-      markerColor = aggregatedMarkerColors[2];
-    } else if (pointCount < 500) {
-      markerColor = aggregatedMarkerColors[3];
-    } else if (pointCount < 1000) {
-      markerColor = aggregatedMarkerColors[4];
-    } else if (pointCount < 2500) {
-      markerColor = aggregatedMarkerColors[5];
-    } else {
-      markerColor = aggregatedMarkerColors[6];
-    }
+    // Use a single uniform color for all aggregation circles
+    final Color markerColor = aggregatedMarkerColors[0];
 
     // Determine size based on point count
     double size;

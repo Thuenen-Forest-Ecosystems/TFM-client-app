@@ -30,6 +30,8 @@ import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
 import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
+import 'package:terrestrial_forest_monitor/services/power_profile_service.dart';
 import 'package:terrestrial_forest_monitor/services/app_lifecycle_manager.dart';
 import 'package:terrestrial_forest_monitor/transitions/no-animation.dart';
 import 'package:upgrader/upgrader.dart';
@@ -151,6 +153,14 @@ void main() async {
 
   // Initialize proxy service (must be done early, before any HTTP requests)
   await ProxyService.initialize();
+
+  // Open the single app-wide connectivity subscription and seed its current
+  // state before any widget reads it (one native listener for the whole app).
+  await ConnectivityService.instance.initialize();
+
+  // Seed the battery/power profile so power-sensitive subsystems (e.g. the GPS
+  // UI throttle) can back off while running unplugged. No-op without a battery.
+  await PowerProfileService.instance.initialize();
 
   // Load floating numeric keyboard user preference
   await FloatingNumKeyboard.loadPreference();
@@ -346,16 +356,7 @@ class _LayoutState extends State<Layout> with WindowListener {
 
     //context.watch<MapState>().mapOpen
 
-    Widget app = UpgradeAlert(
-      upgrader: Upgrader(
-        durationUntilAlertAgain: Duration(days: 1),
-        countryCode: 'DE',
-        messages: UpgraderMessages(code: selectedLanguage),
-      ),
-      dialogStyle: UpgradeDialogStyle.material,
-      showLater: true,
-      showIgnore: false,
-      child: MaterialApp.router(
+    final Widget materialApp = MaterialApp.router(
         title: 'Terrestrial Forest Monitor',
 
         // LOCALIZATION
@@ -431,8 +432,24 @@ class _LayoutState extends State<Layout> with WindowListener {
         themeMode: themeProvider.mode,
         routeInformationParser: BeamerParser(),
         routerDelegate: widget.routerDelegate,
-      ),
     );
+
+    // Upgrader checks an app store for a newer version; there is no store on
+    // Windows (sideloaded / MSIX builds), so the lookup is a pointless startup
+    // network round-trip — skip it there and show the app directly.
+    final Widget app = (!kIsWeb && Platform.isWindows)
+        ? materialApp
+        : UpgradeAlert(
+            upgrader: Upgrader(
+              durationUntilAlertAgain: const Duration(days: 1),
+              countryCode: 'DE',
+              messages: UpgraderMessages(code: selectedLanguage),
+            ),
+            dialogStyle: UpgradeDialogStyle.material,
+            showLater: true,
+            showIgnore: false,
+            child: materialApp,
+          );
 
     if (isPlayground) {
       return Directionality(
