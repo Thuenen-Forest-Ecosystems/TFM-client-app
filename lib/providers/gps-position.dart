@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/services/gnss_service.dart';
+import 'package:terrestrial_forest_monitor/services/power_profile_service.dart';
 
 class CurrentNMEA {
   String? mode;
@@ -91,6 +92,24 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   late final StreamController<LocationMarkerPosition> _positionStreamController;
   late final StreamController<LocationMarkerHeading> _headingStreamController;
 
+  // ── GPS UI-update throttle ────────────────────────────────────────────────
+  // External GNSS receivers (BLE / Classic / serial) commonly stream 5–10 Hz.
+  // Pushing every fix to the map + status icons rebuilds the map layer stack on
+  // each tick, pinning the CPU/GPU and draining the battery (a real problem on
+  // Windows field tablets). _lastPosition / _currentNMEA stay fresh for
+  // context.read consumers; only the *visible* updates (stream pushes +
+  // notifyListeners) are limited to ~1 Hz, with a trailing emit so the most
+  // recent fix is never dropped.
+  // ~1 Hz on AC power; widened to ~0.5 Hz on battery (see PowerProfileService)
+  // to halve map/UI rebuilds while unplugged in the field.
+  Duration get _uiThrottleInterval => PowerProfileService.instance.powerSaveActive
+      ? const Duration(milliseconds: 2000)
+      : const Duration(milliseconds: 1000);
+  DateTime? _lastUiEmit;
+  Timer? _trailingEmitTimer;
+  LocationMarkerPosition? _pendingPosition;
+  LocationMarkerHeading? _pendingHeading;
+
   GpsPositionProvider() {
     _positionStreamController = StreamController<LocationMarkerPosition>.broadcast();
     _headingStreamController = StreamController<LocationMarkerHeading>.broadcast();
@@ -110,6 +129,12 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   // Serial port (USB/COM) connection name
   String? connectedSerialPortName;
   String _serialPortBuffer = ''; // Buffer for partial NMEA sentences (needed at high baud rates)
+
+  /// When false (default), high-volume satellites-in-view (GSV) NMEA sentences
+  /// are skipped while parsing serial GPS data to save CPU/battery. A sky-plot
+  /// diagnostics screen can set this true while open to receive per-satellite
+  /// detail, then reset it to false on close.
+  bool gnssDiagnosticsActive = false;
 
   /// Whether position data comes from an external GNSS device (BLE or Classic Bluetooth).
   /// When true, compass heading is unreliable (phone orientation != walking direction).
@@ -489,6 +514,44 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     });
   }
 
+  /// Push the latest position + heading to listeners, throttled to ~1 Hz.
+  ///
+  /// External receivers can emit several times per second; rendering every
+  /// sample rebuilds the whole map. We emit on the leading edge and schedule a
+  /// trailing emit for the most recent sample so the final fix is never lost.
+  void _emitPositionThrottled(LocationMarkerPosition position, LocationMarkerHeading heading) {
+    _pendingPosition = position;
+    _pendingHeading = heading;
+
+    final now = DateTime.now();
+    final elapsed = _lastUiEmit == null ? null : now.difference(_lastUiEmit!);
+
+    if (elapsed == null || elapsed >= _uiThrottleInterval) {
+      _flushPositionEmit();
+    } else {
+      // Within the throttle window: schedule a trailing emit for the most
+      // recent sample (unless one is already pending).
+      _trailingEmitTimer ??= Timer(_uiThrottleInterval - elapsed, _flushPositionEmit);
+    }
+  }
+
+  void _flushPositionEmit() {
+    _trailingEmitTimer?.cancel();
+    _trailingEmitTimer = null;
+    _lastUiEmit = DateTime.now();
+
+    final position = _pendingPosition;
+    final heading = _pendingHeading;
+    if (position != null && !_positionStreamController.isClosed) {
+      _positionStreamController.add(position);
+    }
+    if (heading != null && !_headingStreamController.isClosed) {
+      _headingStreamController.add(heading);
+    }
+    _isConnecting = false;
+    notifyListeners();
+  }
+
   // Helper method to update position from NMEA data (shared by BLE and Classic)
   void _updatePositionFromNMEA() {
     if (_currentNMEA == null || _currentNMEA!.latitude == null || _currentNMEA!.longitude == null) {
@@ -513,6 +576,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     );
 
     // Update heading: prefer GPS course-over-ground when moving, fall back to compass
+    LocationMarkerHeading heading;
     if (_currentNMEA?.heading != null &&
         _currentNMEA?.speedKnots != null &&
         _currentNMEA!.speedKnots! >= 0.5) {
@@ -531,8 +595,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
       _hasReliableGpsHeading = true;
       _headingSource = 'gps';
-      _headingStreamController.add(
-        LocationMarkerHeading(heading: _currentNMEA!.heading!, accuracy: estimatedHeadingAccuracy),
+      heading = LocationMarkerHeading(
+        heading: _currentNMEA!.heading!,
+        accuracy: estimatedHeadingAccuracy,
       );
     } else {
       // Stationary or no GPS heading
@@ -542,29 +607,25 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         // With external GNSS the phone may be in a pocket — compass heading
         // would show device orientation, not walking direction.
         _headingSource = 'compass';
-        _headingStreamController.add(
-          LocationMarkerHeading(
-            heading: _lastCompassHeading!,
-            accuracy: _lastCompassAccuracy ?? 25.0,
-          ),
+        heading = LocationMarkerHeading(
+          heading: _lastCompassHeading!,
+          accuracy: _lastCompassAccuracy ?? 25.0,
         );
       } else {
         _headingSource = 'none';
-        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+        heading = LocationMarkerHeading(heading: 0, accuracy: 0);
       }
     }
 
-    // Add position to stream for map widget
-    _positionStreamController.add(
+    // Push to the map/status listeners, throttled to ~1 Hz (battery).
+    _emitPositionThrottled(
       LocationMarkerPosition(
         latitude: _lastPosition!.latitude,
         longitude: _lastPosition!.longitude,
         accuracy: _lastPosition!.accuracy,
       ),
+      heading,
     );
-
-    _isConnecting = false;
-    notifyListeners();
   }
 
   /// Start listening to the device compass (magnetometer)
@@ -657,6 +718,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (Platform.isAndroid && _gnssService != null) {
       _gnssService?.stopGnssListener();
     }
+
+    // Reset the UI-update throttle so a new connection emits immediately.
+    _trailingEmitTimer?.cancel();
+    _trailingEmitTimer = null;
+    _lastUiEmit = null;
+    _pendingPosition = null;
+    _pendingHeading = null;
 
     _currentNMEA = null;
     _navigationTarget = null;
@@ -888,6 +956,19 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       _serialPortBuffer = _serialPortBuffer.substring(index + 1);
 
       if (line.isEmpty) continue;
+
+      // Skip satellites-in-view (GSV) sentences during normal operation. GSV is
+      // the highest-volume NMEA group (one sentence per ~4 satellites, several
+      // per fix cycle) and is only needed for a sky-plot diagnostics view — the
+      // satellites-in-fix count we display comes from GGA. Parsing it otherwise
+      // is pure CPU/battery cost on Windows field tablets streaming at high baud.
+      if (!gnssDiagnosticsActive &&
+          line.length >= 6 &&
+          line.startsWith(r'$') &&
+          line.substring(3, 6) == 'GSV') {
+        continue;
+      }
+
       _currentNMEA = parseData(line.codeUnits, _currentNMEA);
     }
 
@@ -911,6 +992,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         timestamp: DateTime.now(),
       );
 
+      LocationMarkerHeading heading;
       if (_currentNMEA?.heading != null) {
         // Estimate heading accuracy based on HDOP and Speed
         double estimatedHeadingAccuracy = 10.0; // Default to higher uncertainty
@@ -930,27 +1012,23 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           estimatedHeadingAccuracy = 30.0; // Very uncertain when slow/stationary
         }
 
-        _headingStreamController.add(
-          LocationMarkerHeading(
-            heading: _currentNMEA!.heading!,
-            accuracy: estimatedHeadingAccuracy,
-          ),
+        heading = LocationMarkerHeading(
+          heading: _currentNMEA!.heading!,
+          accuracy: estimatedHeadingAccuracy,
         );
       } else {
-        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+        heading = LocationMarkerHeading(heading: 0, accuracy: 0);
       }
 
-      // Add position to stream for map widget
-      _positionStreamController.add(
+      // Push to the map/status listeners, throttled to ~1 Hz (battery).
+      _emitPositionThrottled(
         LocationMarkerPosition(
           latitude: _lastPosition!.latitude,
           longitude: _lastPosition!.longitude,
           accuracy: _lastPosition!.accuracy,
         ),
+        heading,
       );
-
-      _isConnecting = false;
-      notifyListeners();
     }
   }
 }

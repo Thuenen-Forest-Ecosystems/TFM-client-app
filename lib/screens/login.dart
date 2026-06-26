@@ -13,7 +13,7 @@ import 'package:terrestrial_forest_monitor/widgets/network-wrapper.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -49,18 +49,17 @@ class _LoginState extends State<Login> {
     _checkConnectivityAndCache();
 
     // Listen to connectivity changes
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    ConnectivityService.instance.onStatusChanged.listen((online) {
       if (mounted) {
         setState(() {
-          _isOffline = results.every((result) => result == ConnectivityResult.none);
+          _isOffline = !online;
         });
       }
     });
   }
 
   Future<void> _checkConnectivityAndCache() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    final isOffline = connectivityResult.every((result) => result == ConnectivityResult.none);
+    final isOffline = !await ConnectivityService.instance.checkOnline();
     final hasPreviousLogin = await _authProvider.hasPreviousLogin();
     final cachedEmail = await _authProvider.getCachedEmail();
 

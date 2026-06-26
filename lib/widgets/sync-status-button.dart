@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:powersync/powersync.dart' hide Column;
 import 'package:provider/provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
@@ -24,7 +24,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
 
   late SyncStatus _connectionState;
   StreamSubscription<SyncStatus>? _syncStatusSubscription;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<bool>? _connectivitySubscription;
   bool _isNetworkAvailable = true;
   int _unsyncedCount = 0;
   StreamSubscription<dynamic>? _unsyncedSub;
@@ -44,11 +44,11 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     super.initState();
     _subscribeToDb();
 
-    // Listen to network connectivity changes
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+    // Listen to network connectivity changes via the shared connectivity owner
+    _connectivitySubscription = ConnectivityService.instance.onStatusChanged.listen((online) {
       if (mounted) {
         setState(() {
-          _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
+          _isNetworkAvailable = online;
         });
       }
     });
@@ -112,10 +112,10 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   }
 
   Future<void> _checkInitialConnectivity() async {
-    final results = await Connectivity().checkConnectivity();
+    final online = await ConnectivityService.instance.checkOnline();
     if (mounted) {
       setState(() {
-        _isNetworkAvailable = results.any((result) => result != ConnectivityResult.none);
+        _isNetworkAvailable = online;
       });
     }
   }

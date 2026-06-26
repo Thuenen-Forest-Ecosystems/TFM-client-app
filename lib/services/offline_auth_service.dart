@@ -1,4 +1,4 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 import 'package:terrestrial_forest_monitor/services/secure_storage_service.dart';
 
 /// Service for handling offline authentication.
@@ -7,15 +7,8 @@ import 'package:terrestrial_forest_monitor/services/secure_storage_service.dart'
 class OfflineAuthService {
   final SecureStorageService _secureStorage = SecureStorageService();
 
-  /// Check if device is online.
-  Future<bool> isOnline() async {
-    try {
-      final connectivityResult = await Connectivity().checkConnectivity();
-      return connectivityResult.any((result) => result != ConnectivityResult.none);
-    } catch (e) {
-      return false;
-    }
-  }
+  /// Check if device is online (via the shared [ConnectivityService]).
+  Future<bool> isOnline() => ConnectivityService.instance.checkOnline();
 
   /// Attempt offline login for [email] / [password].
   Future<Map<String, dynamic>> loginOffline(String email, String password) async {

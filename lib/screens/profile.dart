@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
@@ -31,21 +31,22 @@ class Profile extends StatefulWidget {
 
 class _ProfileState extends State<Profile> {
   bool _isOnline = true;
-  late final StreamSubscription<List<ConnectivityResult>> _connectivitySub;
+  late final StreamSubscription<bool> _connectivitySub;
   int _resetKey = 0;
 
   @override
   void initState() {
     super.initState();
-    // Seed with current state
-    Connectivity().checkConnectivity().then(_updateConnectivity);
-    _connectivitySub = Connectivity().onConnectivityChanged.listen(_updateConnectivity);
+    // Seed with current state from the shared connectivity owner.
+    _isOnline = ConnectivityService.instance.isOnline;
+    ConnectivityService.instance.checkOnline().then(_updateConnectivity);
+    _connectivitySub = ConnectivityService.instance.onStatusChanged.listen(_updateConnectivity);
   }
 
-  void _updateConnectivity(List<ConnectivityResult> results) {
+  void _updateConnectivity(bool online) {
     if (!mounted) return;
     setState(() {
-      _isOnline = results.any((r) => r != ConnectivityResult.none);
+      _isOnline = online;
     });
   }
 

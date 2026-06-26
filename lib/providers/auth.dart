@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'package:terrestrial_forest_monitor/services/offline_auth_service.dart';
 import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
@@ -16,7 +16,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isExplicitLogout = false;
   bool _sessionExpiredError = false;
   StreamSubscription<AuthState>? _authSubscription;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<bool>? _connectivitySubscription;
   final OfflineAuthService _offlineAuthService = OfflineAuthService();
 
   bool get isAuthenticated => _isAuthenticated;
@@ -48,9 +48,10 @@ class AuthProvider extends ChangeNotifier {
     }
 
     // Listen for connectivity changes to transition from offline to online
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+    _connectivitySubscription =
+        ConnectivityService.instance.onStatusChanged.listen(_onConnectivityChanged);
 
-    // Also check connectivity right now — onConnectivityChanged only fires on
+    // Also check connectivity right now — onStatusChanged only fires on
     // *changes*, so if the app starts while already online with _isOfflineMode
     // still true (e.g. network was restored before the app was opened), the
     // upgrade would never be triggered without this initial check.
@@ -59,9 +60,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _checkInitialConnectivityAndUpgrade() async {
     if (!_isOfflineMode) return;
-    final results = await Connectivity().checkConnectivity();
-    final isOnline = results.any((r) => r != ConnectivityResult.none);
-    if (isOnline) {
+    if (await ConnectivityService.instance.checkOnline()) {
       await _upgradeToOnlineMode();
     }
   }
@@ -160,9 +159,7 @@ class AuthProvider extends ChangeNotifier {
     _getUser();
   }
 
-  Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
-    final isOnline = results.any((result) => result != ConnectivityResult.none);
-
+  Future<void> _onConnectivityChanged(bool isOnline) async {
     // If we're in offline mode and connection is restored, try to upgrade to online mode
     if (_isOfflineMode && isOnline) {
       await _upgradeToOnlineMode();

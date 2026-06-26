@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 import 'dart:async';
 import 'package:get_storage/get_storage.dart';
 import 'package:terrestrial_forest_monitor/services/api.dart';
@@ -12,7 +12,7 @@ class OnlineStatus extends StatefulWidget {
 }
 
 class _OnlineStatusState extends State<OnlineStatus> with SingleTickerProviderStateMixin {
-  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  late StreamSubscription<bool> _connectivitySubscription;
 
   bool _isOffline = true;
   bool syncInProgress = false;
@@ -24,9 +24,7 @@ class _OnlineStatusState extends State<OnlineStatus> with SingleTickerProviderSt
   @override
   initState() {
     super.initState();
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> result) {
-      _setOnlineState(result);
-    });
+    _connectivitySubscription = ConnectivityService.instance.onStatusChanged.listen(_setOnlineState);
     _getConnectifity();
     _controller = AnimationController(
       duration: const Duration(milliseconds: 3000),
@@ -55,13 +53,13 @@ class _OnlineStatusState extends State<OnlineStatus> with SingleTickerProviderSt
   }
 
   _getConnectifity() async {
-    final List<ConnectivityResult> connectivityResult = await (Connectivity().checkConnectivity());
-    _setOnlineState(connectivityResult);
+    _setOnlineState(await ConnectivityService.instance.checkOnline());
   }
 
-  _setOnlineState(connectivityResult) {
+  _setOnlineState(bool online) {
+    if (!mounted) return;
     setState(() {
-      _isOffline = connectivityResult.contains(ConnectivityResult.none);
+      _isOffline = !online;
     });
   }
 

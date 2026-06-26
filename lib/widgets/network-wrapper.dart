@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 
 /// Wrap any subtree that needs to react to network changes.
 ///
@@ -27,23 +27,22 @@ class NetworkWrapper extends StatefulWidget {
 }
 
 class _NetworkWrapperState extends State<NetworkWrapper> {
-  late StreamSubscription<List<ConnectivityResult>> _subscription;
+  late StreamSubscription<bool> _subscription;
   bool _isOffline = true;
 
   @override
   void initState() {
     super.initState();
-    _subscription = Connectivity().onConnectivityChanged.listen(_handleConnectivityChange);
+    _subscription = ConnectivityService.instance.onStatusChanged.listen(_handleConnectivityChange);
     _initializeStatus();
   }
 
   Future<void> _initializeStatus() async {
-    final results = await Connectivity().checkConnectivity();
-    _handleConnectivityChange(results);
+    _handleConnectivityChange(await ConnectivityService.instance.checkOnline());
   }
 
-  void _handleConnectivityChange(List<ConnectivityResult> results) {
-    final nextOffline = results.contains(ConnectivityResult.none);
+  void _handleConnectivityChange(bool online) {
+    final nextOffline = !online;
     if (!mounted || nextOffline == _isOffline) {
       return;
     }

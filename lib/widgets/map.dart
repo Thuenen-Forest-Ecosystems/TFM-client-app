@@ -387,6 +387,11 @@ class _TFMMapState extends State<TFMMap> {
       positionStream: gpsPositionProvider.positionStreamController.asBroadcastStream(),
       alignPositionOnUpdate: AlignOnUpdate.never,
       alignDirectionOnUpdate: AlignOnUpdate.never,
+      // Skip the marker move/rotate tweens: position is already throttled to
+      // ~1 Hz upstream, so the per-update animation ticker just burns CPU/GPU
+      // (and battery) every second for an imperceptible glide. Snap instead.
+      moveAnimationDuration: Duration.zero,
+      rotateAnimationDuration: Duration.zero,
       style: const LocationMarkerStyle(
         marker: DefaultLocationMarker(
           color: Color(0xFF008CD2),
