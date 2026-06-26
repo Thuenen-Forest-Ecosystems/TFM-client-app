@@ -91,6 +91,20 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   late final StreamController<LocationMarkerPosition> _positionStreamController;
   late final StreamController<LocationMarkerHeading> _headingStreamController;
 
+  // ── GPS UI-update throttle ────────────────────────────────────────────────
+  // External GNSS receivers (BLE / Classic / serial) commonly stream 5–10 Hz.
+  // Pushing every fix to the map + status icons rebuilds the map layer stack on
+  // each tick, pinning the CPU/GPU and draining the battery (a real problem on
+  // Windows field tablets). _lastPosition / _currentNMEA stay fresh for
+  // context.read consumers; only the *visible* updates (stream pushes +
+  // notifyListeners) are limited to ~1 Hz, with a trailing emit so the most
+  // recent fix is never dropped.
+  static const Duration _uiThrottleInterval = Duration(milliseconds: 1000);
+  DateTime? _lastUiEmit;
+  Timer? _trailingEmitTimer;
+  LocationMarkerPosition? _pendingPosition;
+  LocationMarkerHeading? _pendingHeading;
+
   GpsPositionProvider() {
     _positionStreamController = StreamController<LocationMarkerPosition>.broadcast();
     _headingStreamController = StreamController<LocationMarkerHeading>.broadcast();
@@ -489,6 +503,44 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     });
   }
 
+  /// Push the latest position + heading to listeners, throttled to ~1 Hz.
+  ///
+  /// External receivers can emit several times per second; rendering every
+  /// sample rebuilds the whole map. We emit on the leading edge and schedule a
+  /// trailing emit for the most recent sample so the final fix is never lost.
+  void _emitPositionThrottled(LocationMarkerPosition position, LocationMarkerHeading heading) {
+    _pendingPosition = position;
+    _pendingHeading = heading;
+
+    final now = DateTime.now();
+    final elapsed = _lastUiEmit == null ? null : now.difference(_lastUiEmit!);
+
+    if (elapsed == null || elapsed >= _uiThrottleInterval) {
+      _flushPositionEmit();
+    } else {
+      // Within the throttle window: schedule a trailing emit for the most
+      // recent sample (unless one is already pending).
+      _trailingEmitTimer ??= Timer(_uiThrottleInterval - elapsed, _flushPositionEmit);
+    }
+  }
+
+  void _flushPositionEmit() {
+    _trailingEmitTimer?.cancel();
+    _trailingEmitTimer = null;
+    _lastUiEmit = DateTime.now();
+
+    final position = _pendingPosition;
+    final heading = _pendingHeading;
+    if (position != null && !_positionStreamController.isClosed) {
+      _positionStreamController.add(position);
+    }
+    if (heading != null && !_headingStreamController.isClosed) {
+      _headingStreamController.add(heading);
+    }
+    _isConnecting = false;
+    notifyListeners();
+  }
+
   // Helper method to update position from NMEA data (shared by BLE and Classic)
   void _updatePositionFromNMEA() {
     if (_currentNMEA == null || _currentNMEA!.latitude == null || _currentNMEA!.longitude == null) {
@@ -513,6 +565,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     );
 
     // Update heading: prefer GPS course-over-ground when moving, fall back to compass
+    LocationMarkerHeading heading;
     if (_currentNMEA?.heading != null &&
         _currentNMEA?.speedKnots != null &&
         _currentNMEA!.speedKnots! >= 0.5) {
@@ -531,8 +584,9 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
       _hasReliableGpsHeading = true;
       _headingSource = 'gps';
-      _headingStreamController.add(
-        LocationMarkerHeading(heading: _currentNMEA!.heading!, accuracy: estimatedHeadingAccuracy),
+      heading = LocationMarkerHeading(
+        heading: _currentNMEA!.heading!,
+        accuracy: estimatedHeadingAccuracy,
       );
     } else {
       // Stationary or no GPS heading
@@ -542,29 +596,25 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         // With external GNSS the phone may be in a pocket — compass heading
         // would show device orientation, not walking direction.
         _headingSource = 'compass';
-        _headingStreamController.add(
-          LocationMarkerHeading(
-            heading: _lastCompassHeading!,
-            accuracy: _lastCompassAccuracy ?? 25.0,
-          ),
+        heading = LocationMarkerHeading(
+          heading: _lastCompassHeading!,
+          accuracy: _lastCompassAccuracy ?? 25.0,
         );
       } else {
         _headingSource = 'none';
-        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+        heading = LocationMarkerHeading(heading: 0, accuracy: 0);
       }
     }
 
-    // Add position to stream for map widget
-    _positionStreamController.add(
+    // Push to the map/status listeners, throttled to ~1 Hz (battery).
+    _emitPositionThrottled(
       LocationMarkerPosition(
         latitude: _lastPosition!.latitude,
         longitude: _lastPosition!.longitude,
         accuracy: _lastPosition!.accuracy,
       ),
+      heading,
     );
-
-    _isConnecting = false;
-    notifyListeners();
   }
 
   /// Start listening to the device compass (magnetometer)
@@ -657,6 +707,13 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (Platform.isAndroid && _gnssService != null) {
       _gnssService?.stopGnssListener();
     }
+
+    // Reset the UI-update throttle so a new connection emits immediately.
+    _trailingEmitTimer?.cancel();
+    _trailingEmitTimer = null;
+    _lastUiEmit = null;
+    _pendingPosition = null;
+    _pendingHeading = null;
 
     _currentNMEA = null;
     _navigationTarget = null;
@@ -911,6 +968,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         timestamp: DateTime.now(),
       );
 
+      LocationMarkerHeading heading;
       if (_currentNMEA?.heading != null) {
         // Estimate heading accuracy based on HDOP and Speed
         double estimatedHeadingAccuracy = 10.0; // Default to higher uncertainty
@@ -930,27 +988,23 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
           estimatedHeadingAccuracy = 30.0; // Very uncertain when slow/stationary
         }
 
-        _headingStreamController.add(
-          LocationMarkerHeading(
-            heading: _currentNMEA!.heading!,
-            accuracy: estimatedHeadingAccuracy,
-          ),
+        heading = LocationMarkerHeading(
+          heading: _currentNMEA!.heading!,
+          accuracy: estimatedHeadingAccuracy,
         );
       } else {
-        _headingStreamController.add(LocationMarkerHeading(heading: 0, accuracy: 0));
+        heading = LocationMarkerHeading(heading: 0, accuracy: 0);
       }
 
-      // Add position to stream for map widget
-      _positionStreamController.add(
+      // Push to the map/status listeners, throttled to ~1 Hz (battery).
+      _emitPositionThrottled(
         LocationMarkerPosition(
           latitude: _lastPosition!.latitude,
           longitude: _lastPosition!.longitude,
           accuracy: _lastPosition!.accuracy,
         ),
+        heading,
       );
-
-      _isConnecting = false;
-      notifyListeners();
     }
   }
 }

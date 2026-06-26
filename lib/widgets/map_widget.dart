@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // Add for compute
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -77,12 +78,7 @@ class _MapWidgetState extends State<MapWidget> {
   Timer? _debounceTimer;
   DateTime? _lastFocusTimestamp;
   DateTime? _lastManualFocusTime;
-  LatLng? _currentPosition;
-  double? _currentAccuracy;
-  double? _currentHeading;
-  double? _currentHeadingAccuracy;
-  String _headingSource = 'none'; // 'gps', 'compass', 'none'
-  StreamSubscription? _headingSubscription;
+  LatLng? _currentPosition; // latest fix, for the "center on me" button
   Set<String> _selectedBasemaps = {
     'topo_offline',
   }; // Can select multiple: 'osm', 'topo_offline', 'dop'
@@ -1064,25 +1060,21 @@ class _MapWidgetState extends State<MapWidget> {
           if (_isDisposed) {
             return;
           }
-
-          setState(() {
-            _currentPosition = LatLng(position.latitude, position.longitude);
-            _currentAccuracy = position.accuracy;
-          });
+          // Keep the latest fix for the "center on me" button, but DON'T rebuild
+          // the whole map on every GPS tick. The live marker layers in build()
+          // are driven directly by the position/heading streams, so the tiles,
+          // clusters, tree and polygon layers stay put. We only rebuild the
+          // parent on the very first fix, to enable the button and clear the
+          // "no position" state.
+          final wasNull = _currentPosition == null;
+          _currentPosition = LatLng(position.latitude, position.longitude);
+          if (wasNull && mounted) {
+            setState(() {});
+          }
         },
         onError: (error) {},
         onDone: () {},
       );
-
-      _headingSubscription?.cancel();
-      _headingSubscription = gpsProvider.headingStreamController.listen((heading) {
-        if (_isDisposed) return;
-        setState(() {
-          _currentHeading = heading.heading;
-          _currentHeadingAccuracy = heading.accuracy;
-          _headingSource = gpsProvider.headingSource;
-        });
-      }, onError: (error) {});
     } catch (e) {}
   }
 
@@ -1533,8 +1525,6 @@ class _MapWidgetState extends State<MapWidget> {
     _debounceTimer?.cancel();
     _gpsSubscription?.cancel();
     _gpsSubscription = null;
-    _headingSubscription?.cancel();
-    _headingSubscription = null;
 
     widget.sheetController?.removeListener(_onSheetControllerChanged);
 
@@ -1583,6 +1573,10 @@ class _MapWidgetState extends State<MapWidget> {
     // setSheetHeight / setCurrentMapBounds notification (fires on each drag frame).
     // context.read is used for properties that don't need to trigger rebuilds.
     final mapControllerProvider = context.read<MapControllerProvider>();
+    // read (not watch): the live GPS layers below subscribe to the provider's
+    // position/heading streams directly, so the map must NOT rebuild on every
+    // notifyListeners() (which fires per GPS fix).
+    final gpsProvider = context.read<GpsPositionProvider>();
     final distanceLineFrom = context.select<MapControllerProvider, LatLng?>(
       (p) => p.distanceLineFrom,
     );
@@ -2016,59 +2010,77 @@ class _MapWidgetState extends State<MapWidget> {
         if (_focusedRecord != null && _treePositions.isNotEmpty)
           TreeLayers.buildClickableLayer(_treePositions, _onTreeCircleTapped),
 
-        // GPS Location Marker (accuracy circle)
-        if (_currentPosition != null && _currentAccuracy != null)
-          CircleLayer(
-            circles: [
-              CircleMarker(
-                point: _currentPosition!,
-                radius: _currentAccuracy! < 5 ? 5.0 : _currentAccuracy!,
-                useRadiusInMeter: true,
-                color: Colors.blue.withOpacity(0.2),
-                borderColor: Colors.blue.withOpacity(0.5),
-                borderStrokeWidth: 1,
-              ),
-            ],
-          ),
+        // ── Live GPS marker layers ────────────────────────────────────────
+        // Driven directly by the GPS position/heading streams so they update
+        // WITHOUT rebuilding the whole map on every fix — the tile, cluster,
+        // tree and polygon layers above keep their element instances. Each
+        // StreamBuilder returns a single flutter_map layer, which re-positions
+        // itself on pan/zoom via its MapCamera dependency.
 
-        // GPS Heading direction cone (hidden when not enough data)
-        if (_currentPosition != null &&
-            _currentHeading != null &&
-            _currentHeadingAccuracy != null &&
-            _headingSource != 'none') ...[
-          if (HeadingLayer.buildHeadingMarker(
-                position: _currentPosition!,
-                headingDegrees: _currentHeading!,
-                headingAccuracy: _currentHeadingAccuracy!,
-                source: _headingSource,
-              ) !=
-              null)
-            HeadingLayer.buildHeadingMarker(
-              position: _currentPosition!,
-              headingDegrees: _currentHeading!,
-              headingAccuracy: _currentHeadingAccuracy!,
-              source: _headingSource,
-            )!,
-        ],
+        // GPS accuracy circle
+        StreamBuilder<LocationMarkerPosition>(
+          stream: gpsProvider.positionStreamController,
+          builder: (context, snapshot) {
+            final pos = snapshot.data;
+            if (pos == null) return const SizedBox.shrink();
+            return CircleLayer(
+              circles: [
+                CircleMarker(
+                  point: LatLng(pos.latitude, pos.longitude),
+                  radius: pos.accuracy < 5 ? 5.0 : pos.accuracy,
+                  useRadiusInMeter: true,
+                  color: Colors.blue.withOpacity(0.2),
+                  borderColor: Colors.blue.withOpacity(0.5),
+                  borderStrokeWidth: 1,
+                ),
+              ],
+            );
+          },
+        ),
 
-        // GPS Location Marker (center dot)
-        if (_currentPosition != null)
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: _currentPosition!,
-                width: 12,
-                height: 12,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+        // GPS heading direction cone (hidden when heading source is unreliable)
+        StreamBuilder<LocationMarkerHeading>(
+          stream: gpsProvider.headingStreamController,
+          builder: (context, snapshot) {
+            final heading = snapshot.data;
+            final lastPos = gpsProvider.lastPosition;
+            if (heading == null || lastPos == null || gpsProvider.headingSource == 'none') {
+              return const SizedBox.shrink();
+            }
+            final marker = HeadingLayer.buildHeadingMarker(
+              position: LatLng(lastPos.latitude, lastPos.longitude),
+              headingDegrees: heading.heading,
+              headingAccuracy: heading.accuracy,
+              source: gpsProvider.headingSource,
+            );
+            return marker ?? const SizedBox.shrink();
+          },
+        ),
+
+        // GPS location marker (center dot)
+        StreamBuilder<LocationMarkerPosition>(
+          stream: gpsProvider.positionStreamController,
+          builder: (context, snapshot) {
+            final pos = snapshot.data;
+            if (pos == null) return const SizedBox.shrink();
+            return MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(pos.latitude, pos.longitude),
+                  width: 12,
+                  height: 12,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
+        ),
 
         // NAVIGATION LAYERS - Rendered on top
         // Navigation line 1: Start → Steps (solid blue line)
