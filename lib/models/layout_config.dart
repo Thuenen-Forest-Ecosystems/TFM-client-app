@@ -93,6 +93,7 @@ class PropertyConfig {
   final double? maxWidth;
   final bool? useSpeechToText;
   final int? upDownBtn;
+  final bool? showPreviousValue;
 
   PropertyConfig({
     required this.name,
@@ -101,6 +102,7 @@ class PropertyConfig {
     this.maxWidth,
     this.useSpeechToText,
     this.upDownBtn,
+    this.showPreviousValue,
   });
 
   factory PropertyConfig.fromJson(dynamic json) {
@@ -114,6 +116,7 @@ class PropertyConfig {
         maxWidth: (json['maxWidth'] as num?)?.toDouble(),
         useSpeechToText: json['useSpeechToText'] as bool?,
         upDownBtn: json['upDownBtn'] as int?,
+        showPreviousValue: json['showPreviousValue'] as bool?,
       );
     }
     throw Exception('Invalid property config format');

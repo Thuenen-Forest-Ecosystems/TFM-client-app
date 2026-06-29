@@ -306,20 +306,39 @@ class _GenericTextFieldState extends State<GenericTextField> {
   /// field's schema metadata (title, description, type, unit), the current
   /// value and – when present – the previous survey value with a "Set" action.
   Widget _buildInfoButton(String langCode) {
+    // The style-map property may opt out of showing the previous survey value
+    // via "showPreviousValue": false. Anything other than an explicit false
+    // (incl. unset) keeps the default behaviour of showing it.
+    final showPreviousValue = widget.fieldOptions?['showPreviousValue'] != false;
     final previousValue = widget.previousData?[widget.fieldName];
-    final hasPrevious = previousValue != null;
+    final hasPrevious = showPreviousValue && previousValue != null;
     return ExcludeFocus(
       child: IconButton(
         icon: const Icon(Icons.info),
         tooltip: 'Info',
-        onPressed: () => GenericInfoDialog.show(
-          context: context,
-          fieldName: widget.fieldName,
-          fieldSchema: widget.fieldSchema,
-          currentValueLabel: _formatValue(widget.value, langCode),
-          previousValueLabel: hasPrevious ? _formatValue(previousValue, langCode) : null,
-          onApplyPrevious: hasPrevious ? () => widget.onChanged?.call(previousValue) : null,
-        ),
+        onPressed: () async {
+          // Hide floating keyboard and suppress focus-triggered auto-show while
+          // the info dialog is open, to prevent it from reappearing when Flutter
+          // restores focus to a numeric field after the dialog closes.
+          FloatingNumKeyboard.hide();
+          FloatingNumKeyboard.setAutoShowSuppressed(true);
+          await GenericInfoDialog.show(
+            context: context,
+            fieldName: widget.fieldName,
+            fieldSchema: widget.fieldSchema,
+            currentValueLabel: _formatValue(widget.value, langCode),
+            previousValueLabel: hasPrevious ? _formatValue(previousValue, langCode) : null,
+            onApplyPrevious: hasPrevious ? () => widget.onChanged?.call(previousValue) : null,
+          );
+          // Clear the suppress flag after two frames, mirroring the enum dialog:
+          // focus restoration fires _onFocusChange synchronously in the next
+          // frame, so the flag must stay true through the whole restore cycle.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              FloatingNumKeyboard.setAutoShowSuppressed(false);
+            });
+          });
+        },
       ),
     );
   }

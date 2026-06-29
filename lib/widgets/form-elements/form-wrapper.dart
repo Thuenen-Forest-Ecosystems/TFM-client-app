@@ -689,13 +689,15 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
             prop.minWidth != null ||
             prop.maxWidth != null ||
             prop.useSpeechToText != null ||
-            prop.upDownBtn != null) {
+            prop.upDownBtn != null ||
+            prop.showPreviousValue != null) {
           fieldOptions[prop.name] = {
             if (prop.width != null) 'width': prop.width,
             if (prop.minWidth != null) 'minWidth': prop.minWidth,
             if (prop.maxWidth != null) 'maxWidth': prop.maxWidth,
             if (prop.useSpeechToText != null) 'useSpeechToText': prop.useSpeechToText,
             if (prop.upDownBtn != null) 'upDownBtn': prop.upDownBtn,
+            if (prop.showPreviousValue != null) 'showPreviousValue': prop.showPreviousValue,
           };
         }
       }

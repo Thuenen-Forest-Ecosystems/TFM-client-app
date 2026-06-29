@@ -270,6 +270,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
           final o = <String, dynamic>{};
           if (item['width'] != null) o['width'] = item['width'];
           if (item['upDownBtn'] != null) o['upDownBtn'] = item['upDownBtn'];
+          if (item['showPreviousValue'] != null) o['showPreviousValue'] = item['showPreviousValue'];
           if (o.isNotEmpty) opts[name] = o;
         }
       }
