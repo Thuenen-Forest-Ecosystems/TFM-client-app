@@ -379,7 +379,19 @@ class _LayoutState extends State<Layout> with WindowListener {
         builder: (!kIsWeb && Platform.isWindows)
             ? (context, child) => GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  // When primaryFocus is null (e.g. on screens with no text
+                  // fields), unfocus() is a no-op and Windows TSF from a
+                  // previous text-input session remains active, causing TabTip
+                  // to re-open on every tap.  Sending clearClient directly is
+                  // safe here: if a text field was focused, unfocus() already
+                  // closed the connection through the framework (so
+                  // _currentConnection is null and there is no bookkeeping
+                  // mismatch); if nothing was focused, _currentConnection is
+                  // already null and this just deactivates the TSF context.
+                  SystemChannels.textInput.invokeMethod('TextInput.clearClient');
+                },
                 child: child ?? const SizedBox.shrink(),
               )
             : null,
