@@ -359,6 +359,31 @@ class _LayoutState extends State<Layout> with WindowListener {
     final Widget materialApp = MaterialApp.router(
         title: 'Terrestrial Forest Monitor',
 
+        // Windows touch keyboard fix.
+        //
+        // On Windows tablets the on-screen keyboard (TabTip) is driven by the
+        // OS text-services focus, not by Flutter directly. Once a text field
+        // (e.g. the login form) has been focused, the engine reports an active
+        // editable text client to Windows. If that focus is only "hidden"
+        // (via TextInput.hide) instead of fully released, Windows keeps
+        // re-opening the keyboard on EVERY subsequent tap, even on screens
+        // with no text fields at all.
+        //
+        // A translucent GestureDetector at the app root turns any tap that
+        // lands on a non-interactive area into an explicit unfocus(). Unlike
+        // a raw TextInput.hide, unfocus() closes the input connection through
+        // the framework, so the engine tells Windows there is no editable
+        // control focused and TabTip stops re-appearing. Taps consumed by a
+        // button or text field win the gesture arena, so this never steals
+        // focus from a field the user is actually tapping into.
+        builder: (!kIsWeb && Platform.isWindows)
+            ? (context, child) => GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: child ?? const SizedBox.shrink(),
+              )
+            : null,
+
         // LOCALIZATION
         locale: Locale(selectedLanguage),
         localizationsDelegates: AppLocalizations.localizationsDelegates,

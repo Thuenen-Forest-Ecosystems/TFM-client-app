@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -178,6 +180,11 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
     final l10n = AppLocalizations.of(context)!;
     final langCode = context.select<Language, String>((l) => l.locale.languageCode);
     final filteredIndices = _getFilteredIndices();
+    // On Windows, an editable field that holds focus makes the system touch
+    // keyboard pop up on the next interaction (e.g. tapping the view toggle or
+    // close button). Don't auto-grab focus there; the user can tap the search
+    // field to type when they actually want to filter.
+    final isWindows = !kIsWeb && Platform.isWindows;
 
     // Move selected value to the top
     if (widget.currentValue != null) {
@@ -212,7 +219,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
               child: TextField(
                 controller: _filterController,
                 focusNode: _searchFocusNode,
-                autofocus: true,
+                autofocus: !isWindows,
                 decoration: InputDecoration(
                   labelText: _getLabel(langCode),
                   helperText: _getDescription(langCode),
@@ -242,6 +249,9 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
             IconButton(
               icon: Icon(_useChipsView ? Icons.list : Icons.grid_view),
               onPressed: () {
+                // Toggling the layout is not a text-entry action: drop search
+                // focus so it doesn't summon the Windows touch keyboard.
+                _searchFocusNode.unfocus();
                 setState(() {
                   _useChipsView = !_useChipsView;
                 });
@@ -251,7 +261,12 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
             ),
             IconButton(
               icon: const Icon(Icons.close),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                // Drop search focus before popping so focus settling on close
+                // doesn't summon the Windows touch keyboard.
+                _searchFocusNode.unfocus();
+                Navigator.of(context).pop();
+              },
               tooltip: l10n.enumDialogClose,
             ),
           ],
@@ -388,7 +403,10 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
             ),
           ),
           child: ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(const ClearSelection()),
+            onPressed: () {
+              _searchFocusNode.unfocus();
+              Navigator.of(context).pop(const ClearSelection());
+            },
             child: Text(l10n.enumDialogClearField),
           ),
         ),
