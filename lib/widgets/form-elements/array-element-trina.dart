@@ -128,8 +128,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
   bool get _isScrollable => widget.layoutOptions?['isScrollable'] != false;
   bool get _usesAutoHeight => widget.autoHeight || !_isScrollable;
+  // Row drag does not require the grid to be scrollable: reordering goes through
+  // onRowsMoved/getRowIdxByOffset, which work the same in auto-height mode where
+  // all rows are visible. Only auto-scroll-during-drag needs a scroll viewport.
   bool get _rowDragEnabled =>
-      widget.layoutOptions?['isDraggable'] == true && _isScrollable && !_isArrayReadOnly;
+      widget.layoutOptions?['isDraggable'] == true && !_isArrayReadOnly;
 
   @override
   void initState() {
