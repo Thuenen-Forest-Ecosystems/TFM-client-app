@@ -54,6 +54,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
   int? _loadedSchemaVersion;
+  String? _loadedSchemaId; // Id of the schema the form is currently validated against
   String? _schemaDirectory;
   Map<String, dynamic>? _styleData;
   late final GlobalKey<FormWrapperState> _formWrapperKey;
@@ -239,6 +240,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       // Store loaded schema version for display
       setState(() {
         _loadedSchemaVersion = latestSchema!.version;
+        _loadedSchemaId = latestSchema.id;
         _schemaDirectory = latestSchema.directory;
       });
 
@@ -482,6 +484,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         final completedAt = type == 'complete' ? now : null;
         final recordToInsert = _record!.copyWith(
           properties: _formData,
+          schemaIdValidatedBy: _loadedSchemaId ?? _record!.schemaIdValidatedBy,
           isValid: 0,
           localUpdatedAt: now,
           completedAtTroop: completedAt,
@@ -505,12 +508,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       } else {
         // UPDATE existing record
 
+        // Persist the schema the data was actually validated against.
+        final validatedSchemaId = _loadedSchemaId ?? _record!.schemaIdValidatedBy;
+
         if (type == 'save') {
           await db.execute(
             'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
             [
               jsonEncode(_formData),
-              _record!.schemaIdValidatedBy,
+              validatedSchemaId,
               now,
               validationErrorsJson,
               plausibilityErrorsJson,
@@ -522,7 +528,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
             [
               jsonEncode(_formData),
-              _record!.schemaIdValidatedBy,
+              validatedSchemaId,
               now,
               now,
               validationErrorsJson,
@@ -538,7 +544,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           properties: _formData!,
           schemaName: _record!.schemaName,
           schemaId: _record!.schemaId,
-          schemaIdValidatedBy: _record!.schemaIdValidatedBy,
+          schemaIdValidatedBy: validatedSchemaId,
           schemaVersion: _record!.schemaVersion,
           plotId: _record!.plotId,
           clusterId: _record!.clusterId,

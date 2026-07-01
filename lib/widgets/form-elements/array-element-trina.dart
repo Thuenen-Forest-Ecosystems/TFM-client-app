@@ -627,6 +627,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     return false;
   }
 
+  /// Rows whose `tree_status` code exceeds this threshold are locked: their
+  /// cells cannot be edited inline or via the row form (removed/dead trees are
+  /// read-only in the field protocol). Non-tree grids have no `tree_status`
+  /// cell, so the lock is a harmless no-op there.
+  static const int _lockedTreeStatusThreshold = 2000;
+
+  /// Whether [row] is locked against edits based on its `tree_status` value.
+  bool _isRowLocked(TrinaRow row) {
+    final raw = row.cells['tree_status']?.value;
+    final status = raw is num ? raw : num.tryParse(raw?.toString() ?? '');
+    return status != null && status > _lockedTreeStatusThreshold;
+  }
+
   List<TrinaColumn> _buildColumns() {
     final columns = <TrinaColumn>[];
     final itemSchema = widget.jsonSchema['items'] as Map<String, dynamic>?;
@@ -685,6 +698,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
           );
 
           final hasPreviousData = _hasMatchingPreviousData(currentRowData);
+          final isLocked = _isRowLocked(rendererContext.row);
 
           return Container(
             alignment: Alignment.center,
@@ -704,14 +718,18 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'edit',
-                  enabled: !_isArrayReadOnly,
+                  enabled: !_isArrayReadOnly && !isLocked,
                   child: Row(
                     children: [
-                      Icon(Icons.edit, size: 18, color: _isArrayReadOnly ? Colors.grey : null),
+                      Icon(
+                        Icons.edit,
+                        size: 18,
+                        color: (_isArrayReadOnly || isLocked) ? Colors.grey : null,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         AppLocalizations.of(context)!.gridRowEdit,
-                        style: TextStyle(color: _isArrayReadOnly ? Colors.grey : null),
+                        style: TextStyle(color: (_isArrayReadOnly || isLocked) ? Colors.grey : null),
                       ),
                     ],
                   ),
@@ -1505,11 +1523,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final value = rendererContext.cell.value;
     final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rowLocked = _isRowLocked(rendererContext.row);
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
       fieldKey,
       isDark,
-      isReadOnly: rendererContext.column.readOnly,
+      isReadOnly: rendererContext.column.readOnly || rowLocked,
     );
 
     // Get field options from column config or columnItems
@@ -1543,7 +1562,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
     final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
 
-    if (isCurrentCell && isRowSelected && !rendererContext.column.readOnly) {
+    if (isCurrentCell && isRowSelected && !rendererContext.column.readOnly && !rowLocked) {
       // Edit mode: use GenericTextField
       return Padding(
         padding: const EdgeInsets.all(4.0),
@@ -1603,14 +1622,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final enumValues = propertySchema['enum'] as List?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Check if field is readonly
+    // Check if field is readonly (schema flag or row locked by tree_status)
     final isReadOnly =
-        propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false;
+        (propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false) ||
+        _isRowLocked(rendererContext.row);
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
       fieldKey,
       isDark,
-      isReadOnly: rendererContext.column.readOnly,
+      isReadOnly: rendererContext.column.readOnly || isReadOnly,
     );
 
     // Get display text
@@ -1651,11 +1671,12 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     final unit = tfm?['unit_short'] as String?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rowLocked = _isRowLocked(rendererContext.row);
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
       fieldKey,
       isDark,
-      isReadOnly: rendererContext.column.readOnly,
+      isReadOnly: rendererContext.column.readOnly || rowLocked,
     );
 
     // Check if this column has upDownBtn (spinner buttons)
@@ -1716,7 +1737,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final isCurrentCell = rendererContext.stateManager.currentCell?.key == rendererContext.cell.key;
     final isRowSelected = rendererContext.stateManager.currentRowIdx == rowIndex;
 
-    if (isCurrentCell && isRowSelected) {
+    if (isCurrentCell && isRowSelected && !rowLocked) {
       // Edit mode: use GenericTextField in compact mode for grid
       return Container(
         color: bgColor,
@@ -1790,14 +1811,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     final boolValue = value == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Check if field is readonly (support both 'readOnly' and 'readonly')
+    // Check if field is readonly (schema flag or row locked by tree_status)
     final isReadOnly =
-        propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false;
+        (propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false) ||
+        _isRowLocked(rendererContext.row);
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
       fieldKey,
       isDark,
-      isReadOnly: rendererContext.column.readOnly,
+      isReadOnly: rendererContext.column.readOnly || isReadOnly,
     );
 
     // Get field options from column config or columnItems
@@ -1905,9 +1927,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
         ? l10nNested.gridNestedEmpty
         : l10nNested.gridNestedEntries(itemCount);
 
-    // Check if parent array or this field is readonly
+    // Check if parent array, this field, or the row (tree_status) is readonly
     final isReadOnly =
         _isArrayReadOnly ||
+        _isRowLocked(rendererContext.row) ||
         (propertySchema['readOnly'] as bool? ?? propertySchema['readonly'] as bool? ?? false);
 
     return Container(
@@ -2208,7 +2231,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       layoutOptions: widget.layoutOptions,
       title: AppLocalizations.of(context)!.gridRowEditTitle,
       saveButtonText: AppLocalizations.of(context)!.gridRowEditSave,
-      readOnly: _isArrayReadOnly,
+      readOnly: _isArrayReadOnly || _isRowLocked(row),
       previousRowData: previousRowData,
       rowValidationResult: rowValidationResult,
     );
