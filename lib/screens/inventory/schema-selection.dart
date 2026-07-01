@@ -7,6 +7,7 @@ import 'package:powersync/powersync.dart' hide Column;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:terrestrial_forest_monitor/screens/inventory/permissions-selection.dart';
+import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 //import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
@@ -102,28 +103,52 @@ class _SchemaSelectionState extends State<SchemaSelection> {
             const MapTilesDownload(),
             //Expanded(child: Container(color: Colors.amber)),
             Expanded(
-              child: schemas.isEmpty
-                  ? const _EmptyStateWithProgress()
-                  : ListView.builder(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: schemas.length,
-                      physics: const ClampingScrollPhysics(),
-                      addAutomaticKeepAlives: false,
-                      addRepaintBoundaries: true,
-                      itemBuilder: (context, index) {
-                        final schema = schemas[index];
-                        return _SchemaCard(
-                          schema: schema,
-                          onTap: () => _handleSchemaSelection(context, schema),
-                        );
-                      },
-                    ),
+              child: RefreshIndicator(
+                onRefresh: _handleRefresh,
+                child: schemas.isEmpty
+                    ? const _EmptyStateWithProgress()
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: schemas.length,
+                        // AlwaysScrollable so pull-to-refresh triggers even when
+                        // the list is short; keep clamping (no bounce) behaviour.
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: ClampingScrollPhysics(),
+                        ),
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
+                        itemBuilder: (context, index) {
+                          final schema = schemas[index];
+                          return _SchemaCard(
+                            schema: schema,
+                            onTap: () => _handleSchemaSelection(context, schema),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         );
       },
     );
+  }
+
+  /// Pull-to-refresh handler. Refreshes auth/session and the PowerSync
+  /// connection (offline→online upgrade or reconnect-if-dropped, centralised in
+  /// AuthProvider), reloads the enum label cache, and re-checks admin status so
+  /// the correct schema list is shown. Schemas themselves are reactive — the
+  /// StreamBuilder updates on its own as sync brings new rows in; the refresh
+  /// just makes sure that sync can proceed.
+  Future<void> _handleRefresh() async {
+    final auth = context.read<AuthProvider>();
+    try {
+      await auth.refresh();
+    } catch (_) {}
+    await LookupService.instance.load();
+    await _checkDatabaseAdminStatus();
+    // Small floor so the spinner is visible even when the work returns instantly.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
   void _handleSchemaSelection(BuildContext context, SchemaModel schema) {
@@ -198,6 +223,9 @@ class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress>
 
         return Center(
           child: SingleChildScrollView(
+            // AlwaysScrollable so pull-to-refresh works while the empty/loading
+            // state is showing (this is exactly when users tend to pull).
+            physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,

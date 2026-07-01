@@ -36,6 +36,40 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Best-effort manual refresh for user-initiated actions (e.g.
+  /// pull-to-refresh). Time-boxed so the caller's spinner always ends, and
+  /// deliberately conservative:
+  ///  - In offline mode, tries to upgrade to a real online session (which also
+  ///    reconnects PowerSync via the auth listener).
+  ///  - When online, refreshes the Supabase session so a stale/expired token
+  ///    doesn't leave sync stalled, then reconnects PowerSync ONLY if it has
+  ///    dropped. It never force-reconnects while connected — that would restart
+  ///    any in-progress download from scratch.
+  Future<void> refresh() async {
+    if (_isOfflineMode) {
+      if (await ConnectivityService.instance.checkOnline()) {
+        await _upgradeToOnlineMode();
+      }
+      return;
+    }
+
+    // Refresh the session if one exists (skips cleanly when offline/no session).
+    try {
+      if (Supabase.instance.client.auth.currentSession != null) {
+        await Supabase.instance.client.auth.refreshSession().timeout(const Duration(seconds: 15));
+      }
+    } catch (_) {
+      // Offline or refresh failed — ignore; PowerSync backs off and retries.
+    }
+
+    // Reconnect only when the sync connection is actually down.
+    try {
+      if (isLoggedIn() && !db.currentStatus.connected) {
+        db.connect(connector: SupabaseConnector());
+      }
+    } catch (_) {}
+  }
+
   AuthProvider() {
     // Safely listen to auth state changes only if Supabase is initialized
     try {
