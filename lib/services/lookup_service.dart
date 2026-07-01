@@ -42,16 +42,43 @@ class LookupService {
   bool _loaded = false;
   bool get isLoaded => _loaded;
 
+  // Guards against overlapping reloads clobbering each other. If load() is
+  // called while one is already running (e.g. a db switch fires mid-load), the
+  // request is coalesced into a single follow-up pass against the latest db.
+  bool _loading = false;
+  bool _reloadRequested = false;
+
   /// Load (or reload) all lookup tables from the local DB.
   /// Safe to call multiple times – subsequent calls will refresh the cache.
   Future<void> load() async {
-    _loaded = false;
-    _cache.clear();
-    _cacheEn.clear();
+    if (_loading) {
+      _reloadRequested = true;
+      return;
+    }
+    _loading = true;
+    try {
+      do {
+        _reloadRequested = false;
+        await _loadOnce();
+      } while (_reloadRequested);
+    } finally {
+      _loading = false;
+    }
+  }
 
+  Future<void> _loadOnce() async {
     // Query every table that starts with "lookup_" (all are small).
     // We use a single getAll per table to keep it simple.
     final tableNames = await _getLookupTableNames();
+
+    // Build into local maps first, then merge into the live cache. This keeps
+    // previously-resolved labels visible while a reload is in flight, and – if
+    // a reload runs against a db that hasn't synced these tables yet (e.g. right
+    // after a per-user db switch, before the first download completes) – empty
+    // results don't wipe out labels we already have.
+    final newCache = <String, Map<dynamic, String>>{};
+    final newCacheEn = <String, Map<dynamic, String>>{};
+    final newInterval = <String, Map<dynamic, dynamic>>{};
 
     for (final tableName in tableNames) {
       try {
@@ -92,28 +119,20 @@ class LookupService {
             if (asDouble != null && asDouble != asInt) intervalMap[asDouble] = parsed;
           }
         }
-        _cache[tableName] = nameMap;
-        if (nameEnMap.isNotEmpty) _cacheEn[tableName] = nameEnMap;
-        if (intervalMap.isNotEmpty) _intervalCache[tableName] = intervalMap;
+        if (nameMap.isNotEmpty) newCache[tableName] = nameMap;
+        if (nameEnMap.isNotEmpty) newCacheEn[tableName] = nameEnMap;
+        if (intervalMap.isNotEmpty) newInterval[tableName] = intervalMap;
       } catch (e) {
       }
     }
 
-    _loaded = true;
+    // Merge freshly-loaded tables over the existing cache. Tables that came
+    // back empty (not yet synced) keep their previously-cached labels.
+    newCache.forEach((k, v) => _cache[k] = v);
+    newCacheEn.forEach((k, v) => _cacheEn[k] = v);
+    newInterval.forEach((k, v) => _intervalCache[k] = v);
 
-    // Diagnostic: count total entries to detect empty cache
-    final totalEntries = _cache.values.fold<int>(
-      0,
-      (sum, m) => sum + m.length ~/ 3,
-    ); // divide by 3: stored as str+int+double
-    // Sample first table with data
-    for (final entry in _cache.entries) {
-      if (entry.value.isNotEmpty) {
-        break;
-      }
-    }
-    if (totalEntries == 0) {
-    }
+    _loaded = true;
 
     // Notify listeners (e.g. widgets) that lookup data has been (re)loaded.
     versionNotifier.value++;

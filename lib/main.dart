@@ -205,21 +205,47 @@ void main() async {
     // appear even when tables were empty on the first boot (pre-sync).
     // Throttle: only reload when lastSyncedAt actually advances to avoid
     // repeated loads on rapid status flickers.
-    bool _wasDownloading = db.currentStatus.downloading;
-    DateTime? _lastLookupReloadAt;
-    // PowerSync emits many redundant status events during a sync cycle.
-    // We only react to a downloading=true -> false transition here, so
-    // collapse events that don't change the `downloading` flag.
-    db.statusStream.distinct((a, b) => a.downloading == b.downloading).listen((status) {
-      if (_wasDownloading && !status.downloading) {
-        final now = DateTime.now();
-        if (_lastLookupReloadAt == null ||
-            now.difference(_lastLookupReloadAt!) > const Duration(minutes: 5)) {
-          _lastLookupReloadAt = now;
-          LookupService.instance.load();
+    bool wasDownloading = db.currentStatus.downloading;
+    DateTime? lastLookupReloadAt;
+    StreamSubscription? lookupStatusSub;
+
+    // (Re)bind the sync-complete reload listener to the *current* global db.
+    // This must be re-attached after switchUserDatabase() swaps the db to a
+    // per-user file — otherwise the listener stays bound to the initial
+    // (legacy) db that never syncs the per-user lookup tables, leaving enum
+    // fields showing raw codes instead of names.
+    void attachLookupReloadListener() {
+      lookupStatusSub?.cancel();
+      wasDownloading = db.currentStatus.downloading;
+      // PowerSync emits many redundant status events during a sync cycle.
+      // We only react to a downloading=true -> false transition here, so
+      // collapse events that don't change the `downloading` flag.
+      lookupStatusSub = db.statusStream.distinct((a, b) => a.downloading == b.downloading).listen((
+        status,
+      ) {
+        if (wasDownloading && !status.downloading) {
+          final now = DateTime.now();
+          if (lastLookupReloadAt == null ||
+              now.difference(lastLookupReloadAt!) > const Duration(minutes: 5)) {
+            lastLookupReloadAt = now;
+            LookupService.instance.load();
+          }
         }
-      }
-      _wasDownloading = status.downloading;
+        wasDownloading = status.downloading;
+      });
+    }
+
+    attachLookupReloadListener();
+
+    // When switchUserDatabase() swaps the global db (sign-in, offline→online
+    // upgrade, or session restore on restart), reload the lookup cache from the
+    // new per-user db and re-bind the sync-complete listener to it. Without
+    // this, the initial load() above reads the legacy tfm.db while the real
+    // lookup data lives in (and syncs into) the per-user tfm_<userId>.db.
+    dbSwitchEvents.listen((_) {
+      lastLookupReloadAt = null; // allow an immediate reload right after a switch
+      LookupService.instance.load();
+      attachLookupReloadListener();
     });
 
     // Skip attachment queue on web (uses file system)
