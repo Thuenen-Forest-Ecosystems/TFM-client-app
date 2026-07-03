@@ -19,6 +19,7 @@ import 'package:terrestrial_forest_monitor/widgets/settings/language-settings.da
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:terrestrial_forest_monitor/widgets/legacy-data-banner.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -159,6 +160,7 @@ class _ProfileState extends State<Profile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            //LegacyDataBanner(),
             // User Avatar
             //Center(child: CircleAvatar(radius: 50, backgroundColor: Theme.of(context).primaryColor, child: Text(user?.email?.substring(0, 1).toUpperCase() ?? 'U', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)))),
             const SizedBox(height: 16),

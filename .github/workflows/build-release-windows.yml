@@ -104,7 +104,11 @@ jobs:
           }
 
       - name: Build Windows Release
-        run: flutter build windows --release
+        # A hard timeout here converts a silent runner death (which uploads no
+        # logs at all, see prior "lost communication with the server" failures)
+        # into a normal failed step with partial output we can actually debug.
+        timeout-minutes: 30
+        run: flutter build windows --release -v
 
       - name: Create Inno Setup Installer
         shell: powershell

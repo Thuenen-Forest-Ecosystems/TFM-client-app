@@ -10,9 +10,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
-import 'package:terrestrial_forest_monitor/widgets/diagnostic-button.dart';
+//import 'package:terrestrial_forest_monitor/widgets/diagnostic-button.dart';
 import 'package:terrestrial_forest_monitor/widgets/playground-mode-button.dart';
-import 'package:terrestrial_forest_monitor/widgets/legacy-data-banner.dart';
 
 class Schema extends StatefulWidget {
   const Schema({super.key});
@@ -87,12 +86,7 @@ class _SchemaState extends State<Schema> {
           ),
         ],
       ),
-      body: const Column(
-        children: [
-          LegacyDataBanner(),
-          Expanded(child: SchemaSelection()),
-        ],
-      ),
+      body: const Column(children: [Expanded(child: SchemaSelection())]),
       bottomNavigationBar: const SafeArea(child: VersionControl()),
     );
   }

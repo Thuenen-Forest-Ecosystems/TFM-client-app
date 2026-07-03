@@ -193,7 +193,7 @@ class LegacyDataModal extends StatelessWidget {
                           'sind nur hier lokal vorhanden.'
                     : 'Diese Daten stammen aus der gemeinsam genutzten Altdatenbank. '
                           'Bereits synchronisierte Datensätze sind auch auf dem Server vorhanden.',
-                style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+                style: TextStyle(color: Theme.of(context).hintColor),
               ),
             ),
             const Divider(height: 16),
