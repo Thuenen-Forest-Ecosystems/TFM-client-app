@@ -427,6 +427,37 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     return count;
   }
 
+  /// The "plausibility engine unavailable" marker is rendered as a top banner,
+  /// not as a per-corner line item (and never blocks completion).
+  bool _isPlausibilityUnavailableMarker(dynamic issue) =>
+      issue is TFMValidationError &&
+      issue.isWarning &&
+      issue.message == kPlausibilityUnavailableMessage;
+
+  Widget _buildPlausibilityUnavailableBanner(BuildContext context) {
+    final color = Colors.orange.shade900;
+    return Container(
+      width: double.infinity,
+      color: Colors.orange.shade100,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: color, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Die Plausibilitätsprüfung konnte nicht ausgeführt werden '
+              '(vorübergehendes technisches Problem). Die Ecke kann trotzdem '
+              'abgeschlossen und übermittelt werden.',
+              style: TextStyle(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final errorCount = widget.validationResult.allErrors.length;
@@ -434,6 +465,9 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     // Group errors by instance path
     final groupedIssues = <String, List<dynamic>>{};
     for (final issue in widget.validationResult.allIssues) {
+      // The engine-unavailable marker is shown as a banner, not a list item.
+      if (_isPlausibilityUnavailableMarker(issue)) continue;
+
       final instancePath = issue is ValidationError
           ? issue.instancePath
           : (issue as TFMValidationError).instancePath;
@@ -469,6 +503,8 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
         ),
         body: Column(
           children: [
+            if (widget.validationResult.plausibilityUnavailable)
+              _buildPlausibilityUnavailableBanner(context),
             Expanded(
               child: ListView.builder(
                 itemCount: groupedIssues.length,

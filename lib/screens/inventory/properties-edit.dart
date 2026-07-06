@@ -50,6 +50,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Map<String, dynamic>? _previousFormData;
   TFMValidationResult? _validationResult;
   bool _hasCompletedInitialValidation = false;
+
+  /// Whether the loaded schema ships a plausibility script (so plausibility
+  /// results are expected). Lets a validation pass distinguish "engine not
+  /// ready yet" from "this schema has no plausibility checks".
+  bool _plausibilityExpected = false;
+
+  /// The loaded schema's plausibility script, retained so a validation retry can
+  /// re-supply it to the engine directly rather than relying on the shared
+  /// runner still having it cached (which a concurrent teardown can drop).
+  String? _tfmValidationCode;
+
+  /// Max times a single validation pass will re-init + re-run the plausibility
+  /// engine when it reports itself unavailable, before accepting the result.
+  static const int _maxPlausibilityRetries = 3;
   bool _isSaving = false;
   late SchemaRepository schemaRepository;
   MapControllerProvider? _mapProvider;
@@ -160,11 +174,16 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _validationCycle++;
     _validationDebounceTimer?.cancel();
 
-    // Free the in-process JS plausibility engine when the form closes so it
-    // does not persist between form sessions (it re-initialises lazily on the
-    // next form open). The idle timer would also dispose it after a timeout.
+    // Drop the in-process JS plausibility runtime when the form closes (energy)
+    // but KEEP the cached script so it re-initialises lazily on the next form
+    // open. Using handleAppPaused() here rather than dispose() is deliberate:
+    // dispose() nulls the shared singleton's cached script, and during a
+    // corner-to-corner transition the arriving form's initState/initialize()
+    // runs before this dispose() — so a full dispose() would clobber the script
+    // the new form just set, leaving its plausibility engine permanently
+    // unavailable until another clean remount (see TFM-client-app#441).
     if (!kIsWeb) {
-      ValidationServiceNative.instance.dispose();
+      ValidationServiceNative.instance.handleAppPaused();
     }
 
     // Clear distance line and focused record immediately when leaving
@@ -318,6 +337,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           _styleData = styleToUse; // Use the determined style (control or default)
           _isLoading = false;
         });
+
+        // Remember whether this schema ships plausibility checks, so a
+        // validation pass can tell "engine not ready" from "nothing to run",
+        // and keep the script itself so a retry can re-supply it to the engine.
+        _plausibilityExpected = tfmValidationCode != null;
+        _tfmValidationCode = tfmValidationCode;
 
         // Initialize TFM validation code if available
         if (tfmValidationCode != null) {
@@ -803,12 +828,41 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
                 if (!mounted || cycle != _validationCycle) return;
 
-                final result = await ValidationServiceNative.instance.validateWithTFM(
+                var result = await ValidationServiceNative.instance.validateWithTFM(
                   schema: modifiedSchema,
                   data: currentDataWithMeta,
                   previousData: previousDataWithMeta,
                   treeSpeciesLookup: treeSpeciesLookup,
                 );
+
+                // If this schema ships plausibility checks but the engine
+                // reported itself unavailable for this pass (e.g. its runtime
+                // was torn down by a sibling form's teardown while this form was
+                // mounting), the result is incomplete. Re-init and retry a
+                // bounded number of times before accepting it, so we never
+                // present a plausibility-free result as authoritative
+                // (see TFM-client-app#441).
+                var plausibilityRetries = 0;
+                while (_plausibilityExpected &&
+                    !result.tfmAvailable &&
+                    plausibilityRetries < _maxPlausibilityRetries) {
+                  plausibilityRetries++;
+                  if (!mounted || cycle != _validationCycle) return;
+                  try {
+                    // Re-supply the script explicitly: if a concurrent teardown
+                    // dropped the runner's cached script, an arg-less initialize()
+                    // would be a no-op and the retry could never recover.
+                    await ValidationServiceNative.instance
+                        .initialize(tfmValidationCode: _tfmValidationCode);
+                  } catch (_) {}
+                  if (!mounted || cycle != _validationCycle) return;
+                  result = await ValidationServiceNative.instance.validateWithTFM(
+                    schema: modifiedSchema,
+                    data: currentDataWithMeta,
+                    previousData: previousDataWithMeta,
+                    treeSpeciesLookup: treeSpeciesLookup,
+                  );
+                }
 
                 if (!mounted || cycle != _validationCycle) return;
 

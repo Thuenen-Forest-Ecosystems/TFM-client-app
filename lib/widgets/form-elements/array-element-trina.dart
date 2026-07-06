@@ -3252,11 +3252,21 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
                         // Descending
                         _stateManager?.sortDescending(column);
                       } else {
-                        // None - restore original order by rebuilding from source data
-                        final originalRows = _buildRows();
+                        // None - restore original (data) order from the LIVE grid
+                        // rows, which carry any inline edits not yet propagated
+                        // back into widget.data. Rebuilding from widget.data here
+                        // (via _buildRows) would revert pending edits — e.g. a
+                        // just-picked tree_species value snapping back to its old
+                        // value — silently corrupting the record.
+                        final restored = List<TrinaRow>.from(_stateManager?.rows ?? _rows)
+                          ..sort((a, b) {
+                            final ai = a.cells['__original_index__']?.value as int? ?? 0;
+                            final bi = b.cells['__original_index__']?.value as int? ?? 0;
+                            return ai.compareTo(bi);
+                          });
                         _stateManager?.removeAllRows();
-                        _stateManager?.appendRows(originalRows);
-                        _rows = originalRows;
+                        _stateManager?.appendRows(restored);
+                        _rows = restored;
                         // Clear the sort indicator
                         column.sort = TrinaColumnSort.none;
                         return;

@@ -1,6 +1,12 @@
 // Shared validation result/error types, decoupled from any engine.
 // Used by NativeSchemaValidator, PlausibilityRunner and the form widgets.
 
+/// Marker message emitted (as a non-blocking warning) when the plausibility
+/// engine could not run a pass — a transient outage rather than a data problem.
+/// The results dialog surfaces this as a banner and hides the per-corner line
+/// item, and it never blocks completing the corner.
+const String kPlausibilityUnavailableMessage = 'Plausibility engine unavailable';
+
 class ValidationResult {
   final bool isValid;
   final List<ValidationError> errors;
@@ -64,6 +70,12 @@ class TFMValidationResult {
   List<TFMValidationError> get tfmWarnings => tfmErrors.where((e) => e.isWarning).toList();
   List<dynamic> get allErrors => [...ajvErrors, ...tfmOnlyErrors];
   List<dynamic> get allIssues => [...ajvErrors, ...tfmErrors];
+
+  /// True when the plausibility engine could not run this pass (its marker
+  /// warning is present). Drives the "Plausibilitätsprüfung nicht verfügbar"
+  /// banner; never blocks completion.
+  bool get plausibilityUnavailable => tfmErrors
+      .any((e) => e.isWarning && e.message == kPlausibilityUnavailableMessage);
 
   @override
   String toString() => 'TFMValidationResult(ajvValid: $ajvValid, ajvErrors: ${ajvErrors.length}, '
