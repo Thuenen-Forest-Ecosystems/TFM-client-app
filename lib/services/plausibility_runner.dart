@@ -98,10 +98,25 @@ class PlausibilityRunner {
     Map<String, dynamic>? previousData,
     List<Map<String, dynamic>>? treeSpeciesLookup,
   }) async {
-    if (!_loaded || _rt == null) await initialize();
-    final rt = _rt;
+    // A concurrent teardown (handleAppPaused / idle dispose — triggered by app
+    // pause/hide or a sibling corner form closing) can drop the runtime in the
+    // `await` gap below. Re-initialise a bounded number of times so an unlucky
+    // interleaving re-inits transparently instead of surfacing a spurious
+    // "engine unavailable" while the cached script is perfectly valid
+    // (see TFM-client-app#441).
+    JavascriptRuntime? rt;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (!_loaded || _rt == null) await initialize();
+      if (_loaded && _rt != null) {
+        rt = _rt;
+        break;
+      }
+    }
     if (rt == null || !_loaded) {
-      return [_engineError('Plausibility engine unavailable')];
+      // Nothing to run (no script cached, or re-init kept failing). Report it as
+      // a non-blocking warning so a transient outage never blocks completion;
+      // the results dialog renders it as a banner, not a per-corner item.
+      return [_engineError(kPlausibilityUnavailableMessage, warning: true)];
     }
     _resetIdleTimer();
 
@@ -142,8 +157,11 @@ class PlausibilityRunner {
     }
   }
 
-  TFMValidationError _engineError(String text) =>
-      TFMValidationError(instancePath: '', error: {'type': 'error', 'text': text});
+  TFMValidationError _engineError(String text, {bool warning = false}) =>
+      TFMValidationError(instancePath: '', error: {
+        'type': warning ? 'warning' : 'error',
+        'text': text,
+      });
 
   void _resetIdleTimer() {
     _idleTimer?.cancel();
@@ -153,9 +171,20 @@ class PlausibilityRunner {
   }
 
   /// Drop the engine but keep the remembered script so the next call re-inits.
-  Future<void> handleAppPaused() async {
-    await _queue.catchError((_) {});
-    await _disposeRuntimeKeepInstance();
+  Future<void> handleAppPaused() {
+    // Chain the teardown onto the same queue as runPlots (like the idle timer)
+    // so it can never interleave with an in-flight validation. Otherwise it
+    // could null the runtime in the `await` gap of a running _runPlotsUnsafe and
+    // surface a spurious "engine unavailable" on the next check.
+    final done = Completer<void>();
+    _queue = _queue.catchError((_) {}).then((_) async {
+      try {
+        await _disposeRuntimeKeepInstance();
+      } finally {
+        done.complete();
+      }
+    });
+    return done.future;
   }
 
   Future<void> _disposeRuntimeKeepInstance() async {
@@ -167,9 +196,18 @@ class PlausibilityRunner {
     rt?.dispose();
   }
 
-  Future<void> dispose() async {
-    _lastScript = null;
-    await _queue.catchError((_) {});
-    await _disposeRuntimeKeepInstance();
+  Future<void> dispose() {
+    // Serialise with runPlots (see handleAppPaused) and only clear the cached
+    // script once any in-flight validation has drained.
+    final done = Completer<void>();
+    _queue = _queue.catchError((_) {}).then((_) async {
+      try {
+        _lastScript = null;
+        await _disposeRuntimeKeepInstance();
+      } finally {
+        done.complete();
+      }
+    });
+    return done.future;
   }
 }
