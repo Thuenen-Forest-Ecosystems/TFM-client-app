@@ -2,6 +2,9 @@
 *.class
 *.log
 *.pyc
+
+# Patrol generates this when running integration tests; do not commit it.
+integration_test/test_bundle.dart
 *.swp
 .DS_Store
 .atom/

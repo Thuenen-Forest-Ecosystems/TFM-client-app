@@ -3,6 +3,7 @@ import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/helping-point.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/row-delete-guard.dart';
 
 /// ArrayElementCardList – renders an array as a vertical list of Cards.
 /// Each card contains a [GenericForm] for one row's editable fields.
@@ -89,34 +90,23 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
   /// the logic in ArrayElementTrina so that the field info dialog can surface
   /// the previous value ("Vorgängererhebung") per row.
   Map<String, dynamic>? _findMatchingPreviousRow(Map<String, dynamic> currentRowData) {
-    if (widget.previousData == null) return null;
-
-    // Use configured identifier field or fall back to common fields
-    final identifierFields = widget.identifierField != null
-        ? [widget.identifierField!]
-        : ['tree_number', 'edge_number', 'row_number', 'id'];
-
-    for (final idField in identifierFields) {
-      if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
-        final currentId = currentRowData[idField];
-
-        final match = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
-          (prevRow) => prevRow != null && prevRow[idField] == currentId,
-          orElse: () => null,
-        );
-
-        if (match != null) return match;
-      }
-    }
-
-    return null;
+    return RowDeleteGuard.findMatchingPreviousRow(
+      currentRowData,
+      widget.previousData,
+      identifierField: widget.identifierField,
+    );
   }
 
-  /// Check if a row has matching data in the previous inventory (by identifier).
-  /// Rows carried over from the previous inventory must not be deletable; only
-  /// newly added rows may be removed.
-  bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) =>
-      _findMatchingPreviousRow(currentRowData) != null;
+  /// Whether a row must not be deletable: preset by the server (archive UUID
+  /// in `id`) or carried over from the previous inventory. Unlike a
+  /// previous-data-only check this cannot fail open when
+  /// `previous_properties` has not been filled/synced on this device yet.
+  bool _isRowDeleteProtected(Map<String, dynamic> currentRowData) =>
+      RowDeleteGuard.isProtected(
+        currentRowData,
+        previousData: widget.previousData,
+        identifierField: widget.identifierField,
+      );
 
   // ── Defaults ──────────────────────────────────────────────────────────────
 
@@ -237,6 +227,22 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
   }
 
   void _deleteRow(int index) {
+    if (index < 0 || index >= _rows.length) return;
+
+    // Fail-safe: re-check protection on the actual row being removed, not
+    // just the button's enabled state, so protected rows survive stale
+    // indices after rebuilds.
+    if (_isRowDeleteProtected(_rows[index])) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bestehender Eintrag aus der Inventur – Löschen nicht möglich.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _rows.removeAt(index);
     });
@@ -467,7 +473,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
           ..._rows.asMap().entries.map((entry) {
             final index = entry.key;
             final rowData = entry.value;
-            final hasPreviousData = _hasMatchingPreviousData(rowData);
+            final deleteProtected = _isRowDeleteProtected(rowData);
 
             return Padding(
               padding: EdgeInsets.only(left: margin, right: margin, top: margin, bottom: margin),
@@ -499,13 +505,14 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          // Rows carried over from the previous inventory must
-                          // not be deletable; only newly added rows may be removed.
+                          // Rows preset by the server or carried over from the
+                          // previous inventory must not be deletable; only
+                          // newly added rows may be removed.
                           IconButton(
                             icon: const Icon(Icons.delete_outline, size: 18),
-                            onPressed: hasPreviousData ? null : () => _deleteRow(index),
-                            tooltip: hasPreviousData
-                                ? 'Aus Vorinventur übernommen – nicht löschbar'
+                            onPressed: deleteProtected ? null : () => _deleteRow(index),
+                            tooltip: deleteProtected
+                                ? 'Bestehender Eintrag aus der Inventur – nicht löschbar'
                                 : 'Eintrag löschen',
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),

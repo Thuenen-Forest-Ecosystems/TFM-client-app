@@ -35,6 +35,22 @@ class ArrayRowFormDialog extends StatefulWidget {
   /// button reflects the same errors that the grid's row indicator shows.
   final TFMValidationResult? rowValidationResult;
 
+  /// Test seam: overrides the schema-validation call. Defaults to
+  /// [ValidationServiceNative.instance.validate] in production. Injectable so
+  /// tests can drive the async-validation race (stale result vs. newer input)
+  /// deterministically with a controllable validator. Not used in the app.
+  @visibleForTesting
+  final Future<ValidationResult> Function(
+    Map<String, dynamic> schema,
+    Map<String, dynamic> data,
+  )? validateOverride;
+
+  /// Test seam: invoked whenever a validation result is *applied* to the form
+  /// (i.e. survived the stale-result guard). Lets tests assert that superseded
+  /// results are never applied. Not used in the app.
+  @visibleForTesting
+  final void Function(ValidationResult result)? onValidationApplied;
+
   const ArrayRowFormDialog({
     super.key,
     required this.itemSchema,
@@ -47,6 +63,8 @@ class ArrayRowFormDialog extends StatefulWidget {
     this.readOnly = false,
     this.previousRowData,
     this.rowValidationResult,
+    this.validateOverride,
+    this.onValidationApplied,
   });
 
   /// Show the dialog and return the result
@@ -111,6 +129,13 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   TFMValidationResult? _validationResult;
   Timer? _validationDebounce;
 
+  /// Monotonic counter used to discard stale async validation results. Each
+  /// [_validateFormData] run stamps its own sequence number; when its awaited
+  /// result returns, it is applied only if no newer run has started in the
+  /// meantime. Without this, a validation launched for older form state could
+  /// resolve late and overwrite the result for what the user has since typed.
+  int _validationSeq = 0;
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +157,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
   }
 
   Future<void> _validateFormData() async {
+    final int seq = ++_validationSeq;
     try {
       // Exclude calculated fields from the validation schema: they are computed
       // display-only values not stored in _formData, so AJV would incorrectly
@@ -143,17 +169,24 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
       };
       final validationSchema = {..._effectiveSchema, 'properties': validationProperties};
 
-      final result = await ValidationServiceNative.instance.validate(validationSchema, _formData);
-      if (mounted) {
-        setState(() {
-          _validationResult = TFMValidationResult(
-            ajvValid: result.isValid,
-            ajvErrors: result.errors,
-            tfmAvailable: false,
-            tfmErrors: const [],
-          );
-        });
-      }
+      final validate = widget.validateOverride ?? ValidationServiceNative.instance.validate;
+      final result = await validate(validationSchema, _formData);
+
+      // Discard results from a superseded run: while this validation was
+      // awaiting, newer input may have started another one. Applying an older
+      // result here is the race that let stale validation state overwrite the
+      // feedback for what the user has since typed.
+      if (!mounted || seq != _validationSeq) return;
+
+      setState(() {
+        _validationResult = TFMValidationResult(
+          ajvValid: result.isValid,
+          ajvErrors: result.errors,
+          tfmAvailable: false,
+          tfmErrors: const [],
+        );
+      });
+      widget.onValidationApplied?.call(result);
     } catch (_) {
       // Validation service may not be initialized; silently skip
     }

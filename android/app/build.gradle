@@ -67,6 +67,16 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
+
+        // Patrol integration tests (see integration_test/README.md)
+        testInstrumentationRunner "pl.leancode.patrol.PatrolJUnitRunner"
+        testInstrumentationRunnerArguments clearPackageData: "true"
+    }
+
+    // Patrol runs each Dart test through the AndroidX Test Orchestrator so a
+    // crash in one test does not abort the rest of the suite.
+    testOptions {
+        execution "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
     signingConfigs {
@@ -114,4 +124,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // AndroidX Test Orchestrator, required by Patrol's testOptions above.
+    // If `patrol test` hangs at "flutter build apk --config-only", bump this to 1.6.1.
+    androidTestUtil "androidx.test:orchestrator:1.5.1"
 }

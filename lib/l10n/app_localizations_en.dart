@@ -294,4 +294,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String messageDeleteError(String error) {
     return 'Error deleting message: $error';
   }
+
+  @override
+  String get recordingReadOnlyPlayground =>
+      'Playground mode: data cannot be saved.';
+
+  @override
+  String get recordingReadOnlyAdmin => 'Admin view: data cannot be saved.';
+
+  @override
+  String get recordingReadOnlyControlPending =>
+      'Control survey only possible once the recording troop has completed this plot.';
 }

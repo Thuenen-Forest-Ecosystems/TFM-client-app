@@ -113,5 +113,9 @@
     "messageDeleteConfirm": "Möchten Sie diese Nachricht wirklich löschen?",
     "messageDelete": "Löschen",
     "messageSendError": "Fehler beim Senden der Nachricht: {error}",
-    "messageDeleteError": "Fehler beim Löschen der Nachricht: {error}"
+    "messageDeleteError": "Fehler beim Löschen der Nachricht: {error}",
+
+    "recordingReadOnlyPlayground": "Playground-Modus: Daten werden nicht gespeichert.",
+    "recordingReadOnlyAdmin": "Admin-Ansicht: Daten werden nicht gespeichert.",
+    "recordingReadOnlyControlPending": "Kontrolle erst möglich, wenn der Aufnahmetrupp diese Ecke abgeschlossen hat."
 }

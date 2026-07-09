@@ -121,4 +121,40 @@ void main() {
     expect(issues.any((e) => e.message.contains('unavailable') && e.isWarning), isTrue,
         reason: 'engine-unavailable must be non-blocking so it never blocks completion');
   });
+
+  // Reproduces the field report: a corner shows "Plausibility engine
+  // unavailable", then editing the DB `plausability_script` and reverting it to
+  // the byte-identical original makes plausibility work again. This proves the
+  // failure is state/lifecycle, not script CONTENT: the SAME script yields
+  // "unavailable" while the runner's cache is empty, and succeeds once the
+  // (identical) script is re-supplied — exactly what a PowerSync re-sync of the
+  // schemas row does on the app side.
+  test('same script: unavailable while cache empty, recovers verbatim on re-supply', () async {
+    // 1. Runner in the stuck state (script cleared by a prior full dispose /
+    //    app-quit path), and the freshly opened form has not re-supplied it yet.
+    await PlausibilityRunner.instance.dispose();
+    expect(PlausibilityRunner.instance.isLoaded, isFalse);
+
+    final broken = await PlausibilityRunner.instance.runPlots(
+      data: plot,
+      previousData: plot,
+      treeSpeciesLookup: const [],
+    );
+    expect(broken.any((e) => e.message.contains('unavailable')), isTrue,
+        reason: 'empty cache surfaces the exact screenshot symptom');
+
+    // 2. Re-supply the VERBATIM same script (what the DB edit-and-revert forced
+    //    via re-sync). No content changed — only the cache was repopulated.
+    await PlausibilityRunner.instance.initialize(tfmValidationCode: script);
+    final recovered = await PlausibilityRunner.instance.runPlots(
+      data: plot,
+      previousData: plot,
+      treeSpeciesLookup: const [],
+    );
+    expect(recovered.any((e) => e.message.contains('unavailable')), isFalse,
+        reason: 'identical script recovers purely from re-init → app-side, not content');
+    expect(recovered, isNotEmpty);
+
+    await PlausibilityRunner.instance.dispose();
+  });
 }

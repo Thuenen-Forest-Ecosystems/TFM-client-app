@@ -56,6 +56,7 @@ class OrganizationSelectionService {
     await prefs.remove('selected_permission_id');
     await prefs.remove('selected_troop_id');
     await prefs.remove('selected_troop_name');
+    await prefs.remove('selected_troop_is_control');
     await prefs.remove('is_organization_admin');
   }
 
@@ -120,6 +121,21 @@ class OrganizationSelectionService {
   Future<String?> getSelectedTroopName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('selected_troop_name');
+  }
+
+  /// Set whether the selected troop is a control troop (Kontrolltrupp)
+  Future<bool> setSelectedTroopIsControl(bool? isControlTroop) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (isControlTroop == null) {
+      return prefs.remove('selected_troop_is_control');
+    }
+    return prefs.setBool('selected_troop_is_control', isControlTroop);
+  }
+
+  /// Get whether the selected troop is a control troop (Kontrolltrupp)
+  Future<bool> getSelectedTroopIsControl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('selected_troop_is_control') ?? false;
   }
 
   /// Set whether the selected permission is organization admin

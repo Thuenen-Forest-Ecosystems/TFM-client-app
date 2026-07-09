@@ -1,0 +1,52 @@
+name: CI
+
+# Runs the headless unit + widget test suite on every pull request and on
+# pushes to main, so regressions (e.g. the async-validation race) are caught
+# before a release build is ever cut. Uses ubuntu-latest because these tests
+# need no native toolchain or device.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref so a fast follow-up push doesn't
+# keep an obsolete run alive.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.4"
+          channel: "stable"
+          cache: true
+
+      # `.env` is a declared pubspec asset but is gitignored (populated from
+      # secrets in the deploy workflows). An empty stub is enough for the asset
+      # bundle to build; the tests never call dotenv.load().
+      - name: Create .env stub
+        run: touch .env
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # Non-blocking for now: the codebase still carries pre-existing analyzer
+      # debt. Kept visible so it can be driven down and later made blocking
+      # (ideally with `--fatal-infos`).
+      - name: Analyze (non-blocking)
+        run: flutter analyze
+        continue-on-error: true
+
+      # Blocking gate: a red suite fails the check and blocks the merge.
+      - name: Run Tests
+        run: flutter test

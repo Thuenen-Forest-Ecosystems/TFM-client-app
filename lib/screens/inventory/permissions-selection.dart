@@ -84,6 +84,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     bool isAdmin = false,
     String? troopId,
     String? troopName,
+    bool isControlTroop = false,
   }) async {
     // Save all settings FIRST, then notify listeners so that _getOrganizationFilter
     // sees a fully consistent state (no stale troop/isAdmin from previous user).
@@ -92,6 +93,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     await _selectionService.setIsOrganizationAdmin(isAdmin);
     await _selectionService.setSelectedTroopId(troopId);
     await _selectionService.setSelectedTroopName(troopName);
+    await _selectionService.setSelectedTroopIsControl(isControlTroop);
     _selectionService.notifyPermissionSelected(permissionId);
 
     if (mounted) {
@@ -324,7 +326,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                   ? const Icon(Icons.shield, size: 20)
                   : const Icon(Icons.group, size: 20),
               title: Text(
-                troop.name,
+                troop.isControlTroop ? '${troop.name} (Kontrolltrupp)' : troop.name,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
               subtitle: Text(
@@ -338,6 +340,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                   isAdmin: permission.isOrganizationAdmin,
                   troopId: troop.id,
                   troopName: troop.name,
+                  isControlTroop: troop.isControlTroop,
                 );
               },
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),

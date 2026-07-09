@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
 import 'package:terrestrial_forest_monitor/services/layout_service.dart';
@@ -52,7 +56,10 @@ class FormTab {
   final String label;
   final String? icon;
 
-  FormTab({required this.id, required this.label, this.icon});
+  /// True for the messages/chat tab, which shows a badge with the message count.
+  final bool isMessages;
+
+  FormTab({required this.id, required this.label, this.icon, this.isMessages = false});
 }
 
 class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin {
@@ -74,14 +81,58 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   MapControllerProvider? _mapControllerProvider;
   DateTime? _lastSelectionTimestamp;
 
+  // Live message count for the record, used to badge the messages tab.
+  int _messageCount = 0;
+  String? _watchedMessageRecordId;
+  StreamSubscription<sqlite.ResultSet>? _messageCountSubscription;
+
   @override
   void initState() {
     super.initState();
     _localFormData = Map<String, dynamic>.from(widget.formData ?? {});
     _previousProperties = Map<String, dynamic>.from(widget.previousFormData ?? {});
 
+    // Watch the message count so the messages tab can show a badge.
+    _watchMessageCount();
+
     // Load layout configuration asynchronously
     _initializeLayout();
+  }
+
+  /// Live-watch the number of messages for the current record so the messages
+  /// tab can display a badge. Re-subscribes when the record changes.
+  void _watchMessageCount() {
+    final recordId = widget.rawRecord?.id;
+    if (recordId == _watchedMessageRecordId) return;
+
+    _messageCountSubscription?.cancel();
+    _messageCountSubscription = null;
+    _watchedMessageRecordId = recordId;
+
+    if (recordId == null) {
+      if (_messageCount != 0 && mounted) {
+        setState(() => _messageCount = 0);
+      } else {
+        _messageCount = 0;
+      }
+      return;
+    }
+
+    _messageCountSubscription = db
+        .watch(
+          'SELECT COUNT(*) AS count FROM records_messages WHERE records_id = ?',
+          parameters: [recordId],
+        )
+        .listen(
+          (sqlite.ResultSet resultSet) {
+            if (!mounted) return;
+            final count = resultSet.isNotEmpty ? (resultSet.first['count'] as int? ?? 0) : 0;
+            if (count != _messageCount) {
+              setState(() => _messageCount = count);
+            }
+          },
+          onError: (_) {},
+        );
   }
 
   @override
@@ -312,7 +363,14 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         }
       }
 
-      tabs.add(FormTab(id: item.id, label: label, icon: item.icon));
+      tabs.add(
+        FormTab(
+          id: item.id,
+          label: label,
+          icon: item.icon,
+          isMessages: LayoutService.getComponentType(item) == 'messages_chat',
+        ),
+      );
     }
 
     return tabs;
@@ -382,6 +440,12 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   @override
   void didUpdateWidget(FormWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Re-watch the message count if the underlying record changed.
+    if (widget.rawRecord?.id != oldWidget.rawRecord?.id) {
+      _watchMessageCount();
+    }
+
     // Don't reset local form data when parent data changes
     // The parent data changes are triggered by our own _updateField calls via onFormDataChanged
     // Resetting here would discard in-flight user edits during validation cycles
@@ -1149,6 +1213,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     FocusManager.instance.primaryFocus?.unfocus();
 
     _mapControllerProvider?.removeListener(_onMapGridRowSelection);
+    _messageCountSubscription?.cancel();
     _tabController?.removeListener(_onTabChanged);
     _tabController?.dispose();
     super.dispose();
@@ -1383,15 +1448,22 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           onTap: _onTabTapped,
           tabs: _tabs.map((tab) {
             final hasErrors = _hasErrorsForTab(tab.id);
+            final showMessageBadge = tab.isMessages && _messageCount > 0;
             return Tab(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (tab.icon != null) ...[
-                    Icon(_getIconData(tab.icon!), size: 20),
-                    const SizedBox(width: 8),
+                    Badge(
+                      isLabelVisible: showMessageBadge,
+                      backgroundColor: Colors.grey.shade600,
+                      textColor: Colors.white,
+                      label: Text('$_messageCount'),
+                      child: Icon(_getIconData(tab.icon!), size: 20),
+                    ),
+                    if (tab.label.isNotEmpty) const SizedBox(width: 8),
                   ],
-                  Text(tab.label),
+                  if (tab.label.isNotEmpty) Text(tab.label),
                   if (hasErrors) ...[
                     const SizedBox(width: 8),
                     Container(

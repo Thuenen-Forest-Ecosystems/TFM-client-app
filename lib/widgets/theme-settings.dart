@@ -20,18 +20,21 @@ class _ThemeSettingsState extends State<ThemeSettings> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ThemeOption(
+          key: const Key('themeOption_light'),
           title: 'Hell',
           subtitle: 'Hohe kontraste an hellen Tagen',
           isSelected: currentMode == ThemeMode.light,
           onTap: () => themeProvider.setTheme(ThemeMode.light),
         ),
         _ThemeOption(
+          key: const Key('themeOption_dark'),
           title: 'Dunkel',
           subtitle: 'Energiesparmodus für schattige Umgebungen',
           isSelected: currentMode == ThemeMode.dark,
           onTap: () => themeProvider.setTheme(ThemeMode.dark),
         ),
         _ThemeOption(
+          key: const Key('themeOption_system'),
           title: 'System',
           subtitle: 'Systemeinstellung folgen',
           isSelected: currentMode == ThemeMode.system,
@@ -49,6 +52,7 @@ class _ThemeOption extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ThemeOption({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.isSelected,

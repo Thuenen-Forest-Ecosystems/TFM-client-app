@@ -295,4 +295,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String messageDeleteError(String error) {
     return 'Fehler beim Löschen der Nachricht: $error';
   }
+
+  @override
+  String get recordingReadOnlyPlayground =>
+      'Playground-Modus: Daten werden nicht gespeichert.';
+
+  @override
+  String get recordingReadOnlyAdmin =>
+      'Admin-Ansicht: Daten werden nicht gespeichert.';
+
+  @override
+  String get recordingReadOnlyControlPending =>
+      'Kontrolle erst möglich, wenn der Aufnahmetrupp diese Ecke abgeschlossen hat.';
 }

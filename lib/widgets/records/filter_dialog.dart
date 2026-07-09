@@ -43,7 +43,7 @@ class _RecordsFilterDialogState extends State<RecordsFilterDialog> {
         children: [
           SwitchListTile(
             title: const Text('Abgeschlossene Ecken anzeigen'),
-            subtitle: const Text('Ecken mit completed_at_troop'),
+            subtitle: const Text('Bereits abgeschlossene Ecken'),
             value: _showCompleted,
             onChanged: (value) {
               setState(() {

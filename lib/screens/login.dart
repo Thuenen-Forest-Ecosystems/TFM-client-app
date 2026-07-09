@@ -348,6 +348,7 @@ class _LoginState extends State<Login> {
                             const Image(image: AssetImage('assets/logo/tfm.png'), height: 100),
                             const SizedBox(height: 10),
                             TextFormField(
+                              key: const Key('loginEmailField'),
                               controller: _emailController,
                               focusNode: _emailFocusNode,
                               keyboardType: TextInputType.emailAddress,
@@ -377,6 +378,7 @@ class _LoginState extends State<Login> {
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
+                              key: const Key('loginPasswordField'),
                               controller: _passwordController,
                               focusNode: _passwordFocusNode,
                               obscureText: _obscurePassword,
@@ -414,6 +416,7 @@ class _LoginState extends State<Login> {
                             // Online Login Button
                             if (!_isOffline)
                               ElevatedButton(
+                                key: const Key('loginSubmitButton'),
                                 onPressed: _isFormValid && !authProvider.loggingIn
                                     ? _handleLogin
                                     : null,
@@ -433,6 +436,7 @@ class _LoginState extends State<Login> {
                               Column(
                                 children: [
                                   ElevatedButton(
+                                    key: const Key('loginOfflineSubmitButton'),
                                     onPressed: _isFormValid && !authProvider.loggingIn
                                         ? _handleOfflineLogin
                                         : null,

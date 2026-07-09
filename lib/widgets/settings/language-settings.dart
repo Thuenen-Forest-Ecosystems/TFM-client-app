@@ -17,6 +17,7 @@ class LanguageSettings extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _LangOption(
+          key: const Key('langOption_de'),
           title: l10n.langDe,
           subtitle: l10n.langDeSubtitle,
           flag: '🇩🇪',
@@ -24,6 +25,7 @@ class LanguageSettings extends StatelessWidget {
           onTap: () => languageProvider.setLocale(const Locale('de')),
         ),
         _LangOption(
+          key: const Key('langOption_en'),
           title: l10n.langEn,
           subtitle: l10n.langEnSubtitle,
           flag: '🇬🇧',
@@ -31,6 +33,7 @@ class LanguageSettings extends StatelessWidget {
           onTap: () => languageProvider.setLocale(const Locale('en')),
         ),
         _LangOption(
+          key: const Key('langOption_system'),
           title: l10n.langSystem,
           subtitle: l10n.langSystemSubtitle,
           flag: '🌐',
@@ -50,6 +53,7 @@ class _LangOption extends StatelessWidget {
   final VoidCallback onTap;
 
   const _LangOption({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.flag,

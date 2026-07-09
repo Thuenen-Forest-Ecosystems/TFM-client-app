@@ -16,6 +16,7 @@ import 'package:terrestrial_forest_monitor/models/acknowledged_error.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
+import 'package:terrestrial_forest_monitor/services/plausibility_script_resolver.dart';
 import 'package:terrestrial_forest_monitor/services/conditional_rules_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
@@ -25,6 +26,7 @@ import 'package:terrestrial_forest_monitor/widgets/cluster_info_dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/submission_success_dialog.dart';
 import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 import 'package:beamer/beamer.dart';
 
@@ -51,15 +53,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   TFMValidationResult? _validationResult;
   bool _hasCompletedInitialValidation = false;
 
-  /// Whether the loaded schema ships a plausibility script (so plausibility
-  /// results are expected). Lets a validation pass distinguish "engine not
-  /// ready yet" from "this schema has no plausibility checks".
-  bool _plausibilityExpected = false;
-
-  /// The loaded schema's plausibility script, retained so a validation retry can
-  /// re-supply it to the engine directly rather than relying on the shared
-  /// runner still having it cached (which a concurrent teardown can drop).
-  String? _tfmValidationCode;
+  /// Resolves the loaded schema's plausibility script — retained so a validation
+  /// retry can re-supply it to the engine directly rather than relying on the
+  /// shared runner still having it cached (which a concurrent teardown can drop),
+  /// and re-reading the live `schemas` row if the script was absent at load time
+  /// (the row can sync before its `plausability_script` column). `resolved` lets
+  /// a pass distinguish "engine not ready yet" from "this schema has no
+  /// plausibility checks". See TFM-client-app#441.
+  PlausibilityScriptResolver? _scriptResolver;
 
   /// Max times a single validation pass will re-init + re-run the plausibility
   /// engine when it reports itself unavailable, before accepting the result.
@@ -78,6 +79,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   int _validationCycle = 0;
   Future<void> _validationQueue = Future.value();
   bool _isAdminView = false;
+  String? _selectedTroopId;
+  bool _selectedTroopIsControl = false;
   PlaygroundModeProvider? _playgroundModeProvider;
 
   /// Whether the form data has been modified since last load/save.
@@ -91,12 +94,32 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     final selectionService = OrganizationSelectionService();
     final isAdmin = await selectionService.getIsOrganizationAdmin();
     final troopId = await selectionService.getSelectedTroopId();
+    final isControlTroop = await selectionService.getSelectedTroopIsControl();
     if (mounted) {
       setState(() {
         _isAdminView = isAdmin && (troopId == null || troopId.isEmpty);
+        _selectedTroopId = troopId;
+        _selectedTroopIsControl = isControlTroop;
       });
     }
   }
+
+  /// Whether the user works on this record as its control troop (Kontrolltrupp),
+  /// i.e. the selected troop is a control troop assigned via
+  /// responsible_control_troop (and not simultaneously the regular troop).
+  bool get _actsAsControl =>
+      _selectedTroopIsControl &&
+      _record != null &&
+      _selectedTroopId != null &&
+      _record!.responsibleControlTroop == _selectedTroopId &&
+      _record!.responsibleTroop != _selectedTroopId;
+
+  /// Server RLS only allows control-troop writes once the regular troop has
+  /// completed (completed_at_troop set) or no regular troop is assigned.
+  /// Mirror that here: PowerSync treats the resulting 42501 as fatal and
+  /// silently drops the local transaction, so blocked edits would be lost.
+  bool get _isControlLocked =>
+      _actsAsControl && _record!.responsibleTroop != null && _record!.completedAtTroop == null;
 
   @override
   void initState() {
@@ -153,6 +176,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     final isPlayground = _playgroundModeProvider?.isPlaygroundMode ?? false;
     if (!isPlayground &&
         !_isAdminView &&
+        !_isControlLocked &&
         _record?.id != null &&
         !_isSaving &&
         _hasUnsavedChanges &&
@@ -232,6 +256,22 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         return item;
       }
     }).toList();
+  }
+
+  /// Returns the plausibility script for the currently loaded schema, re-reading
+  /// the synced `schemas` row when it wasn't captured at load time (the row can
+  /// sync before its `plausability_script` column). Delegates to
+  /// [PlausibilityScriptResolver], which caches the result so the hot validation
+  /// path only hits the DB on the recovery attempt, not every pass. Returns null
+  /// only when the schema genuinely ships no plausibility checks (#441).
+  Future<String?> _ensurePlausibilityScript() async {
+    final resolver = _scriptResolver;
+    if (resolver == null) return null;
+    try {
+      return await resolver.ensure(_loadedSchemaId);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _loadSchema(String intervalName, {String? schemaIdValidatedBy}) async {
@@ -338,11 +378,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           _isLoading = false;
         });
 
-        // Remember whether this schema ships plausibility checks, so a
-        // validation pass can tell "engine not ready" from "nothing to run",
-        // and keep the script itself so a retry can re-supply it to the engine.
-        _plausibilityExpected = tfmValidationCode != null;
-        _tfmValidationCode = tfmValidationCode;
+        // Build the script resolver seeded with whatever the schema shipped at
+        // load. A validation retry re-reads the live `schemas` row through this
+        // if the script was still absent here (row synced before its
+        // `plausability_script` column), so the engine can recover without a
+        // full re-sync. The fetch reads the live row by id.
+        _scriptResolver = PlausibilityScriptResolver(
+          (id) async => (await schemaRepository.getById(id))?.plausabilityScript,
+          initialScript: tfmValidationCode,
+        );
 
         // Initialize TFM validation code if available
         if (tfmValidationCode != null) {
@@ -467,6 +511,19 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       return;
     }
 
+    // Refuse to save as control troop while the regular troop has not completed
+    // (server RLS would reject the write and PowerSync would drop it silently).
+    if (_isControlLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kontrolle erst möglich, wenn der Aufnahmetrupp abgeschlossen hat.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     try {
       // Get current timestamp for local_updated_at in UTC (to match server's updated_at timezone)
       final now = DateTime.now().toUtc().toIso8601String();
@@ -549,8 +606,14 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             ],
           );
         } else if (type == 'complete') {
+          // A control troop completes its control survey with its own
+          // timestamp; completed_at_troop stays untouched (belongs to the
+          // regular troop).
+          final completionColumn = _actsAsControl
+              ? 'completed_at_control_troop'
+              : 'completed_at_troop';
           await db.execute(
-            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
+            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, $completionColumn = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
             [
               jsonEncode(_formData),
               validatedSchemaId,
@@ -581,10 +644,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           responsibleProvider: _record!.responsibleProvider,
           responsibleState: _record!.responsibleState,
           responsibleTroop: _record!.responsibleTroop,
+          responsibleControlTroop: _record!.responsibleControlTroop,
           updatedAt: _record!.updatedAt,
           localUpdatedAt: now,
           completedAtState: _record!.completedAtState,
           completedAtTroop: _record!.completedAtTroop,
+          completedAtControlTroop: _record!.completedAtControlTroop,
           completedAtAdministration: _record!.completedAtAdministration,
           note: _record!.note,
           validationErrors: validationErrorsJson,
@@ -729,7 +794,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _throttleSaveTimer ??= Timer.periodic(const Duration(seconds: 10), (_) {
       if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
         final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
-        if (!isPlayground && !_isAdminView) {
+        if (!isPlayground && !_isAdminView && !_isControlLocked) {
           save('save');
         }
       }
@@ -843,9 +908,20 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 // present a plausibility-free result as authoritative
                 // (see TFM-client-app#441).
                 var plausibilityRetries = 0;
-                while (_plausibilityExpected &&
-                    !result.tfmAvailable &&
+                while (!result.tfmAvailable &&
                     plausibilityRetries < _maxPlausibilityRetries) {
+                  if (!mounted || cycle != _validationCycle) return;
+                  // Recover the script even if it was absent at load time. This
+                  // used to be gated on a load-time snapshot of
+                  // `plausability_script != null`; but the schemas row can sync
+                  // before that column does, so the snapshot could be false for a
+                  // schema that DOES ship plausibility — leaving a permanent
+                  // "engine unavailable" that only cleared on a full re-sync. The
+                  // resolver re-reads the live row instead. Returns null only when
+                  // the schema genuinely has no plausibility checks, ending the
+                  // loop (see TFM-client-app#441).
+                  final tfmCode = await _ensurePlausibilityScript();
+                  if (tfmCode == null) break;
                   plausibilityRetries++;
                   if (!mounted || cycle != _validationCycle) return;
                   try {
@@ -853,7 +929,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     // dropped the runner's cached script, an arg-less initialize()
                     // would be a no-op and the retry could never recover.
                     await ValidationServiceNative.instance
-                        .initialize(tfmValidationCode: _tfmValidationCode);
+                        .initialize(tfmValidationCode: tfmCode);
                   } catch (_) {}
                   if (!mounted || cycle != _validationCycle) return;
                   result = await ValidationServiceNative.instance.validateWithTFM(
@@ -865,6 +941,24 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 }
 
                 if (!mounted || cycle != _validationCycle) return;
+
+                // If the schema genuinely ships no plausibility checks (recovery
+                // confirmed no script exists, so the resolver never resolved one),
+                // the engine legitimately has nothing to run — drop its
+                // "unavailable" marker so we don't show a false banner. When a
+                // script DOES exist, the resolver has resolved it and the warning
+                // is kept so a real outage stays visible.
+                if (result.plausibilityUnavailable &&
+                    !(_scriptResolver?.resolved ?? false)) {
+                  result = TFMValidationResult(
+                    ajvValid: result.ajvValid,
+                    ajvErrors: result.ajvErrors,
+                    tfmAvailable: result.tfmAvailable,
+                    tfmErrors: result.tfmErrors
+                        .where((e) => e.message != kPlausibilityUnavailableMessage)
+                        .toList(),
+                  );
+                }
 
                 // Strip /plot/0 from paths if TFM validation was run
                 TFMValidationResult processedResult = result;
@@ -1321,7 +1415,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                               !_hasCompletedInitialValidation ||
                               !_hasUnsavedChanges ||
                               isPlayground ||
-                              _isAdminView)
+                              _isAdminView ||
+                              _isControlLocked)
                           ? null
                           : () => save('save'),
                       color: Theme.of(context).colorScheme.primary,
@@ -1341,7 +1436,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                           _validationResult != null && _validationResult!.allIssues.isNotEmpty,
                       textColor: Colors.white,
                       child: TextButton(
-                        onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
+                        onPressed:
+                            (_jsonSchema != null &&
+                                _hasCompletedInitialValidation &&
+                                !isPlayground &&
+                                !_isAdminView &&
+                                !_isControlLocked)
                             ? saveRecord
                             : null,
                         child: const Text('FERTIG'),
@@ -1424,36 +1524,89 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           ),
         ),
       ),
-      body: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
-                  ],
+      body: Column(
+        children: [
+          // Read-only notice: in playground mode, the org-admin view, or as
+          // control troop before the regular troop completed, saving is
+          // blocked (see save() and the disabled save button), so surface why.
+          if (isPlayground || _isAdminView || _isControlLocked)
+            _buildReadOnlyBanner(
+              context,
+              isPlayground: isPlayground,
+              isControlLocked: _isControlLocked,
+            ),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_error!, style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
+                        ],
+                      ),
+                    )
+                  : _record == null
+                  ? const Center(child: Text('No record found'))
+                  : FormWrapper(
+                      key: _formWrapperKey,
+                      jsonSchema: _jsonSchema,
+                      rawRecord: _record,
+                      formData: _formData,
+                      previousFormData: _previousFormData,
+                      onFormDataChanged: _onFormDataChanged,
+                      validationResult: _validationResult,
+                      onNavigateToTab: _navigateToTabFromError,
+                      layoutStyleData: _styleData,
+                      layoutDirectory: _schemaDirectory, // Fallback for file loading
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Full-width banner shown at the top of the recording screen when the current
+  /// role/mode is read-only. Playground mode and the org-admin view both block
+  /// saving; this makes the reason visible with an i18n message.
+  Widget _buildReadOnlyBanner(
+    BuildContext context, {
+    required bool isPlayground,
+    bool isControlLocked = false,
+  }) {
+    final l10n = AppLocalizations.of(context)!;
+    final message = isPlayground
+        ? l10n.recordingReadOnlyPlayground
+        : isControlLocked
+        ? l10n.recordingReadOnlyControlPending
+        : l10n.recordingReadOnlyAdmin;
+    return Material(
+      color: Colors.amber.shade100,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.lock_outline, size: 20, color: Colors.amber.shade900),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.amber.shade900,
                 ),
-              )
-            : _record == null
-            ? const Center(child: Text('No record found'))
-            : FormWrapper(
-                key: _formWrapperKey,
-                jsonSchema: _jsonSchema,
-                rawRecord: _record,
-                formData: _formData,
-                previousFormData: _previousFormData,
-                onFormDataChanged: _onFormDataChanged,
-                validationResult: _validationResult,
-                onNavigateToTab: _navigateToTabFromError,
-                layoutStyleData: _styleData,
-                layoutDirectory: _schemaDirectory, // Fallback for file loading
               ),
+            ),
+          ],
+        ),
       ),
     );
   }

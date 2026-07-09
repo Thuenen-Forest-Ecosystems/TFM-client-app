@@ -135,7 +135,10 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
   );
 }
 
-void main() async {
+// Returns a Future so integration tests can `await app.main()` and know startup
+// (DB/Supabase/FMTC init) has finished before pumping. The Flutter engine
+// ignores main()'s return type, so this is behaviourally identical at runtime.
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Apply Windows SSL workaround with bundled certificate

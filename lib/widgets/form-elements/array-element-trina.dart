@@ -15,6 +15,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfie
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-filter-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/row-delete-guard.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/validation_status_indicator.dart';
 
 /// ArrayElementTrina - TrinaGrid-based array data editor widget
@@ -601,30 +602,16 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   }
 
   /// Check if current row has matching data in previous inventory (by identifier)
-  bool _hasMatchingPreviousData(Map<String, dynamic> currentRowData) {
-    if (widget.previousData == null) return false;
-
-    if (widget.identifierField == null) {}
-
-    // Use configured identifier field or fall back to common fields
-    final identifierFields = widget.identifierField != null
-        ? [widget.identifierField!]
-        : ['tree_number', 'edge_number', 'row_number', 'id'];
-
-    for (final idField in identifierFields) {
-      if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
-        final currentId = currentRowData[idField];
-
-        // Find matching row in previousData by this identifier
-        final matchFound = (widget.previousData as List).cast<Map<String, dynamic>?>().any(
-          (prevRow) => prevRow != null && prevRow[idField] == currentId,
-        );
-
-        if (matchFound) return true;
-      }
-    }
-
-    return false;
+  /// Whether [rowData] must not be deletable: preset by the server (archive
+  /// UUID in `id`) or carried over from the previous inventory. Unlike the
+  /// old previous-data-only check this cannot fail open when
+  /// `previous_properties` has not been filled/synced on this device yet.
+  bool _isRowDeleteProtected(Map<String, dynamic> rowData) {
+    return RowDeleteGuard.isProtected(
+      rowData,
+      previousData: widget.previousData,
+      identifierField: widget.identifierField,
+    );
   }
 
   /// Rows whose `tree_status` code exceeds this threshold are locked: their
@@ -697,7 +684,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
             (key, cell) => MapEntry(key, cell.value),
           );
 
-          final hasPreviousData = _hasMatchingPreviousData(currentRowData);
+          final deleteProtected = _isRowDeleteProtected(currentRowData);
           final isLocked = _isRowLocked(rendererContext.row);
 
           return Container(
@@ -754,19 +741,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
                 ),
                 PopupMenuItem(
                   value: 'delete',
-                  enabled: !hasPreviousData && !_isArrayReadOnly,
+                  enabled: !deleteProtected && !_isArrayReadOnly,
                   child: Row(
                     children: [
                       Icon(
                         Icons.delete,
                         size: 18,
-                        color: (hasPreviousData || _isArrayReadOnly) ? Colors.grey : null,
+                        color: (deleteProtected || _isArrayReadOnly) ? Colors.grey : null,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         AppLocalizations.of(context)!.gridRowDelete,
                         style: TextStyle(
-                          color: (hasPreviousData || _isArrayReadOnly) ? Colors.grey : null,
+                          color: (deleteProtected || _isArrayReadOnly) ? Colors.grey : null,
                         ),
                       ),
                     ],
@@ -1479,23 +1466,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
           // For calculated columns, pre-compute a sortable value
           if (cellValue == null && _calculatedColumnConfigs.containsKey(column.field)) {
-            Map<String, dynamic>? previousRowData;
-            if (widget.previousData != null) {
-              final identifierFields = widget.identifierField != null
-                  ? [widget.identifierField!]
-                  : ['tree_number', 'edge_number', 'row_number', 'id'];
-              for (final idField in identifierFields) {
-                if (rowData.containsKey(idField) && rowData[idField] != null) {
-                  previousRowData = (widget.previousData as List)
-                      .cast<Map<String, dynamic>?>()
-                      .firstWhere(
-                        (prevRow) => prevRow != null && prevRow[idField] == rowData[idField],
-                        orElse: () => null,
-                      );
-                  if (previousRowData != null) break;
-                }
-              }
-            }
+            final previousRowData = RowDeleteGuard.findMatchingPreviousRow(
+              rowData,
+              widget.previousData,
+              identifierField: widget.identifierField,
+            );
             cellValue = _resolveCalculatedValue(
               _calculatedColumnConfigs[column.field]!,
               rowData,
@@ -1968,27 +1943,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   /// Find the previous-survey row matching [currentRowData], using the
   /// configured [identifierField] (or common fallbacks) to pair rows.
   Map<String, dynamic>? _findMatchingPreviousRow(Map<String, dynamic> currentRowData) {
-    if (widget.previousData == null) return null;
-
-    // Use configured identifier field or fall back to common fields
-    final identifierFields = widget.identifierField != null
-        ? [widget.identifierField!]
-        : ['tree_number', 'edge_number', 'row_number', 'id'];
-
-    for (final idField in identifierFields) {
-      if (currentRowData.containsKey(idField) && currentRowData[idField] != null) {
-        final currentId = currentRowData[idField];
-
-        // Find matching row in previousData by this identifier
-        final match = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
-          (prevRow) => prevRow != null && prevRow[idField] == currentId,
-          orElse: () => null,
-        );
-
-        if (match != null) return match;
-      }
-    }
-    return null;
+    return RowDeleteGuard.findMatchingPreviousRow(
+      currentRowData,
+      widget.previousData,
+      identifierField: widget.identifierField,
+    );
   }
 
   Future<void> _openNestedArrayDialog(
@@ -2182,21 +2141,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
     // Find matching previous row by identifier so calculated fields can display
     // values that depend on previous inventory data (e.g. dbh_previous).
-    Map<String, dynamic>? previousRowData;
-    if (widget.previousData != null) {
-      final identifierFields = widget.identifierField != null
-          ? [widget.identifierField!]
-          : ['tree_number', 'edge_number', 'row_number', 'id'];
-      for (final idField in identifierFields) {
-        if (currentData.containsKey(idField) && currentData[idField] != null) {
-          previousRowData = (widget.previousData as List).cast<Map<String, dynamic>?>().firstWhere(
-            (prevRow) => prevRow != null && prevRow[idField] == currentData[idField],
-            orElse: () => null,
-          );
-          if (previousRowData != null) break;
-        }
-      }
-    }
+    final previousRowData = RowDeleteGuard.findMatchingPreviousRow(
+      currentData,
+      widget.previousData,
+      identifierField: widget.identifierField,
+    );
 
     // Filter the parent validation result to only this row's errors so the
     // form dialog header shows the same issues as the grid row indicator.
@@ -2603,13 +2552,37 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   }
 
   void _deleteRow(int rowIndex) {
+    final rows = _stateManager?.rows ?? _rows;
+    if (rowIndex < 0 || rowIndex >= rows.length) return;
+    final row = rows[rowIndex];
+
+    // Fail-safe: re-check protection on the actual row being removed, not
+    // just the menu's enabled state. The menu index can go stale across
+    // sorts/rebuilds, and protected rows must survive a mis-targeted index.
+    final rowData = <String, dynamic>{};
+    row.cells.forEach((key, cell) {
+      if (!_internalColumnFields.contains(key) && key != '__original_index__') {
+        rowData[key] = cell.value;
+      }
+    });
+    if (_isRowDeleteProtected(rowData)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bestehender Eintrag aus der Inventur – Löschen nicht möglich.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     if (_stateManager != null) {
-      if (rowIndex < 0 || rowIndex >= _stateManager!.rows.length) return;
-      _stateManager!.removeRows([_stateManager!.rows[rowIndex]]);
+      _stateManager!.removeRows([row]);
       _rows = _stateManager!.rows;
       _notifyDataChanged();
     } else {
-      if (rowIndex < 0 || rowIndex >= _rows.length) return;
       _rows.removeAt(rowIndex);
       _notifyDataChanged();
       setState(() {});
@@ -2635,6 +2608,14 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
         if (_internalColumnFields.contains(key)) {
           newCells[key] = TrinaCell(value: null);
         }
+        return;
+      }
+
+      // The copy is a new row: it must not inherit the source's archive UUID
+      // (duplicate identity would confuse server-side tree matching and
+      // wrongly inherit delete protection).
+      if (key == 'id' && RowDeleteGuard.isArchiveRow({'id': cell.value})) {
+        newCells[key] = TrinaCell(value: null);
         return;
       }
 

@@ -64,11 +64,11 @@ class PermissionsRepository {
         .map((results) => results.map((row) => TroopModel.fromJson(row)).toList());
   }
 
-  // Get count of records assigned to a troop
+  // Get count of records assigned to a troop (as regular or control troop)
   Future<int> getRecordCountForTroop(String troopId) async {
     final results = await db.getAll(
-      'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ?',
-      [troopId],
+      'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ? OR responsible_control_troop = ?',
+      [troopId, troopId],
     );
     return results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0;
   }
@@ -79,8 +79,8 @@ class PermissionsRepository {
       // If no organization specified, just count by troop
       return db
           .watch(
-            'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ?',
-            parameters: [troopId],
+            'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ? OR responsible_control_troop = ?',
+            parameters: [troopId, troopId],
           )
           .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
     }
@@ -89,13 +89,17 @@ class PermissionsRepository {
     //   'PermissionsRepository: Watching record count for troop $troopId with organization $organizationId',
     // );
 
-    // Check if the organization matches any of the responsibility fields
+    // Check if the organization matches any of the responsibility fields.
+    // Control-troop records count independently of the organization filter
+    // (mirrors RecordsRepository._getOrganizationFilter so the tile count
+    // matches the record list).
     return db
         .watch(
-          '''SELECT COUNT(*) as count FROM records 
-             WHERE responsible_troop = ? 
-             AND (responsible_administration = ? OR responsible_provider = ? OR responsible_state = ?)''',
-          parameters: [troopId, organizationId, organizationId, organizationId],
+          '''SELECT COUNT(*) as count FROM records
+             WHERE (responsible_troop = ?
+             AND (responsible_administration = ? OR responsible_provider = ? OR responsible_state = ?))
+             OR responsible_control_troop = ?''',
+          parameters: [troopId, organizationId, organizationId, organizationId, troopId],
         )
         .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
   }

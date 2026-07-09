@@ -637,6 +637,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error deleting message: {error}'**
   String messageDeleteError(String error);
+
+  /// Banner on the recording screen when playground mode blocks editing/saving
+  ///
+  /// In en, this message translates to:
+  /// **'Playground mode: data cannot be saved.'**
+  String get recordingReadOnlyPlayground;
+
+  /// Banner on the recording screen when the admin view is read-only
+  ///
+  /// In en, this message translates to:
+  /// **'Admin view: data cannot be saved.'**
+  String get recordingReadOnlyAdmin;
+
+  /// Banner on the recording screen when a control troop opens a record the regular troop has not completed yet
+  ///
+  /// In en, this message translates to:
+  /// **'Control survey only possible once the recording troop has completed this plot.'**
+  String get recordingReadOnlyControlPending;
 }
 
 class _AppLocalizationsDelegate

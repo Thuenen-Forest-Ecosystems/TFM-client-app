@@ -51,10 +51,12 @@ class _SchemaState extends State<Schema> {
           const PlaygroundModeButton(),
           //SizedBox(width: 5),
           IconButton(
+            key: const Key('homeSettingsButton'),
             onPressed: () => Beamer.of(context).beamToNamed('/profile'),
             icon: const Icon(Icons.settings),
           ),
           PopupMenuButton<String>(
+            key: const Key('homeAccountMenuButton'),
             icon: const Icon(Icons.account_circle),
             onSelected: (value) async {
               if (value == 'logout') {
@@ -78,6 +80,7 @@ class _SchemaState extends State<Schema> {
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
+                  key: Key('logoutMenuItem'),
                   value: 'logout',
                   child: Row(children: [Text('Abmelden')]),
                 ),
