@@ -40,6 +40,23 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      # flutter_js resolves its QuickJS engine via FFI. On Linux under
+      # `flutter test` it opens $LIBQUICKJSC_TEST_PATH (the package's
+      # documented test hook); without it every engine-backed test
+      # (plausibility runner/resolver, smoke test) fails to load. The pub
+      # cache ships the prebuilt .so — the same file a desktop build would
+      # bundle — so point the hook straight at it instead of building the
+      # Linux desktop app.
+      - name: Locate QuickJS bridge for flutter_js tests
+        run: |
+          so_path="$(find "${PUB_CACHE:-$HOME/.pub-cache}" -type f -path '*/flutter_js-*/linux/shared/libquickjs_c_bridge_plugin.so' | sort | tail -n 1)"
+          if [ -z "$so_path" ]; then
+            echo "::error::libquickjs_c_bridge_plugin.so not found in pub cache — flutter_js tests cannot run" >&2
+            exit 1
+          fi
+          echo "Using QuickJS bridge: $so_path"
+          echo "LIBQUICKJSC_TEST_PATH=$so_path" >> "$GITHUB_ENV"
+
       # Non-blocking for now: the codebase still carries pre-existing analyzer
       # debt. Kept visible so it can be driven down and later made blocking
       # (ideally with `--fatal-infos`).
