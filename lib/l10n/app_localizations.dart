@@ -404,6 +404,18 @@ abstract class AppLocalizations {
   /// **'Delete row'**
   String get gridRowDelete;
 
+  /// No description provided for @gridRowUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock row'**
+  String get gridRowUnlock;
+
+  /// No description provided for @gridRowLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock row'**
+  String get gridRowLock;
+
   /// No description provided for @gridBoolYes.
   ///
   /// In en, this message translates to:

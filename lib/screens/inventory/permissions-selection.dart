@@ -256,47 +256,14 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
   List<Widget> _buildPermissionTile(PermissionModel permission, List<TroopModel> userTroops) {
     final List<Widget> tiles = [];
 
-    if (permission.isOrganizationAdmin) {
-      // Show admin role (clickable, shows all org records)
-      tiles.add(
-        StreamBuilder<int>(
-          stream: _repository.watchRecordCountForOrganization(permission.organizationId),
-          builder: (context, countSnapshot) {
-            final recordCount = countSnapshot.data ?? 0;
-
-            return ListTile(
-              dense: true,
-              leading: const Icon(Icons.shield, size: 20),
-              title: const Text(
-                'Administrator',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              subtitle: Text(
-                'Eckenanzahl: $recordCount',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-              onTap: () {
-                _selectePermissionAndRoute(
-                  permission.id,
-                  permission.organizationId,
-                  isAdmin: true,
-                  troopId: null,
-                  troopName: 'Administrator',
-                );
-              },
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            );
-          },
-        ),
-      );
-    }
-
-    // Show troop memberships (for both admin and non-admin permissions)
+    // Show troop memberships (for both admin and non-admin permissions).
+    // The former "Administrator" tile (all org records, troopId = null) was
+    // removed: records are only accessed via troop selection.
     final organizationTroops = userTroops
         .where((troop) => troop.organizationId == permission.organizationId)
         .toList();
 
-    if (organizationTroops.isEmpty && !permission.isOrganizationAdmin) {
+    if (organizationTroops.isEmpty) {
       tiles.add(
         Container(
           margin: const EdgeInsets.only(bottom: 8.0),

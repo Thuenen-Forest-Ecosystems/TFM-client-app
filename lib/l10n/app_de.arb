@@ -53,6 +53,8 @@
     "gridRowEdit": "Zeile bearbeiten",
     "gridRowCopy": "Zeile kopieren",
     "gridRowDelete": "Zeile l\u00f6schen",
+    "gridRowUnlock": "Zeile entsperren",
+    "gridRowLock": "Zeile sperren",
     "gridBoolYes": "Ja",
     "gridBoolNo": "Nein",
     "gridNestedEmpty": "Leer",

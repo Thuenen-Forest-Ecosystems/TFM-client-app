@@ -132,8 +132,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   // Row drag does not require the grid to be scrollable: reordering goes through
   // onRowsMoved/getRowIdxByOffset, which work the same in auto-height mode where
   // all rows are visible. Only auto-scroll-during-drag needs a scroll viewport.
-  bool get _rowDragEnabled =>
-      widget.layoutOptions?['isDraggable'] == true && !_isArrayReadOnly;
+  bool get _rowDragEnabled => widget.layoutOptions?['isDraggable'] == true && !_isArrayReadOnly;
 
   @override
   void initState() {
@@ -620,11 +619,45 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   /// cell, so the lock is a harmless no-op there.
   static const int _lockedTreeStatusThreshold = 2000;
 
-  /// Whether [row] is locked against edits based on its `tree_status` value.
-  bool _isRowLocked(TrinaRow row) {
+  /// Rows the user explicitly unlocked via the row menu this session. Held in
+  /// State only (never persisted), so leaving the page re-locks everything.
+  /// Keyed via [_rowLockKey] so the override survives row rebuilds and sorting.
+  final Set<String> _sessionUnlockedRowKeys = {};
+
+  /// Stable identity for a row's unlock override: the identifier field value
+  /// when available, otherwise the original data index.
+  String? _rowLockKey(TrinaRow row) {
+    final idField = widget.identifierField ?? 'tree_number';
+    final idValue = row.cells[idField]?.value;
+    if (idValue != null) return 'id:$idValue';
+    final originalIndex = row.cells['__original_index__']?.value;
+    return originalIndex != null ? 'idx:$originalIndex' : null;
+  }
+
+  /// Whether [row]'s `tree_status` value puts it above the lock threshold,
+  /// ignoring any session unlock override.
+  bool _hasLockedTreeStatus(TrinaRow row) {
     final raw = row.cells['tree_status']?.value;
     final status = raw is num ? raw : num.tryParse(raw?.toString() ?? '');
-    return status != null && status > _lockedTreeStatusThreshold;
+    return status != null && status >= _lockedTreeStatusThreshold;
+  }
+
+  /// Whether [row] is locked against edits based on its `tree_status` value.
+  bool _isRowLocked(TrinaRow row) {
+    if (!_hasLockedTreeStatus(row)) return false;
+    return !_sessionUnlockedRowKeys.contains(_rowLockKey(row));
+  }
+
+  /// Toggle the session-only unlock override for [row].
+  void _toggleRowLock(TrinaRow row) {
+    final key = _rowLockKey(row);
+    if (key == null) return;
+    setState(() {
+      if (!_sessionUnlockedRowKeys.remove(key)) {
+        _sessionUnlockedRowKeys.add(key);
+      }
+    });
+    _stateManager?.notifyListeners();
   }
 
   List<TrinaColumn> _buildColumns() {
@@ -686,6 +719,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
           final deleteProtected = _isRowDeleteProtected(currentRowData);
           final isLocked = _isRowLocked(rendererContext.row);
+          final isLockable = _hasLockedTreeStatus(rendererContext.row);
 
           return Container(
             alignment: Alignment.center,
@@ -700,6 +734,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
                   _copyRow(rendererContext.rowIdx);
                 } else if (value == 'edit') {
                   _editRowAsFormDialog(rendererContext.rowIdx);
+                } else if (value == 'toggle_lock') {
+                  _toggleRowLock(rendererContext.row);
                 }
               },
               itemBuilder: (context) => [
@@ -716,7 +752,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
                       SizedBox(width: 8),
                       Text(
                         AppLocalizations.of(context)!.gridRowEdit,
-                        style: TextStyle(color: (_isArrayReadOnly || isLocked) ? Colors.grey : null),
+                        style: TextStyle(
+                          color: (_isArrayReadOnly || isLocked) ? Colors.grey : null,
+                        ),
                       ),
                     ],
                   ),
@@ -759,6 +797,23 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
                     ],
                   ),
                 ),
+                // Session-only unlock for rows locked by tree_status: shown
+                // only on rows above the lock threshold, reset on page leave.
+                if (isLockable && !_isArrayReadOnly)
+                  PopupMenuItem(
+                    value: 'toggle_lock',
+                    child: Row(
+                      children: [
+                        Icon(isLocked ? Icons.lock_open : Icons.lock_outline, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          isLocked
+                              ? AppLocalizations.of(context)!.gridRowUnlock
+                              : AppLocalizations.of(context)!.gridRowLock,
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           );

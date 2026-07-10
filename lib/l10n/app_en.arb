@@ -77,6 +77,8 @@
     "gridRowEdit": "Edit row",
     "gridRowCopy": "Copy row",
     "gridRowDelete": "Delete row",
+    "gridRowUnlock": "Unlock row",
+    "gridRowLock": "Lock row",
     "gridBoolYes": "Yes",
     "gridBoolNo": "No",
     "gridNestedEmpty": "Empty",

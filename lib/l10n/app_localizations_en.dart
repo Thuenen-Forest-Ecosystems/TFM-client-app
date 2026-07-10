@@ -166,6 +166,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gridRowDelete => 'Delete row';
 
   @override
+  String get gridRowUnlock => 'Unlock row';
+
+  @override
+  String get gridRowLock => 'Lock row';
+
+  @override
   String get gridBoolYes => 'Yes';
 
   @override
