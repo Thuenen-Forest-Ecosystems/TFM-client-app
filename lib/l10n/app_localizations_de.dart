@@ -21,8 +21,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get energySaving => 'Energiesparen';
 
   @override
-  String get energySavingDescription =>
-      'Reduziere die Helligkeit des Bildschirms';
+  String get energySavingDescription => 'Reduziere die Helligkeit des Bildschirms';
 
   @override
   String get authenticationLogin => 'ANMELDEN';
@@ -61,8 +60,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get profileResetTitle => 'Einstellungen zurücksetzen?';
 
   @override
-  String get profileResetContent =>
-      'Folgende lokale Einstellungen werden gelöscht:\n\n• Kompakter Modus\n• Tastatur-Einstellung\n• Spaltenbreiten in Tabellen\n• Filter-Zustände\n• Zuletzt genutzte Enum-Werte\n• Karteneinstellungen\n\nServer-, Organisations- und Proxy-Einstellungen bleiben erhalten.';
+  String get profileResetContent => 'Folgende lokale Einstellungen werden gelöscht:\n\n• Kompakter Modus\n• Tastatur-Einstellung\n• Spaltenbreiten in Tabellen\n• Filter-Zustände\n• Zuletzt genutzte Enum-Werte\n• Karteneinstellungen\n\nServer-, Organisations- und Proxy-Einstellungen bleiben erhalten.';
 
   @override
   String get profileResetCancel => 'Abbrechen';
@@ -77,8 +75,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get profileLogoutTitle => 'Abmelden und Daten löschen?';
 
   @override
-  String get profileLogoutContent =>
-      'Alle lokalen Daten werden unwiderruflich gelöscht.\n\nNicht synchronisierte Einträge gehen verloren und können nicht wiederhergestellt werden.\n\nBitte stellen Sie sicher, dass alle Daten synchronisiert wurden, bevor Sie fortfahren.';
+  String get profileLogoutContent => 'Alle lokalen Daten werden unwiderruflich gelöscht.\n\nNicht synchronisierte Einträge gehen verloren und können nicht wiederhergestellt werden.\n\nBitte stellen Sie sicher, dass alle Daten synchronisiert wurden, bevor Sie fortfahren.';
 
   @override
   String get profileLogoutCancel => 'Abbrechen';
@@ -286,8 +283,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get messageDeleteTitle => 'Nachricht löschen';
 
   @override
-  String get messageDeleteConfirm =>
-      'Möchten Sie diese Nachricht wirklich löschen?';
+  String get messageDeleteConfirm => 'Möchten Sie diese Nachricht wirklich löschen?';
 
   @override
   String get messageDelete => 'Löschen';
@@ -303,14 +299,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get recordingReadOnlyPlayground =>
-      'Playground-Modus: Daten werden nicht gespeichert.';
+  String get recordingReadOnlyPlayground => 'Playground-Modus: Daten werden nicht gespeichert.';
 
   @override
-  String get recordingReadOnlyAdmin =>
-      'Admin-Ansicht: Daten werden nicht gespeichert.';
+  String get recordingReadOnlyAdmin => 'Admin-Ansicht: Daten werden nicht gespeichert.';
 
   @override
-  String get recordingReadOnlyControlPending =>
-      'Kontrolle erst möglich, wenn der Aufnahmetrupp diese Ecke abgeschlossen hat.';
+  String get recordingReadOnlyGroup => 'Nur Leserechte: Daten werden nicht gespeichert.';
 }

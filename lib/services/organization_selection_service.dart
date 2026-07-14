@@ -57,6 +57,7 @@ class OrganizationSelectionService {
     await prefs.remove('selected_troop_id');
     await prefs.remove('selected_troop_name');
     await prefs.remove('selected_troop_is_control');
+    await prefs.remove('selected_troop_is_read_only');
     await prefs.remove('is_organization_admin');
   }
 
@@ -136,6 +137,21 @@ class OrganizationSelectionService {
   Future<bool> getSelectedTroopIsControl() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('selected_troop_is_control') ?? false;
+  }
+
+  /// Set whether the selected troop is a read-only group (Admin, nur Leserechte)
+  Future<bool> setSelectedTroopIsReadOnly(bool? isReadOnly) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (isReadOnly == null) {
+      return prefs.remove('selected_troop_is_read_only');
+    }
+    return prefs.setBool('selected_troop_is_read_only', isReadOnly);
+  }
+
+  /// Get whether the selected troop is a read-only group (Admin, nur Leserechte)
+  Future<bool> getSelectedTroopIsReadOnly() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('selected_troop_is_read_only') ?? false;
   }
 
   /// Set whether the selected permission is organization admin

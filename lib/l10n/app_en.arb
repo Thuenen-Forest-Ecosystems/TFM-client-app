@@ -159,8 +159,8 @@
     "@recordingReadOnlyAdmin": {
         "description": "Banner on the recording screen when the admin view is read-only"
     },
-    "recordingReadOnlyControlPending": "Control survey only possible once the recording troop has completed this plot.",
-    "@recordingReadOnlyControlPending": {
-        "description": "Banner on the recording screen when a control troop opens a record the regular troop has not completed yet"
+    "recordingReadOnlyGroup": "Read-only access: data cannot be saved.",
+    "@recordingReadOnlyGroup": {
+        "description": "Banner on the recording screen when a read-only group (Admin, nur Leserechte) opens a record"
     }
 }

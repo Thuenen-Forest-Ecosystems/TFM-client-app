@@ -79,8 +79,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   int _validationCycle = 0;
   Future<void> _validationQueue = Future.value();
   bool _isAdminView = false;
-  String? _selectedTroopId;
-  bool _selectedTroopIsControl = false;
+  bool _selectedTroopIsReadOnly = false;
   PlaygroundModeProvider? _playgroundModeProvider;
 
   /// Whether the form data has been modified since last load/save.
@@ -94,32 +93,23 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     final selectionService = OrganizationSelectionService();
     final isAdmin = await selectionService.getIsOrganizationAdmin();
     final troopId = await selectionService.getSelectedTroopId();
-    final isControlTroop = await selectionService.getSelectedTroopIsControl();
+    final isReadOnlyTroop = await selectionService.getSelectedTroopIsReadOnly();
     if (mounted) {
       setState(() {
         _isAdminView = isAdmin && (troopId == null || troopId.isEmpty);
-        _selectedTroopId = troopId;
-        _selectedTroopIsControl = isControlTroop;
+        _selectedTroopIsReadOnly = isReadOnlyTroop;
       });
     }
   }
 
-  /// Whether the user works on this record as its control troop (Kontrolltrupp),
-  /// i.e. the selected troop is a control troop assigned via
-  /// responsible_control_troop (and not simultaneously the regular troop).
-  bool get _actsAsControl =>
-      _selectedTroopIsControl &&
-      _record != null &&
-      _selectedTroopId != null &&
-      _record!.responsibleControlTroop == _selectedTroopId &&
-      _record!.responsibleTroop != _selectedTroopId;
-
-  /// Server RLS only allows control-troop writes once the regular troop has
-  /// completed (completed_at_troop set) or no regular troop is assigned.
-  /// Mirror that here: PowerSync treats the resulting 42501 as fatal and
-  /// silently drops the local transaction, so blocked edits would be lost.
-  bool get _isControlLocked =>
-      _actsAsControl && _record!.responsibleTroop != null && _record!.completedAtTroop == null;
+  /// Read-only groups (troop.is_read_only, "Admin (nur Leserechte)") only
+  /// view records assigned via responsible_read_only_troop: the server RLS
+  /// UPDATE policy has no branch for that column, so every write would be
+  /// rejected. Mirror that here: PowerSync treats the resulting 42501 as
+  /// fatal and silently drops the local transaction, so blocked edits would
+  /// be lost, not surfaced. Kontrolltrupps (is_control_troop) are NOT
+  /// affected — they write like any troop via responsible_troop.
+  bool get _isReadOnlyTroop => _selectedTroopIsReadOnly;
 
   @override
   void initState() {
@@ -176,7 +166,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     final isPlayground = _playgroundModeProvider?.isPlaygroundMode ?? false;
     if (!isPlayground &&
         !_isAdminView &&
-        !_isControlLocked &&
+        !_isReadOnlyTroop &&
         _record?.id != null &&
         !_isSaving &&
         _hasUnsavedChanges &&
@@ -511,12 +501,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       return;
     }
 
-    // Refuse to save as control troop while the regular troop has not completed
-    // (server RLS would reject the write and PowerSync would drop it silently).
-    if (_isControlLocked) {
+    // Refuse to save as read-only group (Admin, nur Leserechte) — server RLS
+    // would reject the write and PowerSync would drop it silently.
+    if (_isReadOnlyTroop) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Kontrolle erst möglich, wenn der Aufnahmetrupp abgeschlossen hat.'),
+          content: Text('Nur Leserechte – Speichern nicht möglich.'),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
         ),
@@ -606,14 +596,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
             ],
           );
         } else if (type == 'complete') {
-          // A control troop completes its control survey with its own
-          // timestamp; completed_at_troop stays untouched (belongs to the
-          // regular troop).
-          final completionColumn = _actsAsControl
-              ? 'completed_at_control_troop'
-              : 'completed_at_troop';
+          // Responsible troops (incl. Kontrolltrupps) complete here; read-only
+          // groups never reach this point (see _isReadOnlyTroop gate in save()).
           await db.execute(
-            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, $completionColumn = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
+            'UPDATE records SET properties = ?, schema_id_validated_by = ?, local_updated_at = ?, completed_at_troop = ?, validation_errors = ?, plausibility_errors = ? WHERE id = ?',
             [
               jsonEncode(_formData),
               validatedSchemaId,
@@ -644,12 +630,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           responsibleProvider: _record!.responsibleProvider,
           responsibleState: _record!.responsibleState,
           responsibleTroop: _record!.responsibleTroop,
-          responsibleControlTroop: _record!.responsibleControlTroop,
+          responsibleReadOnlyTroop: _record!.responsibleReadOnlyTroop,
           updatedAt: _record!.updatedAt,
           localUpdatedAt: now,
           completedAtState: _record!.completedAtState,
           completedAtTroop: _record!.completedAtTroop,
-          completedAtControlTroop: _record!.completedAtControlTroop,
           completedAtAdministration: _record!.completedAtAdministration,
           note: _record!.note,
           validationErrors: validationErrorsJson,
@@ -794,7 +779,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _throttleSaveTimer ??= Timer.periodic(const Duration(seconds: 10), (_) {
       if (_record?.id != null && !_isSaving && _hasUnsavedChanges && _formData != null) {
         final isPlayground = context.read<PlaygroundModeProvider>().isPlaygroundMode;
-        if (!isPlayground && !_isAdminView && !_isControlLocked) {
+        if (!isPlayground && !_isAdminView && !_isReadOnlyTroop) {
           save('save');
         }
       }
@@ -1416,7 +1401,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                               !_hasUnsavedChanges ||
                               isPlayground ||
                               _isAdminView ||
-                              _isControlLocked)
+                              _isReadOnlyTroop)
                           ? null
                           : () => save('save'),
                       color: Theme.of(context).colorScheme.primary,
@@ -1441,7 +1426,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                                 _hasCompletedInitialValidation &&
                                 !isPlayground &&
                                 !_isAdminView &&
-                                !_isControlLocked)
+                                !_isReadOnlyTroop)
                             ? saveRecord
                             : null,
                         child: const Text('FERTIG'),
@@ -1527,13 +1512,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       body: Column(
         children: [
           // Read-only notice: in playground mode, the org-admin view, or as
-          // control troop before the regular troop completed, saving is
-          // blocked (see save() and the disabled save button), so surface why.
-          if (isPlayground || _isAdminView || _isControlLocked)
+          // read-only group (Admin, nur Leserechte), saving is blocked (see
+          // save() and the disabled save button), so surface why.
+          if (isPlayground || _isAdminView || _isReadOnlyTroop)
             _buildReadOnlyBanner(
               context,
               isPlayground: isPlayground,
-              isControlLocked: _isControlLocked,
+              isReadOnlyTroop: _isReadOnlyTroop,
             ),
           Expanded(
             child: MediaQuery.removePadding(
@@ -1579,13 +1564,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   Widget _buildReadOnlyBanner(
     BuildContext context, {
     required bool isPlayground,
-    bool isControlLocked = false,
+    bool isReadOnlyTroop = false,
   }) {
     final l10n = AppLocalizations.of(context)!;
     final message = isPlayground
         ? l10n.recordingReadOnlyPlayground
-        : isControlLocked
-        ? l10n.recordingReadOnlyControlPending
+        : isReadOnlyTroop
+        ? l10n.recordingReadOnlyGroup
         : l10n.recordingReadOnlyAdmin;
     return Material(
       color: Colors.amber.shade100,

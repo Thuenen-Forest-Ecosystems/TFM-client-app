@@ -13,7 +13,6 @@ import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 import 'dart:math' as math;
 
 class RecordsSelection extends StatefulWidget {
@@ -45,9 +44,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   bool _showCompleted = true;
   bool _filterByMapExtent = false;
 
-  // Whether the selected troop is a control troop (Kontrolltrupp): completion
-  // then keys on completed_at_control_troop instead of completed_at_troop.
-  bool _isControlContext = false;
 
   // Pinned records
   final Set<String> _pinnedRecordIds = {};
@@ -56,7 +52,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   @override
   void initState() {
     super.initState();
-    _loadControlContext();
     _loadPinnedRecords();
     _getCurrentLocation();
     // Load data and start watching for changes
@@ -71,15 +66,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       provider.removeListener(_onProviderChanged);
       provider.addListener(_onProviderChanged);
     });
-  }
-
-  Future<void> _loadControlContext() async {
-    final isControl = await OrganizationSelectionService().getSelectedTroopIsControl();
-    if (mounted && isControl != _isControlContext) {
-      setState(() {
-        _isControlContext = isControl;
-      });
-    }
   }
 
   void _listenToMapBoundsChanges() {
@@ -297,13 +283,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
       }
     }
 
-    // Filter by completion status (control troops complete with their own
-    // timestamp, so filter on completed_at_control_troop in control context)
+    // Filter by completion status
     if (!_showCompleted) {
       records = records.where((record) {
-        final completedAt = _isControlContext
-            ? record.completedAtControlTroop
-            : record.completedAtTroop;
+        final completedAt = record.completedAtTroop;
         return completedAt == null || completedAt.toString().isEmpty;
       }).toList();
     }
@@ -574,7 +557,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                           isPinned: true,
                           onPinToggle: () => _togglePinRecord(record),
                           isDense: true,
-                          isControlContext: _isControlContext,
                         ),
                       );
                     },
@@ -647,7 +629,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                             isPinned: _pinnedRecordIds.contains(recordKey),
                             onPinToggle: () => _togglePinRecord(record),
                             isDense: false,
-                            isControlContext: _isControlContext,
                           );
                         },
                       ),

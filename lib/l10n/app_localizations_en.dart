@@ -60,8 +60,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileResetTitle => 'Reset settings?';
 
   @override
-  String get profileResetContent =>
-      'The following local settings will be deleted:\n\n• Compact mode\n• Keyboard setting\n• Column widths in tables\n• Filter states\n• Recently used enum values\n• Map settings\n\nServer, organisation and proxy settings are retained.';
+  String get profileResetContent => 'The following local settings will be deleted:\n\n• Compact mode\n• Keyboard setting\n• Column widths in tables\n• Filter states\n• Recently used enum values\n• Map settings\n\nServer, organisation and proxy settings are retained.';
 
   @override
   String get profileResetCancel => 'Cancel';
@@ -76,8 +75,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileLogoutTitle => 'Sign out and delete data?';
 
   @override
-  String get profileLogoutContent =>
-      'All local data will be irreversibly deleted.\n\nUnsynchronised entries will be lost and cannot be restored.\n\nPlease make sure all data has been synchronised before proceeding.';
+  String get profileLogoutContent => 'All local data will be irreversibly deleted.\n\nUnsynchronised entries will be lost and cannot be restored.\n\nPlease make sure all data has been synchronised before proceeding.';
 
   @override
   String get profileLogoutCancel => 'Cancel';
@@ -285,8 +283,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messageDeleteTitle => 'Delete message';
 
   @override
-  String get messageDeleteConfirm =>
-      'Do you really want to delete this message?';
+  String get messageDeleteConfirm => 'Do you really want to delete this message?';
 
   @override
   String get messageDelete => 'Delete';
@@ -302,13 +299,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get recordingReadOnlyPlayground =>
-      'Playground mode: data cannot be saved.';
+  String get recordingReadOnlyPlayground => 'Playground mode: data cannot be saved.';
 
   @override
   String get recordingReadOnlyAdmin => 'Admin view: data cannot be saved.';
 
   @override
-  String get recordingReadOnlyControlPending =>
-      'Control survey only possible once the recording troop has completed this plot.';
+  String get recordingReadOnlyGroup => 'Read-only access: data cannot be saved.';
 }

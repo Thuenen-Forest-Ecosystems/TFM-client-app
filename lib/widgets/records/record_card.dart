@@ -12,11 +12,6 @@ class RecordCard extends StatefulWidget {
   final VoidCallback? onPinToggle;
   final bool isDense;
 
-  /// True when the record list is viewed as a control troop (Kontrolltrupp):
-  /// completion state then keys on completed_at_control_troop, and records the
-  /// regular troop has not finished yet are marked as waiting/locked.
-  final bool isControlContext;
-
   const RecordCard({
     super.key,
     required this.record,
@@ -25,7 +20,6 @@ class RecordCard extends StatefulWidget {
     this.isPinned = false,
     this.onPinToggle,
     this.isDense = false,
-    this.isControlContext = false,
   });
 
   @override
@@ -191,20 +185,8 @@ class _RecordCardState extends State<RecordCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Completion state: in control context the control troop's own timestamp
-    // counts, otherwise completed_at_troop.
-    final completedAt = widget.isControlContext
-        ? widget.record.completedAtControlTroop
-        : widget.record.completedAtTroop;
+    final completedAt = widget.record.completedAtTroop;
     final isCompleted = completedAt != null && completedAt.toString().isNotEmpty;
-
-    // In control context a record is locked until the regular troop completed
-    // (mirrors the server RLS gate for control-troop writes).
-    final completedAtTroop = widget.record.completedAtTroop;
-    final isControlLocked =
-        widget.isControlContext &&
-        widget.record.responsibleTroop != null &&
-        (completedAtTroop == null || completedAtTroop.toString().isEmpty);
 
     // Get last update date
     final updatedAt = widget.record.updatedAt;
@@ -253,9 +235,7 @@ class _RecordCardState extends State<RecordCard> {
                     Container(
                       width: 10,
                       decoration: BoxDecoration(
-                        color: isControlLocked
-                            ? Colors.amber
-                            : (isCompleted ? Colors.green : Colors.red),
+                        color: isCompleted ? Colors.green : Colors.red,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(4),
                           bottomLeft: Radius.circular(4),
@@ -307,22 +287,6 @@ class _RecordCardState extends State<RecordCard> {
                                     )
                                   : null,
                             ),
-                            if (isControlLocked)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.lock_outline, size: 16, color: Colors.amber[800]),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        'Wartet auf Abschluss durch den Aufnahmetrupp',
-                                        style: TextStyle(fontSize: 12, color: Colors.amber[800]),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             // Content (variable height)
                             if (note != null && note.isNotEmpty && !widget.isDense)
                               Padding(

@@ -23,12 +23,11 @@ class Record {
   final String? responsibleProvider;
   final String? responsibleState;
   final String? responsibleTroop;
-  final String? responsibleControlTroop;
+  final String? responsibleReadOnlyTroop;
   final String? updatedAt;
   final String? localUpdatedAt;
   final String? completedAtState;
   final String? completedAtTroop;
-  final String? completedAtControlTroop;
   final String? completedAtAdministration;
   final int? isToBeRecorded;
   final String? note;
@@ -55,12 +54,11 @@ class Record {
     this.responsibleProvider,
     this.responsibleState,
     this.responsibleTroop,
-    this.responsibleControlTroop,
+    this.responsibleReadOnlyTroop,
     this.updatedAt,
     this.localUpdatedAt,
     this.completedAtState,
     this.completedAtTroop,
-    this.completedAtControlTroop,
     this.completedAtAdministration,
     this.isToBeRecorded,
     this.note,
@@ -93,12 +91,11 @@ class Record {
       responsibleProvider: row['responsible_provider'] as String?,
       responsibleState: row['responsible_state'] as String?,
       responsibleTroop: row['responsible_troop'] as String?,
-      responsibleControlTroop: row['responsible_control_troop'] as String?,
+      responsibleReadOnlyTroop: row['responsible_read_only_troop'] as String?,
       updatedAt: row['updated_at'] as String?,
       localUpdatedAt: row['local_updated_at'] as String?,
       completedAtState: row['completed_at_state'] as String?,
       completedAtTroop: row['completed_at_troop'] as String?,
-      completedAtControlTroop: row['completed_at_control_troop'] as String?,
       completedAtAdministration: row['completed_at_administration'] as String?,
       isToBeRecorded: row['is_to_be_recorded'] as int?,
       note: row['note'] as String?,
@@ -128,12 +125,11 @@ class Record {
       'responsible_provider': responsibleProvider,
       'responsible_state': responsibleState,
       'responsible_troop': responsibleTroop,
-      'responsible_control_troop': responsibleControlTroop,
+      'responsible_read_only_troop': responsibleReadOnlyTroop,
       'updated_at': updatedAt,
       'local_updated_at': localUpdatedAt,
       'completed_at_state': completedAtState,
       'completed_at_troop': completedAtTroop,
-      'completed_at_control_troop': completedAtControlTroop,
       'completed_at_administration': completedAtAdministration,
       'is_to_be_recorded': isToBeRecorded,
       'note': note,
@@ -278,12 +274,11 @@ class Record {
     String? responsibleProvider,
     String? responsibleState,
     String? responsibleTroop,
-    String? responsibleControlTroop,
+    String? responsibleReadOnlyTroop,
     String? updatedAt,
     String? localUpdatedAt,
     String? completedAtState,
     String? completedAtTroop,
-    String? completedAtControlTroop,
     String? completedAtAdministration,
     int? isToBeRecorded,
     String? note,
@@ -310,12 +305,11 @@ class Record {
       responsibleProvider: responsibleProvider ?? this.responsibleProvider,
       responsibleState: responsibleState ?? this.responsibleState,
       responsibleTroop: responsibleTroop ?? this.responsibleTroop,
-      responsibleControlTroop: responsibleControlTroop ?? this.responsibleControlTroop,
+      responsibleReadOnlyTroop: responsibleReadOnlyTroop ?? this.responsibleReadOnlyTroop,
       updatedAt: updatedAt ?? this.updatedAt,
       localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
       completedAtState: completedAtState ?? this.completedAtState,
       completedAtTroop: completedAtTroop ?? this.completedAtTroop,
-      completedAtControlTroop: completedAtControlTroop ?? this.completedAtControlTroop,
       completedAtAdministration: completedAtAdministration ?? this.completedAtAdministration,
       isToBeRecorded: isToBeRecorded ?? this.isToBeRecorded,
       note: note ?? this.note,
@@ -351,7 +345,7 @@ class RecordsRepository {
     // bucket even when the record's responsible_* points to another
     // organization.
     if (troopId != null && troopId.isNotEmpty) {
-      return "(($orgFilter AND responsible_troop = '$troopId') OR responsible_control_troop = '$troopId')";
+      return "(($orgFilter AND responsible_troop = '$troopId') OR responsible_read_only_troop = '$troopId')";
     }
 
     // If user is organization admin and no specific troop selected, show all records for the organization
@@ -602,7 +596,7 @@ class RecordsRepository {
     final recordId = record.id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
     await db.execute(
-      'INSERT INTO records (id, properties, schema_name, schema_id, schema_id_validated_by, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, responsible_control_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_control_troop, completed_at_administration, is_to_be_recorded, note, validation_errors, plausibility_errors, is_training) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO records (id, properties, schema_name, schema_id, schema_id_validated_by, plot_id, cluster_id, plot_name, cluster_name, previous_properties, is_valid, responsible_administration, responsible_provider, responsible_state, responsible_troop, responsible_read_only_troop, updated_at, local_updated_at, completed_at_state, completed_at_troop, completed_at_administration, is_to_be_recorded, note, validation_errors, plausibility_errors, is_training) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         recordId,
         jsonEncode(record.properties),
@@ -619,12 +613,11 @@ class RecordsRepository {
         record.responsibleProvider,
         record.responsibleState,
         record.responsibleTroop,
-        record.responsibleControlTroop,
+        record.responsibleReadOnlyTroop,
         record.updatedAt,
         record.localUpdatedAt,
         record.completedAtState,
         record.completedAtTroop,
-        record.completedAtControlTroop,
         record.completedAtAdministration,
         record.isToBeRecorded,
         record.note,

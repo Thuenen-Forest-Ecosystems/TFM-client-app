@@ -64,10 +64,10 @@ class PermissionsRepository {
         .map((results) => results.map((row) => TroopModel.fromJson(row)).toList());
   }
 
-  // Get count of records assigned to a troop (as regular or control troop)
+  // Get count of records assigned to a troop (as regular troop or read-only group)
   Future<int> getRecordCountForTroop(String troopId) async {
     final results = await db.getAll(
-      'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ? OR responsible_control_troop = ?',
+      'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ? OR responsible_read_only_troop = ?',
       [troopId, troopId],
     );
     return results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0;
@@ -79,7 +79,7 @@ class PermissionsRepository {
       // If no organization specified, just count by troop
       return db
           .watch(
-            'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ? OR responsible_control_troop = ?',
+            'SELECT COUNT(*) as count FROM records WHERE responsible_troop = ? OR responsible_read_only_troop = ?',
             parameters: [troopId, troopId],
           )
           .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
@@ -90,7 +90,7 @@ class PermissionsRepository {
     // );
 
     // Check if the organization matches any of the responsibility fields.
-    // Control-troop records count independently of the organization filter
+    // Read-only-group records count independently of the organization filter
     // (mirrors RecordsRepository._getOrganizationFilter so the tile count
     // matches the record list).
     return db
@@ -98,7 +98,7 @@ class PermissionsRepository {
           '''SELECT COUNT(*) as count FROM records
              WHERE (responsible_troop = ?
              AND (responsible_administration = ? OR responsible_provider = ? OR responsible_state = ?))
-             OR responsible_control_troop = ?''',
+             OR responsible_read_only_troop = ?''',
           parameters: [troopId, organizationId, organizationId, organizationId, troopId],
         )
         .map((results) => results.isNotEmpty ? (results.first['count'] as int?) ?? 0 : 0);
@@ -170,6 +170,7 @@ class TroopModel {
   final String? userIds;
   final String? organizationId;
   final bool isControlTroop;
+  final bool isReadOnly;
 
   TroopModel({
     required this.id,
@@ -179,6 +180,7 @@ class TroopModel {
     this.userIds,
     this.organizationId,
     this.isControlTroop = false,
+    this.isReadOnly = false,
   });
 
   factory TroopModel.fromJson(Map<String, dynamic> json) {
@@ -190,6 +192,7 @@ class TroopModel {
       userIds: json['user_ids'] as String?,
       organizationId: json['organization_id'] as String?,
       isControlTroop: (json['is_control_troop'] as int?) == 1,
+      isReadOnly: (json['is_read_only'] as int?) == 1,
     );
   }
 
@@ -202,6 +205,7 @@ class TroopModel {
       'user_ids': userIds,
       'organization_id': organizationId,
       'is_control_troop': isControlTroop ? 1 : 0,
+      'is_read_only': isReadOnly ? 1 : 0,
     };
   }
 }

@@ -119,5 +119,5 @@
 
     "recordingReadOnlyPlayground": "Playground-Modus: Daten werden nicht gespeichert.",
     "recordingReadOnlyAdmin": "Admin-Ansicht: Daten werden nicht gespeichert.",
-    "recordingReadOnlyControlPending": "Kontrolle erst möglich, wenn der Aufnahmetrupp diese Ecke abgeschlossen hat."
+    "recordingReadOnlyGroup": "Nur Leserechte: Daten werden nicht gespeichert."
 }

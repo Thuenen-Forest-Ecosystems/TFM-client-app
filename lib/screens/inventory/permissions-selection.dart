@@ -85,6 +85,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     String? troopId,
     String? troopName,
     bool isControlTroop = false,
+    bool isReadOnly = false,
   }) async {
     // Save all settings FIRST, then notify listeners so that _getOrganizationFilter
     // sees a fully consistent state (no stale troop/isAdmin from previous user).
@@ -94,6 +95,7 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     await _selectionService.setSelectedTroopId(troopId);
     await _selectionService.setSelectedTroopName(troopName);
     await _selectionService.setSelectedTroopIsControl(isControlTroop);
+    await _selectionService.setSelectedTroopIsReadOnly(isReadOnly);
     _selectionService.notifyPermissionSelected(permissionId);
 
     if (mounted) {
@@ -289,15 +291,21 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
 
             return ListTile(
               dense: true,
-              leading: troop.isControlTroop
+              leading: troop.isReadOnly
+                  ? const Icon(Icons.visibility, size: 20)
+                  : troop.isControlTroop
                   ? const Icon(Icons.shield, size: 20)
                   : const Icon(Icons.group, size: 20),
               title: Text(
-                troop.isControlTroop ? '${troop.name} (Kontrolltrupp)' : troop.name,
+                troop.name,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
               subtitle: Text(
-                'Eckenanzahl: $recordCount',
+                troop.isReadOnly
+                    ? 'Nur Leserechte'
+                    : troop.isControlTroop
+                    ? 'Kontrolltrupp'
+                    : 'Aufnahmetrupp',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               onTap: () {
@@ -308,9 +316,20 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                   troopId: troop.id,
                   troopName: troop.name,
                   isControlTroop: troop.isControlTroop,
+                  isReadOnly: troop.isReadOnly,
                 );
               },
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$recordCount',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_ios, size: 16),
+                ],
+              ),
             );
           },
         );
