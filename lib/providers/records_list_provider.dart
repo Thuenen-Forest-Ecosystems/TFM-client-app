@@ -85,10 +85,9 @@ class RecordsListProvider extends ChangeNotifier {
     // Only notify listeners if the data actually changed
     final existing = _recordsCache[key];
     final hasChanged =
-        existing == null ||
-        existing.length != records.length ||
         _currentPageCache[key] != page ||
-        _hasMoreDataCache[key] != hasMore;
+        _hasMoreDataCache[key] != hasMore ||
+        _recordsContentChanged(existing, records);
 
     _recordsCache[key] = records;
     _currentPageCache[key] = page;
@@ -97,6 +96,31 @@ class RecordsListProvider extends ChangeNotifier {
     if (hasChanged) {
       notifyListeners();
     }
+  }
+
+  // Detects per-record changes that leave the list length untouched (e.g.
+  // completed_at_troop set by the troop). Every write path bumps
+  // updated_at/local_updated_at, so ids plus timestamps and completion
+  // fields are a sufficient change signal.
+  bool _recordsContentChanged(
+    List<Map<String, dynamic>>? existing,
+    List<Map<String, dynamic>> records,
+  ) {
+    if (existing == null || existing.length != records.length) return true;
+    for (var i = 0; i < records.length; i++) {
+      final a = existing[i]['record'];
+      final b = records[i]['record'];
+      if (a is! Record || b is! Record) return !identical(a, b);
+      if (a.id != b.id ||
+          a.updatedAt != b.updatedAt ||
+          a.localUpdatedAt != b.localUpdatedAt ||
+          a.completedAtTroop != b.completedAtTroop ||
+          a.completedAtState != b.completedAtState ||
+          a.completedAtAdministration != b.completedAtAdministration) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Append more records to cache

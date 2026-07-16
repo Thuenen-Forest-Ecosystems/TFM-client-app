@@ -960,11 +960,19 @@ class _MapWidgetState extends State<MapWidget> {
             .where((record) => record.getCoordinates() != null)
             .toList();
 
-        // Build a cheap fingerprint: count + first/last record identifiers.
-        // Skip the full setState if nothing has changed (e.g. frequent GPS-driven notifications).
-        final fingerprint =
-            '${recordsWithCoords.length}'
-            '${recordsWithCoords.isNotEmpty ? recordsWithCoords.first.clusterId + recordsWithCoords.last.clusterId : ''}';
+        // Build a cheap fingerprint over identity and change-signal fields
+        // (every write bumps updated_at/local_updated_at), so per-record
+        // updates like troop completion refresh the markers while redundant
+        // notifications (e.g. GPS-driven) are still skipped.
+        final fingerprint = Object.hashAll([
+          for (final record in recordsWithCoords)
+            Object.hash(
+              record.id,
+              record.updatedAt,
+              record.localUpdatedAt,
+              record.completedAtTroop,
+            ),
+        ]).toString();
         if (fingerprint == _lastRecordsFingerprint) {
           return; // Data unchanged – skip rebuild
         }

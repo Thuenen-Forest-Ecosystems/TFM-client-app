@@ -504,13 +504,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Refuse to save as read-only group (Admin, nur Leserechte) — server RLS
     // would reject the write and PowerSync would drop it silently.
     if (_isReadOnlyTroop) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      /*ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Nur Leserechte – Speichern nicht möglich.'),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
         ),
-      );
+      );*/
       return;
     }
 
@@ -634,7 +634,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           updatedAt: _record!.updatedAt,
           localUpdatedAt: now,
           completedAtState: _record!.completedAtState,
-          completedAtTroop: _record!.completedAtTroop,
+          completedAtTroop: type == 'complete' ? now : _record!.completedAtTroop,
           completedAtAdministration: _record!.completedAtAdministration,
           note: _record!.note,
           validationErrors: validationErrorsJson,
@@ -893,8 +893,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 // present a plausibility-free result as authoritative
                 // (see TFM-client-app#441).
                 var plausibilityRetries = 0;
-                while (!result.tfmAvailable &&
-                    plausibilityRetries < _maxPlausibilityRetries) {
+                while (!result.tfmAvailable && plausibilityRetries < _maxPlausibilityRetries) {
                   if (!mounted || cycle != _validationCycle) return;
                   // Recover the script even if it was absent at load time. This
                   // used to be gated on a load-time snapshot of
@@ -913,8 +912,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     // Re-supply the script explicitly: if a concurrent teardown
                     // dropped the runner's cached script, an arg-less initialize()
                     // would be a no-op and the retry could never recover.
-                    await ValidationServiceNative.instance
-                        .initialize(tfmValidationCode: tfmCode);
+                    await ValidationServiceNative.instance.initialize(tfmValidationCode: tfmCode);
                   } catch (_) {}
                   if (!mounted || cycle != _validationCycle) return;
                   result = await ValidationServiceNative.instance.validateWithTFM(
@@ -933,8 +931,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 // "unavailable" marker so we don't show a false banner. When a
                 // script DOES exist, the resolver has resolved it and the warning
                 // is kept so a real outage stays visible.
-                if (result.plausibilityUnavailable &&
-                    !(_scriptResolver?.resolved ?? false)) {
+                if (result.plausibilityUnavailable && !(_scriptResolver?.resolved ?? false)) {
                   result = TFMValidationResult(
                     ajvValid: result.ajvValid,
                     ajvErrors: result.ajvErrors,
