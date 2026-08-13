@@ -61,6 +61,7 @@ const listOfLookupTables = [
   'lookup_accessibility',
   'lookup_support_point_type',
   'lookup_municipality',
+  'lookup_bark_condition',
 ];
 
 const lookupTemplate = [

@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as classic;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 
@@ -113,12 +114,17 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
   StreamSubscription<classic.BluetoothDiscoveryResult>? _classicScanSubscription;
   Timer? _classicReconnectTimeout;
   late Future<bool> _bluetoothCheckFuture;
+  String? _classicScanError;
 
   @override
   void initState() {
     super.initState();
     if (Platform.isAndroid) {
       _flutterBluetoothSerial = classic.FlutterBluetoothSerial.instance;
+      // Show already paired devices right away: a GNSS receiver that is bonded
+      // is usually no longer discoverable, so an inquiry alone would never
+      // list it and only its BLE advertisement would show up.
+      _loadBondedDevices();
     }
     _bluetoothCheckFuture = _checkBluetoothAvailable();
     // Keep device list in sync with BLE scan results
@@ -163,6 +169,59 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
     }
   }
 
+  /// Add the devices already paired with Android to the list.
+  ///
+  /// [classic.FlutterBluetoothSerial.startDiscovery] only reports devices that
+  /// are currently in inquiry-scan mode. Receivers such as the Emlid RS2+ stop
+  /// being discoverable once bonded, so without this they would be missing from
+  /// the Classic list entirely.
+  Future<void> _loadBondedDevices() async {
+    final serial = _flutterBluetoothSerial;
+    if (serial == null) return;
+    try {
+      final bonded = await serial.getBondedDevices();
+      if (!mounted) return;
+      setState(() {
+        for (final device in bonded) {
+          _mergeClassicDevice(device, null);
+        }
+      });
+    } catch (e) {
+      debugPrint('Loading bonded devices failed: $e');
+    }
+  }
+
+  /// Insert or update a Classic device in [_combinedDevices]. Call inside
+  /// `setState`. The same address can arrive from both the bonded list and an
+  /// inquiry: the former carries the reliable name and bond state, the latter
+  /// the RSSI and sometimes a name the first sighting did not resolve yet.
+  void _mergeClassicDevice(classic.BluetoothDevice device, int? rssi) {
+    final index = _combinedDevices.indexWhere((d) => !d.isBLE && d.id == device.address);
+    var merged = device;
+    if (index >= 0) {
+      final known = _combinedDevices[index].classicDevice!;
+      merged = classic.BluetoothDevice(
+        address: device.address,
+        name: (device.name?.isNotEmpty ?? false) ? device.name : known.name,
+        type: device.type != classic.BluetoothDeviceType.unknown ? device.type : known.type,
+        isConnected: device.isConnected || known.isConnected,
+        bondState: device.isBonded ? device.bondState : known.bondState,
+      );
+    }
+    final entry = CombinedBluetoothDevice(
+      id: merged.address,
+      name: (merged.name?.isNotEmpty ?? false) ? merged.name! : 'Unknown Classic Device',
+      rssi: rssi ?? (index >= 0 ? _combinedDevices[index].rssi : null),
+      isBLE: false,
+      classicDevice: merged,
+    );
+    if (index >= 0) {
+      _combinedDevices[index] = entry;
+    } else {
+      _combinedDevices.add(entry);
+    }
+  }
+
   Future<void> _stopAllScans() async {
     try {
       if (await ble.FlutterBluePlus.isScanning.first) {
@@ -189,10 +248,22 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
     if (gpsProvider.isConnecting || hasActiveGPS) return;
 
     await _stopAllScans();
+    if (!mounted) return;
     setState(() {
       _combinedDevices = [];
+      _classicScanError = null;
       _isScanning = true;
     });
+
+    // flutter_bluetooth_serial predates Android 12 and does not request the
+    // runtime permissions its discovery needs, so ask before scanning —
+    // otherwise startDiscovery() fails silently and no Classic device appears.
+    if (Platform.isAndroid) {
+      await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
+      if (!mounted) return;
+    }
+    await _loadBondedDevices();
+    if (!mounted) return;
 
     try {
       // Phase 1: BLE scan (10 s).
@@ -216,22 +287,17 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
         _classicScanSubscription = _flutterBluetoothSerial!.startDiscovery().listen(
           (result) {
             if (!mounted) return;
-            setState(() {
-              final exists = _combinedDevices.any((d) => d.id == result.device.address);
-              if (!exists) {
-                _combinedDevices.add(
-                  CombinedBluetoothDevice(
-                    id: result.device.address,
-                    name: result.device.name ?? 'Unknown Classic Device',
-                    rssi: result.rssi,
-                    isBLE: false,
-                    classicDevice: result.device,
-                  ),
-                );
-              }
-            });
+            setState(() => _mergeClassicDevice(result.device, result.rssi));
           },
-          onError: (e) => debugPrint('Classic scan error: $e'),
+          onError: (e) {
+            debugPrint('Classic scan error: $e');
+            if (mounted) {
+              setState(() {
+                _classicScanError = 'Suche nach Bluetooth-Classic-Geräten fehlgeschlagen: $e';
+                _isScanning = false;
+              });
+            }
+          },
           onDone: () {
             _classicReconnectTimeout?.cancel();
             _classicReconnectTimeout = null;
@@ -261,23 +327,56 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
     if (widget.popOnConnect && mounted) Navigator.pop(context);
   }
 
-  Future<void> _connectToClassicDevice(classic.BluetoothDevice device) async {
-    if (!device.isBonded) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Nicht gekoppelt'),
-            content: Text(
-              'Gerät "${device.name ?? device.address}" ist nicht gekoppelt.\n\n'
-              'Bitte zuerst in den Bluetooth-Einstellungen koppeln.',
-            ),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
-          ),
-        );
-      }
-      return;
+  /// Make sure the device is paired, pairing from here if needed.
+  ///
+  /// Sending the user to the system Bluetooth settings instead is a dead end
+  /// for GNSS receivers: they leave discoverable mode once bonded, so they
+  /// would drop out of the next inquiry and never become selectable again.
+  Future<bool> _ensureBonded(classic.BluetoothDevice device) async {
+    final serial = _flutterBluetoothSerial;
+    if (serial == null) return true;
+    final label = device.name?.isNotEmpty == true ? device.name! : device.address;
+    try {
+      // The device object is a snapshot from the moment it was listed; ask the
+      // platform for the current bond state instead of trusting it.
+      if ((await serial.getBondStateForAddress(device.address)).isBonded) return true;
+
+      // Bonding needs the adapter free — a running inquiry makes it fail.
+      await _stopAllScans();
+      final bonded = await serial.bondDeviceAtAddress(device.address) ?? false;
+      if (bonded || (await serial.getBondStateForAddress(device.address)).isBonded) return true;
+
+      _showClassicError(
+        'Kopplung fehlgeschlagen',
+        'Gerät "$label" konnte nicht gekoppelt werden.\n\n'
+            'Bitte prüfen, ob das Gerät eingeschaltet und sichtbar ist, '
+            'und die Kopplungsanfrage auf beiden Geräten bestätigen.',
+      );
+      return false;
+    } catch (e) {
+      _showClassicError(
+        'Kopplung fehlgeschlagen',
+        'Gerät "$label" konnte nicht gekoppelt werden.\n\n$e',
+      );
+      return false;
     }
+  }
+
+  void _showClassicError(String title, String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+      ),
+    );
+  }
+
+  Future<void> _connectToClassicDevice(classic.BluetoothDevice device) async {
+    if (!await _ensureBonded(device)) return;
+    if (!mounted) return;
     await _stopAllScans();
     if (!mounted) return;
     final gpsProvider = context.read<GpsPositionProvider>();
@@ -333,6 +432,14 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                 ),
             ],
           ),
+          if (_classicScanError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _classicScanError!,
+                style: const TextStyle(color: Colors.orange, fontSize: 12),
+              ),
+            ),
           const SizedBox(height: 16),
           Consumer<GpsPositionProvider>(
             builder: (context, gpsProvider, child) {
@@ -514,11 +621,17 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                           !device.classicDevice!.isBonded)
                         const Padding(
                           padding: EdgeInsets.only(left: 4.0),
-                          child: Icon(Icons.lock_open, size: 16, color: Colors.orange),
+                          child: Tooltip(
+                            message: 'Noch nicht gekoppelt – Kopplung startet beim Antippen',
+                            child: Icon(Icons.lock_open, size: 16, color: Colors.orange),
+                          ),
                         ),
                     ],
                   ),
-                  subtitle: Text('${device.isBLE ? "BLE" : "Classic"} - ${device.id}'),
+                  subtitle: Text(
+                    '${device.isBLE ? "BLE" : "Classic"} - ${device.id}'
+                    '${!device.isBLE && (device.classicDevice?.isBonded ?? false) ? " - gekoppelt" : ""}',
+                  ),
                   trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
                   onTap: () {
                     if (device.isBLE && device.bleDevice != null) {

@@ -351,11 +351,24 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
       await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
     }
 
-    // Check if device is bonded (paired)
+    // Check if device is bonded (paired). The BluetoothDevice handed in is a
+    // snapshot from the time it was listed, so a device bonded since then still
+    // reports false — ask the platform for the current state before giving up.
     if (!device.isBonded) {
-      _isConnecting = false;
-      notifyListeners();
-      return;
+      var isBonded = false;
+      try {
+        isBonded = (await classic.FlutterBluetoothSerial.instance.getBondStateForAddress(
+          device.address,
+        )).isBonded;
+      } catch (e) {
+        // Platform query failed; let the connection attempt itself decide.
+        isBonded = true;
+      }
+      if (!isBonded) {
+        _isConnecting = false;
+        notifyListeners();
+        return;
+      }
     }
 
     // Prevent multiple simultaneous connection attempts
