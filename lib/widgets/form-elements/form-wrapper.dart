@@ -12,6 +12,7 @@ import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-cardlist.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/displaced-marker.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/manuell-relative-position.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/messages-chat.dart';
@@ -956,6 +957,21 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       if (layoutItem.component == 'plot_support_points') {
         // PlotSupportPoints component - for manual position entry
         return PlotSupportPoints(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          previousProperties: _previousProperties,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            setState(() {
+              _localFormData.addAll(updatedData);
+            });
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          },
+        );
+      }
+      if (layoutItem.component == 'displaced_marker') {
+        // DisplacedMarker component - add/edit a single point_type=1 support point
+        return DisplacedMarker(
           jsonSchema: schemaProperties,
           data: _localFormData,
           previousProperties: _previousProperties,
