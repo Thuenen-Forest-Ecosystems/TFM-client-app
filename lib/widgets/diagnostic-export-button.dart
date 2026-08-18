@@ -11,6 +11,7 @@ class DiagnosticExportButton extends StatelessWidget {
   final int pendingCrudCount;
   final List<Map<String, dynamic>> crudBreakdown;
   final List<Map<String, dynamic>> unsyncedRecords;
+  final List<Map<String, dynamic>> uploadFailures;
   final String? lastSyncedAt;
 
   const DiagnosticExportButton({
@@ -18,6 +19,7 @@ class DiagnosticExportButton extends StatelessWidget {
     required this.pendingCrudCount,
     required this.crudBreakdown,
     required this.unsyncedRecords,
+    this.uploadFailures = const [],
     this.lastSyncedAt,
   });
 
@@ -28,6 +30,9 @@ class DiagnosticExportButton extends StatelessWidget {
       'pending_crud_count': pendingCrudCount,
       'crud_breakdown': crudBreakdown,
       'unsynced_records': unsyncedRecords,
+      // Quarantined uploads incl. op_data — the payload the server rejected
+      // or silently ignored, preserved for manual recovery.
+      'upload_failures': uploadFailures,
     };
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(payload);

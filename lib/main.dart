@@ -43,6 +43,7 @@ import 'package:terrestrial_forest_monitor/screens/profile.dart';
 import 'package:terrestrial_forest_monitor/screens/logger.dart';
 import 'package:terrestrial_forest_monitor/screens/records-raw.dart';
 import 'package:terrestrial_forest_monitor/screens/synced_tables.dart';
+import 'package:terrestrial_forest_monitor/screens/upload-failures.dart';
 // provider
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
@@ -67,6 +68,7 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           '/logs',
           '/records-raw',
           '/synced_tables',
+          '/upload-failures',
         ],
         check: (context, location) {
           return authProvider.isAuthenticated;
@@ -125,6 +127,12 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
           key: ValueKey('synced_tables'),
           title: 'Synced Tables',
           child: SyncedTablesScreen(),
+          type: BeamPageType.noTransition,
+        ),
+        '/upload-failures': (context, state, data) => BeamPage(
+          key: ValueKey('upload-failures'),
+          title: 'Nicht übernommene Uploads',
+          child: UploadFailuresScreen(),
           type: BeamPageType.noTransition,
         ),
         //'/settings': (context, state, data) => BeamPage(key: ValueKey('settings-${DateTime.now()}'), title: AppLocalizations.of(context)!.settings, child: Settings(), type: BeamPageType.noTransition),

@@ -1,3 +1,8 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart' as ps;
 import 'package:terrestrial_forest_monitor/services/schema.dart';
@@ -15,6 +20,49 @@ class LegacyDataSummary {
   const LegacyDataSummary({required this.recordCount, required this.pendingUploadCount});
 
   bool get hasData => recordCount > 0 || pendingUploadCount > 0;
+}
+
+/// One inactive database file of this app found on disk (the legacy shared
+/// file or another user's per-user file), with its content summary.
+class DatabaseFileInfo {
+  final String path;
+  final String fileName;
+
+  /// True for the legacy shared file (`<base>.db`, no user suffix).
+  final bool isShared;
+
+  /// The user id encoded in a per-user file name, null for the shared file.
+  final String? userId;
+
+  /// Owner's display name / e-mail, read from `users_profile` inside the file
+  /// itself. Null when the profile never synced into that file.
+  final String? userName;
+  final String? email;
+
+  final int recordCount;
+  final int pendingUploadCount;
+
+  const DatabaseFileInfo({
+    required this.path,
+    required this.fileName,
+    required this.isShared,
+    required this.recordCount,
+    required this.pendingUploadCount,
+    this.userId,
+    this.userName,
+    this.email,
+  });
+
+  bool get hasData => recordCount > 0 || pendingUploadCount > 0;
+
+  /// Short human-readable label for tabs: user name, else e-mail, else id.
+  String get label {
+    if (isShared) return 'Altdatenbank';
+    if (userName != null && userName!.isNotEmpty) return userName!;
+    if (email != null && email!.isNotEmpty) return email!;
+    final id = userId ?? '?';
+    return 'Benutzer ${id.length > 8 ? '${id.substring(0, 8)}…' : id}';
+  }
 }
 
 /// A single record read from the legacy db, trimmed to the fields shown in the
@@ -41,12 +89,14 @@ class LegacyRecord {
   });
 }
 
-/// Read-only access to the legacy shared `tfm.db`, used to show the user any
-/// data that was written there before per-user database isolation.
+/// Read-only access to inactive database files of this app: the legacy shared
+/// `tfm.db` and other users' per-user files. Used to surface data that was
+/// written there and never uploaded.
 ///
-/// Nothing here mutates application data: the legacy file is opened in its own
+/// Nothing here mutates the inspected files: each file is opened in its own
 /// short-lived [PowerSyncDatabase] instance (never connected to PowerSync) and
-/// closed again after each query.
+/// closed again after each query. Recovery copies rows into the ACTIVE
+/// database, which re-enters them into its upload queue.
 class LegacyDatabaseService {
   LegacyDatabaseService._();
   static final LegacyDatabaseService instance = LegacyDatabaseService._();
@@ -61,19 +111,98 @@ class LegacyDatabaseService {
     _checked = false;
   }
 
+  /// Opens the database file at [path], runs [action], then always closes it.
+  Future<T> _withDbAt<T>(String path, Future<T> Function(PowerSyncDatabase db) action) async {
+    final inspectedDb = PowerSyncDatabase(schema: schema, path: path);
+    try {
+      await inspectedDb.initialize();
+      return await action(inspectedDb);
+    } finally {
+      await inspectedDb.close();
+    }
+  }
+
   /// Opens the legacy db (if present & not the active db), runs [action], then
   /// always closes it. Returns null when there is no legacy db to inspect.
   Future<T?> _withLegacyDb<T>(Future<T> Function(PowerSyncDatabase db) action) async {
     final path = await ps.getLegacyDatabasePathIfPresent();
     if (path == null) return null;
+    return _withDbAt(path, action);
+  }
 
-    final legacyDb = PowerSyncDatabase(schema: schema, path: path);
+  /// Enumerates all database files of this app that are NOT the currently
+  /// active one — the legacy shared file and other users' per-user files —
+  /// each with record and pending-upload counts. Unreadable files are skipped.
+  Future<List<DatabaseFileInfo>> listOtherDatabaseFiles() async {
+    if (kIsWeb) return const [];
+
+    final base = await ps.getDatabaseBaseName();
+    final activePath = await ps.getActiveDatabasePath();
+    final Directory dir;
     try {
-      await legacyDb.initialize();
-      return await action(legacyDb);
-    } finally {
-      await legacyDb.close();
+      dir = await getApplicationSupportDirectory();
+    } catch (_) {
+      return const [];
     }
+
+    final result = <DatabaseFileInfo>[];
+    for (final entry in dir.listSync().whereType<File>()) {
+      final name = p.basename(entry.path);
+      final isSharedFile = name == '$base.db';
+      final isUserFile = name.startsWith('${base}_') && name.endsWith('.db');
+      if (!isSharedFile && !isUserFile) continue;
+      if (p.equals(entry.path, activePath)) continue;
+
+      final userId = isSharedFile ? null : name.substring('${base}_'.length, name.length - 3);
+      int recordCount = 0;
+      int pendingUploadCount = 0;
+      String? userName;
+      String? email;
+      try {
+        await _withDbAt(entry.path, (db) async {
+          try {
+            final r = await db.get('SELECT count(*) AS c FROM records');
+            recordCount = (r['c'] as int?) ?? 0;
+          } catch (_) {}
+          try {
+            pendingUploadCount = (await db.getUploadQueueStats()).count;
+          } catch (_) {}
+          // The file's own users_profile row names its owner.
+          if (userId != null) {
+            try {
+              final profile = await db.getOptional(
+                'SELECT user_name, email FROM users_profile WHERE id = ?',
+                [userId],
+              );
+              userName = profile?['user_name'] as String?;
+              email = profile?['email'] as String?;
+            } catch (_) {}
+          }
+        });
+      } catch (_) {
+        continue;
+      }
+
+      result.add(
+        DatabaseFileInfo(
+          path: entry.path,
+          fileName: name,
+          isShared: isSharedFile,
+          userId: userId,
+          userName: userName,
+          email: email,
+          recordCount: recordCount,
+          pendingUploadCount: pendingUploadCount,
+        ),
+      );
+    }
+
+    // Shared legacy file first, then per-user files by name.
+    result.sort((a, b) {
+      if (a.isShared != b.isShared) return a.isShared ? -1 : 1;
+      return a.fileName.compareTo(b.fileName);
+    });
+    return result;
   }
 
   /// Counts records and pending uploads in the legacy db. Cached per session.
@@ -106,9 +235,29 @@ class LegacyDatabaseService {
   /// Whether there is any leftover data worth surfacing a banner for.
   Future<bool> hasLegacyData() async => (await getSummary()).hasData;
 
-  /// Fetches records from the legacy db for the inspection modal.
-  Future<List<LegacyRecord>> getRecords({int limit = 500}) async {
-    final records = await _withLegacyDb((db) async {
+  /// Ids of records that still have un-uploaded changes in the CRUD queue of
+  /// the file at [path] (defaults to the legacy db). These rows exist ONLY in
+  /// that file — the server never received them.
+  Future<Set<String>> getPendingRecordIds({String? path}) async {
+    Future<Set<String>> query(PowerSyncDatabase db) async {
+      final rows = await db.getAll(
+        "SELECT DISTINCT json_extract(data, '\$.id') AS rid FROM ps_crud",
+      );
+      return rows.map((r) => r['rid']).whereType<String>().toSet();
+    }
+
+    try {
+      if (path != null) return await _withDbAt(path, query);
+      return await _withLegacyDb(query) ?? const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Fetches records from the file at [path] (defaults to the legacy db) for
+  /// inspection.
+  Future<List<LegacyRecord>> getRecords({int limit = 500, String? path}) async {
+    Future<List<LegacyRecord>> query(PowerSyncDatabase db) async {
       final rows = await db.getAll(
         'SELECT id, cluster_name, plot_name, schema_name, updated_at, '
         'local_updated_at, is_valid, note, properties '
@@ -128,21 +277,31 @@ class LegacyDatabaseService {
           properties: row['properties'] as String?,
         );
       }).toList();
-    });
-    return records ?? const [];
+    }
+
+    if (path != null) return _withDbAt(path, query);
+    return await _withLegacyDb(query) ?? const [];
   }
 
-  /// Copies a single record from the legacy db into the active per-user db,
-  /// keeping the same primary key so it upserts (instead of duplicating) when
-  /// it syncs to the server. The legacy row is left in place (non-destructive)
-  /// so recovery can be retried. Returns true when a row was copied, false
-  /// when that id no longer exists in the legacy db.
-  Future<bool> recoverRecord(String id) async {
-    final row = await _withLegacyDb<Map<String, Object?>>((legacy) async {
+  /// Copies a single record from the file at [path] (defaults to the legacy
+  /// db) into the active per-user db, keeping the same primary key so it
+  /// upserts (instead of duplicating) when it syncs to the server. The source
+  /// row is left in place (non-destructive) so recovery can be retried.
+  /// Returns true when a row was copied, false when that id no longer exists
+  /// in the source db.
+  Future<bool> recoverRecord(String id, {String? path}) async {
+    Future<Map<String, Object?>> read(PowerSyncDatabase legacy) async {
       final r = await legacy.getOptional('SELECT * FROM records WHERE id = ?', [id]);
       if (r == null) return <String, Object?>{};
       return {for (final key in r.keys) key: r[key]};
-    });
+    }
+
+    final Map<String, Object?>? row;
+    if (path != null) {
+      row = await _withDbAt(path, read);
+    } else {
+      row = await _withLegacyDb(read);
+    }
 
     if (row == null || row.isEmpty) return false;
 
@@ -154,14 +313,14 @@ class LegacyDatabaseService {
       final placeholders = List.filled(columns.length, '?').join(', ');
       await active.execute(
         'INSERT INTO records (${columns.join(', ')}) VALUES ($placeholders)',
-        columns.map((c) => row[c]).toList(),
+        columns.map((c) => row![c]).toList(),
       );
     } else {
       final setColumns = columns.where((c) => c != 'id').toList();
       final setClause = setColumns.map((c) => '$c = ?').join(', ');
       await active.execute(
         'UPDATE records SET $setClause WHERE id = ?',
-        [...setColumns.map((c) => row[c]), id],
+        [...setColumns.map((c) => row![c]), id],
       );
     }
     return true;

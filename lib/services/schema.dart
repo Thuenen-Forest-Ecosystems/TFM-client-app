@@ -92,6 +92,19 @@ Schema schema = Schema(([
     Column.text('tree'),
     Column.text('deadwood'),
   ]),
+  // Dead-letter store for uploads the server rejected (fatal Postgres error)
+  // or silently ignored (RLS-invisible row -> 0-row update). Preserves the
+  // payload that would otherwise vanish with its completed CRUD transaction.
+  const Table.localOnly('upload_failures', [
+    Column.text('created_at'),
+    Column.text('table_name'),
+    Column.text('record_id'),
+    Column.text('op'),
+    Column.text('op_data'),
+    Column.text('reason'),
+    Column.text('error_code'),
+    Column.text('error_message'),
+  ]),
 
   const Table('lookup_tree_species', [
     Column.text('name_de'),

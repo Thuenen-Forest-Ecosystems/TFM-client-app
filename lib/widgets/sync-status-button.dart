@@ -27,7 +27,9 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   StreamSubscription<bool>? _connectivitySubscription;
   bool _isNetworkAvailable = true;
   int _unsyncedCount = 0;
+  int _failedCount = 0;
   StreamSubscription<dynamic>? _unsyncedSub;
+  StreamSubscription<dynamic>? _failedSub;
   StreamSubscription<void>? _dbSwitchSub;
 
   static const _unsyncedSql = '''
@@ -102,12 +104,23 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
         });
       }
     });
+
+    // Uploads the server rejected or silently ignored — preserved by the
+    // connector in the local-only upload_failures dead-letter table.
+    _failedSub = db.watch('SELECT COUNT(*) AS n FROM upload_failures').listen((rows) {
+      if (mounted) {
+        setState(() {
+          _failedCount = rows.isNotEmpty ? (rows.first['n'] as int? ?? 0) : 0;
+        });
+      }
+    });
   }
 
   /// Cancel current db subscriptions and resubscribe to the (new) [db].
   void _resubscribeDb() {
     _syncStatusSubscription?.cancel();
     _unsyncedSub?.cancel();
+    _failedSub?.cancel();
     if (mounted) _subscribeToDb();
   }
 
@@ -126,6 +139,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     _syncStatusSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _unsyncedSub?.cancel();
+    _failedSub?.cancel();
     _dbSwitchSub?.cancel();
   }
 
@@ -150,10 +164,12 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
 
     // For online mode — authProvider.isAuthenticated already confirmed above,
     // so always show the chip regardless of stream state.
+    // Red badge = quarantined upload failures (data preserved locally but not
+    // on the server); orange = ordinary unsynced records.
     return Badge(
-      isLabelVisible: _unsyncedCount > 0,
-      backgroundColor: Colors.orange,
-      label: Text('$_unsyncedCount'),
+      isLabelVisible: _unsyncedCount + _failedCount > 0,
+      backgroundColor: _failedCount > 0 ? Colors.red : Colors.orange,
+      label: Text('${_unsyncedCount + _failedCount}'),
       child: _buildStatusChip(context, _connectionState),
     );
   }
@@ -259,6 +275,7 @@ class _SyncStatusDialogState extends State<_SyncStatusDialog> {
   int _pendingCrudCount = 0;
   List<Map<String, dynamic>> _crudBreakdown = [];
   List<Map<String, dynamic>> _unsyncedRecords = [];
+  List<Map<String, dynamic>> _uploadFailures = [];
 
   static const String _serverQuery =
       '''-- Run on Supabase to find records not uploaded from devices:
@@ -355,11 +372,36 @@ ORDER BY local_updated_at DESC;''';
           )
           .toList();
 
+      // Quarantined uploads (rejected or silently ignored by the server) —
+      // full rows incl. op_data so the diagnostic export stays recoverable.
+      final failuresResult = await db.execute('''
+        SELECT created_at, table_name, record_id, op, op_data,
+               reason, error_code, error_message
+        FROM upload_failures
+        ORDER BY created_at DESC
+        LIMIT 50
+      ''');
+      final failures = failuresResult
+          .map(
+            (r) => {
+              'created_at': r['created_at']?.toString(),
+              'table_name': r['table_name']?.toString(),
+              'record_id': r['record_id']?.toString(),
+              'op': r['op']?.toString(),
+              'op_data': r['op_data']?.toString(),
+              'reason': r['reason']?.toString(),
+              'error_code': r['error_code']?.toString(),
+              'error_message': r['error_message']?.toString(),
+            },
+          )
+          .toList();
+
       if (mounted) {
         setState(() {
           _pendingCrudCount = pending;
           _crudBreakdown = breakdown;
           _unsyncedRecords = unsynced;
+          _uploadFailures = failures;
           _diagLoading = false;
         });
       }
@@ -456,6 +498,7 @@ ORDER BY local_updated_at DESC;''';
               pendingCrudCount: _pendingCrudCount,
               crudBreakdown: _crudBreakdown,
               unsyncedRecords: _unsyncedRecords,
+              uploadFailures: _uploadFailures,
               lastSyncedAt: _status.lastSyncedAt?.toLocal().toIso8601String(),
             ),
           ],
@@ -500,6 +543,53 @@ ORDER BY local_updated_at DESC;''';
               ),
             ),
           ),
+        ],
+        if (_uploadFailures.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '⚠ ${_uploadFailures.length} Upload(s) vom Server nicht übernommen',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.red.shade900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Die Daten sind lokal gesichert (upload_failures). '
+                  'Bitte Diagnose-Export erstellen und an den Support senden.',
+                  style: TextStyle(fontSize: 11, color: Colors.red.shade900),
+                ),
+                const SizedBox(height: 4),
+                ..._uploadFailures
+                    .take(10)
+                    .map(
+                      (f) => Text(
+                        '• ${f['table_name']} ${f['record_id']} (${f['op']}) — '
+                        '${f['reason']}${f['error_code'] != null ? ' [${f['error_code']}]' : ''}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                if (_uploadFailures.length > 10)
+                  Text(
+                    '… und ${_uploadFailures.length - 10} weitere',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
         ],
         _buildStatusRow('Nicht synchronisiert', '${_unsyncedRecords.length} Datensätze'),
         if (_unsyncedRecords.isNotEmpty) ...[

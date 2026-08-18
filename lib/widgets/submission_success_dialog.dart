@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 /// Result returned from SubmissionSuccessDialog
 class SubmissionSuccessResult {
@@ -36,14 +39,77 @@ class SubmissionSuccessDialog extends StatefulWidget {
   }
 }
 
+/// What actually happened to the submission, as opposed to what the old
+/// dialog always claimed ("Erfolgreich übermittelt" on the local write alone).
+enum _TransferState {
+  /// Still in the upload queue, device has no server connection.
+  pendingOffline,
+
+  /// In the upload queue, connection is up — upload in flight.
+  uploading,
+
+  /// Queue is empty: the server accepted everything.
+  delivered,
+
+  /// The server refused this record; the data sits in the quarantine.
+  rejected,
+}
+
 class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
   List<Record>? _clusterRecords;
   bool _isLoading = true;
+
+  int _pendingUploads = 0;
+  bool _isRejected = false;
+  bool _isConnected = false;
+  StreamSubscription<dynamic>? _pendingSub;
+  StreamSubscription<dynamic>? _rejectedSub;
+  StreamSubscription<dynamic>? _statusSub;
+
+  _TransferState get _transferState {
+    if (_isRejected) return _TransferState.rejected;
+    if (_pendingUploads == 0) return _TransferState.delivered;
+    return _isConnected ? _TransferState.uploading : _TransferState.pendingOffline;
+  }
 
   @override
   void initState() {
     super.initState();
     _loadClusterRecords();
+    _watchTransferState();
+  }
+
+  /// Live view of the upload queue, so the dialog tells the truth while the
+  /// user is still looking at it: pending → uploading → delivered.
+  void _watchTransferState() {
+    _isConnected = db.currentStatus.connected;
+    _statusSub = db.statusStream.listen((status) {
+      if (mounted) setState(() => _isConnected = status.connected);
+    });
+    _pendingSub = db.watch('SELECT COUNT(*) AS n FROM ps_crud').listen((rows) {
+      if (mounted) {
+        setState(() => _pendingUploads = rows.isNotEmpty ? (rows.first['n'] as int? ?? 0) : 0);
+      }
+    });
+    _rejectedSub = db
+        .watch(
+          'SELECT COUNT(*) AS n FROM upload_failures WHERE record_id = ?',
+          parameters: [widget.submittedRecord.id],
+        )
+        .listen((rows) {
+          if (mounted) {
+            final n = rows.isNotEmpty ? (rows.first['n'] as int? ?? 0) : 0;
+            setState(() => _isRejected = n > 0);
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _pendingSub?.cancel();
+    _rejectedSub?.cancel();
+    _statusSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadClusterRecords() async {
@@ -71,6 +137,55 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
     }
   }
 
+  Widget _buildStateIcon() {
+    switch (_transferState) {
+      case _TransferState.delivered:
+        return const Icon(Icons.cloud_done, color: Colors.green, size: 48);
+      case _TransferState.uploading:
+        return const SizedBox(
+          width: 44,
+          height: 44,
+          child: CircularProgressIndicator(strokeWidth: 3),
+        );
+      case _TransferState.pendingOffline:
+        return Icon(Icons.cloud_off, color: Colors.orange.shade700, size: 48);
+      case _TransferState.rejected:
+        return const Icon(Icons.error_outline, color: Colors.red, size: 48);
+    }
+  }
+
+  String get _stateTitle {
+    switch (_transferState) {
+      case _TransferState.delivered:
+        return 'Übermittelt und vom Server bestätigt';
+      case _TransferState.uploading:
+        return 'Gespeichert — wird übertragen …';
+      case _TransferState.pendingOffline:
+        return 'Auf dem Gerät gespeichert';
+      case _TransferState.rejected:
+        return 'Übertragung nicht übernommen';
+    }
+  }
+
+  String get _stateSubtitle {
+    switch (_transferState) {
+      case _TransferState.delivered:
+        return 'Die Aufnahme ist auf dem Server angekommen.';
+      case _TransferState.uploading:
+        return _pendingUploads > 1
+            ? 'Noch $_pendingUploads Änderungen in der Warteschlange.'
+            : 'Die Übertragung läuft.';
+      case _TransferState.pendingOffline:
+        return 'Noch nicht übertragen — das geschieht automatisch, sobald wieder '
+            'eine Verbindung besteht. Bitte vor dem Abschluss des Feldtags '
+            'online gehen und den Sync-Status prüfen.';
+      case _TransferState.rejected:
+        return 'Der Server hat diese Änderung nicht übernommen. Die Daten sind '
+            'lokal gesichert und stehen unter „Nicht übernommene Uploads" im '
+            'Profil zur Wiederherstellung bereit.';
+    }
+  }
+
   String _formatDate(dynamic date) {
     if (date == null) return '';
     try {
@@ -94,15 +209,17 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header with success message
+            // Header — reflects the ACTUAL transfer state, not just the fact
+            // that the local write succeeded.
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 48),
+                  _buildStateIcon(),
                   const SizedBox(height: 12),
                   Text(
-                    'Erfolgreich übermittelt',
+                    _stateTitle,
+                    textAlign: TextAlign.center,
                     style: Theme.of(
                       context,
                     ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -110,6 +227,12 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
                   const SizedBox(height: 8),
                   Text(
                     'Trakt ${widget.submittedRecord.clusterName} · Ecke ${widget.submittedRecord.plotName}',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _stateSubtitle,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),

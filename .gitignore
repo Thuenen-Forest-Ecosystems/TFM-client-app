@@ -58,3 +58,5 @@ service-account.json.base64
 certs/
 # But don't ignore the assets/certs folder
 !assets/certs/
+
+.internal/

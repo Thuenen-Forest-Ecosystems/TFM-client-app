@@ -9,6 +9,7 @@ import 'package:powersync/sqlite3_common.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:terrestrial_forest_monitor/services/utils.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
 import 'powersync_io.dart' if (dart.library.html) 'powersync_web.dart';
@@ -113,6 +114,19 @@ Future<bool> switchUserDatabase(String userId) async {
   }
 
   return true;
+}
+
+/// Base name of the SQLite files for the configured server (e.g. `postgres`,
+/// yielding `postgres.db` / `postgres_<userId>.db`). Used to enumerate all
+/// database files belonging to this app.
+Future<String> getDatabaseBaseName() async {
+  var config = await getServerConfig();
+  return config['database'] ?? 'tfm';
+}
+
+/// Path of the database file the global [db] currently points to.
+Future<String> getActiveDatabasePath() async {
+  return getDatabasePath(userId: _currentDbUserId);
 }
 
 /// Path of the legacy shared (pre per-user) database `tfm.db`, but only when
@@ -256,14 +270,18 @@ Future<void> changeServer() async {
   //await logout();
 }
 
-/// Explicit sign out - clear database and log out.
+/// Sign out and stop syncing — WITHOUT touching local data. The database,
+/// including the pending upload queue and the `upload_failures` quarantine,
+/// stays intact.
+///
+/// Wiping local data deliberately does NOT happen here. That is the job of the
+/// explicit "Abmelden und Daten löschen" action on the profile screen, which
+/// calls [PowerSyncDatabase.disconnectAndClear] itself behind a red
+/// confirmation dialog. Having it here made every caller a silent
+/// data-destroying logout — including the login dialog, which asks nothing.
 Future<void> logout() async {
   await Supabase.instance.client.auth.signOut();
-  await db.disconnectAndClear();
-  //await db.disconnect();
-
-  // add Delay to ensure that the database is cleared before the user is logged out
-  await Future.delayed(Duration(milliseconds: 100));
+  await db.disconnect();
 }
 
 Future<List> listTables() async {
@@ -350,6 +368,65 @@ Future<PowerSyncDatabase> openDatabase() async {
   return db;
 }
 
+/// Thrown by [SupabaseConnector.uploadData] when there is no authenticated
+/// session. PowerSync treats it like any other upload error: the CRUD
+/// transaction stays in `ps_crud` and is retried after a delay — which is
+/// exactly what we want, because the data must wait for a valid login instead
+/// of being sent (and lost) without one.
+class UploadPausedException implements Exception {
+  final String message;
+  const UploadPausedException(this.message);
+
+  @override
+  String toString() => 'UploadPausedException: $message';
+}
+
+/// True while uploads are paused for a missing session. Static so it survives
+/// the connector instances that [PowerSyncDatabase.connect] creates, and so
+/// the log gets one entry per pause episode instead of one per retry.
+bool _uploadPausedForMissingSession = false;
+
+/// Preserve a CRUD op the server rejected (fatal error) or silently ignored
+/// (0-row update) in the local-only `upload_failures` table, and surface the
+/// event in the app log. Without this the op would vanish together with its
+/// completed CRUD transaction, and the local row would revert to the server
+/// state at the next checkpoint — the silent-data-loss mechanism behind the
+/// 2026-08-16 incident.
+Future<void> _quarantineOp(
+  PowerSyncDatabase database,
+  CrudEntry op, {
+  required String reason,
+  PostgrestException? error,
+}) async {
+  try {
+    await database.execute(
+      'INSERT INTO upload_failures '
+      '(id, created_at, table_name, record_id, op, op_data, reason, error_code, error_message) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        const Uuid().v4(),
+        DateTime.now().toIso8601String(),
+        op.table,
+        op.id,
+        op.op.name,
+        jsonEncode(op.opData ?? {}),
+        reason,
+        error?.code,
+        error?.message,
+      ],
+    );
+  } catch (e) {
+    // Never let quarantine bookkeeping break the upload loop, but leave a trace.
+    log.severe('Failed to quarantine dropped upload ${op.table}/${op.id}: $e');
+  }
+  LogService().log(
+    '🚨 Upload nicht übernommen: ${op.table} ${op.id} (${op.op.name}) — $reason'
+    '${error != null ? ' [${error.code}: ${error.message}]' : ''}. '
+    'Daten in upload_failures gesichert.',
+    level: LogLevel.error,
+  );
+}
+
 class SupabaseConnector extends PowerSyncBackendConnector {
   Future<void>? _refreshFuture;
 
@@ -365,11 +442,39 @@ class SupabaseConnector extends PowerSyncBackendConnector {
       return;
     }
 
-    final rest = Supabase.instance.client.rest;
+    // Never upload without an authenticated session. The REST client would
+    // fall back to the anon key, no RLS policy on `records` matches anon, and
+    // PostgREST answers 204 / 0 rows — the queue would drain into nothing.
+    // That is the root cause of the 2026-08-16 data loss. Throwing keeps the
+    // transaction in ps_crud; PowerSync retries after a delay and the queue
+    // flushes by itself once the user has signed in again.
+    if (Supabase.instance.client.auth.currentSession == null) {
+      if (!_uploadPausedForMissingSession) {
+        _uploadPausedForMissingSession = true;
+        LogService().log(
+          '⏸️ Upload pausiert: keine gültige Anmeldung. '
+          'Die Daten bleiben in der Warteschlange und werden nach der '
+          'nächsten Anmeldung übertragen.',
+          level: LogLevel.warning,
+        );
+      }
+      throw const UploadPausedException('Kein angemeldeter Benutzer — Upload pausiert');
+    }
+    if (_uploadPausedForMissingSession) {
+      _uploadPausedForMissingSession = false;
+      LogService().log(
+        '▶️ Anmeldung vorhanden — Upload wird fortgesetzt.',
+        level: LogLevel.info,
+      );
+    }
 
-    try {
-      for (var op in transaction.crud) {
-        final table = rest.from(op.table);
+    final rest = Supabase.instance.client.rest;
+    final ops = transaction.crud;
+
+    for (var i = 0; i < ops.length; i++) {
+      final op = ops[i];
+      final table = rest.from(op.table);
+      try {
         if (op.op == UpdateType.put) {
           var data = Map<String, dynamic>.of(op.opData!);
 
@@ -379,33 +484,57 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           }
 
           data['id'] = op.id;
-          await table.upsert(data);
-        } else if (op.op == UpdateType.patch) {
-          // Check if the table is records table
-          if (op.table == 'records' && op.opData!['properties'] != null) {
-            op.opData!['properties'] = jsonDecode(op.opData!['properties']);
+          // .select() makes PostgREST return the written row: a write the
+          // server ignored comes back as [] instead of a bare 204.
+          final rows = await table.upsert(data).select('id');
+          if (rows.isEmpty) {
+            await _quarantineOp(database, op, reason: 'rls_zero_rows');
           }
-          await table.update(op.opData!).eq('id', op.id);
+        } else if (op.op == UpdateType.patch) {
+          // Copy instead of mutating op.opData in place, so a later retry of
+          // the same op never sees an already-decoded properties value.
+          var data = Map<String, dynamic>.of(op.opData!);
+          if (op.table == 'records' && data['properties'] != null) {
+            data['properties'] = jsonDecode(data['properties']);
+          }
+          // A row that is invisible under the RLS USING clause matches
+          // 0 rows and PostgREST answers 204 "success" (the documented
+          // BLOCKED_SILENT_RLS case). With .select() that case is an empty
+          // list — quarantine it instead of treating the write as delivered.
+          final rows = await table.update(data).eq('id', op.id).select('id');
+          if (rows.isEmpty) {
+            await _quarantineOp(database, op, reason: 'rls_zero_rows');
+          }
         } else if (op.op == UpdateType.delete) {
+          // 0 rows on delete means the row is already gone server-side;
+          // there is nothing to preserve.
           await table.delete().eq('id', op.id);
         }
-      }
-
-      await transaction
-          .complete()
-          .then((value) {
-          })
-          .catchError((e) {
-          });
-    } on PostgrestException catch (e) {
-      if (e.code != null && fatalResponseCodes.any((re) => re.hasMatch(e.code!))) {
-        // print values for debugging
-        // print table name
-        await transaction.complete();
-      } else {
-        rethrow;
+      } on PostgrestException catch (e) {
+        if (e.code != null && fatalResponseCodes.any((re) => re.hasMatch(e.code!))) {
+          // Retrying can never succeed. Quarantine this op and the
+          // not-yet-attempted remainder of the transaction (ops before i are
+          // already applied server-side), then complete the transaction so
+          // the queue is not blocked — but never drop the data silently.
+          await _quarantineOp(database, op, reason: 'fatal_error', error: e);
+          for (final pending in ops.sublist(i + 1)) {
+            await _quarantineOp(database, pending, reason: 'unattempted_after_fatal', error: e);
+          }
+          break;
+        } else {
+          // Retryable (network, auth, 5xx, ...): keep the transaction in the
+          // queue; PowerSync calls uploadData again.
+          rethrow;
+        }
       }
     }
+
+    await transaction
+        .complete()
+        .then((value) {
+        })
+        .catchError((e) {
+        });
   }
 
   /// Get a Supabase token to authenticate against the PowerSync instance.

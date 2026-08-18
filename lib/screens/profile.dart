@@ -121,12 +121,75 @@ class _ProfileState extends State<Profile> {
 
   Future<void> _confirmAndLogout(AuthProvider authProvider) async {
     final l10n = AppLocalizations.of(context)!;
+
+    // What exactly would be destroyed? Both live in the same local db file,
+    // so disconnectAndClear() takes them with it. Naming the numbers turns a
+    // generic warning into an informed decision.
+    int pendingUploads = 0;
+    int quarantined = 0;
+    try {
+      pendingUploads = (await db.getUploadQueueStats()).count;
+    } catch (_) {}
+    try {
+      final row = await db.get('SELECT COUNT(*) AS n FROM upload_failures');
+      quarantined = (row['n'] as int?) ?? 0;
+    } catch (_) {}
+    if (!mounted) return;
+
+    final atRisk = pendingUploads + quarantined;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
         title: Text(l10n.profileLogoutTitle),
-        content: Text(l10n.profileLogoutContent),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (atRisk > 0) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Auf diesem Gerät sind noch nicht übertragene Daten!',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    if (pendingUploads > 0)
+                      Text(
+                        '• $pendingUploads Änderung(en) warten auf die Übertragung',
+                        style: TextStyle(color: Colors.red.shade900),
+                      ),
+                    if (quarantined > 0)
+                      Text(
+                        '• $quarantined gesicherte(r) Eintrag/Einträge unter '
+                        '„Nicht übernommene Uploads"',
+                        style: TextStyle(color: Colors.red.shade900),
+                      ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Diese Daten sind danach unwiederbringlich verloren. '
+                      'Bitte zuerst synchronisieren — oder ein Backup erstellen.',
+                      style: TextStyle(color: Colors.red.shade900),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Text(l10n.profileLogoutContent),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -351,6 +414,31 @@ class _ProfileState extends State<Profile> {
                 context.beamToNamed('/synced_tables');
               },
               child: Text(l10n.profileShowSyncedTables),
+            ),
+            // Quarantined uploads (upload_failures dead-letter) — red when
+            // entries exist, so rejected writes are impossible to miss.
+            StreamBuilder(
+              stream: db.watch('SELECT COUNT(*) AS n FROM upload_failures'),
+              builder: (context, snapshot) {
+                final rows = snapshot.data;
+                final n = (rows != null && rows.isNotEmpty) ? (rows.first['n'] as int? ?? 0) : 0;
+                return ElevatedButton.icon(
+                  onPressed: () {
+                    context.beamToNamed('/upload-failures');
+                  },
+                  style: n > 0
+                      ? ElevatedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        )
+                      : null,
+                  icon: n > 0
+                      ? const Icon(Icons.warning_amber_rounded, size: 18)
+                      : const Icon(Icons.outbox_outlined, size: 18),
+                  label: Text(
+                    n > 0 ? 'Nicht übernommene Uploads ($n)' : 'Nicht übernommene Uploads',
+                  ),
+                );
+              },
             ),
             /*ElevatedButton(
               onPressed: () {

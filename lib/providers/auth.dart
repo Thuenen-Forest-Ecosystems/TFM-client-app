@@ -179,10 +179,14 @@ class AuthProvider extends ChangeNotifier {
             data.event == AuthChangeEvent.tokenRefreshed)) {
       try {
         final didSwitch = await switchUserDatabase(sessionUserId);
-        // Only (re)connect when we actually swapped to a new per-user db.
-        // Calling db.connect() on every tokenRefreshed would restart the sync
-        // connection and make in-progress downloads start over from scratch.
-        if (didSwitch) {
+        // (Re)connect when we swapped to a new per-user db — or when sync is
+        // currently down. The latter covers the re-login of the SAME user in
+        // the same process: signedOut has already called db.disconnect(), but
+        // switchUserDatabase returns false, so sync used to stay dead until
+        // the app was restarted (and the upload queue with it).
+        // Still never reconnect while connected: db.connect() on every
+        // tokenRefreshed would restart in-progress downloads from scratch.
+        if (didSwitch || !db.currentStatus.connected) {
           db.connect(connector: SupabaseConnector());
         }
       } catch (e) {
