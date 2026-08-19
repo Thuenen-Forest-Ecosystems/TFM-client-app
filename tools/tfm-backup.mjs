@@ -25,6 +25,7 @@ const TAG_LENGTH = 16;
 const HKDF_INFO = Buffer.from('tfm-backup-v1', 'ascii');
 // DER prefix for an X25519 SubjectPublicKeyInfo — Node has no raw-key import.
 const SPKI_PREFIX = Buffer.from('302a300506032b656e032100', 'hex');
+const ZIP_MAGIC = Buffer.from('504b0304', 'hex');
 
 const rawPublicKey = (key) => key.export({ type: 'spki', format: 'der' }).subarray(-32);
 
@@ -44,12 +45,29 @@ function decrypt(inPath, outPath, keyPath) {
 
   const fd = fs.openSync(inPath, 'r');
   const size = fs.fstatSync(fd).size;
+  // Identify the file before creating any output: handing back a half-written
+  // .zip that turns out to be nothing of the sort is how a support case ends
+  // up chasing a "corrupt database" that never existed.
+  const probe = readUpTo(fd, 0, Math.min(HEADER_LENGTH, size));
+  if (probe.subarray(0, 4).equals(ZIP_MAGIC)) {
+    fs.closeSync(fd);
+    throw new Error(`${inPath} is already a plain ZIP — that build had no recipient key configured, just unzip it`);
+  }
+  if (size < HEADER_LENGTH || !probe.subarray(0, 6).equals(MAGIC)) {
+    fs.closeSync(fd);
+    throw new Error(`${inPath} is not a TFM backup container`);
+  }
+
   const out = fs.openSync(outPath, 'w');
+  let complete = false;
   try {
-    const header = readExactly(fd, 0, HEADER_LENGTH);
-    if (!header.subarray(0, 6).equals(MAGIC)) throw new Error('not a TFM backup container');
-    if (header[6] !== FORMAT_VERSION) throw new Error(`unsupported format version ${header[6]}`);
-    if (header[7] !== SUITE_X25519_AES_GCM) throw new Error(`unsupported suite ${header[7]}`);
+    const header = probe;
+    if (header[6] !== FORMAT_VERSION) {
+      throw new Error(`unsupported format version ${header[6]} — this backup needs a newer tfm-backup.mjs`);
+    }
+    if (header[7] !== SUITE_X25519_AES_GCM) {
+      throw new Error(`unsupported suite ${header[7]} — this backup needs a newer tfm-backup.mjs`);
+    }
     const ephemeralRaw = header.subarray(8, 40);
 
     const shared = crypto.diffieHellman({
@@ -78,15 +96,27 @@ function decrypt(inPath, outPath, keyPath) {
       const decipher = crypto.createDecipheriv('aes-256-gcm', key, nonce(counter, isFinal));
       decipher.setAAD(header);
       decipher.setAuthTag(body.subarray(length - TAG_LENGTH));
-      const plain = Buffer.concat([decipher.update(body.subarray(0, length - TAG_LENGTH)), decipher.final()]);
+      let plain;
+      try {
+        plain = Buffer.concat([decipher.update(body.subarray(0, length - TAG_LENGTH)), decipher.final()]);
+      } catch {
+        // Node reports every GCM failure as "unable to authenticate data",
+        // which tells a support case nothing. The causes are worth naming.
+        throw new Error(
+          `chunk ${counter} failed authentication — wrong private key, or the file was altered or truncated`,
+        );
+      }
       fs.writeSync(out, plain);
       counter++;
     }
     if (counter === 0) throw new Error('container has no chunks');
+    complete = true;
     console.log(`ok — ${counter} chunk(s) authenticated, wrote ${outPath}`);
   } finally {
     fs.closeSync(fd);
     fs.closeSync(out);
+    // Never leave a partial archive behind — it would look like a backup.
+    if (!complete) fs.rmSync(outPath, { force: true });
   }
 }
 
@@ -98,10 +128,17 @@ function nonce(counter, isFinal) {
 }
 
 function readExactly(fd, position, length) {
+  const buf = readUpTo(fd, position, length);
+  if (buf.length !== length) {
+    throw new Error(`truncated container: wanted ${length} bytes at offset ${position}, got ${buf.length}`);
+  }
+  return buf;
+}
+
+function readUpTo(fd, position, length) {
   const buf = Buffer.alloc(length);
   const read = fs.readSync(fd, buf, 0, length, position);
-  if (read !== length) throw new Error(`unexpected end of file at ${position} (wanted ${length}, got ${read})`);
-  return buf;
+  return buf.subarray(0, read);
 }
 
 const [command, ...rest] = process.argv.slice(2);
@@ -111,15 +148,30 @@ const flag = (name) => {
 };
 const positional = rest.filter((a, i) => !a.startsWith('--') && !(i > 0 && rest[i - 1].startsWith('--')));
 
+// Errors are reported as one line, not a stack trace: this runs during
+// support cases, on machines whose owner did not write it.
+const fail = (message) => {
+  console.error(`error: ${message}`);
+  process.exit(1);
+};
+
 if (command === 'keygen') {
-  keygen(flag('--out') ?? process.cwd());
+  try {
+    keygen(flag('--out') ?? process.cwd());
+  } catch (err) {
+    fail(err.message);
+  }
 } else if (command === 'decrypt') {
   const keyPath = flag('--key');
   if (positional.length < 2 || !keyPath) {
     console.error('usage: node tools/tfm-backup.mjs decrypt <backup.tfmbak> <out.zip> --key <private.pem>');
     process.exit(2);
   }
-  decrypt(positional[0], positional[1], keyPath);
+  try {
+    decrypt(positional[0], positional[1], keyPath);
+  } catch (err) {
+    fail(err.message);
+  }
 } else {
   console.error('usage: node tools/tfm-backup.mjs keygen [--out <dir>]');
   console.error('       node tools/tfm-backup.mjs decrypt <backup.tfmbak> <out.zip> --key <private.pem>');

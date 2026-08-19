@@ -162,6 +162,12 @@ class DatabaseBackupButton extends StatefulWidget {
 class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
   bool _busy = false;
 
+  /// Whether a recipient key is configured. Decides both the container the
+  /// backup lands in and what the button may promise the user — a label
+  /// saying ZIP while the file is sealed sends people to support with an
+  /// archive they cannot open and no idea why.
+  late final bool _seals = parseBackupRecipientKey(_configuredRecipientKey()) != null;
+
   Future<void> _backup() async {
     setState(() => _busy = true);
     Directory? workDir;
@@ -315,7 +321,13 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.archive_outlined, size: 18),
-          label: Text(_busy ? 'Backup wird erstellt …' : 'Backup aller Datenbanken (ZIP)'),
+          label: Text(
+            _busy
+                ? 'Backup wird erstellt …'
+                : _seals
+                ? 'Backup aller Datenbanken (verschlüsselt)'
+                : 'Backup aller Datenbanken (ZIP)',
+          ),
         ),
       ),
     );

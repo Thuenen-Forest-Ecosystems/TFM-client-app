@@ -1,0 +1,7 @@
+# Working folder for backups pulled off a device (see ../tools/README.md).
+#
+# The folder is tracked, its contents never are: a .tfmbak — or the ZIP and
+# .db files it unpacks to — is a complete copy of one field device's database,
+# personal data included. Only this file may be committed.
+*
+!.gitignore
