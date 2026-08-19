@@ -272,14 +272,30 @@ jobs:
           # Compile installer
           & $innoPath "installer.iss"
 
+      # Uploaded with the preinstalled gh CLI rather than
+      # softprops/action-gh-release: that action PATCHes the whole release
+      # (name, body, prerelease, make_latest) before attaching anything, and it
+      # is that call — not the upload — that returned a body-less HttpError on
+      # v1.1.14+129 and v1.1.16+131 while v1.1.15+130 passed with identical
+      # inputs. We only ever want the asset attached, and a flaky API response
+      # should cost a retry rather than a 15-minute rebuild.
       - name: Upload artifacts to release
-        uses: softprops/action-gh-release@v2
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
-        with:
-          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
-          files: build/installer/TFM-Setup.exe
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+        run: |
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" build/installer/TFM-Setup.exe --clobber; then
+              echo "TFM-Setup.exe attached to $TAG on attempt $attempt"
+              exit 0
+            fi
+            echo "attempt $attempt failed"
+            sleep $((attempt * 15))
+          done
+          echo "::error::could not attach TFM-Setup.exe to $TAG after 3 attempts"
+          exit 1
 
       - name: Re-enable Windows Defender
         if: always()
