@@ -229,7 +229,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
     // Without inactive database files there is nothing to tab — plain page.
     if (_dbsLoading || _otherDbs.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Nicht übernommene Uploads')),
+        appBar: AppBar(title: const Text('Sicherungen')),
         body: _buildQuarantineBody(context),
         bottomNavigationBar: const DatabaseBackupButton(),
       );
@@ -261,7 +261,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
       length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Nicht übernommene Uploads'),
+          title: const Text('Sicherungen'),
           bottom: TabBar(
             isScrollable: true,
             labelColor: onAppBar,

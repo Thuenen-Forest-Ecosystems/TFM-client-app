@@ -181,7 +181,7 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
             'online gehen und den Sync-Status prüfen.';
       case _TransferState.rejected:
         return 'Der Server hat diese Änderung nicht übernommen. Die Daten sind '
-            'lokal gesichert und stehen unter „Nicht übernommene Uploads" im '
+            'lokal gesichert und stehen unter „Sicherungen" im '
             'Profil zur Wiederherstellung bereit.';
     }
   }

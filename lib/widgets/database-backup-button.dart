@@ -1,34 +1,49 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:convert/convert.dart';
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:terrestrial_forest_monitor/services/backup_crypto.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
+/// Name of the `.env` key holding the base64 X25519 public key of whoever is
+/// allowed to open backups. Unset (the default) means backups stay plain ZIPs.
+const String _recipientKeyEnvName = 'BACKUP_RECIPIENT_KEY';
+
 /// Copies every non-active TFM database file (incl. -wal/-shm journals) into
-/// [workDirPath], writes a manifest, and zips the directory to [zipPath].
+/// [workDirPath], writes a manifest, zips the directory to [zipPath] and — if
+/// a recipient key is configured — seals the ZIP to [sealedPath].
 ///
-/// Runs in a background isolate via [compute]: deflate is CPU-heavy pure-Dart
-/// work that would otherwise block the UI thread long enough for an ANR kill.
-/// Only plain dart:io is used here — no platform channels (they are
-/// unavailable in background isolates), which is why all paths are resolved
-/// by the caller and passed in as strings.
+/// Runs in a background isolate via [compute]: deflate and AES are CPU-heavy
+/// pure-Dart work that would otherwise block the UI thread long enough for an
+/// ANR kill. Only plain dart:io is used here — no platform channels (they are
+/// unavailable in background isolates), which is why all paths, the app
+/// version, the integrity-check result and the recipient key are resolved by
+/// the caller and passed in.
 ///
 /// MUST stay a top-level function taking one sendable record: a closure
 /// created inside the widget's method would capture the enclosing context
 /// (including the State object via setState) and fail to cross the isolate
 /// boundary with "object is unsendable".
-Future<int> _stageAndZip(
+Future<({String path, int size, bool sealed})> _stageAndZip(
   ({
     String supportDirPath,
     String workDirPath,
     String base,
     String activeName,
     String zipPath,
+    String sealedPath,
     String timestampIso,
+    String appVersion,
+    String integrityCheck,
+    Uint8List? recipientKey,
   })
   job,
 ) async {
@@ -54,15 +69,28 @@ Future<int> _stageAndZip(
   }
 
   // Manifest so support can see what this backup contains.
+  //
+  // The per-file SHA-256 is not a tamper control — whoever can edit a database
+  // can recompute the hash, and the ZIP's own CRC32 already catches transit
+  // damage. It is an identity: it lets support say "this is the same file you
+  // sent in August", match a re-packed copy against the original, and spot a
+  // backup that was accidentally exported twice from different devices. What
+  // answers "was the database already broken on the device?" is the
+  // integrity-check line, which the caller obtained from SQLite itself.
   final files = workDir.listSync().whereType<File>().toList()
     ..sort((a, b) => a.path.compareTo(b.path));
   final manifest = StringBuffer()
     ..writeln('TFM Datenbank-Backup')
     ..writeln('Erstellt: $timestampIso')
+    ..writeln('App-Version: ${job.appVersion}')
     ..writeln('Aktive Datenbank: $activeName (Snapshot via VACUUM INTO)')
+    ..writeln('PRAGMA quick_check: ${job.integrityCheck}')
     ..writeln('Dateien:');
   for (final f in files) {
-    manifest.writeln('  ${p.basename(f.path)} (${f.lengthSync()} Bytes)');
+    manifest.writeln(
+      '  ${p.basename(f.path)} (${f.lengthSync()} Bytes)\n'
+      '    sha256: ${_sha256OfFile(f)}',
+    );
   }
   File(p.join(workDirPath, 'manifest.txt')).writeAsStringSync(manifest.toString());
 
@@ -71,7 +99,43 @@ Future<int> _stageAndZip(
   await encoder.addDirectory(workDir, includeDirName: false);
   encoder.close();
 
-  return File(zipPath).lengthSync();
+  final recipientKey = job.recipientKey;
+  if (recipientKey == null) {
+    return (path: zipPath, size: File(zipPath).lengthSync(), sealed: false);
+  }
+
+  final sealedSize = await sealFile(
+    sourcePath: zipPath,
+    targetPath: job.sealedPath,
+    recipientPublicKey: recipientKey,
+  );
+  // Drop the cleartext ZIP immediately — leaving it in the temp directory
+  // would defeat the point of sealing the copy the user gets to keep.
+  try {
+    File(zipPath).deleteSync();
+  } catch (_) {}
+  return (path: job.sealedPath, size: sealedSize, sealed: true);
+}
+
+/// SHA-256 of a file, read in 1 MiB chunks — a database snapshot can be
+/// hundreds of megabytes and must not be materialised in memory.
+String _sha256OfFile(File file) {
+  final output = AccumulatorSink<Digest>();
+  final input = sha256.startChunkedConversion(output);
+  final handle = file.openSync();
+  try {
+    while (true) {
+      final chunk = handle.readSync(1 << 20);
+      if (chunk.isEmpty) break;
+      input.add(chunk);
+    }
+  } finally {
+    handle.closeSync();
+  }
+  input.close();
+  final digest = output.events.single;
+  output.close();
+  return digest.toString();
 }
 
 /// Bottom-bar button that packs ALL local TFM database files into a ZIP and
@@ -82,6 +146,12 @@ Future<int> _stageAndZip(
 /// produces a consistent single-file copy. Inactive files (legacy shared db,
 /// other users' files) are copied as-is together with their -wal/-shm
 /// journals, so un-checkpointed changes are not lost.
+///
+/// With [_recipientKeyEnvName] configured the ZIP is sealed to that recipient
+/// (`.tfmbak`, see [sealFile]) because the archive carries personal data —
+/// Trupp members, plot coordinates — across the user's Downloads folder and an
+/// e-mail attachment. Without it the backup stays a plain ZIP: an unreadable
+/// backup would be worse than an unsealed one.
 class DatabaseBackupButton extends StatefulWidget {
   const DatabaseBackupButton({super.key});
 
@@ -95,7 +165,7 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
   Future<void> _backup() async {
     setState(() => _busy = true);
     Directory? workDir;
-    File? zipFile;
+    File? outputFile;
     try {
       // Resolve everything that needs platform channels on the main isolate.
       final tempDir = await getTemporaryDirectory();
@@ -103,6 +173,8 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
       final base = await getDatabaseBaseName();
       final activePath = await getActiveDatabasePath();
       final activeName = p.basename(activePath);
+      final packageInfo = await PackageInfo.fromPlatform();
+      final recipientKey = parseBackupRecipientKey(_configuredRecipientKey());
 
       final now = DateTime.now();
       final stamp =
@@ -112,6 +184,16 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
         p.join(tempDir.path, 'tfm-db-backup-$stamp'),
       ).create(recursive: true);
       final zipPath = p.join(tempDir.path, 'tfm-datenbank-backup-$stamp.zip');
+      final sealedPath = p.join(
+        tempDir.path,
+        'tfm-datenbank-backup-$stamp.$sealedBackupExtension',
+      );
+
+      // Ask SQLite whether the live database is sound BEFORE snapshotting it.
+      // This is the one line that separates "the file was damaged in transit"
+      // from "the database on the device was already broken" — the question
+      // support has to answer first in a data-loss case.
+      final integrityCheck = await _quickCheck();
 
       // Consistent snapshot of the active (open, live-written) database.
       // Runs on the database's own worker, does not block the UI thread.
@@ -129,29 +211,33 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
         }
       }
 
-      // Stage the remaining files and zip — in a background isolate, so the
-      // CPU-heavy deflate cannot freeze the UI (previously caused an ANR).
+      // Stage the remaining files, zip and seal — in a background isolate, so
+      // the CPU-heavy deflate cannot freeze the UI (previously caused an ANR).
       // compute() with a top-level function + record message keeps the
       // isolate payload free of unsendable captures (see _stageAndZip doc).
-      final zipSize = await compute(_stageAndZip, (
+      final result = await compute(_stageAndZip, (
         supportDirPath: supportDir.path,
         workDirPath: workDir.path,
         base: base,
         activeName: activeName,
         zipPath: zipPath,
+        sealedPath: sealedPath,
         timestampIso: now.toIso8601String(),
+        appVersion: '${packageInfo.version}+${packageInfo.buildNumber}',
+        integrityCheck: integrityCheck,
+        recipientKey: recipientKey,
       ));
-      zipFile = File(zipPath);
+      outputFile = File(result.path);
 
       // file_picker needs the bytes only on Android/iOS (it writes the file
-      // itself there). Desktop ignores them — don't load the ZIP into RAM.
+      // itself there). Desktop ignores them — don't load the archive into RAM.
       final needsBytes = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
       final savedPath = await FilePicker.saveFile(
         dialogTitle: 'Datenbank-Backup speichern',
-        fileName: p.basename(zipPath),
+        fileName: p.basename(result.path),
         type: FileType.custom,
-        allowedExtensions: ['zip'],
-        bytes: needsBytes ? await zipFile.readAsBytes() : null,
+        allowedExtensions: [result.sealed ? sealedBackupExtension : 'zip'],
+        bytes: needsBytes ? await outputFile.readAsBytes() : null,
       );
       if (savedPath == null) return; // user cancelled
 
@@ -160,13 +246,14 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
       // path — dart:io must not touch it. Only on desktop, where the dialog
       // merely returns the chosen path, do we write the file ourselves.
       if (!needsBytes) {
-        await zipFile.copy(savedPath);
+        await outputFile.copy(savedPath);
       }
-      final sizeMb = zipSize / (1024 * 1024);
+      final sizeMb = result.size / (1024 * 1024);
+      final kind = result.sealed ? 'Backup verschlüsselt gespeichert' : 'Backup gespeichert';
       _showSnack(
         needsBytes
-            ? 'Backup gespeichert (${sizeMb.toStringAsFixed(1)} MB)'
-            : 'Backup gespeichert (${sizeMb.toStringAsFixed(1)} MB): $savedPath',
+            ? '$kind (${sizeMb.toStringAsFixed(1)} MB)'
+            : '$kind (${sizeMb.toStringAsFixed(1)} MB): $savedPath',
       );
     } catch (e) {
       _showSnack('Backup fehlgeschlagen: $e');
@@ -175,9 +262,32 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
         workDir?.deleteSync(recursive: true);
       } catch (_) {}
       try {
-        zipFile?.deleteSync();
+        outputFile?.deleteSync();
       } catch (_) {}
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The configured recipient key, or null when `.env` was never loaded
+  /// (flutter_dotenv throws instead of returning an empty map in that case).
+  String? _configuredRecipientKey() {
+    try {
+      return dotenv.env[_recipientKeyEnvName];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// `PRAGMA quick_check` on the live database, rendered as one manifest line.
+  /// Never fails the backup: a database too broken to answer is exactly the
+  /// case the backup needs to survive.
+  Future<String> _quickCheck() async {
+    try {
+      final rows = await db.getAll('PRAGMA quick_check');
+      final results = rows.map((row) => row.values.first?.toString() ?? '?').toList();
+      return results.isEmpty ? 'keine Ausgabe' : results.join('; ');
+    } catch (e) {
+      return 'nicht ausführbar ($e)';
     }
   }
 

@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.1.15+130
+version: 1.1.16+131
 
 environment:
   sdk: ">=3.9.2 <4.0.0"
@@ -80,6 +80,9 @@ dependencies:
   #brick_supabase: ^2.0.0
   uuid: ^4.5.1
   archive: ^3.6.1 # ZIP export of local database files (backup button)
+  crypto: ^3.0.6 # SHA-256 checksums in the backup manifest
+  convert: ^3.1.1 # chunked SHA-256 (AccumulatorSink) for multi-hundred-MB db files
+  cryptography: ^2.7.0 # X25519 + AES-GCM sealing of the backup ZIP (pure Dart: works in background isolates)
   sqflite: ^2.4.1
   shared_preferences: ^2.3.5
   #speech_to_text: ^7.3.0

@@ -131,7 +131,7 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
         ),
         '/upload-failures': (context, state, data) => BeamPage(
           key: ValueKey('upload-failures'),
-          title: 'Nicht übernommene Uploads',
+          title: 'Sicherungen',
           child: UploadFailuresScreen(),
           type: BeamPageType.noTransition,
         ),

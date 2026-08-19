@@ -10,6 +10,7 @@ import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
+import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/gnss-test-btn.dart';
@@ -173,7 +174,7 @@ class _ProfileState extends State<Profile> {
                     if (quarantined > 0)
                       Text(
                         '• $quarantined gesicherte(r) Eintrag/Einträge unter '
-                        '„Nicht übernommene Uploads"',
+                        '„Sicherungen"',
                         style: TextStyle(color: Colors.red.shade900),
                       ),
                     const SizedBox(height: 6),
@@ -302,6 +303,32 @@ class _ProfileState extends State<Profile> {
                 },
               ),
             ),
+            // Quarantined uploads (upload_failures dead-letter) — red when
+            // entries exist, so rejected writes are impossible to miss.
+            StreamBuilder(
+              stream: db.watch('SELECT COUNT(*) AS n FROM upload_failures'),
+              builder: (context, snapshot) {
+                final rows = snapshot.data;
+                final n = (rows != null && rows.isNotEmpty) ? (rows.first['n'] as int? ?? 0) : 0;
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
+                      n > 0 ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
+                      color: n > 0 ? Colors.red : null,
+                    ),
+                    title: Text(
+                      n > 0 ? 'Sicherungen ($n)' : 'Sicherungen',
+                      style: n > 0 ? const TextStyle(color: Colors.red) : null,
+                    ),
+                    subtitle: const Text('Nicht übertragene Daten wiederherstellen'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      context.beamToNamed('/upload-failures');
+                    },
+                  ),
+                );
+              },
+            ),
 
             /*const SizedBox(height: 16),
             // In your profile or settings screen
@@ -401,46 +428,28 @@ class _ProfileState extends State<Profile> {
               },
             ),
 
-            const SizedBox(height: 16),
-            // Button to logger.dart
-            ElevatedButton(
-              onPressed: () {
-                context.beamToNamed('/records-raw');
-              },
-              child: Text(l10n.profileShowRecords),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                context.beamToNamed('/synced_tables');
-              },
-              child: Text(l10n.profileShowSyncedTables),
-            ),
-            // Quarantined uploads (upload_failures dead-letter) — red when
-            // entries exist, so rejected writes are impossible to miss.
-            StreamBuilder(
-              stream: db.watch('SELECT COUNT(*) AS n FROM upload_failures'),
-              builder: (context, snapshot) {
-                final rows = snapshot.data;
-                final n = (rows != null && rows.isNotEmpty) ? (rows.first['n'] as int? ?? 0) : 0;
-                return ElevatedButton.icon(
-                  onPressed: () {
-                    context.beamToNamed('/upload-failures');
-                  },
-                  style: n > 0
-                      ? ElevatedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        )
-                      : null,
-                  icon: n > 0
-                      ? const Icon(Icons.warning_amber_rounded, size: 18)
-                      : const Icon(Icons.outbox_outlined, size: 18),
-                  label: Text(
-                    n > 0 ? 'Nicht übernommene Uploads ($n)' : 'Nicht übernommene Uploads',
+            // Technical/diagnostic screens — only for database admins, like the
+            // other debug tooling (diagnostic export, sync status details).
+            IfDatabaseAdmin(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  // Button to logger.dart
+                  ElevatedButton(
+                    onPressed: () {
+                      context.beamToNamed('/records-raw');
+                    },
+                    child: Text(l10n.profileShowRecords),
                   ),
-                );
-              },
-            ),
-            /*ElevatedButton(
+                  ElevatedButton(
+                    onPressed: () {
+                      context.beamToNamed('/synced_tables');
+                    },
+                    child: Text(l10n.profileShowSyncedTables),
+                  ),
+                  /*ElevatedButton(
               onPressed: () {
                 db.getAll('SELECT * FROM lookup_tree_species').then((value) {
                   for (var row in value) {
@@ -449,11 +458,14 @@ class _ProfileState extends State<Profile> {
               },
               child: const Text('Tree Species'),
             ),*/
-            ElevatedButton(
-              onPressed: () {
-                context.beamToNamed('/logs');
-              },
-              child: Text(l10n.profileShowLogs),
+                  ElevatedButton(
+                    onPressed: () {
+                      context.beamToNamed('/logs');
+                    },
+                    child: Text(l10n.profileShowLogs),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
