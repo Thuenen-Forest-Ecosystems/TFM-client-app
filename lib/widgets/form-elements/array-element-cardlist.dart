@@ -56,33 +56,50 @@ class ArrayElementCardList extends StatefulWidget {
 }
 
 class ArrayElementCardListState extends State<ArrayElementCardList> {
+  /// Every entry of the bound array, including the rows hidden by `filterBy`.
+  /// Kept around so a write never drops rows this list does not own.
+  late List<Map<String, dynamic>> _allRows;
+
+  /// The rows this list renders – the same Map instances as in [_allRows].
   late List<Map<String, dynamic>> _rows;
 
   @override
   void initState() {
     super.initState();
-    _rows = _buildRows();
+    _rebuildRows();
   }
 
   @override
   void didUpdateWidget(ArrayElementCardList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.data != oldWidget.data) {
-      setState(() {
-        _rows = _buildRows();
-      });
+      setState(_rebuildRows);
     }
   }
 
-  List<Map<String, dynamic>> _buildRows() {
-    if (widget.data == null) return [];
-    return widget.data!
-        .map((e) => Map<String, dynamic>.from((e as Map?)?.cast<String, dynamic>() ?? {}))
-        .toList();
+  /// Field/value pairs a row must match to belong to this list, e.g.
+  /// `{"point_type": 5}` so the GNSS helping point list ignores the displaced
+  /// marker and landmark entries stored in the same `plot_support_points`
+  /// array. Empty (the default) means the list owns every row.
+  Map<String, dynamic> get _filterBy {
+    final raw = widget.layoutOptions?['filterBy'];
+    return raw is Map ? Map<String, dynamic>.from(raw) : const {};
+  }
+
+  bool _matchesFilter(Map<String, dynamic> row) =>
+      _filterBy.entries.every((e) => row[e.key] == e.value);
+
+  void _rebuildRows() {
+    _allRows =
+        widget.data
+            ?.map((e) => Map<String, dynamic>.from((e as Map?)?.cast<String, dynamic>() ?? {}))
+            .toList() ??
+        [];
+    _rows = _allRows.where(_matchesFilter).toList();
   }
 
   void _notifyDataChanged() {
-    widget.onDataChanged?.call(List<dynamic>.from(_rows));
+    widget.onDataChanged?.call(List<dynamic>.from(_allRows));
   }
 
   /// Find the previous-survey row matching [currentRowData], using the
@@ -173,6 +190,10 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     // 1. Seed from columnItems defaults (highest priority)
     newRow.addAll(_getColumnItemDefaults());
 
+    // Rows added here must satisfy this list's own filter, otherwise they
+    // would vanish from the UI the moment they are written back.
+    newRow.addAll(_filterBy);
+
     // 2. Fill remaining fields from schema defaults / type defaults
     if (properties != null) {
       properties.forEach((key, value) {
@@ -221,7 +242,9 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
 
   void _addRow() {
     setState(() {
-      _rows.add(_buildNewRow());
+      final newRow = _buildNewRow();
+      _allRows.add(newRow);
+      _rows.add(newRow);
     });
     _notifyDataChanged();
   }
@@ -244,7 +267,8 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     }
 
     setState(() {
-      _rows.removeAt(index);
+      final removed = _rows.removeAt(index);
+      _allRows.removeWhere((row) => identical(row, removed));
     });
     _notifyDataChanged();
   }

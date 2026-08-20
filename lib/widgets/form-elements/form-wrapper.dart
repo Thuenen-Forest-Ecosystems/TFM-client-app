@@ -13,6 +13,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-c
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/card-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/displaced-marker.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/landmark-points.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/manuell-relative-position.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/messages-chat.dart';
@@ -972,6 +973,21 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       if (layoutItem.component == 'displaced_marker') {
         // DisplacedMarker component - add/edit a single point_type=1 support point
         return DisplacedMarker(
+          jsonSchema: schemaProperties,
+          data: _localFormData,
+          previousProperties: _previousProperties,
+          validationResult: widget.validationResult,
+          onDataChanged: (updatedData) {
+            setState(() {
+              _localFormData.addAll(updatedData);
+            });
+            widget.onFormDataChanged?.call(Map<String, dynamic>.from(_localFormData));
+          },
+        );
+      }
+      if (layoutItem.component == 'landmark_points') {
+        // LandmarkPoints component - add/edit the point_type=2 support points
+        return LandmarkPoints(
           jsonSchema: schemaProperties,
           data: _localFormData,
           previousProperties: _previousProperties,
