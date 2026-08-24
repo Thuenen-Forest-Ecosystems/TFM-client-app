@@ -104,6 +104,7 @@ class _MapWidgetState extends State<MapWidget> {
   bool _showCrownCircles = true;
   bool _showClusterPolygons = true;
   bool _showProbekreise = true;
+  bool _showVerjuengungskreis = true;
   bool _showRettungspunkte = false;
   List<RettungspunktePoint> _rettungspunkte = [];
   List<RettungspunktePoint> _visibleRettungspunkte = [];
@@ -857,6 +858,10 @@ class _MapWidgetState extends State<MapWidget> {
       final savedShowProbekreise = prefs.getBool('show_probekreise');
       if (savedShowProbekreise != null) setState(() => _showProbekreise = savedShowProbekreise);
 
+      final savedShowVerjuengungskreis = prefs.getBool('show_verjuengungskreis');
+      if (savedShowVerjuengungskreis != null)
+        setState(() => _showVerjuengungskreis = savedShowVerjuengungskreis);
+
       final savedShowRettungspunkte = prefs.getBool('show_rettungspunkte');
       if (savedShowRettungspunkte != null)
         setState(() => _showRettungspunkte = savedShowRettungspunkte);
@@ -874,6 +879,7 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setBool('show_crown_circles', _showCrownCircles);
       await prefs.setBool('show_cluster_polygons', _showClusterPolygons);
       await prefs.setBool('show_probekreise', _showProbekreise);
+      await prefs.setBool('show_verjuengungskreis', _showVerjuengungskreis);
       await prefs.setBool('show_rettungspunkte', _showRettungspunkte);
     } catch (e) {}
   }
@@ -1506,6 +1512,11 @@ class _MapWidgetState extends State<MapWidget> {
         setState(() => _showProbekreise = value);
         _saveMapSettings();
       },
+      showVerjuengungskreis: _showVerjuengungskreis,
+      onShowVerjuengungskreisChanged: (value) {
+        setState(() => _showVerjuengungskreis = value);
+        _saveMapSettings();
+      },
       showRettungspunkte: _showRettungspunkte,
       onShowRettungspunkteChanged: (value) {
         setState(() => _showRettungspunkte = value);
@@ -1915,7 +1926,7 @@ class _MapWidgetState extends State<MapWidget> {
         //  SubplotLayers.buildMarkerLayer(_previousSubplotPositions, withOpacity: true),
 
         // Display CURRENT subplots (without opacity)
-        if (_subplotPositions.isNotEmpty)
+        if (_showVerjuengungskreis && _subplotPositions.isNotEmpty)
           SubplotLayers.buildCircleLayer(_subplotPositions, withOpacity: true),
         //if (_subplotPositions.isNotEmpty)
         //  SubplotLayers.buildMarkerLayer(_subplotPositions, withOpacity: false),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
 
 /// DisplacedMarker – widget for adding a single `plot_support_points` entry
-/// with `point_type = 1` ("versetzte Markierung") to the current record.
+/// ("versetzte Markierung") to the current record. The `point_type` it owns is
+/// declared by the style as `options.filterBy.point_type` and defaults to 1.
 ///
 /// Only visible when a point_type = 1 entry already exists OR
 /// marker_status is 2, 3 or 4; hidden entirely otherwise.
@@ -18,6 +20,10 @@ class DisplacedMarker extends StatefulWidget {
   final Map<String, dynamic>? data;
   final Map<String, dynamic>? previousProperties;
   final TFMValidationResult? validationResult;
+
+  /// Layout options of the style item, read for `filterBy.point_type`.
+  final Map<String, dynamic>? layoutOptions;
+
   final Function(Map<String, dynamic>)? onDataChanged;
 
   const DisplacedMarker({
@@ -26,6 +32,7 @@ class DisplacedMarker extends StatefulWidget {
     this.data,
     this.previousProperties,
     this.validationResult,
+    this.layoutOptions,
     this.onDataChanged,
   });
 
@@ -34,8 +41,12 @@ class DisplacedMarker extends StatefulWidget {
 }
 
 class _DisplacedMarkerState extends State<DisplacedMarker> {
-  static const int _pointType = 1;
+  /// Used when the style declares no `filterBy.point_type`.
+  static const int _defaultPointType = 1;
   static const Set<String> _relevantMarkerStatuses = {'2', '3', '4'};
+
+  /// The `plot_support_points.point_type` this widget owns.
+  int get _pointType => LayoutFilter.pointType(widget.layoutOptions) ?? _defaultPointType;
 
   final _azimuthController = TextEditingController();
   final _distanceController = TextEditingController();

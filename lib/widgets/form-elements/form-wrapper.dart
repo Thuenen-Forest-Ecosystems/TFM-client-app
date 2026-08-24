@@ -956,12 +956,13 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         );
       }
       if (layoutItem.component == 'plot_support_points') {
-        // PlotSupportPoints component - for manual position entry
+        // PlotSupportPoints component - previous inventory's support points
         return PlotSupportPoints(
           jsonSchema: schemaProperties,
           data: _localFormData,
           previousProperties: _previousProperties,
           validationResult: widget.validationResult,
+          layoutOptions: layoutItem.options,
           onDataChanged: (updatedData) {
             setState(() {
               _localFormData.addAll(updatedData);
@@ -971,12 +972,14 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         );
       }
       if (layoutItem.component == 'displaced_marker') {
-        // DisplacedMarker component - add/edit a single point_type=1 support point
+        // DisplacedMarker component - add/edit the versetzte Markierung; the
+        // point_type it owns comes from the style (options.filterBy.point_type)
         return DisplacedMarker(
           jsonSchema: schemaProperties,
           data: _localFormData,
           previousProperties: _previousProperties,
           validationResult: widget.validationResult,
+          layoutOptions: layoutItem.options,
           onDataChanged: (updatedData) {
             setState(() {
               _localFormData.addAll(updatedData);
@@ -986,12 +989,14 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         );
       }
       if (layoutItem.component == 'landmark_points') {
-        // LandmarkPoints component - add/edit the point_type=2 support points
+        // LandmarkPoints component - add/edit the markante Geländepunkte; the
+        // point_type it owns comes from the style (options.filterBy.point_type)
         return LandmarkPoints(
           jsonSchema: schemaProperties,
           data: _localFormData,
           previousProperties: _previousProperties,
           validationResult: widget.validationResult,
+          layoutOptions: layoutItem.options,
           onDataChanged: (updatedData) {
             setState(() {
               _localFormData.addAll(updatedData);

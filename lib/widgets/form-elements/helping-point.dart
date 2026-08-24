@@ -10,7 +10,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/manual-navigati
 /// for the `plot_support_points_grid` array.
 ///
 /// Allows the user to:
-/// 1. Record GPS position (10 measurements, aggregated with quality info).
+/// 1. Record GPS position (100 measurements, aggregated with quality info).
 /// 2. Add multiple navigation steps (azimuth + distance) via [ManualNavigationSteps].
 /// 3. The resulting total azimuth/distance from GPS start to calculated end is
 ///    written back into the row via [onDataChanged].
@@ -28,7 +28,7 @@ class HelpingPoint extends StatefulWidget {
 }
 
 class _HelpingPointState extends State<HelpingPoint> {
-  static const int _targetCount = 10;
+  static const int _targetCount = 100;
 
   LatLng? _capturedPosition;
 

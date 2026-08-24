@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
 
-/// LandmarkPoints – widget for adding `plot_support_points` entries with
-/// `point_type = 2` ("markanter Geländepunkt") to the current record.
+/// LandmarkPoints – widget for adding `plot_support_points` entries
+/// ("markanter Geländepunkt") to the current record. The `point_type` it owns
+/// is declared by the style as `options.filterBy.point_type` and defaults
+/// to 2.
 ///
 /// A landmark is a conspicuous – usually distant – terrain feature that helps
 /// to find the plot corner again. Per entry the crew records azimuth [gon] and
@@ -19,6 +22,10 @@ class LandmarkPoints extends StatefulWidget {
   final Map<String, dynamic>? data;
   final Map<String, dynamic>? previousProperties;
   final TFMValidationResult? validationResult;
+
+  /// Layout options of the style item, read for `filterBy.point_type`.
+  final Map<String, dynamic>? layoutOptions;
+
   final Function(Map<String, dynamic>)? onDataChanged;
 
   const LandmarkPoints({
@@ -27,6 +34,7 @@ class LandmarkPoints extends StatefulWidget {
     this.data,
     this.previousProperties,
     this.validationResult,
+    this.layoutOptions,
     this.onDataChanged,
   });
 
@@ -35,7 +43,11 @@ class LandmarkPoints extends StatefulWidget {
 }
 
 class _LandmarkPointsState extends State<LandmarkPoints> {
-  static const int _pointType = 2;
+  /// Used when the style declares no `filterBy.point_type`.
+  static const int _defaultPointType = 2;
+
+  /// The `plot_support_points.point_type` this widget owns.
+  int get _pointType => LayoutFilter.pointType(widget.layoutOptions) ?? _defaultPointType;
 
   /// One controller trio per landmark, in the order the landmarks appear in
   /// `plot_support_points`.

@@ -12,6 +12,7 @@ class MapSettingsModal extends StatefulWidget {
   final bool showCrownCircles;
   final bool showClusterPolygons;
   final bool showProbekreise;
+  final bool showVerjuengungskreis;
   final bool showRettungspunkte;
   final Function(Set<String>) onBasemapsChanged;
   final Function(double) onTreeDiameterMultiplierChanged;
@@ -21,6 +22,7 @@ class MapSettingsModal extends StatefulWidget {
   final Function(bool) onShowCrownCirclesChanged;
   final Function(bool) onShowClusterPolygonsChanged;
   final Function(bool) onShowProbekreiseChanged;
+  final Function(bool) onShowVerjuengungskreisChanged;
   final Function(bool) onShowRettungspunkteChanged;
 
   const MapSettingsModal({
@@ -33,6 +35,7 @@ class MapSettingsModal extends StatefulWidget {
     required this.showCrownCircles,
     required this.showClusterPolygons,
     required this.showProbekreise,
+    required this.showVerjuengungskreis,
     required this.showRettungspunkte,
     required this.onBasemapsChanged,
     required this.onTreeDiameterMultiplierChanged,
@@ -42,6 +45,7 @@ class MapSettingsModal extends StatefulWidget {
     required this.onShowCrownCirclesChanged,
     required this.onShowClusterPolygonsChanged,
     required this.onShowProbekreiseChanged,
+    required this.onShowVerjuengungskreisChanged,
     required this.onShowRettungspunkteChanged,
   });
 
@@ -56,6 +60,7 @@ class MapSettingsModal extends StatefulWidget {
     required bool showCrownCircles,
     required bool showClusterPolygons,
     required bool showProbekreise,
+    required bool showVerjuengungskreis,
     required bool showRettungspunkte,
     required Function(Set<String>) onBasemapsChanged,
     required Function(double) onTreeDiameterMultiplierChanged,
@@ -65,6 +70,7 @@ class MapSettingsModal extends StatefulWidget {
     required Function(bool) onShowCrownCirclesChanged,
     required Function(bool) onShowClusterPolygonsChanged,
     required Function(bool) onShowProbekreiseChanged,
+    required Function(bool) onShowVerjuengungskreisChanged,
     required Function(bool) onShowRettungspunkteChanged,
   }) {
     return showModalBottomSheet(
@@ -78,6 +84,7 @@ class MapSettingsModal extends StatefulWidget {
         showCrownCircles: showCrownCircles,
         showClusterPolygons: showClusterPolygons,
         showProbekreise: showProbekreise,
+        showVerjuengungskreis: showVerjuengungskreis,
         showRettungspunkte: showRettungspunkte,
         onBasemapsChanged: onBasemapsChanged,
         onTreeDiameterMultiplierChanged: onTreeDiameterMultiplierChanged,
@@ -87,6 +94,7 @@ class MapSettingsModal extends StatefulWidget {
         onShowCrownCirclesChanged: onShowCrownCirclesChanged,
         onShowClusterPolygonsChanged: onShowClusterPolygonsChanged,
         onShowProbekreiseChanged: onShowProbekreiseChanged,
+        onShowVerjuengungskreisChanged: onShowVerjuengungskreisChanged,
         onShowRettungspunkteChanged: onShowRettungspunkteChanged,
       ),
     );
@@ -105,6 +113,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
   late bool _showCrownCircles;
   late bool _showClusterPolygons;
   late bool _showProbekreise;
+  late bool _showVerjuengungskreis;
   late bool _showRettungspunkte;
 
   @override
@@ -118,6 +127,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
     _showCrownCircles = widget.showCrownCircles;
     _showClusterPolygons = widget.showClusterPolygons;
     _showProbekreise = widget.showProbekreise;
+    _showVerjuengungskreis = widget.showVerjuengungskreis;
     _showRettungspunkte = widget.showRettungspunkte;
   }
 
@@ -287,6 +297,15 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     onChanged: (value) {
                       setState(() => _showProbekreise = value ?? true);
                       widget.onShowProbekreiseChanged(_showProbekreise);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Verjüngungskreis'),
+                    subtitle: const Text('Aufnahmekreis der Verjüngung'),
+                    value: _showVerjuengungskreis,
+                    onChanged: (value) {
+                      setState(() => _showVerjuengungskreis = value ?? true);
+                      widget.onShowVerjuengungskreisChanged(_showVerjuengungskreis);
                     },
                   ),
                   CheckboxListTile(

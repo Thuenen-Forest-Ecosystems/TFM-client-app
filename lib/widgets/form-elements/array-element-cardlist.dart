@@ -3,6 +3,7 @@ import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/helping-point.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/row-delete-guard.dart';
 
 /// ArrayElementCardList – renders an array as a vertical list of Cards.
@@ -80,11 +81,17 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
   /// Field/value pairs a row must match to belong to this list, e.g.
   /// `{"point_type": 5}` so the GNSS helping point list ignores the displaced
   /// marker and landmark entries stored in the same `plot_support_points`
-  /// array. Empty (the default) means the list owns every row.
-  Map<String, dynamic> get _filterBy {
-    final raw = widget.layoutOptions?['filterBy'];
-    return raw is Map ? Map<String, dynamic>.from(raw) : const {};
-  }
+  /// array.
+  ///
+  /// Declared by the style as `options.filterBy`. A style that predates that
+  /// option falls back to the hidden constant fields this list stamps on every
+  /// row it creates (see [LayoutFilter.forList]), so foreign rows are never
+  /// rendered, counted against `maxRows` or deleted just because the deployed
+  /// style is older than the app. Empty means the list owns every row.
+  Map<String, dynamic> get _filterBy => LayoutFilter.forList(
+    layoutOptions: widget.layoutOptions,
+    columnItems: widget.columnItems,
+  );
 
   bool _matchesFilter(Map<String, dynamic> row) =>
       _filterBy.entries.every((e) => row[e.key] == e.value);
@@ -273,6 +280,14 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     _notifyDataChanged();
   }
 
+  /// Position of a rendered row inside the full array. Validation paths
+  /// address the record, so they must not use the row's index in the filtered
+  /// view – with a hidden row in front of it the two differ.
+  int _dataIndexOf(Map<String, dynamic> row) {
+    final index = _allRows.indexWhere((candidate) => identical(candidate, row));
+    return index >= 0 ? index : _rows.indexOf(row);
+  }
+
   void _updateRow(int index, Map<String, dynamic> updatedFields) {
     setState(() {
       _rows[index].addAll(updatedFields);
@@ -319,6 +334,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     // Match this row to its previous-survey counterpart (by identifierField) so
     // the field info dialog can show the previous value ("Vorgängererhebung").
     final previousRowData = _findMatchingPreviousRow(rowData);
+    final dataIndex = _dataIndexOf(rowData);
 
     if (widget.columnItems == null) {
       // Fallback: render all schema properties as a single form
@@ -332,7 +348,9 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             jsonSchema: schemaForForm,
             data: rowData,
             previous_properties: previousRowData,
-            propertyName: widget.propertyName != null ? '${widget.propertyName}/$index' : null,
+            propertyName: widget.propertyName != null
+                ? '${widget.propertyName}/$dataIndex'
+                : null,
             validationResult: widget.validationResult,
             onDataChanged: (updatedData) => _updateRow(index, updatedData),
           ),
@@ -361,7 +379,9 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             jsonSchema: schemaForForm,
             data: rowData,
             previous_properties: previousRowData,
-            propertyName: widget.propertyName != null ? '${widget.propertyName}/$index' : null,
+            propertyName: widget.propertyName != null
+                ? '${widget.propertyName}/$dataIndex'
+                : null,
             validationResult: widget.validationResult,
             includeProperties: fields,
             fieldOptions: fieldOptions.isNotEmpty ? fieldOptions : null,
@@ -436,7 +456,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
                   previousData: nestedPreviousData,
                   identifierField: nestedColumns?['identifierField'] as String?,
                   propertyName: widget.propertyName != null
-                      ? '${widget.propertyName}/$index/$fieldName'
+                      ? '${widget.propertyName}/$dataIndex/$fieldName'
                       : null,
                   columnConfig: nestedColumns,
                   layoutOptions: nestedOptions,

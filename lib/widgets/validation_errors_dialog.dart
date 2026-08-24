@@ -412,6 +412,21 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     return groupNames[firstPart] ?? 'Ecke';
   }
 
+  /// Render short_info.number_object (scalar, map, or list) as a single line
+  String _formatNumberObject(dynamic value) {
+    if (value is Map) {
+      final entries = value.entries
+          .where((e) => e.value != null)
+          .map((e) => '${e.key}: ${e.value}')
+          .join(', ');
+      return entries.isNotEmpty ? entries : value.toString();
+    }
+    if (value is List) {
+      return value.map(_formatNumberObject).join('; ');
+    }
+    return value.toString();
+  }
+
   int get _unacknowledgedErrorsCount {
     int count = 0;
     for (var i = 0; i < widget.validationResult.allErrors.length; i++) {
@@ -567,6 +582,11 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                           } else {
                             subtitleParts.add('Code: $code');
                           }
+                        }
+                        final numberObject = tfmError.numberObject;
+                        if (numberObject != null) {
+                          final label = tfmError.numberObjectName ?? 'Objekt';
+                          subtitleParts.add('$label: ${_formatNumberObject(numberObject)}');
                         }
                         if (instancePath != null && instancePath.isNotEmpty) {
                           subtitleParts.add('Pfad: $instancePath');

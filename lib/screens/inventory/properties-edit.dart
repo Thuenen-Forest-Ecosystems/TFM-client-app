@@ -971,6 +971,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       instancePath: strippedPath,
                       error: error.error,
                       debugInfo: error.debugInfo,
+                      shortInfo: error.shortInfo,
                     );
                   }).toList();
 

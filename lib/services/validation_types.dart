@@ -86,8 +86,9 @@ class TFMValidationError {
   final String? instancePath;
   final Map<String, dynamic>? error;
   final String? debugInfo;
+  final Map<String, dynamic>? shortInfo;
 
-  TFMValidationError({this.instancePath, this.error, this.debugInfo});
+  TFMValidationError({this.instancePath, this.error, this.debugInfo, this.shortInfo});
 
   factory TFMValidationError.fromJson(Map<String, dynamic> json) {
     final errorField = json['error'];
@@ -97,10 +98,12 @@ class TFMValidationError {
     } else if (errorField != null) {
       errorMap = {'type': 'error', 'text': errorField.toString()};
     }
+    final shortInfoField = json['short_info'];
     return TFMValidationError(
       instancePath: json['instancePath']?.toString(),
       error: errorMap,
       debugInfo: json['debugInfo']?.toString(),
+      shortInfo: shortInfoField is Map ? shortInfoField.cast<String, dynamic>() : null,
     );
   }
 
@@ -109,6 +112,12 @@ class TFMValidationError {
   bool get isWarning => type == 'warning';
   String get message => error?['text']?.toString() ?? 'Unknown TFM error';
   String? get note => error?['note']?.toString();
+
+  /// Label of the numbered object affected by this error (e.g. 'Bestandesschicht')
+  String? get numberObjectName => shortInfo?['number_object_name']?.toString();
+
+  /// Content of the numbered object affected by this error (scalar or map)
+  dynamic get numberObject => shortInfo?['number_object'];
 
   String get displayMessage =>
       (instancePath != null && instancePath!.isNotEmpty) ? '$instancePath: $message' : message;
