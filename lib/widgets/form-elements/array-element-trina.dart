@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -501,6 +502,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
       config['groupBy'] = layoutConfig['groupBy'];
       config['readonly'] = layoutConfig['readonly'];
       config['title'] = layoutConfig['title'];
+      config['webOnly'] = layoutConfig['webOnly'];
     }
 
     // Fallback to schema $tfm.form if layout config not provided
@@ -514,6 +516,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     config['autoIncrement'] ??= form?['autoIncrement'];
     config['groupBy'] ??= form?['groupBy'];
     config['readonly'] ??= propertySchema['readOnly'] ?? propertySchema['readonly'];
+    config['webOnly'] ??= uiOptions?['webOnly'];
 
     return config;
   }
@@ -890,6 +893,9 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
         final fieldName = itemConfig['name'] as String?;
         if (fieldName == null) return null;
         if (itemConfig['display'] == false) return null;
+        // Columns flagged "webOnly" exist for the browser build only (e.g. read-only
+        // provenance fields shown when browsing past inventories).
+        if (itemConfig['webOnly'] == true && !kIsWeb) return null;
 
         // Get schema for this field (or create synthetic for calculated)
         Map<String, dynamic> propertySchema;
@@ -1083,6 +1089,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
       // Skip if explicitly set to not display
       if (config['display'] == false) {
+        continue;
+      }
+
+      // Skip web-only columns on non-web builds
+      if (config['webOnly'] == true && !kIsWeb) {
         continue;
       }
 
@@ -1386,6 +1397,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
       // Skip if explicitly set to not display
       if (config['display'] == false) {
+        continue;
+      }
+
+      // Skip web-only columns on non-web builds
+      if (config['webOnly'] == true && !kIsWeb) {
         continue;
       }
 

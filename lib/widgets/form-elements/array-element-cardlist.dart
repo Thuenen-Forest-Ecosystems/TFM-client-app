@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
@@ -475,7 +476,9 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
 
       // Primitive field
       final name = item['name'] as String?;
-      if (name != null && item['display'] != false) {
+      // Fields flagged "webOnly" are rendered in the browser build only.
+      final webOnly = item['webOnly'] == true;
+      if (name != null && item['display'] != false && (!webOnly || kIsWeb)) {
         pendingFields.add(name);
       }
     }
