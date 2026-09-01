@@ -97,6 +97,7 @@ Future<bool> switchUserDatabase(String userId) async {
   // Initialise the new db before making it visible to the rest of the app.
   final newDb = PowerSyncDatabase(schema: schema, path: userDbPath, logger: attachedLogger);
   await newDb.initialize();
+  await purgeEmptyPayloadFailures(newDb);
 
   // Atomic swap — from this point all callers use the new db.
   db = newDb;
@@ -320,6 +321,8 @@ Future<PowerSyncDatabase> openDatabase() async {
     rethrow;
   }
 
+  await purgeEmptyPayloadFailures(db);
+
   try {
     var config = await getServerConfig();
 
@@ -427,6 +430,49 @@ Future<void> _quarantineOp(
   );
 }
 
+/// True for a queued PATCH that carries no columns at all.
+///
+/// PowerSync builds a PATCH payload with `powersync_diff(old, new)`: an
+/// `UPDATE` writing values identical to the stored ones produces an empty
+/// diff, and the op is queued regardless. PostgREST answers such an
+/// empty-payload PATCH with an empty result set — indistinguishable from the
+/// RLS-blocked case in [SupabaseConnector.uploadData], which therefore
+/// quarantined the op as `rls_zero_rows`: a data-loss alarm for an op that
+/// never carried data. Skipping it sends nothing and loses nothing.
+bool isNoOpPatchPayload(UpdateType op, Map<String, dynamic>? data) =>
+    op == UpdateType.patch && (data == null || data.isEmpty);
+
+/// SQL predicate matching the quarantine entries [isNoOpPatchPayload]
+/// describes — PATCH ops whose stored payload is empty.
+const String _emptyPayloadFailureWhere =
+    "op = 'patch' AND (op_data IS NULL OR trim(op_data) IN ('', '{}'))";
+
+/// Removes quarantine entries that never carried data — the `rls_zero_rows`
+/// false positives written before [isNoOpPatchPayload] existed. Returns the
+/// number of removed entries.
+///
+/// Runs on every database open and user switch so a device carrying such an
+/// entry stops raising the red upload alarm without the user having to
+/// discard it by hand. Entries with an actual payload are never touched.
+Future<int> purgeEmptyPayloadFailures(PowerSyncDatabase database) async {
+  try {
+    final rows = await database.getAll(
+      'SELECT id FROM upload_failures WHERE $_emptyPayloadFailureWhere',
+    );
+    if (rows.isEmpty) return 0;
+    await database.execute('DELETE FROM upload_failures WHERE $_emptyPayloadFailureWhere');
+    LogService().log(
+      '🧹 ${rows.length} leere Upload-Meldung(en) entfernt '
+      '(Patch ohne Daten — kein Datenverlust).',
+      level: LogLevel.info,
+    );
+    return rows.length;
+  } catch (e) {
+    log.warning('Failed to purge empty upload_failures entries: $e');
+    return 0;
+  }
+}
+
 class SupabaseConnector extends PowerSyncBackendConnector {
   Future<void>? _refreshFuture;
 
@@ -473,6 +519,12 @@ class SupabaseConnector extends PowerSyncBackendConnector {
 
     for (var i = 0; i < ops.length; i++) {
       final op = ops[i];
+      // A PATCH without columns has nothing to write: PostgREST would return
+      // an empty result and the 0-rows guard below would quarantine it as an
+      // RLS rejection. See [isNoOpPatchPayload].
+      if (isNoOpPatchPayload(op.op, op.opData)) {
+        continue;
+      }
       final table = rest.from(op.table);
       try {
         if (op.op == UpdateType.put) {
@@ -518,6 +570,10 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           // the queue is not blocked — but never drop the data silently.
           await _quarantineOp(database, op, reason: 'fatal_error', error: e);
           for (final pending in ops.sublist(i + 1)) {
+            // No-op PATCHes hold nothing worth preserving (see
+            // [isNoOpPatchPayload]) — quarantining them would only add empty
+            // entries to the recovery list.
+            if (isNoOpPatchPayload(pending.op, pending.opData)) continue;
             await _quarantineOp(database, pending, reason: 'unattempted_after_fatal', error: e);
           }
           break;

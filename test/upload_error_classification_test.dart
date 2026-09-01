@@ -2,8 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:postgrest/postgrest.dart';
+import 'package:powersync/powersync.dart' show UpdateType;
 import 'package:terrestrial_forest_monitor/services/powersync.dart'
-    show fatalResponseCodes, UploadPausedException;
+    show fatalResponseCodes, isNoOpPatchPayload, UploadPausedException;
 
 /// Replicates the classification in SupabaseConnector.uploadData
 /// (lib/services/powersync.dart): fatal -> transaction dropped (old app:
@@ -65,6 +66,44 @@ void main() {
         body: '{"message":"x","code":"42501"}',
       );
       expect(isDroppedAsFatal(e), isTrue);
+    });
+  });
+
+  group('no-op PATCH detection', () {
+    // powersync_diff(old, new) returns `{}` when an UPDATE writes values that
+    // are already stored (e.g. re-saving an unchanged form, re-writing
+    // identical validation_errors). The op is queued anyway; sending it makes
+    // PostgREST answer with an empty result, which the 0-rows guard used to
+    // quarantine as `rls_zero_rows` — a data-loss alarm without any data.
+    test('empty PATCH payload is a no-op', () {
+      expect(isNoOpPatchPayload(UpdateType.patch, <String, dynamic>{}), isTrue);
+    });
+
+    test('null PATCH payload is a no-op', () {
+      expect(isNoOpPatchPayload(UpdateType.patch, null), isTrue);
+    });
+
+    test('PATCH with columns is uploaded', () {
+      expect(
+        isNoOpPatchPayload(UpdateType.patch, {'properties': '{"a":1}'}),
+        isFalse,
+        reason: 'a real change must never be skipped',
+      );
+    });
+
+    test('PATCH clearing a column to null is uploaded', () {
+      expect(
+        isNoOpPatchPayload(UpdateType.patch, {'completed_at_troop': null}),
+        isFalse,
+        reason: 'powersync_diff represents a cleared column as an explicit null',
+      );
+    });
+
+    test('PUT and DELETE are never skipped', () {
+      // A PUT always carries at least the id (uploadData sets it), and a
+      // DELETE identifies the row by id alone.
+      expect(isNoOpPatchPayload(UpdateType.put, <String, dynamic>{}), isFalse);
+      expect(isNoOpPatchPayload(UpdateType.delete, null), isFalse);
     });
   });
 
