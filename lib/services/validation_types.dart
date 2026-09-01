@@ -115,13 +115,13 @@ class TFMValidationError {
 
   /// Label of the numbered object affected by this error (e.g. 'Bestandesschicht')
   ///
-  /// Wird aktuell nicht mehr in der UI angezeigt (siehe auskommentierte
-  /// Subtitle-Zeile in validation_errors_dialog.dart).
+  /// Wird bewusst nicht in der UI angezeigt; der Fehlerdialog nutzt stattdessen
+  /// das neutrale Label 'Objekt' vor [numberObject].
   String? get numberObjectName => shortInfo?['number_object_name']?.toString();
 
   /// Content of the numbered object affected by this error (scalar or map)
   ///
-  /// Wird aktuell nicht mehr in der UI angezeigt.
+  /// Wird im Fehlerdialog als 'Objekt: <Wert>' angezeigt.
   dynamic get numberObject => shortInfo?['number_object'];
 
   String get displayMessage =>
