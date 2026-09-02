@@ -1,9 +1,12 @@
 name: Deploy to GitHub Pages
 
+# Disabled: the web build of the app is not used - field work runs on the
+# Windows/Android/desktop builds, and record browsing happens in
+# TFM-Documentation. Style-map fields flagged "webOnly" are therefore
+# documentation-only in practice. Kept as a manual trigger so the build can
+# still be produced on demand; remove the workflow entirely if that changes.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   deploy:

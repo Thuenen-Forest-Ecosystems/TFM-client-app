@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
@@ -279,6 +280,8 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
 
           // Skip display-only fields; calculated fields are kept but shown read-only
           if (subItem['display'] == false) continue;
+          // Fields flagged "webOnly" are rendered in the browser build only
+          if (subItem['webOnly'] == true && !kIsWeb) continue;
 
           // Track array-type fields (skip for calculated-only fields not in the schema)
           final propSchema = properties[fieldName] as Map<String, dynamic>?;
@@ -329,6 +332,8 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         if (!properties.containsKey(fieldName) && item['type'] != 'calculated') continue;
         // Calculated top-level fields are kept but shown read-only
         if (item['display'] == false) continue;
+        // Fields flagged "webOnly" are rendered in the browser build only
+        if (item['webOnly'] == true && !kIsWeb) continue;
 
         // Track array-type fields
         final propSchema = properties[fieldName] as Map<String, dynamic>;
@@ -449,6 +454,9 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
 
       // Skip if display is false
       if (display == false) continue;
+
+      // Fields flagged "webOnly" are rendered in the browser build only
+      if (columnConfig?['webOnly'] == true && !kIsWeb) continue;
 
       // Detect array-type fields (from schema type or column config type)
       final schemaType = propertySchema['type'];
