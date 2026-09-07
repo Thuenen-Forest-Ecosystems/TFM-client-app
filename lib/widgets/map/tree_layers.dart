@@ -153,7 +153,7 @@ class TreeLayers {
             // Add azimuth (if selected)
             if (treeLabelFields.contains('azimuth') && tree['azimuth'] != null) {
               final azimuth = tree['azimuth'];
-              labelParts.add('${(azimuth as num).toInt()}gon');
+              labelParts.add('${(azimuth as num).round()}gon');
             }
 
             // Add distance (if selected)

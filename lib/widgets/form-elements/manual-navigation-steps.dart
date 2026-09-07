@@ -249,7 +249,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                           '${step.distance != null ? (step.distance! * 100).toStringAsFixed(0) : "?"} cm',
                         ),
                         const SizedBox(width: 16),
-                        Text('${step.azimuth?.toInt() ?? "?"} gon'),
+                        Text('${step.azimuth?.round() ?? "?"} gon'),
                       ],
                     ),
                     trailing: Row(
@@ -401,7 +401,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${remaining['azimuth']!.toStringAsFixed(1)} gon',
+                                '${remaining['azimuth']!.round()} gon',
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ],

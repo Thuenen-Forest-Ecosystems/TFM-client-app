@@ -319,7 +319,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
         children: [
           _buildMetricColumn(
             label: 'Azimut',
-            value: '${_remainingAzimuth!.toStringAsFixed(1)} gon',
+            value: '${_remainingAzimuth!.round()} gon',
           ),
           Container(width: 1, height: 40, color: Colors.green.shade300),
           _buildMetricColumn(
@@ -422,7 +422,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
                 leading: CircleAvatar(child: Text('${index + 1}'), radius: 20),
                 title: Row(
                   children: [
-                    Text('${step.azimuth?.toStringAsFixed(1) ?? "?"} gon'),
+                    Text('${step.azimuth?.round() ?? "?"} gon'),
                     const SizedBox(width: 16),
                     Text('${step.distance?.toStringAsFixed(1) ?? "?"} m'),
                   ],
@@ -488,7 +488,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
                           Icon(Icons.explore, size: 14, color: Colors.blue.shade700),
                           const SizedBox(width: 4),
                           Text(
-                            '${_remainingAzimuth!.toStringAsFixed(1)} gon',
+                            '${_remainingAzimuth!.round()} gon',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,

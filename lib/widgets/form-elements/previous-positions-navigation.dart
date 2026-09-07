@@ -882,11 +882,11 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
                       if (_calculatedNavigation != null) {
                         final calcDistance = _calculatedNavigation!['distance']!;
                         final calcBearing = _calculatedNavigation!['azimuth']!;
-                        return 'Distanz: ${_formatDistance(calcDistance)}, Azimut: ${calcBearing.toStringAsFixed(1)} gon$coordStr';
+                        return 'Distanz: ${_formatDistance(calcDistance)}, Azimut: ${calcBearing.round()} gon$coordStr';
                       }
                       // Otherwise use direct distance/bearing
                       if (distance != null && bearing != null) {
-                        return 'Distanz: ${_formatDistance(distance)}, Azimut: ${bearing.toStringAsFixed(1)} gon$coordStr';
+                        return 'Distanz: ${_formatDistance(distance)}, Azimut: ${bearing.round()} gon$coordStr';
                       }
                       // Only coordinates available
                       if (coordStr.isNotEmpty) return coordStr.trim();

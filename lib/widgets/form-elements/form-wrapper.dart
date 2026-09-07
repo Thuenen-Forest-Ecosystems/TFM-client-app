@@ -7,6 +7,7 @@ import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dar
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/array-summary.dart';
 import 'package:terrestrial_forest_monitor/services/layout_service.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-cardlist.dart';
@@ -1037,6 +1038,22 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         }
         return MessagesChat(recordId: recordId);
       }
+      if (layoutItem.component == 'array_summary') {
+        // ArraySummary component - read-only row count of one array, e.g. the
+        // WZP4 sample trees shown in the Bestockung tab. Purely informative, so
+        // it reads the array itself and shows 0 for an array not yet present
+        // instead of failing on the schema lookup below.
+        if (propertyPath == null) {
+          return Card(child: Text('Array summary "${layoutItem.id}" is missing property field'));
+        }
+        final summaryValue = LayoutService.getValueByPath(_localFormData, propertyPath);
+        return ArraySummary(
+          rows: summaryValue is List ? summaryValue : null,
+          label: layoutItem.label ?? layoutItem.id,
+          layoutOptions: layoutItem.options,
+          icon: layoutItem.icon != null ? _getIconData(layoutItem.icon!) : null,
+        );
+      }
 
       // For other components, property path is required
       if (propertyPath == null) {
@@ -1351,8 +1368,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         paths.add(item.property!);
       }
     } else if (item is ObjectLayout) {
-      // Add the object property path
-      if (item.property != null) {
+      // Add the object property path. An array_summary is skipped: it only
+      // mirrors the row count of an array that is edited in another tab (the
+      // WZP4 trees shown in Bestockung), so claiming that path here would badge
+      // this tab with the other tab's validation errors.
+      if (item.property != null && item.component != 'array_summary') {
         paths.add(item.property!);
       }
     } else if (item is ColumnLayout) {
