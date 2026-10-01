@@ -38,6 +38,101 @@ class LayoutService {
     }
   }
 
+  /// The layout loaded most recently by [loadLayout], if any. Lets widgets that
+  /// are opened detached from the form (the validation result dialog) map
+  /// error paths to the same tabs the form shows.
+  static LayoutConfig? get cachedLayout => _cachedLayout;
+
+  /// Property paths a tab owns, derived from its layout subtree.
+  ///
+  /// Forms contribute their field names, arrays and objects their `property`
+  /// path, cards their `properties`. An `array_summary` object is skipped: it
+  /// only mirrors the row count of an array that is edited in another tab (the
+  /// WZP4 trees shown in Bestockung), so claiming its path here would badge
+  /// this tab with the other tab's validation errors (TFM-client-app#477).
+  static List<String> getPropertyPathsForTab(LayoutConfig? config, String tabId) {
+    final paths = <String>[];
+    if (config == null) return paths;
+    final tabItem = findItemById(config, tabId);
+    if (tabItem == null) return paths;
+    _collectPropertyPaths(tabItem, paths);
+    return paths;
+  }
+
+  static void _collectPropertyPaths(LayoutItem item, List<String> paths) {
+    if (item is FormLayout) {
+      paths.addAll(item.properties.map((p) => p.name));
+    } else if (item is ArrayLayout) {
+      if (item.property != null) paths.add(item.property!);
+    } else if (item is ObjectLayout) {
+      if (item.property != null && item.component != 'array_summary') {
+        paths.add(item.property!);
+      }
+      for (final child in item.children ?? const <LayoutItem>[]) {
+        _collectPropertyPaths(child, paths);
+      }
+    } else if (item is ColumnLayout) {
+      for (final child in item.items) {
+        _collectPropertyPaths(child, paths);
+      }
+    } else if (item is TabsLayout) {
+      for (final child in item.items) {
+        _collectPropertyPaths(child, paths);
+      }
+    } else if (item is CardLayout) {
+      if (item.properties != null) paths.addAll(item.properties!);
+      for (final child in item.children ?? const <LayoutItem>[]) {
+        _collectPropertyPaths(child, paths);
+      }
+    }
+  }
+
+  /// Whether an error belongs to a tab that owns [tabPropertyPaths].
+  ///
+  /// [instancePath] is the AJV/plausibility path (`/tree/3/dbh`); a root
+  /// `required` error carries the field in [missingProperty] instead.
+  static bool errorMatchesPaths(
+    List<String> tabPropertyPaths, {
+    String? instancePath,
+    String? missingProperty,
+  }) {
+    final path = instancePath ?? '';
+    for (final propertyPath in tabPropertyPaths) {
+      if (path == '/$propertyPath' || path.startsWith('/$propertyPath/')) {
+        return true;
+      }
+      if (path.isEmpty && missingProperty != null && missingProperty == propertyPath) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Id of the top-level tab an error belongs to, or null when no tab of
+  /// [config] owns the error's path. Tabs are checked in layout order.
+  static String? findTabIdForError(
+    LayoutConfig? config, {
+    String? instancePath,
+    String? missingProperty,
+  }) {
+    for (final tab in getTabItems(config)) {
+      final paths = getPropertyPathsForTab(config, tab.id);
+      if (errorMatchesPaths(paths, instancePath: instancePath, missingProperty: missingProperty)) {
+        return tab.id;
+      }
+    }
+    return null;
+  }
+
+  /// Label of a top-level tab (`label`, falling back to its id), or null when
+  /// [config] has no such tab.
+  static String? getTabLabel(LayoutConfig? config, String tabId) {
+    for (final tab in getTabItems(config)) {
+      if (tab.id == tabId) return tab.label ?? tab.id;
+    }
+    return null;
+  }
+
   /// Clear the cached layout (useful for testing or hot reload)
   static void clearCache() {
     _cachedLayout = null;

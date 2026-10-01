@@ -76,6 +76,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   LayoutConfig? _layoutConfig;
   bool _layoutLoaded = false;
 
+  /// The layout the form is rendered with, so callers can hand it to the
+  /// validation result dialog and group errors by the same tabs.
+  LayoutConfig? get layoutConfig => _layoutConfig;
+
   // Track current tab type and ArrayElementTrina widgets
   String? _currentTabType;
   final Map<String, GlobalKey<ArrayElementTrinaState>> _arrayElementKeys = {};
@@ -1287,29 +1291,29 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       if (index < _tabs.length) {
         final tabId = _tabs[index].id;
 
-        // Check if there are validation errors for this tab
-        if (widget.validationResult != null && !widget.validationResult!.isValid) {
-          final tabErrors = widget.validationResult!.allErrors.where((error) {
-            return _isErrorForTab(error, tabId);
-          }).toList();
+        // Errors and warnings of this tab, the same set the badge counts
+        final tabIssues = _issuesForTab(tabId);
+        if (tabIssues.isNotEmpty) {
+          // Create a filtered validation result with only tab-specific issues
+          final ajvErrors = tabIssues.whereType<ValidationError>().toList();
+          final filteredResult = TFMValidationResult(
+            ajvValid: ajvErrors.isEmpty,
+            ajvErrors: ajvErrors,
+            tfmAvailable: widget.validationResult!.tfmAvailable,
+            tfmErrors: tabIssues.whereType<TFMValidationError>().toList(),
+          );
 
-          if (tabErrors.isNotEmpty) {
-            // Create a filtered validation result with only tab-specific errors
-            final filteredResult = TFMValidationResult(
-              ajvValid: false,
-              ajvErrors: tabErrors.whereType<ValidationError>().toList(),
-              tfmAvailable: widget.validationResult!.tfmAvailable,
-              tfmErrors: tabErrors.whereType<TFMValidationError>().toList(),
-            );
-
-            // Show dialog with filtered errors
-            ValidationErrorsDialog.show(
-              context,
-              filteredResult,
-              showActions: false,
-              onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab,
-            );
-          }
+          // Show dialog with the tab's errors and warnings. The record lets
+          // the dialog display saved acknowledgements and notes; without
+          // actions it never writes them back.
+          ValidationErrorsDialog.show(
+            context,
+            filteredResult,
+            showActions: false,
+            onNavigateToTab: widget.onNavigateToTab ?? _navigateToTab,
+            record: widget.rawRecord,
+            layoutConfig: _layoutConfig,
+          );
         } else {
           // No validation errors at all
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1343,78 +1347,39 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
 
   /// Extract all property paths that belong to a specific tab based on layout
   List<String> _getPropertyPathsForTab(String tabId) {
-    final propertyPaths = <String>[];
-
     if (_layoutConfig == null) {
       // Fallback for tabs without layout config
       return [tabId];
     }
-
-    final tabItem = LayoutService.findItemById(_layoutConfig, tabId);
-    if (tabItem == null) return [];
-
-    _extractPropertyPaths(tabItem, propertyPaths);
-    return propertyPaths;
+    return LayoutService.getPropertyPathsForTab(_layoutConfig, tabId);
   }
 
-  /// Recursively extract property paths from layout items
-  void _extractPropertyPaths(LayoutItem item, List<String> paths) {
-    if (item is FormLayout) {
-      // Add all properties from form
-      paths.addAll(item.properties.map((p) => p.name));
-    } else if (item is ArrayLayout) {
-      // Add the array property path
-      if (item.property != null) {
-        paths.add(item.property!);
+  /// Errors and warnings that belong to a tab. Warnings count like in the
+  /// Verwaltungstool (TFM-Documentation), so a tab with only plausibility
+  /// warnings is badged too. The engine-unavailable marker is a banner, not
+  /// an issue of any tab.
+  List<dynamic> _issuesForTab(String tabId) {
+    final result = widget.validationResult;
+    if (result == null) return const [];
+    return result.allIssues.where((issue) {
+      if (issue is TFMValidationError &&
+          issue.isWarning &&
+          issue.message == kPlausibilityUnavailableMessage) {
+        return false;
       }
-    } else if (item is ObjectLayout) {
-      // Add the object property path. An array_summary is skipped: it only
-      // mirrors the row count of an array that is edited in another tab (the
-      // WZP4 trees shown in Bestockung), so claiming that path here would badge
-      // this tab with the other tab's validation errors.
-      if (item.property != null && item.component != 'array_summary') {
-        paths.add(item.property!);
-      }
-    } else if (item is ColumnLayout) {
-      // Recursively process children
-      for (final child in item.items) {
-        _extractPropertyPaths(child, paths);
-      }
-    } else if (item is TabsLayout) {
-      // Recursively process tab items
-      for (final child in item.items) {
-        _extractPropertyPaths(child, paths);
-      }
-    } else if (item is CardLayout) {
-      // Process card properties or children
-      if (item.properties != null) {
-        paths.addAll(item.properties!);
-      }
-      if (item.children != null) {
-        for (final child in item.children!) {
-          _extractPropertyPaths(child, paths);
-        }
-      }
-    }
-  }
-
-  bool _hasErrorsForTab(String tabId) {
-    if (widget.validationResult == null || widget.validationResult!.isValid) {
-      return false;
-    }
-
-    return widget.validationResult!.allErrors.any((error) {
-      return _isErrorForTab(error, tabId);
-    });
+      return _isErrorForTab(issue, tabId);
+    }).toList();
   }
 
   int _getErrorCountForTab(String tabId) {
-    if (widget.validationResult == null || widget.validationResult!.isValid) {
-      return 0;
-    }
+    return _issuesForTab(tabId).where((issue) {
+      return issue is ValidationError || (issue as TFMValidationError).isError;
+    }).length;
+  }
 
-    return widget.validationResult!.allErrors.where((error) {
-      return _isErrorForTab(error, tabId);
+  int _getWarningCountForTab(String tabId) {
+    return _issuesForTab(tabId).where((issue) {
+      return issue is TFMValidationError && issue.isWarning;
     }).length;
   }
 
@@ -1427,25 +1392,16 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     final tabPropertyPaths = _getPropertyPathsForTab(tabId);
     if (tabPropertyPaths.isEmpty) return false;
 
-    // Check if error path matches any of the tab's property paths
-    for (final propertyPath in tabPropertyPaths) {
-      // Check if error path starts with this property path
-      if (path.startsWith('/$propertyPath')) {
-        return true;
-      }
+    // A root-level `required` error names its field in params.missingProperty
+    final keyword = error is ValidationError ? error.keyword : null;
+    final params = error is ValidationError ? error.params : null;
+    final missingProperty = keyword == 'required' ? (params?['missingProperty'] as String?) : null;
 
-      // Check if it's a root-level required error for this property
-      final keyword = error is ValidationError ? error.keyword : null;
-      if (path.isEmpty && keyword == 'required') {
-        final params = error is ValidationError ? error.params : null;
-        final missingProperty = params?['missingProperty'] as String?;
-        if (missingProperty == propertyPath) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+    return LayoutService.errorMatchesPaths(
+      tabPropertyPaths,
+      instancePath: path,
+      missingProperty: missingProperty,
+    );
   }
 
   /// Convert icon name to IconData
@@ -1504,7 +1460,8 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           isScrollable: true,
           onTap: _onTabTapped,
           tabs: _tabs.map((tab) {
-            final hasErrors = _hasErrorsForTab(tab.id);
+            final errorCount = _getErrorCountForTab(tab.id);
+            final warningCount = _getWarningCountForTab(tab.id);
             final showMessageBadge = tab.isMessages && _messageCount > 0;
             return Tab(
               child: Row(
@@ -1521,13 +1478,17 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
                     if (tab.label.isNotEmpty) const SizedBox(width: 8),
                   ],
                   if (tab.label.isNotEmpty) Text(tab.label),
-                  if (hasErrors) ...[
+                  if (errorCount + warningCount > 0) ...[
                     const SizedBox(width: 8),
+                    // Red while the tab has errors, orange for warnings only
                     Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: errorCount > 0 ? Colors.red : Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
                       child: Text(
-                        '${_getErrorCountForTab(tab.id)}',
+                        '${errorCount + warningCount}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,

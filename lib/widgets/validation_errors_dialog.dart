@@ -3,6 +3,8 @@ import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/models/acknowledged_error.dart';
+import 'package:terrestrial_forest_monitor/models/layout_config.dart';
+import 'package:terrestrial_forest_monitor/services/layout_service.dart';
 
 /// Result returned from ValidationErrorsDialog
 class ValidationDialogResult {
@@ -14,9 +16,18 @@ class ValidationDialogResult {
 
 class ValidationErrorsDialog extends StatefulWidget {
   final TFMValidationResult validationResult;
+  /// With actions the user acknowledges issues, writes notes and completes
+  /// the record. Without them the dialog is read-only: nothing can be
+  /// checked or typed and closing it never writes to the database (used by
+  /// playground mode, the org-admin view and read-only groups).
   final bool showActions;
   final Function(String?)? onNavigateToTab;
   final Record? record;
+
+  /// Layout the form is rendered with. Errors are grouped by the tab that owns
+  /// their path, exactly as the tab badges count them. Falls back to the
+  /// layout cached by [LayoutService], then to a static field map.
+  final LayoutConfig? layoutConfig;
 
   const ValidationErrorsDialog({
     super.key,
@@ -24,6 +35,7 @@ class ValidationErrorsDialog extends StatefulWidget {
     this.showActions = true,
     this.onNavigateToTab,
     this.record,
+    this.layoutConfig,
   });
 
   @override
@@ -35,6 +47,7 @@ class ValidationErrorsDialog extends StatefulWidget {
     bool showActions = true,
     Function(String?)? onNavigateToTab,
     Record? record,
+    LayoutConfig? layoutConfig,
   }) {
     return Navigator.of(context, rootNavigator: true).push<ValidationDialogResult>(
       MaterialPageRoute(
@@ -44,6 +57,7 @@ class ValidationErrorsDialog extends StatefulWidget {
           showActions: showActions,
           onNavigateToTab: onNavigateToTab,
           record: record,
+          layoutConfig: layoutConfig,
         ),
       ),
     );
@@ -143,7 +157,10 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     }
 
     _isPopping = true;
-    await _saveAcknowledgedErrorsToDatabase();
+    // A read-only dialog has nothing to persist and must not touch the record.
+    if (widget.showActions) {
+      await _saveAcknowledgedErrorsToDatabase();
+    }
 
     if (mounted) {
       Navigator.of(context).pop();
@@ -322,11 +339,29 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     return true;
   }
 
+  LayoutConfig? get _layout => widget.layoutConfig ?? LayoutService.cachedLayout;
+
+  /// Tab that owns an issue according to the layout, or null when the layout
+  /// is unknown or no tab claims the path (then the static map decides).
+  String? _getTabIdFromLayout(String? instancePath, Map<String, dynamic>? params) {
+    final layout = _layout;
+    if (layout == null) return null;
+    final missingProperty = params?['missingProperty'] as String?;
+    return LayoutService.findTabIdForError(
+      layout,
+      instancePath: instancePath,
+      missingProperty: missingProperty,
+    );
+  }
+
   String? _getTabIdFromPath(
     String? instancePath,
     String? schemaPath,
     Map<String, dynamic>? params,
   ) {
+    final fromLayout = _getTabIdFromLayout(instancePath, params);
+    if (fromLayout != null) return fromLayout;
+
     // Try instancePath first, fall back to schemaPath if instancePath is null/empty
     final pathToUse = (instancePath != null && instancePath.isNotEmpty) ? instancePath : schemaPath;
 
@@ -477,8 +512,11 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
   Widget build(BuildContext context) {
     final errorCount = widget.validationResult.allErrors.length;
 
-    // Group errors by instance path
+    // Group issues by the tab that owns them. With a layout the key is the
+    // tab id (same mapping as the tab badges); without one, the first path
+    // segment, so a field is never attributed to a tab by guesswork.
     final groupedIssues = <String, List<dynamic>>{};
+    final groupLabels = <String, String>{};
     for (final issue in widget.validationResult.allIssues) {
       // The engine-unavailable marker is shown as a banner, not a list item.
       if (_isPlausibilityUnavailableMarker(issue)) continue;
@@ -486,15 +524,26 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       final instancePath = issue is ValidationError
           ? issue.instancePath
           : (issue as TFMValidationError).instancePath;
+      final params = issue is ValidationError
+          ? issue.rawError['params'] as Map<String, dynamic>?
+          : null;
 
-      // Extract the top-level path segment for grouping
-      String groupKey = instancePath != null && instancePath.isNotEmpty
-          ? instancePath.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => 'root')
-          : 'root';
+      final tabId = _getTabIdFromLayout(instancePath, params);
+      String groupKey;
+      if (tabId != null) {
+        groupKey = 'tab:$tabId';
+        groupLabels[groupKey] = LayoutService.getTabLabel(_layout, tabId) ?? tabId;
+      } else {
+        // Extract the top-level path segment for grouping
+        groupKey = instancePath != null && instancePath.isNotEmpty
+            ? instancePath.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => 'root')
+            : 'root';
 
-      // Normalize groupKey so structure_lt4m and structure_gt4m are grouped together
-      if (groupKey == 'structure_lt4m' || groupKey == 'structure_gt4m') {
-        groupKey = 'structure';
+        // Normalize groupKey so structure_lt4m and structure_gt4m are grouped together
+        if (groupKey == 'structure_lt4m' || groupKey == 'structure_gt4m') {
+          groupKey = 'structure';
+        }
+        groupLabels[groupKey] = _getGroupName(groupKey != 'root' ? '/$groupKey' : null);
       }
 
       groupedIssues.putIfAbsent(groupKey, () => []).add(issue);
@@ -526,7 +575,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                 itemBuilder: (context, groupIndex) {
                   final groupKey = groupedIssues.keys.elementAt(groupIndex);
                   final issues = groupedIssues[groupKey]!;
-                  final groupName = _getGroupName(groupKey != 'root' ? '/$groupKey' : null);
+                  final groupName = groupLabels[groupKey] ?? groupKey;
 
                   final errorCountInGroup = issues.where((issue) {
                     if (issue is TFMValidationError) return issue.isError;
@@ -607,37 +656,37 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ListTile(
-                            leading: widget.showActions
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Checkbox(
-                                        value: isAcknowledged,
-                                        onChanged: (value) {
+                            // The checkbox mirrors the saved acknowledgement
+                            // in the read-only dialog too, so admins and the
+                            // playground see what the troop confirmed; it is
+                            // just not clickable there.
+                            leading: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Checkbox(
+                                  value: isAcknowledged,
+                                  onChanged: widget.showActions
+                                      ? (value) {
                                           setState(() {
                                             _acknowledgedIssues[issueKey] = value ?? false;
                                           });
-                                        },
-                                      ),
-                                      Icon(
-                                        isWarning ? Icons.warning : Icons.error,
-                                        color: isWarning ? Colors.orange : Colors.red,
-                                        size: 20,
-                                      ),
-                                    ],
-                                  )
-                                : Icon(
-                                    isWarning ? Icons.warning : Icons.error,
-                                    color: isWarning ? Colors.orange : Colors.red,
-                                    size: 20,
-                                  ),
+                                        }
+                                      : null,
+                                ),
+                                Icon(
+                                  isWarning ? Icons.warning : Icons.error,
+                                  color: isWarning ? Colors.orange : Colors.red,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                             title: Text(
                               issue is ValidationError
                                   ? issue.message
                                   : (issue as TFMValidationError).message,
                             ),
                             subtitle: subtitle,
-                            trailing: widget.showActions && canNavigate
+                            trailing: canNavigate
                                 ? IconButton(
                                     icon: const Icon(Icons.arrow_forward, size: 18),
                                     onPressed: () {
@@ -661,14 +710,20 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                               padding: const EdgeInsets.only(left: 72.0, right: 16.0, bottom: 8.0),
                               child: TextField(
                                 controller: _issueNoteControllers[issueKey],
+                                // Saved notes stay visible in the read-only dialog
+                                readOnly: !widget.showActions,
                                 decoration: InputDecoration(
-                                  hintText: isError
+                                  hintText: !widget.showActions
+                                      ? null
+                                      : isError
                                       ? 'Notiz hinzufügen (erforderlich für Fehler)*'
                                       : 'Notiz hinzufügen (optional)',
+                                  labelText: !widget.showActions ? 'Notiz' : null,
                                   border: const OutlineInputBorder(),
                                   isDense: true,
                                   errorText:
-                                      isError &&
+                                      widget.showActions &&
+                                          isError &&
                                           (_issueNoteControllers[issueKey]?.text.trim().isEmpty ??
                                               true)
                                       ? 'Notiz erforderlich'

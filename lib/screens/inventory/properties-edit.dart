@@ -707,6 +707,32 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
+  /// Show the validation result without any way to acknowledge, annotate or
+  /// complete: playground mode, the org-admin view and read-only groups must
+  /// never write to the record. Saved notes are shown for reference.
+  void showValidationResultReadOnly() {
+    final result = _validationResult;
+    if (result == null || result.allIssues.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.gridNoValidationErrors),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
+    ValidationErrorsDialog.show(
+      context,
+      result,
+      showActions: false,
+      onNavigateToTab: _navigateToTabFromError,
+      record: _record,
+      layoutConfig: _formWrapperKey.currentState?.layoutConfig,
+    );
+  }
+
   void saveRecord() async {
     _onFormDataChanged(_formData ?? {});
 
@@ -733,6 +759,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         _validationResult!,
         onNavigateToTab: _navigateToTabFromError,
         record: _record,
+        layoutConfig: _formWrapperKey.currentState?.layoutConfig,
       );
 
       if (result != null) {}
@@ -1419,13 +1446,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                           _validationResult != null && _validationResult!.allIssues.isNotEmpty,
                       textColor: Colors.white,
                       child: TextButton(
-                        onPressed:
-                            (_jsonSchema != null &&
-                                _hasCompletedInitialValidation &&
-                                !isPlayground &&
-                                !_isAdminView &&
-                                !_isReadOnlyTroop)
-                            ? saveRecord
+                        // Read-only modes keep the button so the validation
+                        // result can be inspected; it then opens the dialog
+                        // without acknowledgement, notes or completion.
+                        onPressed: (_jsonSchema != null && _hasCompletedInitialValidation)
+                            ? ((isPlayground || _isAdminView || _isReadOnlyTroop)
+                                  ? showValidationResultReadOnly
+                                  : saveRecord)
                             : null,
                         child: const Text('FERTIG'),
                       ),
