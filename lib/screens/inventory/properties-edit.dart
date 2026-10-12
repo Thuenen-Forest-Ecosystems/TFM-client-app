@@ -122,7 +122,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     _loadRecord().then((_) {
       // Load schema after record is loaded to get the interval name
       if (_record != null) {
-        _loadSchema(_record!.schemaName, schemaIdValidatedBy: _record!.schemaIdValidatedBy).then((
+        // Always validate against the latest visible schema of the interval. The
+        // stored schema_id_validated_by is deliberately not passed: it records
+        // which schema the last save used, it does not pin the record to it.
+        // Saving writes the loaded (latest) schema id back to that column.
+        _loadSchema(_record!.schemaName).then((
           _,
         ) {
           // validate initial form data after schema is loaded
@@ -264,9 +268,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     }
   }
 
+  /// Loads the latest visible schema of [intervalName]. [schemaIdValidatedBy]
+  /// is only passed by the manual schema selector to load an explicitly chosen
+  /// version for this editing session.
   Future<void> _loadSchema(String intervalName, {String? schemaIdValidatedBy}) async {
     try {
-      // Prefer validated schema if available, otherwise get latest
+      // Use the explicitly chosen schema if given, otherwise get latest
       SchemaModel? latestSchema;
 
       if (schemaIdValidatedBy != null) {
