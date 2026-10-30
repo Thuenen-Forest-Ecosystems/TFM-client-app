@@ -1,9 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/services/map_tiles_download_runner.dart';
+import 'package:terrestrial_forest_monitor/services/map_tiles_download_service.dart';
 
 class MapTilesDownload extends StatefulWidget {
   const MapTilesDownload({super.key});
@@ -13,111 +13,57 @@ class MapTilesDownload extends StatefulWidget {
 }
 
 class _MapTilesDownloadState extends State<MapTilesDownload> {
-  Map<String, Map<String, dynamic>> basemapsToSelectFrom = {
-    /*'DTK25': {
-      'urlTemplate': 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?',
-      'minZoom': 1,
-      'maxZoom': 20,
-      'storeName': 'wms_dtk25__'
-    },*/
-
-    /*'OpenStreetMap': {
-      'urlTemplate': 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      'minZoom': 1,
-      'maxZoom': 19,
-      'storeName': 'openstreetmap'
-    },*/
-    'OpenCycleMap': {
-      'urlTemplate': 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
-      'zoomLayers': [4, 10, 14],
-      'storeName': 'OpenCycleMap',
-      'title': 'Karte (offline)',
-    },
-    /*'ESRI Satellite': {
-      'urlTemplate':
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      'zoomLayers': [15, 19],
-      'storeName': 'esri_satellite',
-    },*/
-    'DOP': {
-      'urlTemplate': 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?',
-      'zoomLayers': [15, 19],
-      'storeName': 'wms_dop__',
-      'title': 'Luftbilder (offline)',
-    },
-    /*'OpenTopoMap': {
-      'urlTemplate': 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-      'zoomLayers': [4, 10, 14],
-      'storeName': 'opentopomap',
-    },*/
-  };
-  String? _downloadingBasemap; // Track which basemap is currently downloading
-  final Map<String, bool> _downloadedBasemaps = {}; // Track completed downloads
-  final Map<String, double> _basemapProgress = {}; // Progress 0.0-1.0 per basemap
-  final Map<String, String> _basemapStatus = {}; // Status text per basemap
+  final MapTilesDownloadController _controller = MapTilesDownloadController.instance;
+  final Map<String, Map<String, dynamic>> basemapsToSelectFrom = offlineBasemaps();
+  StreamSubscription<MapTilesDownloadMessage>? _messagesSubscription;
   bool _isCheckingTiles = true;
   int _missingTilesCount = 0;
-  bool _cancelRequested = false;
   String? _checkError;
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onControllerChanged);
+    _messagesSubscription = _controller.messages.listen(
+      (m) => _showMessage(m.text, important: m.important),
+    );
+    // Picks up a download still running in the background service
+    _controller.attach();
     _checkMissingTiles();
-    // Initialize download status for all basemaps
-    for (final basemap in basemapsToSelectFrom.keys) {
-      _downloadedBasemaps[basemap] = false;
-      _basemapProgress[basemap] = 0.0;
-      _basemapStatus[basemap] = '';
-    }
   }
 
-  /// Detects if an error is proxy-related and returns user-friendly message
-  String? _detectProxyError(dynamic error) {
-    final errorString = error.toString().toLowerCase();
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    _messagesSubscription?.cancel();
+    super.dispose();
+  }
 
-    // Connection/timeout errors
-    if (errorString.contains('timeout') || errorString.contains('connection timed out')) {
-      return '⚠️ Verbindungs-Timeout: Möglicherweise blockiert ein Proxy die Verbindung.\n'
-          'Lösung: Proxy-Einstellungen prüfen oder VPN verwenden.';
-    }
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
 
-    // Certificate errors
-    if (errorString.contains('certificate') ||
-        errorString.contains('handshake') ||
-        errorString.contains('ssl') ||
-        errorString.contains('tls')) {
-      return '⚠️ SSL/Zertifikat-Fehler: Der Proxy unterbricht verschlüsselte Verbindungen.\n'
-          'Lösung: Proxy-Zertifikat installieren oder Proxy umgehen.';
-    }
-
-    // Proxy authentication errors
-    if (errorString.contains('407') || errorString.contains('proxy authentication')) {
-      return '⚠️ Proxy-Authentifizierung erforderlich.\n'
-          'Lösung: Proxy-Anmeldedaten konfigurieren.';
-    }
-
-    // Connection refused/failed
-    if (errorString.contains('connection refused') ||
-        errorString.contains('connection failed') ||
-        errorString.contains('failed host lookup') ||
-        errorString.contains('network unreachable')) {
-      return '⚠️ Netzwerkfehler: Server nicht erreichbar.\n'
-          'Lösung: Internetverbindung oder Proxy-Einstellungen prüfen.';
-    }
-
-    // HTTP errors that might be proxy-related
-    if (errorString.contains('502') || errorString.contains('bad gateway')) {
-      return '⚠️ Bad Gateway (502): Proxy-Konfigurationsproblem.\n'
-          'Lösung: Proxy-Einstellungen prüfen oder Administrator kontaktieren.';
-    }
-
-    if (errorString.contains('503') || errorString.contains('service unavailable')) {
-      return '⚠️ Service nicht verfügbar (503): Server oder Proxy überlastet.\n'
-          'Lösung: Später erneut versuchen.';
-    }
-
-    return null; // Not a detected proxy error
+  /// Important messages (warnings, aborted downloads) stay until dismissed,
+  /// the rest disappears after a few seconds.
+  void _showMessage(String message, {bool important = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: important
+            ? SnackBarAction(
+                label: 'OK',
+                // The fromSwatch color schemes leave the default action color
+                // white on the (inverse, white) dark-mode snackbar
+                textColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.green.shade800
+                    : Colors.green.shade300,
+                onPressed: () {},
+              )
+            : null,
+        persist: important,
+      ),
+    );
   }
 
   Future<void> _checkMissingTiles() async {
@@ -129,6 +75,14 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
     try {
       final records = await RecordsRepository().getAllRecordsUnfiltered();
+      if (!mounted) return;
+
+      // Totals for the current records, paired with the stored progress
+      final coordinates = records.map((r) => r.getCoordinates()).whereType<Map<String, double>>();
+      await _controller.loadCounts({
+        for (final basemap in basemapsToSelectFrom.keys)
+          basemap: countBasemapTiles(regionsForBasemap(basemap, coordinates)),
+      });
       if (!mounted) return;
 
       setState(() {
@@ -147,407 +101,26 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     }
   }
 
-  void _cancelDownload() {
-    setState(() {
-      _cancelRequested = true;
-      _downloadingBasemap = null;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Download wird abgebrochen...')));
-    }
-  }
-
   Future<void> _downloadMapTilesForBasemap(String basemapName) async {
     final records = await RecordsRepository().getAllRecordsUnfiltered();
+    final regions = regionsForBasemap(
+      basemapName,
+      records.map((r) => r.getCoordinates()).whereType<Map<String, double>>(),
+    );
 
-    if (records.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Keine Aufnahmepunkte gefunden. Bitte laden Sie zuerst Daten.'),
-          ),
-        );
-      }
+    if (regions.isEmpty) {
+      _showMessage('Keine Aufnahmepunkte gefunden. Bitte laden Sie zuerst Daten.');
       return;
     }
 
-    setState(() {
-      _downloadingBasemap = basemapName;
-      _cancelRequested = false;
-      _basemapProgress[basemapName] = 0.0;
-      _basemapStatus[basemapName] = 'Wird heruntergeladen...';
-    });
-
-    try {
-      // DOP and ESRI Satellite need per-record download with small radius (100m)
-      if (basemapName == 'DOP' || basemapName == 'ESRI Satellite') {
-        await _downloadDOPForRecords(records, basemapName);
-      } else {
-        // Other basemaps: download entire bbox with larger buffer
-        final bbox = _calculateBoundingBox(records, basemapName);
-        if (bbox != null) {
-          await _downloadTiles(bbox, basemapName);
-        } else {
-        }
-      }
-
-      if (mounted && !_cancelRequested) {
-        setState(() {
-          _downloadedBasemaps[basemapName] = true;
-          _basemapStatus[basemapName] = 'Download abgeschlossen';
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$basemapName Download abgeschlossen')));
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _basemapStatus[basemapName] = 'Fehler beim Download';
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Fehler beim Download von $basemapName: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _downloadingBasemap = null;
-        });
-      }
-    }
-  }
-
-  Future<void> _downloadDOPForRecords(List<Record> records, String basemapName) async {
-
-    // Download tiles for each record position with 100m radius
-    int recordIndex = 0;
-    for (final record in records) {
-      if (_cancelRequested) {
-        break;
-      }
-      recordIndex++;
-      final coords = record.getCoordinates();
-      if (coords == null) {
-        continue;
-      }
-
-      final lat = coords['latitude'];
-      final lng = coords['longitude'];
-      if (lat == null || lng == null) {
-        continue;
-      }
-
-      // Create 100m radius bbox around each record
-      const radiusPadding = 0.001; // ~100m in degrees
-      final recordBbox = LatLngBounds(
-        LatLng(lat - radiusPadding, lng - radiusPadding),
-        LatLng(lat + radiusPadding, lng + radiusPadding),
-      );
-
-      // Update progress based on record completion
-      if (mounted) {
-        setState(() {
-          _basemapProgress[basemapName] = recordIndex / records.length;
-          _basemapStatus[basemapName] = 'Aufnahme $recordIndex von ${records.length}';
-        });
-      }
-
-      await _downloadTiles(recordBbox, basemapName);
-    }
-  }
-
-  LatLngBounds? _calculateBoundingBox(List<Record> records, String basemapName) {
-    double? minLat, maxLat, minLng, maxLng;
-
-    for (final record in records) {
-      final coords = record.getCoordinates();
-      if (coords == null) continue;
-
-      final lat = coords['latitude'];
-      final lng = coords['longitude'];
-
-      if (lat == null || lng == null) continue;
-      minLat = minLat == null ? lat : (lat < minLat ? lat : minLat);
-      maxLat = maxLat == null ? lat : (lat > maxLat ? lat : maxLat);
-      minLng = minLng == null ? lng : (lng < minLng ? lng : minLng);
-      maxLng = maxLng == null ? lng : (lng > maxLng ? lng : maxLng);
-    }
-
-    if (minLat == null || maxLat == null || minLng == null || maxLng == null) {
-      return null;
-    }
-
-    // Add buffer based on basemap type
-    // OpenTopoMap: larger buffer (500m) for overview
-    // DOP/ESRI Satellite: smaller buffer (100m) for detailed aerial imagery
-    final padding = (basemapName == 'DOP' || basemapName == 'ESRI Satellite')
-        ? 0.001
-        : 0.005; // ~100m or ~500m in degrees
-    return LatLngBounds(
-      LatLng(minLat - padding, minLng - padding),
-      LatLng(maxLat + padding, maxLng + padding),
-    );
-  }
-
-  Future<void> _downloadTiles(LatLngBounds bbox, String basemapName) async {
-    if (basemapName == 'DTK25' || basemapName == 'DOP') {
-      await _downloadWmsTiles(bbox, basemapName);
-    } else {
-      await _downloadStandardTiles(bbox, basemapName);
-    }
-  }
-
-  Future<void> _downloadStandardTiles(LatLngBounds bbox, String basemapName) async {
-    final storeName =
-        basemapsToSelectFrom[basemapName]?['storeName'] ??
-        basemapName.toLowerCase().replaceAll(' ', '_');
-    final store = FMTCStore(storeName);
-
-    // Create store if it doesn't exist
-    await store.manage.create();
-
-    // Define download region
-    final region = RectangleRegion(bbox);
-
-    // Get zoom layers or fall back to min/max zoom
-    final zoomLayers = basemapsToSelectFrom[basemapName]?['zoomLayers'] as List<dynamic>?;
-    final zoomLevels =
-        zoomLayers?.cast<int>() ??
-        [
-          basemapsToSelectFrom[basemapName]?['minZoom'] ?? 1,
-          basemapsToSelectFrom[basemapName]?['maxZoom'] ?? 19,
-        ];
-
-    // Download each zoom level separately
-    int zoomIndex = 0;
-    for (final zoom in zoomLevels) {
-      if (_cancelRequested) {
-        break;
-      }
-      // Configure TileLayer with urlTemplate (required by FMTC)
-      final downloadableRegion = region.toDownloadable(
-        minZoom: zoom,
-        maxZoom: zoom,
-        options: TileLayer(urlTemplate: basemapsToSelectFrom[basemapName]?['urlTemplate']),
-      );
-
-      // Start download
-      try {
-        final download = store.download.startForeground(
-          region: downloadableRegion,
-          instanceId: '${basemapName}_${zoom}_${DateTime.now().microsecondsSinceEpoch}'.hashCode,
-          parallelThreads: 1,
-          maxBufferLength: 100,
-          skipExistingTiles: true,
-        );
-
-        // Consume the progress stream
-        int progressUpdateCount = 0;
-        int lastFailedCount = 0;
-        await for (final progress in download) {
-          if (_cancelRequested) {
-            break;
-          }
-
-          progressUpdateCount++;
-          if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
-          }
-
-          // Detect if many tiles are failing - likely a proxy/network issue
-          if (progress.failedTiles > lastFailedCount) {
-            lastFailedCount = progress.failedTiles;
-            // If more than 20% of tiles failed, show warning
-            if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
-            }
-          }
-
-          if (mounted) {
-            setState(() {
-              // Update progress: (current zoom index + progress within zoom) / total zooms
-              final progressInCurrentZoom = progress.maxTiles > 0
-                  ? progress.successfulTiles / progress.maxTiles
-                  : 0.0;
-              _basemapProgress[basemapName] =
-                  (zoomIndex + progressInCurrentZoom) / zoomLevels.length;
-              _basemapStatus[basemapName] =
-                  'Zoom $zoom: ${progress.successfulTiles}/${progress.maxTiles}';
-            });
-          }
-        }
-
-        zoomIndex++;
-      } catch (e, stackTrace) {
-
-        // Check for Windows isolate serialization error
-        if (e.toString().contains('Illegal argument in isolate message') &&
-            e.toString().contains('_SecurityContext')) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  '⚠️ Bulk-Downloads funktionieren nicht unter Windows.\n'
-                  'Lösung: Karten werden automatisch beim Ansehen heruntergeladen, '
-                  'oder Download auf Linux/macOS durchführen.',
-                ),
-                duration: Duration(seconds: 10),
-              ),
-            );
-          }
-          // Skip remaining zoom levels for this basemap
-          break;
-        }
-
-        // Check for proxy-related errors
-        final proxyError = _detectProxyError(e);
-        if (proxyError != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(proxyError),
-              duration: const Duration(seconds: 8),
-              action: SnackBarAction(label: 'OK', onPressed: () {}),
-            ),
-          );
-        }
-        // Continue with next zoom level instead of failing completely
-        zoomIndex++;
-      }
-
-    }
-  }
-
-  Future<void> _downloadWmsTiles(LatLngBounds bbox, String basemapName) async {
-    // Use the same WMS configuration as the existing map layer
-    // FMTC will handle WMS tile generation and caching
-    final storeName = basemapName == 'DTK25' ? 'wms_dtk25__' : 'wms_dop__';
-    final store = FMTCStore(storeName);
-    await store.manage.create();
-
-    final baseUrl = basemapName == 'DTK25'
-        ? 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?'
-        : 'https://sg.geodatenzentrum.de/wms_dop__${dotenv.env['DMZ_KEY']}?';
-    final layers = basemapName == 'DTK25' ? ['dtk25'] : ['rgb'];
-
-    final region = RectangleRegion(bbox);
-
-    // Get zoom layers or fall back to min/max zoom
-    final zoomLayers = basemapsToSelectFrom[basemapName]?['zoomLayers'] as List<dynamic>?;
-    final zoomLevels =
-        zoomLayers?.cast<int>() ??
-        [
-          basemapsToSelectFrom[basemapName]?['minZoom'] ?? 1,
-          basemapsToSelectFrom[basemapName]?['maxZoom'] ?? 19,
-        ];
-
-    // Download each zoom level separately
-    int zoomIndex = 0;
-    for (final zoom in zoomLevels) {
-      if (_cancelRequested) {
-        break;
-      }
-      // Configure TileLayer with WMS options (required by FMTC)
-      final downloadableRegion = region.toDownloadable(
-        minZoom: zoom,
-        maxZoom: zoom,
-        options: TileLayer(
-          wmsOptions: WMSTileLayerOptions(
-            baseUrl: baseUrl,
-            layers: layers,
-            format: 'image/jpeg',
-            crs: const Epsg3857(),
-          ),
-        ),
-      );
-
-      try {
-        final download = store.download.startForeground(
-          region: downloadableRegion,
-          instanceId: '${basemapName}_${zoom}_${DateTime.now().microsecondsSinceEpoch}'.hashCode,
-          parallelThreads: 1,
-          maxBufferLength: 100,
-          skipExistingTiles: true,
-        );
-
-        // Consume the progress stream
-        int progressUpdateCount = 0;
-        int lastFailedCount = 0;
-        await for (final progress in download) {
-          if (_cancelRequested) {
-            break;
-          }
-
-          progressUpdateCount++;
-
-          if (progressUpdateCount == 1 || progressUpdateCount % 10 == 0) {
-          }
-
-          // Detect if many tiles are failing - likely a proxy/network issue
-          if (progress.failedTiles > lastFailedCount) {
-            lastFailedCount = progress.failedTiles;
-            // If more than 20% of tiles failed, show warning
-            if (progress.maxTiles > 0 && progress.failedTiles > progress.maxTiles * 0.2) {
-            }
-          }
-
-          if (mounted) {
-            setState(() {
-              // Update progress: (current zoom index + progress within zoom) / total zooms
-              final progressInCurrentZoom = progress.maxTiles > 0
-                  ? progress.successfulTiles / progress.maxTiles
-                  : 0.0;
-              _basemapProgress[basemapName] =
-                  (zoomIndex + progressInCurrentZoom) / zoomLevels.length;
-              _basemapStatus[basemapName] =
-                  'Zoom $zoom: ${progress.successfulTiles}/${progress.maxTiles}';
-            });
-          }
-        }
-
-        zoomIndex++;
-      } catch (e, stackTrace) {
-
-        // Check for Windows isolate serialization error
-        if (e.toString().contains('Illegal argument in isolate message') &&
-            e.toString().contains('_SecurityContext')) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  '⚠️ Bulk-Downloads funktionieren nicht unter Windows.\n'
-                  'Lösung: Karten werden automatisch beim Ansehen heruntergeladen, '
-                  'oder Download auf Linux/macOS durchführen.',
-                ),
-                duration: Duration(seconds: 10),
-              ),
-            );
-          }
-          break;
-        }
-
-        // Check for proxy-related errors
-        final proxyError = _detectProxyError(e);
-        if (proxyError != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(proxyError),
-              duration: const Duration(seconds: 8),
-              action: SnackBarAction(label: 'OK', onPressed: () {}),
-            ),
-          );
-        }
-        // Continue with next zoom level
-        zoomIndex++;
-      }
-    }
+    await _controller.start(basemapName, regions);
   }
 
   @override
   Widget build(BuildContext context) {
     // Only allow download if nothing is currently downloading, not checking, and records exist
     final canStartDownload =
-        _downloadingBasemap == null && !_isCheckingTiles && _missingTilesCount == -1;
+        _controller.activeBasemap == null && !_isCheckingTiles && _missingTilesCount == -1;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -557,10 +130,16 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           final config = entry.value;
           final title = config['title'] as String? ?? basemapName;
 
-          final isDownloading = _downloadingBasemap == basemapName;
-          final isCompleted = _downloadedBasemaps[basemapName] ?? false;
-          final progress = _basemapProgress[basemapName] ?? 0.0;
-          //final status = _basemapStatus[basemapName] ?? '';
+          final isDownloading = _controller.activeBasemap == basemapName;
+          final notice = _controller.notices[basemapName];
+          final count = _controller.counts[basemapName];
+          final hasCount = count != null && count.total > 0;
+          final progress = hasCount ? count.done / count.total : 0.0;
+          final isCompleted = hasCount && count.done >= count.total;
+          final isPartial = hasCount && count.done > 0 && !isCompleted;
+          final countText = hasCount
+              ? '${formatTileCount(count.done)} / ${formatTileCount(count.total)} Kacheln'
+              : null;
 
           return Card(
             margin: const EdgeInsets.only(right: 16, bottom: 16),
@@ -577,20 +156,35 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (countText != null && !_isCheckingTiles) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      countText,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                   if (isDownloading) ...[
-                    const LinearProgressIndicator(),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: progress > 0 ? progress : null),
                     const SizedBox(height: 8),
                     Text(
-                      '${(progress * 100).toInt()}%',
+                      '${(progress * 100).toStringAsFixed(1)} %',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    if (_controller.statusText != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _controller.statusText!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     IconButton(
                       icon: const Icon(Icons.cancel),
-                      onPressed: _cancelDownload,
+                      onPressed: _controller.cancel,
                       tooltip: 'Abbrechen',
                     ),
-                  ] else if (isCompleted) ...[
-                    const Text('Fertig', style: TextStyle(color: Colors.green)),
                   ] else if (_isCheckingTiles) ...[
                     const SizedBox(height: 16),
                     const SizedBox(
@@ -618,13 +212,32 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                       textAlign: TextAlign.center,
                     ),
                     TextButton(onPressed: _checkMissingTiles, child: const Text('Erneut prüfen')),
+                  ] else if (isCompleted) ...[
+                    const SizedBox(height: 16),
+                    const Text('Vollständig', style: TextStyle(color: Colors.green)),
                   ] else ...[
+                    if (notice != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        notice,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: notice == mapTilesInterruptedNotice
+                              ? null
+                              : Theme.of(context).colorScheme.error,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: canStartDownload
                           ? () => _downloadMapTilesForBasemap(basemapName)
                           : null,
-                      child: const Text('Download'),
+                      child: Text(
+                        isPartial || notice == mapTilesInterruptedNotice
+                            ? 'Fortsetzen'
+                            : 'Download',
+                      ),
                     ),
                   ],
                 ],

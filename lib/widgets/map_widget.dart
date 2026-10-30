@@ -12,6 +12,7 @@ import 'package:terrestrial_forest_monitor/repositories/records_repository.dart'
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-settings.dart';
@@ -116,6 +117,14 @@ class _MapWidgetState extends State<MapWidget> {
   // zoom-band TileLayers below.  Disposed in dispose().
   _ManagedTileProvider? _ocmProvider;
 
+  // Same for the DTK25 (BKG) zoom bands.
+  _ManagedTileProvider? _dtk25Provider;
+
+  // Online, OpenCycleMap additionally loads tiles at the actual zoom on top
+  // of the cached bands (see Layer 1).
+  bool _isOnline = ConnectivityService.instance.isOnline;
+  StreamSubscription<bool>? _connectivitySub;
+
   List<Color> aggregatedMarkerColors = [
     Color.fromARGB(255, 0, 170, 170), // #0aa
     Color.fromARGB(255, 0, 170, 130), // #00aa82
@@ -137,6 +146,10 @@ class _MapWidgetState extends State<MapWidget> {
 
     // Initialize FMTC stores
     _initializeTileStores();
+
+    _connectivitySub = ConnectivityService.instance.onStatusChanged.listen((online) {
+      if (mounted) setState(() => _isOnline = online);
+    });
 
     // Load saved basemap preference
     _loadMapSettings();
@@ -809,13 +822,21 @@ class _MapWidgetState extends State<MapWidget> {
       final prefs = await SharedPreferences.getInstance();
       final savedBasemaps = prefs.getStringList('map_basemaps');
       if (savedBasemaps != null && savedBasemaps.isNotEmpty) {
+        final basemaps = savedBasemaps.toSet();
+        // One-time switch of existing installs from OpenCycleMap to the DTK25
+        // as default map; OpenCycleMap stays available in the map settings.
+        if (prefs.getBool('map_basemaps_dtk25_default') != true) {
+          if (basemaps.remove('opencycle')) basemaps.add('dtk25');
+          await prefs.setBool('map_basemaps_dtk25_default', true);
+          await prefs.setStringList('map_basemaps', basemaps.toList());
+        }
         setState(() {
-          _selectedBasemaps = savedBasemaps.toSet();
+          _selectedBasemaps = basemaps;
         });
       } else {
         // First installation: select all basemaps by default
         setState(() {
-          _selectedBasemaps = {'opencycle', 'dop'};
+          _selectedBasemaps = {'dtk25', 'dop'};
         });
         // Save the default selection
         await prefs.setStringList('map_basemaps', _selectedBasemaps.toList());
@@ -1461,6 +1482,24 @@ class _MapWidgetState extends State<MapWidget> {
     ];
   }
 
+  TileLayer _dtk25Layer(int nativeZoom) => TileLayer(
+    key: ValueKey('dtk25_$nativeZoom'),
+    wmsOptions: WMSTileLayerOptions(
+      baseUrl: 'https://sg.geodatenzentrum.de/wms_dtk25__${dotenv.env['DMZ_KEY']}?',
+      layers: const ['dtk25'],
+      format: 'image/png',
+      crs: const Epsg3857(),
+    ),
+    userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+    minNativeZoom: nativeZoom,
+    maxNativeZoom: nativeZoom,
+    tileProvider: (_dtk25Provider ??= _ManagedTileProvider(
+      FMTCStore('wms_dtk25__').getTileProvider(
+        settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+      ),
+    )),
+  );
+
   void _openMapSettings() {
     MapSettingsModal.show(
       context,
@@ -1536,6 +1575,8 @@ class _MapWidgetState extends State<MapWidget> {
 
     // Dispose managed tile provider (HTTP client etc.)
     _ocmProvider?.innerDispose();
+    _dtk25Provider?.innerDispose();
+    _connectivitySub?.cancel();
 
     // Remove listeners
     try {
@@ -1744,6 +1785,43 @@ class _MapWidgetState extends State<MapWidget> {
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
               ),
             )),
+          ),
+
+        // Layer 1 (online): OpenCycleMap at the actual zoom level, on top of
+        // the band above. The band stays as fallback: while live tiles load,
+        // and where they fail (CyclOSM unreachable or blocking) it still shows
+        // the cached, if blurry, tile instead of an empty map.
+        if (_selectedBasemaps.contains('opencycle') && _storesInitialized && _isOnline)
+          TileLayer(
+            urlTemplate: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
+            subdomains: const ['a', 'b', 'c'],
+            maxNativeZoom: 20, // CyclOSM serves up to native zoom 20
+            tileProvider: (_ocmProvider ??= _ManagedTileProvider(
+              FMTCStore('OpenCycleMap').getTileProvider(
+                settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
+              ),
+            )),
+          ),
+
+        // Layer 1b: DTK25 (BKG, needs DMZ key) — same zoom-band scheme as
+        // OpenCycleMap above. Bands 4 / 7 / 10 / 14 are pre-downloaded by
+        // MapTilesDownload (identical WMS options, so the cache keys match);
+        // the native-16 band is live-only, the DTK25 has no detail beyond.
+        if (_selectedBasemaps.contains('dtk25') &&
+            _storesInitialized &&
+            dotenv.env['DMZ_KEY'] != null &&
+            dotenv.env['DMZ_KEY']!.isNotEmpty)
+          _dtk25Layer(
+            _currentZoom < 6.5
+                ? 4
+                : _currentZoom < 9.5
+                ? 7
+                : _currentZoom < 13.5
+                ? 10
+                : _currentZoom < 16.5
+                ? 14
+                : 16,
           ),
 
         // Layer 2: ESRI Satellite (free worldwide satellite imagery)

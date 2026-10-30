@@ -5,6 +5,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-t
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/helping-point.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/auto-increment.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/row-delete-guard.dart';
 
 /// ArrayElementCardList – renders an array as a vertical list of Cards.
@@ -179,15 +180,13 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
   }
 
   int _computeNextAutoIncrementValue(String key, Map<String, dynamic>? propertySchema) {
-    final existingValues = _rows
-        .map((row) => row[key])
-        .where((v) => v != null && v is num)
-        .map((v) => (v as num).toInt())
-        .toList();
-    final defaultValue = (propertySchema?['default'] as int?) ?? 1;
-    return existingValues.isEmpty
-        ? defaultValue
-        : (existingValues.reduce((a, b) => a > b ? a : b) + 1);
+    return AutoIncrement.next(
+      key,
+      currentValues: _rows.map((row) => row[key]),
+      previousData: widget.previousData,
+      previousFilter: _matchesFilter,
+      defaultValue: (propertySchema?['default'] as int?) ?? 1,
+    );
   }
 
   Map<String, dynamic> _buildNewRow() {

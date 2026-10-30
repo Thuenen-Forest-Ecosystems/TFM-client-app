@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Modal bottom sheet for map settings
-/// Allows user to toggle basemap layers (OpenCycleMap, DOP/aerial imagery),
+/// Allows user to toggle basemap layers (DTK25, OpenCycleMap, DOP/aerial imagery),
 /// control tree diameter multiplier, and configure tree labels
 class MapSettingsModal extends StatefulWidget {
   final Set<String> selectedBasemaps;
@@ -327,8 +327,14 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CheckboxListTile(
-                    title: const Text('OpenCycleMap (offline)'),
-                    subtitle: const Text('Mittlere Zoomstufen'),
+                    title: const Text('DTK25 (offline)'),
+                    subtitle: const Text('Topographische Karte des BKG'),
+                    value: _selectedBasemaps.contains('dtk25'),
+                    onChanged: (value) => _toggleBasemap('dtk25', value),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('OpenCycleMap'),
+                    subtitle: const Text('Online; offline nur bereits angesehene Gebiete'),
                     value: _selectedBasemaps.contains('opencycle'),
                     onChanged: (value) => _toggleBasemap('opencycle', value),
                   ),

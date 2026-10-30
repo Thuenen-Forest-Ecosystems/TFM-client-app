@@ -16,6 +16,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfie
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-grid-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-row-form-dialog.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-filter-dialog.dart';
+import 'package:terrestrial_forest_monitor/widgets/form-elements/auto-increment.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/row-delete-guard.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/validation_status_indicator.dart';
 
@@ -214,7 +215,10 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
   }
 
   void _initializeFilters() {
-    // Parse filter configuration from layout
+    // Parse filter configuration from layout. Reset first: on a schema switch the
+    // new layout may declare fewer (or no) filters than the previous one.
+    _filters = [];
+    _activeFilterIndices.clear();
 
     if (widget.filterConfig != null && widget.filterConfig!.isNotEmpty) {
       _filters = widget.filterConfig!
@@ -247,6 +251,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
         setState(() {
           _activeFilterIndices = savedIndices.map((s) => int.parse(s)).toSet();
           _filtersLoaded = true;
+          // Grid already built (filters re-initialized after a schema switch):
+          // re-apply the restored selection to the visible rows.
+          if (_stateManager != null) {
+            _rows = _buildRows();
+            _stateManager!.removeAllRows();
+            _stateManager!.appendRows(_rows);
+          }
         });
       } else {
         if (!mounted) return;
@@ -413,6 +424,13 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
     // Check if data has changed
     if (widget.data != oldWidget.data) {
+      shouldRebuild = true;
+    }
+
+    // Filter config changes when an admin switches the schema version: the grid
+    // state survives (GlobalKey), so the filters must be re-read here.
+    if (jsonEncode(widget.filterConfig) != jsonEncode(oldWidget.filterConfig)) {
+      _initializeFilters();
       shouldRebuild = true;
     }
 
@@ -2377,40 +2395,19 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     return defaults;
   }
 
-  /// Compute the next auto-increment value for a field given current rows.
+  /// Compute the next auto-increment value for a field given current rows
+  /// and the previous inventory (numbers used there are never reused, #437).
   int _computeNextAutoIncrementValue(String key, Map<String, dynamic> propertySchema) {
-    int? parseInt(dynamic value) {
-      if (value is int) return value;
-      if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value);
-      return null;
-    }
-
-    final existingValues = <int>{};
-
     final rowsToUse = _stateManager?.rows ?? _rows;
-    for (final row in rowsToUse) {
-      final intValue = parseInt(row.cells[key]?.value);
-      if (intValue != null) existingValues.add(intValue);
-    }
-
-    if (widget.data != null) {
-      for (final item in widget.data!) {
-        if (item is! Map) continue;
-        final intValue = parseInt(item[key]);
-        if (intValue != null) existingValues.add(intValue);
-      }
-    }
-
-    final defaultValue = propertySchema['default'] as int? ?? 1;
-    if (existingValues.isEmpty) return defaultValue;
-
-    int maxValue = existingValues.first;
-    for (final value in existingValues) {
-      if (value > maxValue) maxValue = value;
-    }
-
-    return maxValue + 1;
+    return AutoIncrement.next(
+      key,
+      currentValues: [
+        ...rowsToUse.map((row) => row.cells[key]?.value),
+        ...?widget.data?.whereType<Map>().map((item) => item[key]),
+      ],
+      previousData: widget.previousData,
+      defaultValue: propertySchema['default'] as int? ?? 1,
+    );
   }
 
   Future<void> _addRowAsFormDialog() async {

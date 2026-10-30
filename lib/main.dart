@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:beamer/beamer.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/route/404.dart';
@@ -148,6 +149,9 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
 // ignores main()'s return type, so this is behaviourally identical at runtime.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Port for progress messages from the offline map download service (Android)
+  FlutterForegroundTask.initCommunicationPort();
 
   // Apply Windows SSL workaround with bundled certificate
   if (!kIsWeb && Platform.isWindows) {

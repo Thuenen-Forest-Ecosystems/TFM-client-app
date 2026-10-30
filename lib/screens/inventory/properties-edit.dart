@@ -1272,7 +1272,9 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
 
       final schemas = results.map((row) => SchemaModel.fromJson(row)).toList();
-      final currentSchemaId = _record!.schemaIdValidatedBy;
+      // The schema the form is actually running on. Not schemaIdValidatedBy: on
+      // open the latest visible schema is loaded regardless of that column.
+      final currentSchemaId = _loadedSchemaId;
 
       if (!mounted) return;
 
