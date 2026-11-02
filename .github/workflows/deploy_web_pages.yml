@@ -1,42 +1,43 @@
 name: Deploy to GitHub Pages
 
-# Disabled: the web build of the app is not used - field work runs on the
-# Windows/Android/desktop builds, and record browsing happens in
-# TFM-Documentation. Style-map fields flagged "webOnly" are therefore
-# documentation-only in practice. Kept as a manual trigger so the build can
-# still be produced on demand; remove the workflow entirely if that changes.
+# Publishes the web build to https://thuenen-forest-ecosystems.github.io/TFM-client-app/
+# on every release, alongside the Windows and Android builds.
 on:
+  release:
+    types: [published]
   workflow_dispatch:
+
+# Only one Pages deploy at a time; a newer release supersedes an older one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     permissions:
-        actions: write
-        contents: write
-        
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.1'
-          channel: 'stable'
-
-      - name: Enable Flutter Web
-        run: flutter config --enable-web
+          flutter-version: "3.38.4"
+          channel: "stable"
+          cache: true
 
       - name: Download Dependencies
         run: flutter pub get
-      
-      - name: 'Create .env file from secrets'
+
+      - name: "Create .env file from secrets"
         run: |
           touch .env
           echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
 
       - name: Build
-        run: flutter build web --base-href "/TFM-client-app/"
+        run: flutter build web --release --base-href "/TFM-client-app/"
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4

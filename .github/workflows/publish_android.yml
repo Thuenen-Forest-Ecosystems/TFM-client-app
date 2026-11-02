@@ -1,5 +1,6 @@
-name: Google Play Deployment
+name: Build Android Release
 
+# Distributed via GitHub releases only; the Play Store is no longer used.
 on:
   release:
     types: [published]
@@ -19,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -39,15 +40,6 @@ jobs:
           flutter-version: "3.38.3"
           channel: "stable"
 
-      #- name: Ensure flutter_libserialport is disabled for Android
-      #  run: |
-      #    # Verify flutter_libserialport is commented out for Android build
-      #    if grep -q "^[[:space:]]*flutter_libserialport:" pubspec.yaml; then
-      #      echo "ERROR: flutter_libserialport must be commented out for Android builds"
-      #      exit 1
-      #    fi
-      #    echo "Confirmed: flutter_libserialport is disabled for Android build"
-
       - name: Install Dependencies
         run: flutter pub get
 
@@ -63,7 +55,7 @@ jobs:
             else
               echo "Namespace already present"
             fi
-            
+
             # Patch compileSdkVersion to 34 to fix 'android:attr/lStar not found'
             echo "Patching compileSdkVersion..."
             sed -i 's/compileSdkVersion [0-9]*/compileSdkVersion 34/g' "$BLUETOOTH_BUILD_GRADLE"
@@ -77,56 +69,8 @@ jobs:
           touch .env
           echo "DMZ_KEY=${{ secrets.DMZ_KEY }}" >> .env
 
-      #- name: Run Tests
-      #  run: flutter test
-
       - name: Decode Keystore File
         run: echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/keystore.jks
-
-      # Optional: Add step to clean Gradle cache
-      - name: Clean Gradle Cache
-        run: |
-          rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
-          rm -rf $HOME/.gradle/caches/*/plugin-resolution/
-
-      # Optional: Add step to clean Gradle cache
-      - name: Clean Gradle Cache
-        run: |
-          rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
-          rm -rf $HOME/.gradle/caches/*/plugin-resolution/
-
-      - name: Debug Keystore
-        run: |
-          echo "Current directory: $(pwd)"
-          find . -name "keystore.jks" | xargs ls -la
-          ls -la android/app/
-
-      - name: Verify Signing Inputs
-        run: |
-          echo "--- Verifying Signing Inputs ---"
-          echo "Checking existence and size of android/app/keystore.jks:"
-          ls -l android/app/keystore.jks || echo "Keystore file not found!"
-          echo "KEYSTORE_ALIAS is set: ${{ secrets.KEYSTORE_ALIAS != '' }}"
-          echo "KEYSTORE_PASSWORD is set: ${{ secrets.KEYSTORE_PASSWORD != '' }}"
-          echo "KEY_PASSWORD is set: ${{ secrets.KEY_PASSWORD != '' }}"
-          echo "--- End Verification ---"
-
-      - name: Verify Keystore File Integrity
-        run: |
-          echo "Checking keystore validity:"
-          keytool -list -v -keystore android/app/keystore.jks -storepass ${{ secrets.KEYSTORE_PASSWORD }} || echo "Keystore validation failed"
-
-      - name: Create Test Keystore
-        run: |
-          keytool -genkey -v -keystore android/app/test-keystore.jks -storepass android -alias androidkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Test,O=Android,C=US"
-
-      # AppBundle only needed for Play Store - commented out since we distribute via GitHub releases
-      #- name: Build Release AppBundle
-      #  env:
-      #    storePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-      #    keyAlias: ${{ secrets.KEYSTORE_ALIAS }}
-      #    keyPassword: ${{ secrets.KEYSTORE_PASSWORD }}
-      #  run: flutter build appbundle
 
       - name: Build Release APK
         env:
@@ -143,18 +87,3 @@ jobs:
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Google Play Store deployment disabled - no longer shipping through Play Store
-      #- name: Setup Google Play Service Account
-      #  run: |
-      #    echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > service-account.json
-
-      #- name: Deploy to Google Play
-      #  uses: r0adkll/upload-google-play@v1
-      #  with:
-      #    serviceAccountJson: service-account.json
-      #    # serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
-      #    packageName: de.thuenen.terrestrial_forest_monitor
-      #    releaseFiles: build/app/outputs/bundle/release/app-release.aab
-      #    track: internal
-      #    status: draft # completed: if status of app is production

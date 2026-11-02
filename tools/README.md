@@ -104,8 +104,7 @@ BACKUP_RECIPIENT_KEY=<base64 public key>
 
 Release builds reconstruct `.env` from GitHub secrets, so the same value has to
 exist there too, alongside `DMZ_KEY`, in the workflows that write `.env`
-(`publish_android.yml`, `build-release-windows.yml`, `build-release-ios.yml`,
-`deploy-desktop.yml`).
+(`publish_android.yml`, `build-release-windows.yml`, `deploy_web_pages.yml`).
 **Until it does, release builds keep exporting plain readable ZIPs.**
 
 With the key unset the app deliberately falls back to an unsealed `.zip` and
