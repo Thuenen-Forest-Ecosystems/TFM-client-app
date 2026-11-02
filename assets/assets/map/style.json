@@ -1,0 +1,98 @@
+{
+  "version": 8,
+  "sources": {
+    "protomaps": {
+      "type": "vector",
+      "url": "PMTILES_URL_PLACEHOLDER",
+      "attribution": "© OpenStreetMap"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#f8f4f0"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "protomaps",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#aad3df"
+      }
+    },
+    {
+      "id": "landuse_park",
+      "type": "fill",
+      "source": "protomaps",
+      "source-layer": "landuse",
+      "filter": ["==", ["get", "class"], "park"],
+      "paint": {
+        "fill-color": "#c8e6c9"
+      }
+    },
+    {
+      "id": "landuse_forest",
+      "type": "fill",
+      "source": "protomaps",
+      "source-layer": "landuse",
+      "filter": ["==", ["get", "class"], "forest"],
+      "paint": {
+        "fill-color": "#8bc34a",
+        "fill-opacity": 0.8
+      }
+    },
+    {
+      "id": "roads_minor",
+      "type": "line",
+      "source": "protomaps",
+      "source-layer": "transportation",
+      "filter": ["in", ["get", "class"], ["literal", ["minor", "service"]]],
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": 1
+      }
+    },
+    {
+      "id": "roads_major",
+      "type": "line",
+      "source": "protomaps",
+      "source-layer": "transportation",
+      "filter": ["in", ["get", "class"], ["literal", ["primary", "secondary", "tertiary"]]],
+      "paint": {
+        "line-color": "#ffa726",
+        "line-width": 2
+      }
+    },
+    {
+      "id": "roads_highway",
+      "type": "line",
+      "source": "protomaps",
+      "source-layer": "transportation",
+      "filter": ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]],
+      "paint": {
+        "line-color": "#e64a19",
+        "line-width": 3
+      }
+    },
+    {
+      "id": "place_labels",
+      "type": "symbol",
+      "source": "protomaps",
+      "source-layer": "place",
+      "layout": {
+        "text-field": ["get", "name"],
+        "text-font": ["Open Sans Regular"],
+        "text-size": 12
+      },
+      "paint": {
+        "text-color": "#333333",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1
+      }
+    }
+  ]
+}

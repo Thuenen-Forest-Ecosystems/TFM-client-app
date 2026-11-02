@@ -3,7 +3,7 @@
     "short_name": "terrestrial_forest_monitor",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#ffffff",
+    "background_color": "#333333",
     "theme_color": "#c3e399",
     "description": "A new Flutter project.",
     "orientation": "portrait-primary",
