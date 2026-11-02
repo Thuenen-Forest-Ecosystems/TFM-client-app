@@ -150,8 +150,9 @@ BeamerDelegate createRouterDelegate(AuthProvider authProvider) {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Port for progress messages from the offline map download service (Android)
-  FlutterForegroundTask.initCommunicationPort();
+  // Port for progress messages from the offline map download service (Android).
+  // Isolate ports don't exist on web.
+  if (!kIsWeb) FlutterForegroundTask.initCommunicationPort();
 
   // Apply Windows SSL workaround with bundled certificate
   if (!kIsWeb && Platform.isWindows) {
