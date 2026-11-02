@@ -152,7 +152,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   /// use `medium` and a longer interval to reduce CPU / radio wakeups.
   /// On Android / iOS we keep the original high-accuracy 1 s behaviour.
   LocationSettings get locationSettings {
-    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    if (kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       return const LocationSettings(accuracy: LocationAccuracy.medium, distanceFilter: 0);
     }
     return AndroidSettings(
@@ -172,6 +172,11 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   // BLUETOOTH
   Future<void> initialize() async {
+    // No Bluetooth/serial GNSS in the browser: use browser geolocation.
+    if (kIsWeb) {
+      startInternalGps();
+      return;
+    }
     List<ble.BluetoothDevice> connected = ble.FlutterBluePlus.connectedDevices;
     if (connected.isEmpty) {
       await getSettings('GNSSDevice').then((value) {
@@ -268,7 +273,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
   void connectDevice(ble.BluetoothDevice device) async {
     // Ensure permissions on Android
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
     }
 
@@ -347,7 +352,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   // Connect to Classic Bluetooth GPS device
   Future<void> connectClassicDevice(classic.BluetoothDevice device) async {
     // Ensure permissions on Android
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
     }
 
@@ -728,7 +733,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     _gnssStatusSubscription?.cancel();
     _gnssStatusSubscription = null;
     _lastGnssStatus = null;
-    if (Platform.isAndroid && _gnssService != null) {
+    if (!kIsWeb && Platform.isAndroid && _gnssService != null) {
       _gnssService?.stopGnssListener();
     }
 
@@ -790,13 +795,26 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
   void startTrackingLocation() async {
     // Check permissions and service status first
     try {
-      Map<Permission, PermissionStatus> statuses = await [
-        Permission.location,
-        Permission.storage,
-      ].request();
-      if (statuses[Permission.location] != PermissionStatus.granted) {
-        // Optionally show a message to the user
-        return;
+      if (kIsWeb) {
+        // permission_handler has no storage permission on web; the browser
+        // shows its own location prompt.
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          return;
+        }
+      } else {
+        Map<Permission, PermissionStatus> statuses = await [
+          Permission.location,
+          Permission.storage,
+        ].request();
+        if (statuses[Permission.location] != PermissionStatus.granted) {
+          // Optionally show a message to the user
+          return;
+        }
       }
     } catch (e) {
       // Handle error (e.g., show message if service disabled)
@@ -810,7 +828,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     setCurrentLocation(); // Attempt to get last known location
 
     // Initialize Android GNSS service for satellite data
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       _gnssService ??= GnssService();
       try {
         final isAvailable = await _gnssService!.isGnssAvailable();
@@ -863,7 +881,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
 
           // Create NMEA object from internal GPS Position data
           // On Android, enhance with real satellite data from GNSS service
-          if (Platform.isAndroid && _lastGnssStatus != null) {
+          if (!kIsWeb && Platform.isAndroid && _lastGnssStatus != null) {
             // Use actual satellite data from Android GNSS
             _currentNMEA = CurrentNMEA(
               latitude: position.latitude,

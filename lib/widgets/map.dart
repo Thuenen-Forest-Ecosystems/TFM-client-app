@@ -407,7 +407,9 @@ class _TFMMapState extends State<TFMMap> {
     return TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       userAgentPackageName: 'dev.fleaflet.flutter_map.example',
-      tileProvider: FMTCStore('osm').getTileProvider(),
+      tileProvider: kIsWeb
+          ? CancellableNetworkTileProvider()
+          : FMTCStore('osm').getTileProvider(),
       // Plenty of other options available!
     );
   }
@@ -421,7 +423,9 @@ class _TFMMapState extends State<TFMMap> {
       subdomains: const ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
       userAgentPackageName: 'dev.fleaflet.flutter_map.example',
       //tileProvider: CancellableNetworkTileProvider(),
-      tileProvider: FMTCStore('dop').getTileProvider(),
+      tileProvider: kIsWeb
+          ? CancellableNetworkTileProvider()
+          : FMTCStore('dop').getTileProvider(),
     );
   }
 

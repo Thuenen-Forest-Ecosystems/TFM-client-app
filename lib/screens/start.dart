@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
@@ -193,8 +194,7 @@ class _StartState extends State<Start> {
         _beamerDelegate.beamToNamed(navPath);
         mapProvider.clearNavigationRequest();
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _onPermissionChangedResubscribe(String _) {
@@ -284,8 +284,7 @@ class _StartState extends State<Start> {
     try {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.removeListener(_onMapNavigationRequest);
-    } catch (e) {
-    }
+    } catch (e) {}
 
     _beamerDelegate.dispose();
     _sheetController.dispose();
@@ -302,8 +301,14 @@ class _StartState extends State<Start> {
       child: Row(
         children: [
           //const SyncStatusButton(),
-          // Use platform-specific GPS widget
-          if (Platform.isWindows) const SerialPortGpsIcon() else const BluetoothIconCombined(),
+          // Use platform-specific GPS widget. Web has no Bluetooth/serial GNSS
+          // receivers; location comes from the browser.
+          if (kIsWeb)
+            const SizedBox.shrink()
+          else if (Platform.isWindows)
+            const SerialPortGpsIcon()
+          else
+            const BluetoothIconCombined(),
         ],
       ),
     );
@@ -491,8 +496,7 @@ class _StartState extends State<Start> {
               );
               return true;
             }
-          } catch (e) {
-          }
+          } catch (e) {}
         }
       }
 

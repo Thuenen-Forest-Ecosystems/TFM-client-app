@@ -1,5 +1,6 @@
 import 'dart:async';
 //import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
@@ -100,7 +101,8 @@ class _SchemaSelectionState extends State<SchemaSelection> {
 
         return Column(
           children: [
-            const MapTilesDownload(),
+            // Offline tile cache is native-only (no FMTC backend on web).
+            if (!kIsWeb) const MapTilesDownload(),
             //Expanded(child: Container(color: Colors.amber)),
             Expanded(
               child: RefreshIndicator(

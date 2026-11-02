@@ -63,7 +63,6 @@ class _LoginState extends State<Login> {
     final hasPreviousLogin = await _authProvider.hasPreviousLogin();
     final cachedEmail = await _authProvider.getCachedEmail();
 
-
     if (mounted) {
       setState(() {
         _isOffline = isOffline;
@@ -169,7 +168,6 @@ class _LoginState extends State<Login> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
@@ -180,7 +178,6 @@ class _LoginState extends State<Login> {
       if (!mounted) {
         return;
       }
-
 
       // Notify autofill service that login was successful.
       // SKIP on Windows: finishAutofillContext re-engages the platform text
@@ -196,7 +193,6 @@ class _LoginState extends State<Login> {
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
-
       String errorMessage = 'Login fehlgeschlagen';
 
       if (e is AuthException) {
@@ -210,7 +206,6 @@ class _LoginState extends State<Login> {
             errorMessage = 'Anmeldefehler: ${e.message}';
         }
       } else {
-
         // Check for proxy-related errors
         if (e.toString().contains('proxy') ||
             e.toString().contains('Proxy') ||
@@ -249,7 +244,6 @@ class _LoginState extends State<Login> {
         }
       }
 
-
       // Show error using captured ScaffoldMessenger (works even if widget is unmounted)
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(errorMessage), duration: const Duration(seconds: 6)),
@@ -274,7 +268,6 @@ class _LoginState extends State<Login> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
@@ -285,7 +278,6 @@ class _LoginState extends State<Login> {
       if (!mounted) {
         return;
       }
-
 
       // Notify autofill service that login was successful.
       // SKIP on Windows (see comment in _handleLogin).
@@ -298,7 +290,6 @@ class _LoginState extends State<Login> {
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
-
       String errorMessage = 'Offline-Anmeldung fehlgeschlagen';
 
       if (e is Exception) {
@@ -306,7 +297,6 @@ class _LoginState extends State<Login> {
       } else {
         errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
       }
-
 
       // Show error using captured ScaffoldMessenger
       scaffoldMessenger.showSnackBar(
@@ -516,42 +506,47 @@ class _LoginState extends State<Login> {
                             const Spacer(),
                             Column(
                               children: [
-                                // GNSS Test Button
-                                TextButton.icon(
-                                  onPressed: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isDismissible: true,
-                                      enableDrag: true,
-                                      isScrollControlled: true,
-                                      builder: (context) => !kIsWeb && Platform.isWindows
-                                          ? const SerialPortMenuSheet()
-                                          : const BluetoothDeviceMenuSheet(popOnConnect: false),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.satellite_alt, size: 16),
-                                  label: const Text(
-                                    'GNSS Connection Test',
-                                    style: TextStyle(fontSize: 12),
+                                // GNSS test and proxy settings need Bluetooth/serial
+                                // and dart:io HTTP; the browser has neither (it uses
+                                // its own proxy settings).
+                                if (!kIsWeb) ...[
+                                  // GNSS Test Button
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isDismissible: true,
+                                        enableDrag: true,
+                                        isScrollControlled: true,
+                                        builder: (context) => !kIsWeb && Platform.isWindows
+                                            ? const SerialPortMenuSheet()
+                                            : const BluetoothDeviceMenuSheet(popOnConnect: false),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.satellite_alt, size: 16),
+                                    label: const Text(
+                                      'GNSS Connection Test',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                    style: TextButton.styleFrom(foregroundColor: Colors.grey),
                                   ),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                                ),
-                                // Proxy/Network Settings Button
-                                TextButton.icon(
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => const ProxySettingsScreen(),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.settings_ethernet, size: 16),
-                                  label: const Text(
-                                    'Netzwerk-Einstellungen (Proxy)',
-                                    style: TextStyle(fontSize: 12),
+                                  // Proxy/Network Settings Button
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => const ProxySettingsScreen(),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.settings_ethernet, size: 16),
+                                    label: const Text(
+                                      'Netzwerk-Einstellungen (Proxy)',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                    style: TextButton.styleFrom(foregroundColor: Colors.grey),
                                   ),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                                ),
+                                ],
                                 const SizedBox(height: 8),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,

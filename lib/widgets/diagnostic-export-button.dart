@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 
@@ -44,15 +45,21 @@ class DiagnosticExportButton extends StatelessWidget {
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: ['json'],
+      // Web has no file system: the bytes are handed to the browser as a
+      // download and saveFile returns null.
+      bytes: kIsWeb ? utf8.encode(jsonString) : null,
     );
 
-    if (path == null) return; // user cancelled
+    if (path == null && !kIsWeb) return; // user cancelled
 
     try {
-      await File(path).writeAsString(jsonString, encoding: utf8);
+      if (!kIsWeb) await File(path!).writeAsString(jsonString, encoding: utf8);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gespeichert: $path'), behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text('Gespeichert: ${path ?? fileName}'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {

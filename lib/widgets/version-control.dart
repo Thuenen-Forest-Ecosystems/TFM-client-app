@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -25,7 +26,9 @@ class _VersionControlState extends State<VersionControl> {
   @override
   void initState() {
     super.initState();
-    _checkForUpdates();
+    // The web build is always the latest deploy; nothing to update. With no
+    // check, _hasChecked stays false and build() renders nothing.
+    if (!kIsWeb) _checkForUpdates();
   }
 
   Future<void> _checkForUpdates() async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
@@ -160,10 +161,7 @@ class _ProfileState extends State<Profile> {
                   children: [
                     Text(
                       'Auf diesem Gerät sind noch nicht übertragene Daten!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade900,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red.shade900),
                     ),
                     const SizedBox(height: 6),
                     if (pendingUploads > 0)
@@ -227,15 +225,19 @@ class _ProfileState extends State<Profile> {
             //LegacyDataBanner(),
             // User Avatar
             //Center(child: CircleAvatar(radius: 50, backgroundColor: Theme.of(context).primaryColor, child: Text(user?.email?.substring(0, 1).toUpperCase() ?? 'U', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)))),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: Text(
-                l10n.profileMapManagement,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            // Offline map tiles, the floating number pad and the proxy are
+            // native-only; the browser caches tiles and handles proxies itself.
+            if (!kIsWeb) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Text(
+                  l10n.profileMapManagement,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-            Card(child: MapAdmin()),
+              Card(child: MapAdmin()),
+            ],
 
             const SizedBox(height: 16),
             Container(
@@ -255,15 +257,17 @@ class _ProfileState extends State<Profile> {
               ),
             ),
             Card(child: LanguageSettings(key: ValueKey(_resetKey))),
-            const SizedBox(height: 16),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 15),
-              child: Text(
-                l10n.profileKeyboardSettings,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            if (!kIsWeb) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 15),
+                child: Text(
+                  l10n.profileKeyboardSettings,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-            Card(child: KeyboardSettings(key: ValueKey(_resetKey))),
+              Card(child: KeyboardSettings(key: ValueKey(_resetKey))),
+            ],
             const SizedBox(height: 16),
             Container(
               padding: EdgeInsets.symmetric(horizontal: 15),
@@ -290,19 +294,20 @@ class _ProfileState extends State<Profile> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.vpn_lock),
-                title: Text(l10n.profileProxySettings),
-                subtitle: Text(l10n.profileProxySubtitle),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (context) => const ProxySettingsScreen()));
-                },
+            if (!kIsWeb)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.vpn_lock),
+                  title: Text(l10n.profileProxySettings),
+                  subtitle: Text(l10n.profileProxySubtitle),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute(builder: (context) => const ProxySettingsScreen()));
+                  },
+                ),
               ),
-            ),
             // Quarantined uploads (upload_failures dead-letter) — red when
             // entries exist, so rejected writes are impossible to miss.
             StreamBuilder(

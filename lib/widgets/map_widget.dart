@@ -50,6 +50,11 @@ class _ManagedTileProvider extends TileProvider {
   void innerDispose() => _inner.dispose();
 }
 
+/// FMTC caching provider on native; plain network tiles on web, where no FMTC
+/// backend is initialised (the browser's HTTP cache does the caching).
+TileProvider _storeTileProvider(String store, {FMTCTileProviderSettings? settings}) =>
+    kIsWeb ? NetworkTileProvider() : FMTCStore(store).getTileProvider(settings: settings);
+
 class MapWidget extends StatefulWidget {
   final LatLng? initialCenter;
   final double? initialZoom;
@@ -787,6 +792,11 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   Future<void> _initializeTileStores() async {
+    if (kIsWeb) {
+      // Runs synchronously from initState, before the first build.
+      _storesInitialized = true;
+      return;
+    }
     try {
       // Initialize OpenCycleMap store
       final openCycleStore = FMTCStore('OpenCycleMap');
@@ -1494,7 +1504,8 @@ class _MapWidgetState extends State<MapWidget> {
     minNativeZoom: nativeZoom,
     maxNativeZoom: nativeZoom,
     tileProvider: (_dtk25Provider ??= _ManagedTileProvider(
-      FMTCStore('wms_dtk25__').getTileProvider(
+      _storeTileProvider(
+        'wms_dtk25__',
         settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
       ),
     )),
@@ -1736,7 +1747,8 @@ class _MapWidgetState extends State<MapWidget> {
             minNativeZoom: 4,
             maxNativeZoom: 4, // clamp all requests to cached zoom 4
             tileProvider: (_ocmProvider ??= _ManagedTileProvider(
-              FMTCStore('OpenCycleMap').getTileProvider(
+              _storeTileProvider(
+                'OpenCycleMap',
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
               ),
             )),
@@ -1752,7 +1764,8 @@ class _MapWidgetState extends State<MapWidget> {
             minNativeZoom: 10,
             maxNativeZoom: 10, // clamp all requests to cached zoom 10
             tileProvider: (_ocmProvider ??= _ManagedTileProvider(
-              FMTCStore('OpenCycleMap').getTileProvider(
+              _storeTileProvider(
+                'OpenCycleMap',
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
               ),
             )),
@@ -1768,7 +1781,8 @@ class _MapWidgetState extends State<MapWidget> {
             minNativeZoom: 14,
             maxNativeZoom: 14, // clamp all requests to cached zoom 14
             tileProvider: (_ocmProvider ??= _ManagedTileProvider(
-              FMTCStore('OpenCycleMap').getTileProvider(
+              _storeTileProvider(
+                'OpenCycleMap',
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
               ),
             )),
@@ -1781,7 +1795,8 @@ class _MapWidgetState extends State<MapWidget> {
             minNativeZoom: 17,
             maxNativeZoom: 17, // sharp detail at high zoom; live-fetched when online
             tileProvider: (_ocmProvider ??= _ManagedTileProvider(
-              FMTCStore('OpenCycleMap').getTileProvider(
+              _storeTileProvider(
+                'OpenCycleMap',
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
               ),
             )),
@@ -1798,7 +1813,8 @@ class _MapWidgetState extends State<MapWidget> {
             subdomains: const ['a', 'b', 'c'],
             maxNativeZoom: 20, // CyclOSM serves up to native zoom 20
             tileProvider: (_ocmProvider ??= _ManagedTileProvider(
-              FMTCStore('OpenCycleMap').getTileProvider(
+              _storeTileProvider(
+                'OpenCycleMap',
                 settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
               ),
             )),
@@ -1831,7 +1847,8 @@ class _MapWidgetState extends State<MapWidget> {
                 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             userAgentPackageName: 'com.thuenen.terrestrial_forest_monitor',
             maxNativeZoom: 19,
-            tileProvider: FMTCStore('esri_satellite').getTileProvider(
+            tileProvider: _storeTileProvider(
+              'esri_satellite',
               settings: FMTCTileProviderSettings(behavior: CacheBehavior.cacheFirst),
             ),
           ),
@@ -1852,7 +1869,8 @@ class _MapWidgetState extends State<MapWidget> {
             tileBounds: LatLngBounds(LatLng(-90, -180), LatLng(90, 180)),
             minZoom: 15, // Only show from zoom 15 onwards
             maxNativeZoom: 19,
-            tileProvider: FMTCStore('wms_dop__').getTileProvider(
+            tileProvider: _storeTileProvider(
+              'wms_dop__',
               settings: FMTCTileProviderSettings(
                 behavior: CacheBehavior.cacheFirst,
                 cachedValidDuration: const Duration(days: 30),

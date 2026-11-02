@@ -121,14 +121,16 @@ class _SettingsState extends State<Settings> {
           constraints: BoxConstraints(maxWidth: 800, minWidth: 300),
           child: ListView(
             children: <Widget>[
-              Container(
-                margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
-                child: Text('Serial Port', style: TextStyle(fontSize: 15)),
-              ),
-              Card(
-                margin: EdgeInsets.all(10.0),
-                child: GnssSettings(), // if (Platform.isWindows)
-              ),
+              if (!kIsWeb)
+                Container(
+                  margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
+                  child: Text('Serial Port', style: TextStyle(fontSize: 15)),
+                ),
+              if (!kIsWeb)
+                Card(
+                  margin: EdgeInsets.all(10.0),
+                  child: GnssSettings(), // if (Platform.isWindows)
+                ),
               if (!kIsWeb)
                 Container(
                   margin: EdgeInsets.only(top: 20.0, left: 30.0, right: 30.0),
