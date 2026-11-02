@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -128,6 +129,47 @@ Future<TileCount?> loadTileCount(String basemapName) async {
 
 Future<void> saveTileCount(String basemapName, TileCount count) => SharedPreferencesAsync()
     .setString(_tileCountKey(basemapName), jsonEncode({'done': count.done, 'total': count.total}));
+
+/// Download steps (see [regionsForBasemap]) whose tiles are all stored. A
+/// resumed run skips them without starting FMTC: for the per-record DOP steps
+/// (~2 per record) FMTC's start-up alone, even with every tile already stored,
+/// added up to many minutes.
+String _completedStepsKey(String basemapName) => 'map_tiles_steps_$basemapName';
+
+@visibleForTesting
+String stepKey(List<double> step) => step.map((v) => v.toStringAsFixed(6)).join(',');
+
+Future<Set<String>> _loadCompletedSteps(String basemapName) async {
+  final raw = await SharedPreferencesAsync().getString(_completedStepsKey(basemapName));
+  return raw == null ? {} : (jsonDecode(raw) as List).cast<String>().toSet();
+}
+
+/// Stored tiles of the *current* download steps: the completed steps among
+/// [regions]. Follows changes of the assigned records (a step belongs to one
+/// record or to the bbox of all), unlike a plain stored count, which may stem
+/// from a different set of records with the same total. Before any step was
+/// recorded (first run after the app update) the stored count is used, but
+/// only if it was taken for the same total.
+Future<int> countStoredTiles(
+  String basemapName,
+  List<List<double>> regions, {
+  Set<String>? completed,
+}) async {
+  final steps = completed ?? await _loadCompletedSteps(basemapName);
+  if (steps.isEmpty) {
+    final saved = await loadTileCount(basemapName);
+    return saved != null && saved.total == countBasemapTiles(regions) ? saved.done : 0;
+  }
+  var stored = 0;
+  for (final step in regions) {
+    if (steps.contains(stepKey(step))) stored += countRegionTiles(step, step[4].toInt());
+  }
+  return stored;
+}
+
+@visibleForTesting
+Future<void> saveCompletedSteps(String basemapName, Set<String> steps) =>
+    SharedPreferencesAsync().setString(_completedStepsKey(basemapName), jsonEncode(steps.toList()));
 
 /// No tile downloaded successfully for this long: the server is treated as
 /// unreachable. Covers both a hung request (FMTC's bulk download uses an
@@ -340,8 +382,10 @@ class MapTilesDownloadRunner {
     final total = countBasemapTiles(regions);
     // On a resumed run FMTC first races through the already stored tiles from
     // zero; don't let the shown/stored count drop below the last known state.
-    final saved = await loadTileCount(basemapName);
-    final floor = saved != null && saved.total == total ? saved.done : 0;
+    final completed = await _loadCompletedSteps(basemapName);
+    // Store emptied since (reset/deleted): the remembered steps are gone too
+    if (completed.isNotEmpty && await store.stats.length == 0) completed.clear();
+    final floor = await countStoredTiles(basemapName, regions, completed: completed);
     var doneBefore = 0;
     var done = floor;
 
@@ -352,17 +396,29 @@ class MapTilesDownloadRunner {
       if (now.difference(_lastSave) < const Duration(seconds: 2)) return;
       _lastSave = now;
       unawaited(saveTileCount(basemapName, (done: done, total: total)));
+      unawaited(saveCompletedSteps(basemapName, completed));
     }
 
     report(0);
     // FMTC re-checks stored tiles before downloading new ones
-    if (floor > 0) _setStatus('Prüfe vorhandene Kacheln…');
+    const checking = 'Prüfe vorhandene Kacheln';
+    if (floor > 0) _setStatus('$checking…');
     try {
-      for (final b in regions) {
+      for (var i = 0; i < regions.length; i++) {
+        final b = regions[i];
         final region = RectangleRegion(LatLngBounds(LatLng(b[0], b[1]), LatLng(b[2], b[3])));
         final zoom = b[4].toInt();
         if (_cancelRequested) return false;
         final stepTiles = countRegionTiles(b, zoom);
+        final key = stepKey(b);
+        if (completed.contains(key)) {
+          doneBefore += stepTiles;
+          report(doneBefore);
+          continue;
+        }
+        if (_status?.startsWith(checking) ?? false) {
+          _setStatus('$checking… ${i * 100 ~/ regions.length} %');
+        }
         var stepDone = 0;
 
         final downloadableRegion = region.toDownloadable(
@@ -424,10 +480,12 @@ class MapTilesDownloadRunner {
           // Continue with next zoom level instead of failing completely
         } finally {
           doneBefore += stepDone;
+          if (stepDone >= stepTiles) completed.add(key);
         }
       }
     } finally {
       await saveTileCount(basemapName, (done: done, total: total));
+      await saveCompletedSteps(basemapName, completed);
     }
 
     return !_cancelRequested;

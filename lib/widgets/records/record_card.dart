@@ -228,23 +228,28 @@ class _RecordCardState extends State<RecordCard> {
                   '/properties-edit/${Uri.encodeComponent(widget.record.clusterId)}/${Uri.encodeComponent(widget.record.plotName ?? '')}',
                 );
               },
-              child: IntrinsicHeight(
-                child: Row(
-                  children: [
+              // Stack instead of IntrinsicHeight + Row: ListTile under-reports its
+              // intrinsic height, which made the Column overflow by a few pixels.
+              child: Stack(
+                children: [
                     // Status indicator
-                    Container(
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
                       width: 10,
-                      decoration: BoxDecoration(
-                        color: isCompleted ? Colors.green : Colors.red,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          bottomLeft: Radius.circular(4),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isCompleted ? Colors.green : Colors.red,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 12, top: 0, right: 12, bottom: 12),
+                    Padding(
+                        padding: const EdgeInsets.only(left: 22, top: 0, right: 12, bottom: 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
@@ -252,6 +257,8 @@ class _RecordCardState extends State<RecordCard> {
                             // Header
                             ListTile(
                               contentPadding: EdgeInsets.only(left: 20),
+                              // Dense cards live in the fixed-height pinned strip.
+                              visualDensity: widget.isDense ? VisualDensity.compact : null,
                               title: !widget.isDense
                                   ? Text(
                                       'Trakt: ${widget.record.clusterName} | Ecke: ${widget.record.plotName}',
@@ -343,10 +350,8 @@ class _RecordCardState extends State<RecordCard> {
                           ],
                         ),
                       ),
-                    ),
                   ],
                 ),
-              ),
             ),
             // Pin icon positioned at top left
             if (widget.onPinToggle != null)

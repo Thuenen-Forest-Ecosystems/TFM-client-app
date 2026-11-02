@@ -64,35 +64,29 @@ class MapTilesDownloadController extends ChangeNotifier {
 
   MapTilesDownloadRunner? _localRunner;
   bool _attached = false;
-  Map<String, int> _totals = {};
+  Map<String, List<List<double>>> _regions = {};
 
   bool get _useForegroundService => !kIsWeb && Platform.isAndroid;
 
-  /// Sets the tile totals for the current records and pairs them with the
-  /// stored progress of earlier runs. A stored count from a different total
-  /// (records changed since) still counts its tiles, they are skipped again.
-  Future<void> loadCounts(Map<String, int> totals) async {
-    _totals = totals;
-    for (final entry in totals.entries) {
-      if (entry.key == activeBasemap) continue;
-      final saved = await loadTileCount(entry.key);
-      counts[entry.key] = (
-        done: saved == null ? 0 : (saved.done < entry.value ? saved.done : entry.value),
-        total: entry.value,
-      );
+  /// Sets the download steps for the current records (see
+  /// [regionsForBasemap]) and derives total and stored tiles from them.
+  Future<void> loadCounts(Map<String, List<List<double>>> regions) async {
+    _regions = regions;
+    for (final basemap in regions.keys) {
+      if (basemap == activeBasemap) continue;
+      await _reloadCount(basemap, notify: false);
     }
     notifyListeners();
   }
 
-  Future<void> _reloadCount(String basemapName) async {
-    final total = _totals[basemapName];
-    if (total == null) return;
-    final saved = await loadTileCount(basemapName);
+  Future<void> _reloadCount(String basemapName, {bool notify = true}) async {
+    final regions = _regions[basemapName];
+    if (regions == null) return;
     counts[basemapName] = (
-      done: saved == null ? 0 : (saved.done < total ? saved.done : total),
-      total: total,
+      done: await countStoredTiles(basemapName, regions),
+      total: countBasemapTiles(regions),
     );
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   /// Restores the state of a download that may still be running in the

@@ -13,6 +13,17 @@ class PlaygroundModeButton extends StatelessWidget {
     final isActive = provider.isPlaygroundMode;
 
     if (isActive) {
+      // Narrow devices: drop the label, keep the orange avatar + close.
+      if (MediaQuery.sizeOf(context).width < 600) {
+        return Tooltip(
+          message: 'Playground-Modus beenden',
+          child: IconButton(
+            icon: const Icon(Icons.science, color: Colors.white),
+            style: IconButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () => provider.toggle(),
+          ),
+        );
+      }
       return InkWell(
         onTap: () => provider.toggle(),
         child: Chip(

@@ -77,11 +77,12 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
       final records = await RecordsRepository().getAllRecordsUnfiltered();
       if (!mounted) return;
 
-      // Totals for the current records, paired with the stored progress
+      // Download steps for the current records; total and stored tiles follow
+      // from them, also when the assigned records changed
       final coordinates = records.map((r) => r.getCoordinates()).whereType<Map<String, double>>();
       await _controller.loadCounts({
         for (final basemap in basemapsToSelectFrom.keys)
-          basemap: countBasemapTiles(regionsForBasemap(basemap, coordinates)),
+          basemap: regionsForBasemap(basemap, coordinates),
       });
       if (!mounted) return;
 

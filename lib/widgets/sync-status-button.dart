@@ -180,6 +180,15 @@ Widget _buildStatusChip(BuildContext context, SyncStatus status) {
   final statusText = _getStatusText(status);
   //final statusColor = _getStatusColor(status);
 
+  // Narrow devices: icon only, status text moves into the tooltip.
+  if (MediaQuery.sizeOf(context).width < 600) {
+    return IconButton(
+      icon: Icon(iconData),
+      tooltip: statusText,
+      onPressed: () => _SyncStatusDialog.show(context, status),
+    );
+  }
+
   return ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: 150),
     child: InputChip(
