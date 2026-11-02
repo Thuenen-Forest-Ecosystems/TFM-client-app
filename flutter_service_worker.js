@@ -52,13 +52,13 @@ const RESOURCES = {"icons/Icon-maskable-192.png": "6b3c68cbbb34fc6b1f14acda46344
 "assets/NOTICES": "03c0dfa9fbb2965bfd04802fff87ad0c",
 "assets/shaders/stretch_effect.frag": "40d68efbbf360632f614c731219e95f0",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
-"flutter_bootstrap.js": "ea11af2b5136cfe74b91f56edcff1579",
+"flutter_bootstrap.js": "a1d6e78ab0c9737bb07b1d32ed78d327",
 "favicon.png": "1110b0d215c8dbfc32cbcf7ac77353ae",
 "flutter.js": "24bc71911b75b5f8135c949e27a2984e",
 "powersync-web.zip": "9d1ead73e678fa2f51a70a933b0bf017",
 "index.html": "62a10d886dfefd59950451946605bb19",
 "/": "62a10d886dfefd59950451946605bb19",
-"main.dart.js": "138cfb1c2112900f85a8199982ea7271",
+"main.dart.js": "4292072410110ddb453e9cbddc3081d3",
 "powersync_db.worker.js": "a35406d81af28f91677d6873ac62abc8",
 "sqlite3.wasm": "9910dae47a91d10c9134796ac1b5807d"};
 // The application shell files that are downloaded before a service worker can
