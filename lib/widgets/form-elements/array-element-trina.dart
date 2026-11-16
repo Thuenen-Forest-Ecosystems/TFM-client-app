@@ -2649,11 +2649,55 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     if (_stateManager != null) {
       _stateManager!.removeRows([row]);
       _rows = _stateManager!.rows;
+      _compactAutoIncrementAfterDelete(rowData);
+      _stateManager!.notifyListeners();
       _notifyDataChanged();
     } else {
       _rows.removeAt(rowIndex);
+      _compactAutoIncrementAfterDelete(rowData);
       _notifyDataChanged();
       setState(() {});
+    }
+  }
+
+  /// After deleting a row created in the app, move the other new rows'
+  /// auto-increment numbers down so the gap closes (#507). Preset and
+  /// previous-inventory rows keep their numbers, and previous numbers are
+  /// never reused (see [AutoIncrement.compactAfterDelete]).
+  void _compactAutoIncrementAfterDelete(Map<String, dynamic> deletedRow) {
+    final properties =
+        (widget.jsonSchema['items'] as Map<String, dynamic>?)?['properties'] as Map<String, dynamic>?;
+    if (properties == null) return;
+    final rows = _stateManager?.rows ?? _rows;
+    final rowData = [
+      for (final row in rows)
+        {
+          for (final entry in row.cells.entries)
+            if (!_internalColumnFields.contains(entry.key) && entry.key != '__original_index__')
+              entry.key: entry.value.value,
+        },
+    ];
+    final renumberable = [for (final data in rowData) !_isRowDeleteProtected(data)];
+
+    for (final key in _getAutoIncrementFields(properties)) {
+      final moves = AutoIncrement.compactAfterDelete(
+        key,
+        deletedValue: deletedRow[key],
+        values: [for (final data in rowData) data[key]],
+        renumberable: renumberable,
+        reservedValues: _hiddenRowsByOriginalIndex.values.map((hidden) => hidden[key]),
+        previousData: widget.previousData,
+      );
+      final idField = widget.identifierField ?? 'tree_number';
+      moves.forEach((index, value) {
+        final cell = rows[index].cells[key];
+        if (cell == null) return;
+        // Keep a session unlock attached to the renumbered row.
+        if (key == idField && _sessionUnlockedRowKeys.remove('id:${cell.value}')) {
+          _sessionUnlockedRowKeys.add('id:$value');
+        }
+        cell.value = value;
+      });
     }
   }
 

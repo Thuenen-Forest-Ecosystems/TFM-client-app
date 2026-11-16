@@ -276,8 +276,26 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     setState(() {
       final removed = _rows.removeAt(index);
       _allRows.removeWhere((row) => identical(row, removed));
+      _compactAutoIncrementAfterDelete(removed);
     });
     _notifyDataChanged();
+  }
+
+  /// Close the numbering gap a deleted new row leaves among this list's
+  /// new rows (#507); see [AutoIncrement.compactAfterDelete].
+  void _compactAutoIncrementAfterDelete(Map<String, dynamic> deletedRow) {
+    final renumberable = [for (final row in _rows) !_isRowDeleteProtected(row)];
+    for (final key in _getAutoIncrementFields()) {
+      final moves = AutoIncrement.compactAfterDelete(
+        key,
+        deletedValue: deletedRow[key],
+        values: [for (final row in _rows) row[key]],
+        renumberable: renumberable,
+        previousData: widget.previousData,
+        previousFilter: _matchesFilter,
+      );
+      moves.forEach((index, value) => _rows[index][key] = value);
+    }
   }
 
   /// Position of a rendered row inside the full array. Validation paths

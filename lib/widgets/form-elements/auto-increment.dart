@@ -46,4 +46,82 @@ class AutoIncrement {
 
     return maxValue == null ? defaultValue : maxValue! + 1;
   }
+
+  /// Closes the gap left by deleting a row numbered [deletedValue] (#507).
+  ///
+  /// [values] holds the remaining rows' values of [key]; [renumberable] says
+  /// per row whether it may be renumbered (rows created in the app – never
+  /// rows preset from or matched to the previous inventory). Renumberable
+  /// rows numbered above [deletedValue] move down, in their current order,
+  /// to the smallest free numbers. A number is free when no other row,
+  /// [reservedValues] entry (e.g. filter-hidden rows) or previous-inventory
+  /// row uses it, and it lies above every fixed number – the same floor
+  /// [next] respects, so a gap inside the previous numbering is never filled.
+  /// Numbers only ever decrease.
+  ///
+  /// Returns the new value per row index; rows that keep their number are
+  /// absent.
+  static Map<int, int> compactAfterDelete(
+    String key, {
+    required dynamic deletedValue,
+    required List<dynamic> values,
+    required List<bool> renumberable,
+    Iterable<dynamic> reservedValues = const [],
+    List<dynamic>? previousData,
+    bool Function(Map<String, dynamic> row)? previousFilter,
+  }) {
+    assert(values.length == renumberable.length);
+    final deleted = _parseInt(deletedValue);
+    if (deleted == null) return const {};
+
+    final candidates = <int>[];
+    final taken = <int>{};
+    int? floor;
+
+    void fix(int? value) {
+      if (value == null) return;
+      taken.add(value);
+      if (floor == null || value > floor!) floor = value;
+    }
+
+    for (var i = 0; i < values.length; i++) {
+      final value = _parseInt(values[i]);
+      if (value == null) continue;
+      if (!renumberable[i]) {
+        fix(value);
+      } else if (value > deleted) {
+        candidates.add(i);
+      } else {
+        taken.add(value);
+      }
+    }
+    reservedValues.map(_parseInt).forEach(fix);
+    for (final prev in previousData ?? const []) {
+      if (prev is! Map) continue;
+      final row = prev.cast<String, dynamic>();
+      if (previousFilter != null && !previousFilter(row)) continue;
+      fix(_parseInt(row[key]));
+    }
+
+    candidates.sort((a, b) => _parseInt(values[a])!.compareTo(_parseInt(values[b])!));
+
+    final result = <int, int>{};
+    var next = floor == null || deleted > floor! ? deleted : floor! + 1;
+    for (final index in candidates) {
+      final current = _parseInt(values[index])!;
+      while (taken.contains(next)) {
+        next++;
+      }
+      if (next < current) {
+        result[index] = next;
+        taken.add(next);
+        next++;
+      } else {
+        // No free number below this row: keep it, later rows go above it.
+        taken.add(current);
+        if (next <= current) next = current + 1;
+      }
+    }
+    return result;
+  }
 }
