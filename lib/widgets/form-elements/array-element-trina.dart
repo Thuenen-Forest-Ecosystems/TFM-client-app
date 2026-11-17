@@ -83,7 +83,8 @@ class ArrayElementTrina extends StatefulWidget {
   State<ArrayElementTrina> createState() => ArrayElementTrinaState();
 }
 
-class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeepAliveClientMixin {
+class ArrayElementTrinaState extends State<ArrayElementTrina>
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   // Keep the grid alive when its tab is off-screen so sorting and scroll
   // position survive tab switches (TabBarView disposes inactive children).
   @override
@@ -144,6 +145,47 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
     GridDensityService.notifier.addListener(_onDensityChanged);
     LookupService.versionNotifier.addListener(_onLookupReloaded);
     _loadColumnWidths();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Window metrics changed — typically the soft keyboard opening/closing.
+  /// The sheet in start.dart shrinks its content by the keyboard inset, which
+  /// shrinks this grid's viewport. TrinaGrid does not keep the edited row in
+  /// view when that happens, so a cell in one of the last rows ends up behind
+  /// the keyboard area. With Samsung's *floating* keyboard the inset is only
+  /// the IME's bottom bar (~50 dp), which is exactly enough to hide the last
+  /// row and its +/- buttons (#505).
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _ensureEditedRowVisible();
+    });
+  }
+
+  /// Scrolls the grid body so the row being edited is fully visible.
+  void _ensureEditedRowVisible() {
+    final sm = _stateManager;
+    if (sm == null || !sm.isEditing) return;
+    final rowIdx = sm.currentRowIdx;
+    final vertical = sm.scroll.bodyRowsVertical;
+    if (rowIdx == null || vertical == null || !vertical.hasClients) return;
+
+    final border = sm.configuration.style.cellHorizontalBorderWidth;
+    double top = 0;
+    for (var i = 0; i < rowIdx; i++) {
+      top += sm.getRowHeight(i) + border;
+    }
+    final bottom = top + sm.getRowHeight(rowIdx) + border;
+
+    final pos = vertical.position;
+    double? target;
+    if (bottom > pos.pixels + pos.viewportDimension) {
+      target = bottom - pos.viewportDimension;
+    } else if (top < pos.pixels) {
+      target = top;
+    }
+    if (target == null) return;
+    vertical.jumpTo(target.clamp(pos.minScrollExtent, pos.maxScrollExtent));
   }
 
   void _onLookupReloaded() {
@@ -872,12 +914,20 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
     // Add row number column if enabled
     if (widget.layoutOptions?['rowNumber'] == true) {
+      // Width grows with the digit count of the highest row number (#504);
+      // columns are rebuilt whenever widget.data changes. One spare row
+      // covers "Add row" crossing 9→10 / 99→100 before the rebuild lands.
+      final maxRowNumber = (widget.data?.length ?? 0) + 1;
+      final digits = maxRowNumber.toString().length;
+      final rowNumberWidth = (26.0 + digits * 10.0).clamp(50.0, double.infinity);
       columns.add(
         TrinaColumn(
           title: '#',
           field: '__row_number__',
           type: TrinaColumnTypeText(),
-          width: 50,
+          width: rowNumberWidth,
+          minWidth: rowNumberWidth,
+          cellPadding: EdgeInsets.zero,
           frozen: TrinaColumnFrozen.start,
           enableSorting: false,
           enableColumnDrag: false,
@@ -889,12 +939,18 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
             return Container(
               alignment: Alignment.center,
               padding: EdgeInsets.symmetric(
-                horizontal: 8,
+                horizontal: 4,
                 vertical: GridDensityService.cellVerticalPadding,
               ),
-              child: Text(
-                '${rendererContext.rowIdx + 1}',
-                style: const TextStyle(fontWeight: FontWeight.w500),
+              // Never wrap digits onto separate lines; shrink as a last resort.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${rendererContext.rowIdx + 1}',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
               ),
             );
           },
@@ -3107,6 +3163,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina> with AutomaticKeep
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Remove listener from MapControllerProvider
     if (_mapControllerProvider != null) {
       _mapControllerProvider!.removeListener(_onMapControllerChanged);
