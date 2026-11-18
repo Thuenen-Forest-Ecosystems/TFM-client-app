@@ -5,7 +5,7 @@ const CACHE_NAME = 'flutter-app-cache';
 
 const RESOURCES = {"index.html": "62a10d886dfefd59950451946605bb19",
 "/": "62a10d886dfefd59950451946605bb19",
-"flutter_bootstrap.js": "f2eb16d89a5f260ba273b2739f8f147d",
+"flutter_bootstrap.js": "1c9f1546f16ebc58afdf24f20921bff1",
 "powersync-web.zip": "9d1ead73e678fa2f51a70a933b0bf017",
 "canvaskit/skwasm_heavy.js.symbols": "0755b4fb399918388d71b59ad390b055",
 "canvaskit/skwasm_heavy.js": "740d43a6b8240ef9e23eed8c48840da4",
@@ -58,8 +58,8 @@ const RESOURCES = {"index.html": "62a10d886dfefd59950451946605bb19",
 "icons/Icon-maskable-192.png": "6b3c68cbbb34fc6b1f14acda46344a01",
 "manifest.json": "46725e5b02934bc8ae39ff2dbab5dce4",
 "powersync_db.worker.js": "a35406d81af28f91677d6873ac62abc8",
-"version.json": "89c1898abfb0fca6d2becda3a7646007",
-"main.dart.js": "ca73cea9373d7bb1b7d528c095921ec8",
+"version.json": "ea5cb61812233cf73187c9d04bd3bb3a",
+"main.dart.js": "520496179852dedbb987ee032ca90721",
 "sqlite3.wasm": "9910dae47a91d10c9134796ac1b5807d"};
 // The application shell files that are downloaded before a service worker can
 // start.
