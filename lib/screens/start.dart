@@ -20,6 +20,7 @@ import 'package:terrestrial_forest_monitor/repositories/records_repository.dart'
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
+import 'package:terrestrial_forest_monitor/services/ime_overlap_service.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 //import 'package:terrestrial_forest_monitor/widgets/profil-icon.dart';
@@ -566,38 +567,44 @@ class _StartState extends State<Start> {
                 // LayoutBuilder gives the actual available height from the Expanded
                 // constraint, which is always correct regardless of sheet size.
                 Expanded(
-                  child: LayoutBuilder(
-                    builder: (ctx, constraints) {
-                      // Soft-keyboard inset. Used only for layout (bottom padding +
-                      // min-height clamp), never to drive the sheet size — feeding it
-                      // back into the sheet size previously caused build collisions
-                      // during drag.
-                      final keyboardInset = MediaQuery.of(ctx).viewInsets.bottom;
-                      final bottomPadding = keyboardInset > 0
-                          ? keyboardInset
-                          : MediaQuery.of(ctx).padding.bottom;
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: ImeOverlapService.overlap,
+                    builder: (_, imeOverlap, __) => LayoutBuilder(
+                      builder: (ctx, constraints) {
+                        // Soft-keyboard inset. Used only for layout (bottom padding +
+                        // min-height clamp), never to drive the sheet size — feeding it
+                        // back into the sheet size previously caused build collisions
+                        // during drag.
+                        final keyboardInset = MediaQuery.of(ctx).viewInsets.bottom;
+                        // imeOverlap: keyboard strip over a hidden nav bar that
+                        // Android does not report as an inset (#505).
+                        final bottomPadding = math.max(
+                          keyboardInset > 0 ? keyboardInset : MediaQuery.of(ctx).padding.bottom,
+                          imeOverlap,
+                        );
 
-                      // Never let the content collapse: when the keyboard shrinks the
-                      // viewport (especially in landscape) keep a usable height and let
-                      // this ListView scroll, instead of squeezing the TabBarView into
-                      // a RenderFlex overflow.
-                      const minContentHeight = 320.0;
-                      final contentHeight = math.max(
-                        constraints.maxHeight - bottomPadding,
-                        minContentHeight,
-                      );
+                        // Never let the content collapse: when the keyboard shrinks the
+                        // viewport (especially in landscape) keep a usable height and let
+                        // this ListView scroll, instead of squeezing the TabBarView into
+                        // a RenderFlex overflow.
+                        const minContentHeight = 320.0;
+                        final contentHeight = math.max(
+                          constraints.maxHeight - bottomPadding,
+                          minContentHeight,
+                        );
 
-                      return ListView(
-                        controller: scrollController,
-                        padding: EdgeInsets.only(bottom: bottomPadding),
-                        children: [
-                          SizedBox(
-                            height: contentHeight,
-                            child: Beamer(routerDelegate: _beamerDelegate),
-                          ),
-                        ],
-                      );
-                    },
+                        return ListView(
+                          controller: scrollController,
+                          padding: EdgeInsets.only(bottom: bottomPadding),
+                          children: [
+                            SizedBox(
+                              height: contentHeight,
+                              child: Beamer(routerDelegate: _beamerDelegate),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],

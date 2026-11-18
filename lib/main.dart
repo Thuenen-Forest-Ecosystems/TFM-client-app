@@ -50,6 +50,7 @@ import 'package:terrestrial_forest_monitor/providers/auth.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
 import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
+import 'package:terrestrial_forest_monitor/services/ime_overlap_service.dart';
 import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
 import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
 
@@ -180,6 +181,9 @@ Future<void> main() async {
 
   // Load floating numeric keyboard user preference
   await FloatingNumKeyboard.loadPreference();
+
+  // Keyboard strip over a hidden navigation bar (Android, #505)
+  ImeOverlapService.start();
 
   // Load grid density preference
   await GridDensityService.loadPreference();

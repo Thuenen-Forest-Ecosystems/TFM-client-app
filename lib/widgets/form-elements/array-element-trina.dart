@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/services/ime_overlap_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trina_grid/trina_grid.dart';
@@ -146,6 +147,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
     LookupService.versionNotifier.addListener(_onLookupReloaded);
     _loadColumnWidths();
     WidgetsBinding.instance.addObserver(this);
+    ImeOverlapService.overlap.addListener(didChangeMetrics);
   }
 
   /// Window metrics changed — typically the soft keyboard opening/closing.
@@ -154,7 +156,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
   /// view when that happens, so a cell in one of the last rows ends up behind
   /// the keyboard area. With Samsung's *floating* keyboard the inset is only
   /// the IME's bottom bar (~50 dp), which is exactly enough to hide the last
-  /// row and its +/- buttons (#505).
+  /// row and its +/- buttons (#505). Also called when [ImeOverlapService]
+  /// reports a keyboard strip that Android does not expose as an inset.
   @override
   void didChangeMetrics() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -162,30 +165,30 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
     });
   }
 
-  /// Scrolls the grid body so the row being edited is fully visible.
+  /// Brings the cell being edited fully into view — through the grid body AND
+  /// the scrollable form around it. Flutter does this itself only when
+  /// viewInsets change; the keyboard strip from [ImeOverlapService] does not
+  /// change them, so without this the last row stays hidden (#505).
   void _ensureEditedRowVisible() {
     final sm = _stateManager;
-    if (sm == null || !sm.isEditing) return;
-    final rowIdx = sm.currentRowIdx;
-    final vertical = sm.scroll.bodyRowsVertical;
-    if (rowIdx == null || vertical == null || !vertical.hasClients) return;
-
-    final border = sm.configuration.style.cellHorizontalBorderWidth;
-    double top = 0;
-    for (var i = 0; i < rowIdx; i++) {
-      top += sm.getRowHeight(i) + border;
-    }
-    final bottom = top + sm.getRowHeight(rowIdx) + border;
-
-    final pos = vertical.position;
-    double? target;
-    if (bottom > pos.pixels + pos.viewportDimension) {
-      target = bottom - pos.viewportDimension;
-    } else if (top < pos.pixels) {
-      target = top;
-    }
-    if (target == null) return;
-    vertical.jumpTo(target.clamp(pos.minScrollExtent, pos.maxScrollExtent));
+    // Cells are edited through our own renderers (GenericTextField on the
+    // current cell), so Trina's isEditing stays false — key off currentCell.
+    if (sm == null || sm.currentCell == null) return;
+    final focusCtx = FocusManager.instance.primaryFocus?.context;
+    if (focusCtx == null || !focusCtx.mounted) return;
+    // Only react when the focused field lives in this grid.
+    if (focusCtx.findAncestorStateOfType<ArrayElementTrinaState>() != this) return;
+    final ro = focusCtx.findRenderObject();
+    if (ro == null || !ro.attached) return;
+    // The text field is shorter than the row; pad so the whole cell
+    // (incl. the +/- buttons) ends up visible.
+    final pad = GridDensityService.rowHeight / 2;
+    final r = ro.paintBounds;
+    ro.showOnScreen(
+      rect: Rect.fromLTRB(r.left, r.top - pad, r.right, r.bottom + pad),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+    );
   }
 
   void _onLookupReloaded() {
@@ -3164,6 +3167,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ImeOverlapService.overlap.removeListener(didChangeMetrics);
     // Remove listener from MapControllerProvider
     if (_mapControllerProvider != null) {
       _mapControllerProvider!.removeListener(_onMapControllerChanged);

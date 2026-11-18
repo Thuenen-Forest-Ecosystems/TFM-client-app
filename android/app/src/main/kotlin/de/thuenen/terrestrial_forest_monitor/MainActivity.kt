@@ -33,6 +33,12 @@ class MainActivity : FlutterActivity() {
                 gnssHandler?.setEventSink(null)
             }
         })
+
+        // Keyboard strip over a hidden navigation bar (#505)
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            ImeOverlapHandler.EVENT_CHANNEL
+        ).setStreamHandler(ImeOverlapHandler(this))
     }
 
     override fun onDestroy() {
