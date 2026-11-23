@@ -412,22 +412,39 @@ class _StartState extends State<Start> {
                     onPressed: _handleCloseButtonPressed,
                   ),
                 ),
-                if (_selectedTroopName != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 5),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Chip(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide.none,
-                        ),
-                        label: Text(_selectedTroopName!, style: const TextStyle(fontSize: 12)),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
+                // Long troop names ("Schulungstrupp_HB 04.05.26 bis 08.05.26")
+                // take all free space up to the top bar and get an ellipsis
+                // instead of overflowing the row on narrow phones.
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    // Without heightFactor the Align grows to the full screen
+                    // height and drags the whole row to the vertical middle.
+                    heightFactor: 1,
+                    child: _selectedTroopName == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(left: 5, right: 8),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Chip(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide.none,
+                                ),
+                                label: Text(
+                                  _selectedTroopName!,
+                                  style: const TextStyle(fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
                   ),
-                const Expanded(child: SizedBox()),
+                ),
                 _buildTopBar(),
                 SizedBox(width: 16),
               ],
