@@ -16,6 +16,7 @@ class ValidationDialogResult {
 
 class ValidationErrorsDialog extends StatefulWidget {
   final TFMValidationResult validationResult;
+
   /// With actions the user acknowledges issues, writes notes and completes
   /// the record. Without them the dialog is read-only: nothing can be
   /// checked or typed and closing it never writes to the database (used by
@@ -95,7 +96,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     // Load previously saved acknowledged errors if record exists
     Map<String, AcknowledgedError> savedErrors = {};
     if (widget.record != null) {
-
       // Load validation errors (AJV errors)
       final validationErrorsList = AcknowledgedError.decodeList(widget.record!.validationErrors);
       for (var error in validationErrorsList) {
@@ -114,8 +114,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     }
 
     if (savedErrors.isNotEmpty) {
-      for (var key in savedErrors.keys) {
-      }
+      for (var key in savedErrors.keys) {}
     }
 
     // Initialize controllers for each issue
@@ -205,15 +204,12 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           ? AcknowledgedError.encodeList(plausibilityErrors)
           : null;
 
-
       // Debug: Print what we're saving
       if (validationErrors.isNotEmpty) {
-        for (var err in validationErrors) {
-        }
+        for (var err in validationErrors) {}
       }
       if (plausibilityErrors.isNotEmpty) {
-        for (var err in plausibilityErrors) {
-        }
+        for (var err in plausibilityErrors) {}
       }
 
       await db.execute(
@@ -569,178 +565,203 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           children: [
             if (widget.validationResult.plausibilityUnavailable)
               _buildPlausibilityUnavailableBanner(context),
-            Expanded(
-              child: ListView.builder(
-                itemCount: groupedIssues.length,
-                itemBuilder: (context, groupIndex) {
-                  final groupKey = groupedIssues.keys.elementAt(groupIndex);
-                  final issues = groupedIssues[groupKey]!;
-                  final groupName = groupLabels[groupKey] ?? groupKey;
-
-                  final errorCountInGroup = issues.where((issue) {
-                    if (issue is TFMValidationError) return issue.isError;
-                    return true; // AJV errors are always errors
-                  }).length;
-
-                  final warningCountInGroup = issues.where((issue) {
-                    if (issue is TFMValidationError) return issue.isWarning;
-                    return false;
-                  }).length;
-
-                  return ExpansionTile(
-                    initiallyExpanded: true,
-                    title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                      '${errorCountInGroup > 0 ? '$errorCountInGroup Fehler' : ''}${errorCountInGroup > 0 && warningCountInGroup > 0 ? ', ' : ''}${warningCountInGroup > 0 ? '$warningCountInGroup Warnungen' : ''}',
+            if (groupedIssues.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Keine Fehler oder Warnungen gefunden.',
+                          style: Theme.of(context).textTheme.titleMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    children: issues.asMap().entries.map((entry) {
-                      final globalIndex = widget.validationResult.allIssues.indexOf(entry.value);
-                      final issue = entry.value;
-                      final isTFMError = issue is TFMValidationError;
-                      final isWarning = isTFMError && issue.isWarning;
-                      final isError = !isWarning;
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  itemCount: groupedIssues.length,
+                  itemBuilder: (context, groupIndex) {
+                    final groupKey = groupedIssues.keys.elementAt(groupIndex);
+                    final issues = groupedIssues[groupKey]!;
+                    final groupName = groupLabels[groupKey] ?? groupKey;
 
-                      final params = issue is ValidationError
-                          ? issue.rawError['params'] as Map<String, dynamic>?
-                          : null;
-                      final instancePath = issue is ValidationError
-                          ? issue.instancePath
-                          : (issue as TFMValidationError).instancePath;
-                      final schemaPath = issue is ValidationError ? issue.schemaPath : null;
-                      final tabId = _getTabIdFromPath(instancePath, schemaPath, params);
+                    final errorCountInGroup = issues.where((issue) {
+                      if (issue is TFMValidationError) return issue.isError;
+                      return true; // AJV errors are always errors
+                    }).length;
 
-                      final canNavigate = tabId != null && widget.onNavigateToTab != null;
+                    final warningCountInGroup = issues.where((issue) {
+                      if (issue is TFMValidationError) return issue.isWarning;
+                      return false;
+                    }).length;
 
-                      final issueKey = _getIssueKey(issue, globalIndex);
-                      final isAcknowledged = _acknowledgedIssues[issueKey] ?? false;
+                    return ExpansionTile(
+                      initiallyExpanded: true,
+                      title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        '${errorCountInGroup > 0 ? '$errorCountInGroup Fehler' : ''}${errorCountInGroup > 0 && warningCountInGroup > 0 ? ', ' : ''}${warningCountInGroup > 0 ? '$warningCountInGroup Warnungen' : ''}',
+                      ),
+                      children: issues.asMap().entries.map((entry) {
+                        final globalIndex = widget.validationResult.allIssues.indexOf(entry.value);
+                        final issue = entry.value;
+                        final isTFMError = issue is TFMValidationError;
+                        final isWarning = isTFMError && issue.isWarning;
+                        final isError = !isWarning;
 
-                      // Build subtitle with additional TFM information
-                      Widget? subtitle;
-                      if (isTFMError) {
-                        final tfmError = issue as TFMValidationError;
-                        final subtitleParts = <String>[];
+                        final params = issue is ValidationError
+                            ? issue.rawError['params'] as Map<String, dynamic>?
+                            : null;
+                        final instancePath = issue is ValidationError
+                            ? issue.instancePath
+                            : (issue as TFMValidationError).instancePath;
+                        final schemaPath = issue is ValidationError ? issue.schemaPath : null;
+                        final tabId = _getTabIdFromPath(instancePath, schemaPath, params);
 
-                        if (tfmError.note != null && tfmError.note!.isNotEmpty) {
-                          subtitleParts.add('Hinweis: ${tfmError.note}');
-                        }
-                        if (tfmError.error?['code'] != null) {
-                          final code = tfmError.error!['code'];
-                          // Show debugInfo for technical errors (code 1 or 2)
-                          if ((code == 1 || code == 2) && tfmError.debugInfo != null) {
-                            subtitleParts.add('Debug: ${tfmError.debugInfo}');
-                          } else {
-                            subtitleParts.add('Code: $code');
+                        final canNavigate = tabId != null && widget.onNavigateToTab != null;
+
+                        final issueKey = _getIssueKey(issue, globalIndex);
+                        final isAcknowledged = _acknowledgedIssues[issueKey] ?? false;
+
+                        // Build subtitle with additional TFM information
+                        Widget? subtitle;
+                        if (isTFMError) {
+                          final tfmError = issue as TFMValidationError;
+                          final subtitleParts = <String>[];
+
+                          if (tfmError.note != null && tfmError.note!.isNotEmpty) {
+                            subtitleParts.add('Hinweis: ${tfmError.note}');
                           }
-                        }
-                        // number_object wird angezeigt, number_object_name bewusst
-                        // nicht (stattdessen das neutrale Label 'Objekt').
-                        final numberObject = tfmError.numberObject;
-                        if (numberObject != null) {
-                          subtitleParts.add('Objekt: ${_formatNumberObject(numberObject)}');
-                        }
-                        if (instancePath != null && instancePath.isNotEmpty) {
-                          subtitleParts.add('Pfad: $instancePath');
+                          if (tfmError.error?['code'] != null) {
+                            final code = tfmError.error!['code'];
+                            // Show debugInfo for technical errors (code 1 or 2)
+                            if ((code == 1 || code == 2) && tfmError.debugInfo != null) {
+                              subtitleParts.add('Debug: ${tfmError.debugInfo}');
+                            } else {
+                              subtitleParts.add('Code: $code');
+                            }
+                          }
+                          // number_object wird angezeigt, number_object_name bewusst
+                          // nicht (stattdessen das neutrale Label 'Objekt').
+                          final numberObject = tfmError.numberObject;
+                          if (numberObject != null) {
+                            subtitleParts.add('Objekt: ${_formatNumberObject(numberObject)}');
+                          }
+                          if (instancePath != null && instancePath.isNotEmpty) {
+                            subtitleParts.add('Pfad: $instancePath');
+                          }
+
+                          if (subtitleParts.isNotEmpty) {
+                            subtitle = Text(subtitleParts.join('\n'));
+                          }
+                        } else if (instancePath != null && instancePath.isNotEmpty) {
+                          subtitle = Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text('Pfad: $instancePath'),
+                          );
                         }
 
-                        if (subtitleParts.isNotEmpty) {
-                          subtitle = Text(subtitleParts.join('\n'));
-                        }
-                      } else if (instancePath != null && instancePath.isNotEmpty) {
-                        subtitle = Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text('Pfad: $instancePath'),
-                        );
-                      }
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ListTile(
-                            // The checkbox mirrors the saved acknowledgement
-                            // in the read-only dialog too, so admins and the
-                            // playground see what the troop confirmed; it is
-                            // just not clickable there.
-                            leading: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Checkbox(
-                                  value: isAcknowledged,
-                                  onChanged: widget.showActions
-                                      ? (value) {
-                                          setState(() {
-                                            _acknowledgedIssues[issueKey] = value ?? false;
-                                          });
-                                        }
-                                      : null,
-                                ),
-                                Icon(
-                                  isWarning ? Icons.warning : Icons.error,
-                                  color: isWarning ? Colors.orange : Colors.red,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                            title: Text(
-                              issue is ValidationError
-                                  ? issue.message
-                                  : (issue as TFMValidationError).message,
-                            ),
-                            subtitle: subtitle,
-                            trailing: canNavigate
-                                ? IconButton(
-                                    icon: const Icon(Icons.arrow_forward, size: 18),
-                                    onPressed: () {
-                                      widget.onNavigateToTab!(tabId);
-                                      Navigator.of(context).pop<String?>(null);
-                                    },
-                                  )
-                                : null,
-                            selected: isAcknowledged,
-                            dense: true,
-                            onTap: widget.showActions
-                                ? () {
-                                    setState(() {
-                                      _acknowledgedIssues[issueKey] = !isAcknowledged;
-                                    });
-                                  }
-                                : null,
-                          ),
-                          if (isAcknowledged)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 72.0, right: 16.0, bottom: 8.0),
-                              child: TextField(
-                                controller: _issueNoteControllers[issueKey],
-                                // Saved notes stay visible in the read-only dialog
-                                readOnly: !widget.showActions,
-                                decoration: InputDecoration(
-                                  hintText: !widget.showActions
-                                      ? null
-                                      : isError
-                                      ? 'Notiz hinzufügen (erforderlich für Fehler)*'
-                                      : 'Notiz hinzufügen (optional)',
-                                  labelText: !widget.showActions ? 'Notiz' : null,
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  errorText:
-                                      widget.showActions &&
-                                          isError &&
-                                          (_issueNoteControllers[issueKey]?.text.trim().isEmpty ??
-                                              true)
-                                      ? 'Notiz erforderlich'
-                                      : null,
-                                ),
-                                maxLines: 2,
-                                minLines: 1,
-                                onChanged: (_) => setState(() {}),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ListTile(
+                              // The checkbox mirrors the saved acknowledgement
+                              // in the read-only dialog too, so admins and the
+                              // playground see what the troop confirmed; it is
+                              // just not clickable there.
+                              leading: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Checkbox(
+                                    value: isAcknowledged,
+                                    onChanged: widget.showActions
+                                        ? (value) {
+                                            setState(() {
+                                              _acknowledgedIssues[issueKey] = value ?? false;
+                                            });
+                                          }
+                                        : null,
+                                  ),
+                                  Icon(
+                                    isWarning ? Icons.warning : Icons.error,
+                                    color: isWarning ? Colors.orange : Colors.red,
+                                    size: 20,
+                                  ),
+                                ],
                               ),
+                              title: Text(
+                                issue is ValidationError
+                                    ? issue.message
+                                    : (issue as TFMValidationError).message,
+                              ),
+                              subtitle: subtitle,
+                              trailing: canNavigate
+                                  ? IconButton(
+                                      icon: const Icon(Icons.arrow_forward, size: 18),
+                                      onPressed: () {
+                                        widget.onNavigateToTab!(tabId);
+                                        Navigator.of(context).pop<String?>(null);
+                                      },
+                                    )
+                                  : null,
+                              selected: isAcknowledged,
+                              dense: true,
+                              onTap: widget.showActions
+                                  ? () {
+                                      setState(() {
+                                        _acknowledgedIssues[issueKey] = !isAcknowledged;
+                                      });
+                                    }
+                                  : null,
                             ),
-                        ],
-                      );
-                    }).toList(),
-                  );
-                },
+                            if (isAcknowledged)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 72.0,
+                                  right: 16.0,
+                                  bottom: 8.0,
+                                ),
+                                child: TextField(
+                                  controller: _issueNoteControllers[issueKey],
+                                  // Saved notes stay visible in the read-only dialog
+                                  readOnly: !widget.showActions,
+                                  decoration: InputDecoration(
+                                    hintText: !widget.showActions
+                                        ? null
+                                        : isError
+                                        ? 'Notiz hinzufügen (erforderlich für Fehler)*'
+                                        : 'Notiz hinzufügen (optional)',
+                                    labelText: !widget.showActions ? 'Notiz' : null,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                    errorText:
+                                        widget.showActions &&
+                                            isError &&
+                                            (_issueNoteControllers[issueKey]?.text.trim().isEmpty ??
+                                                true)
+                                        ? 'Notiz erforderlich'
+                                        : null,
+                                  ),
+                                  maxLines: 2,
+                                  minLines: 1,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                          ],
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
               ),
-            ),
           ],
         ),
         bottomNavigationBar: widget.showActions
@@ -777,7 +798,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                                       final acknowledged = _collectAcknowledgedErrors(
                                         requireNotes: false,
                                       );
-
 
                                       if (mounted) {
                                         // Mark as saved so PopScope's callback skips DB save

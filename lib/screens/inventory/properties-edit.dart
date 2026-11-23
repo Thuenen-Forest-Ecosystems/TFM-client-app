@@ -126,9 +126,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         // stored schema_id_validated_by is deliberately not passed: it records
         // which schema the last save used, it does not pin the record to it.
         // Saving writes the loaded (latest) schema id back to that column.
-        _loadSchema(_record!.schemaName).then((
-          _,
-        ) {
+        _loadSchema(_record!.schemaName).then((_) {
           // validate initial form data after schema is loaded
           if (_formData != null) {
             _onFormDataChanged(_formData!);
@@ -746,8 +744,15 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     String? saveAction;
     Map<String, List<AcknowledgedError>>? acknowledgedErrors;
 
-    // Check validation before saving (show dialog for errors OR warnings)
-    if (_validationResult != null && _validationResult!.allIssues.isNotEmpty) {
+    // Always confirm via the validation dialog, even without errors or
+    // warnings: a stray swipe over "Fertig" must not submit the record
+    // directly (TFM-client-app#509). With no issues the list is empty and the
+    // submit button is enabled right away.
+    {
+      final validationResult =
+          _validationResult ??
+          TFMValidationResult(ajvValid: true, ajvErrors: [], tfmAvailable: false, tfmErrors: []);
+
       // Reload record from database BEFORE opening dialog to get any previously saved errors
       if (_record?.id != null) {
         try {
@@ -761,9 +766,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
 
       // Show validation errors/warnings dialog
+      if (!mounted) return;
       final result = await ValidationErrorsDialog.show(
         context,
-        _validationResult!,
+        validationResult,
         onNavigateToTab: _navigateToTabFromError,
         record: _record,
         layoutConfig: _formWrapperKey.currentState?.layoutConfig,
@@ -790,9 +796,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       saveAction = result.action;
       acknowledgedErrors = result.acknowledgedErrors;
-    } else {
-      // No validation issues, default to 'complete'
-      saveAction = 'complete';
     }
 
     // Call save with the determined action and acknowledged errors

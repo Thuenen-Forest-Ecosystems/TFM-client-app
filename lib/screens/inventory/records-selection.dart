@@ -454,6 +454,10 @@ class _RecordsSelectionState extends State<RecordsSelection> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // The bottom sheet in start.dart already pads for the keyboard; letting
+      // this Scaffold shrink its body as well subtracts the inset twice and
+      // collapses the list to nothing while searching (same as PropertiesEdit).
+      resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
           // Calculate available height for content
