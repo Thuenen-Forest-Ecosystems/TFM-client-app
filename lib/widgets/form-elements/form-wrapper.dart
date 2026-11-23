@@ -81,7 +81,6 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
   LayoutConfig? get layoutConfig => _layoutConfig;
 
   // Track current tab type and ArrayElementTrina widgets
-  String? _currentTabType;
   final Map<String, GlobalKey<ArrayElementTrinaState>> _arrayElementKeys = {};
 
   // MapControllerProvider listener for tree/edge tap -> form dialog
@@ -149,7 +148,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       try {
         _mapControllerProvider = context.read<MapControllerProvider>();
         _mapControllerProvider!.addListener(_onMapGridRowSelection);
-      } catch (e) {}
+      } catch (_) {}
     }
   }
 
@@ -329,7 +328,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         );
         _previousTabIndex = _tabController!.index;
         _tabController!.addListener(_onTabChanged);
-        _updateCurrentTabType();
+        _rebuildForCurrentTab();
       }
     });
   }
@@ -508,7 +507,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
             initialIndex: initialIndex,
           );
           _tabController!.addListener(_onTabChanged);
-          _updateCurrentTabType();
+          _rebuildForCurrentTab();
         }
       }
     }
@@ -542,43 +541,21 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
     // soft keyboard reopens on every subsequent tap.
     FocusManager.instance.primaryFocus?.unfocus();
 
-    _updateCurrentTabType();
+    _rebuildForCurrentTab();
     // Force rebuild to update isVisible for PreviousPositionsNavigation
     setState(() {});
   }
 
-  void _updateCurrentTabType() {
+  /// Rebuilds after a tab change so tab-dependent UI picks up the new index.
+  void _rebuildForCurrentTab() {
     if (_tabController == null || _tabs.isEmpty) {
-      _currentTabType = null;
       return;
     }
 
     final currentIndex = _tabController!.index;
     if (currentIndex >= 0 && currentIndex < _tabs.length) {
-      final tabId = _tabs[currentIndex].id;
-      final isArrayTab = _isArrayElementTrinaTab(tabId);
-      setState(() {
-        _currentTabType = isArrayTab ? 'array' : 'other';
-      });
+      setState(() {});
     }
-  }
-
-  bool _isArrayElementTrinaTab(String tabId) {
-    // Use layout config if available
-    if (_layoutConfig != null) {
-      final item = LayoutService.findItemById(_layoutConfig, tabId);
-      return item != null && LayoutService.isArrayLayout(item);
-    }
-
-    // Fallback to hard-coded list
-    return [
-      'tree',
-      'edges',
-      'structure_lt4m',
-      'structure_gt4m',
-      'regeneration',
-      'deadwood',
-    ].contains(tabId);
   }
 
   /// Check if a layout item is in the currently visible tab
@@ -777,7 +754,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         jsonSchema: {'properties': formSchema},
         data: formData,
         propertyName: null,
-        previous_properties: previousData,
+        previousProperties: previousData,
         validationResult: widget.validationResult,
         includeProperties: layoutItem.properties.map((p) => p.name).toList(),
         fieldOptions: fieldOptions.isNotEmpty ? fieldOptions : null,
@@ -1025,7 +1002,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         return SubplotsRelativePosition(
           jsonSchema: schemaProperties,
           data: _localFormData,
-          previous_properties: _previousProperties,
+          previousProperties: _previousProperties,
           children: children,
         );
       }
@@ -1081,7 +1058,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
           jsonSchema: schemaProperties,
           data: _localFormData,
           propertyName: propertyName,
-          previous_properties: _previousProperties,
+          previousProperties: _previousProperties,
           validationResult: widget.validationResult,
           onDataChanged: (updatedData) {
             // Extract the updated property value from the returned data object
@@ -1101,7 +1078,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
               jsonSchema: {propertyName: propertySchema},
               data: propertyData ?? {},
               propertyName: propertyName,
-              previous_properties: _previousProperties,
+              previousProperties: _previousProperties,
               validationResult: widget.validationResult,
               onDataChanged: (updatedData) {
                 LayoutService.setValueByPath(_localFormData, propertyPath, updatedData);
@@ -1167,7 +1144,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
               jsonSchema: schemaProperties,
               data: _localFormData,
               propertyName: null,
-              previous_properties: _previousProperties,
+              previousProperties: _previousProperties,
               validationResult: widget.validationResult,
               onDataChanged: (updatedData) {
                 _updateField('', updatedData);
@@ -1210,58 +1187,11 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
                 }
               }
               return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: childWidget);
-            }).toList(),
+            }),
           ],
         ),
       ),
     );
-  }
-
-  /// Fallback rendering for backward compatibility
-  Widget _buildTabContentFallback(String tabId, Map<String, dynamic> schemaProperties) {
-    switch (tabId) {
-      case 'position':
-        return NavigationElement(
-          jsonSchema: schemaProperties,
-          data: _localFormData,
-          propertyName: 'position',
-          previous_properties: _previousProperties,
-          validationResult: widget.validationResult,
-          onDataChanged: (updatedData) {
-            _updateField('position', updatedData);
-          },
-        );
-      case 'info':
-        return GenericForm(
-          jsonSchema: schemaProperties,
-          data: _localFormData,
-          propertyName: null,
-          previous_properties: _previousProperties,
-          validationResult: widget.validationResult,
-          onDataChanged: (updatedData) {
-            _updateField('', updatedData);
-          },
-        );
-      case 'tree':
-      case 'edges':
-      case 'structure_lt4m':
-      case 'structure_gt4m':
-      case 'regeneration':
-      case 'deadwood':
-        _arrayElementKeys[tabId] ??= GlobalKey<ArrayElementTrinaState>();
-        return ArrayElementTrina(
-          key: _arrayElementKeys[tabId],
-          jsonSchema: schemaProperties[tabId],
-          data: _localFormData[tabId],
-          propertyName: tabId,
-          validationResult: widget.validationResult,
-          onDataChanged: (updatedData) {
-            _updateField(tabId, updatedData);
-          },
-        );
-      default:
-        return Center(child: Text('$tabId Form'));
-    }
   }
 
   @override

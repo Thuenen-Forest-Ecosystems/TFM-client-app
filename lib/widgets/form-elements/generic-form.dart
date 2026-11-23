@@ -5,7 +5,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfie
 class GenericForm extends StatefulWidget {
   final Map<String, dynamic>? jsonSchema;
   final Map<String, dynamic> data;
-  final Map<String, dynamic>? previous_properties;
+  final Map<String, dynamic>? previousProperties;
   final String? propertyName;
   final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
@@ -18,7 +18,7 @@ class GenericForm extends StatefulWidget {
     super.key,
     this.jsonSchema,
     required this.data,
-    this.previous_properties,
+    this.previousProperties,
     this.propertyName,
     this.validationResult,
     this.onDataChanged,
@@ -177,7 +177,7 @@ class _GenericFormState extends State<GenericForm> {
             errors: fieldErrors,
             onChanged: (value) => _updateField(fieldName, value),
             dense: widget.isDense,
-            previousData: widget.previous_properties,
+            previousData: widget.previousProperties,
             currentData: _localData,
             fieldOptions: fieldConfig,
           );
@@ -235,7 +235,7 @@ class _GenericFormState extends State<GenericForm> {
 
 
           // Calculate column width
-          final spacing = 10.0;
+          const spacing = 10.0;
           final totalSpacing = spacing * (columns - 1);
           final columnWidth = (screenWidth - totalSpacing) / columns;
 
@@ -259,7 +259,7 @@ class _GenericFormState extends State<GenericForm> {
                   errors: fieldErrors,
                   onChanged: (value) => _updateField(fieldName, value),
                   dense: widget.isDense,
-                  previousData: widget.previous_properties,
+                  previousData: widget.previousProperties,
                   currentData: _localData,
                   fieldOptions: fieldConfig,
                 ),

@@ -42,11 +42,11 @@ class TreeCrownLayers {
             radius: grenzkreisRadiusMeters / 100, // Convert cm to meters for map rendering
             useRadiusInMeter: true,
             color: withOpacity
-                ? (crownColor ?? Colors.green.withOpacity(0.15))
-                : (crownColor ?? Colors.green.withOpacity(0.2)),
+                ? (crownColor ?? Colors.green.withValues(alpha: 0.15))
+                : (crownColor ?? Colors.green.withValues(alpha: 0.2)),
             borderColor: withOpacity
-                ? (borderColor ?? Colors.green.withOpacity(0.3))
-                : (borderColor ?? Colors.green.withOpacity(0.5)),
+                ? (borderColor ?? Colors.green.withValues(alpha: 0.3))
+                : (borderColor ?? Colors.green.withValues(alpha: 0.5)),
             borderStrokeWidth: borderStrokeWidth,
           );
         })
@@ -83,11 +83,11 @@ class TreeCrownLayers {
             radius: grenzkreisRadiusMeters,
             useRadiusInMeter: true,
             color: withOpacity
-                ? (crownColor ?? Colors.green.withOpacity(0.15))
-                : (crownColor ?? Colors.green.withOpacity(0.2)),
+                ? (crownColor ?? Colors.green.withValues(alpha: 0.15))
+                : (crownColor ?? Colors.green.withValues(alpha: 0.2)),
             borderColor: withOpacity
-                ? (borderColor ?? Colors.green.withOpacity(0.3))
-                : (borderColor ?? Colors.green.withOpacity(0.5)),
+                ? (borderColor ?? Colors.green.withValues(alpha: 0.3))
+                : (borderColor ?? Colors.green.withValues(alpha: 0.5)),
             borderStrokeWidth: borderStrokeWidth,
           );
         })

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:powersync_attachments_helper/powersync_attachments_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image/image.dart' as img;
 import 'package:terrestrial_forest_monitor/config.dart';
 
 class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
@@ -31,9 +30,6 @@ class SupabaseStorageAdapter implements AbstractRemoteStorageAdapter {
       }
       Uint8List fileBlob = await Supabase.instance.client.storage.from(bucket).download(filePath);
       return fileBlob;
-      final image = img.decodeImage(fileBlob);
-      Uint8List blob = img.JpegEncoder().encode(image!);
-      return blob;
     } catch (error) {
       throw Exception(error);
     }

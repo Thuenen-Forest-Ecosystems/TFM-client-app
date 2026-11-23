@@ -28,7 +28,6 @@ import 'package:terrestrial_forest_monitor/repositories/schema_repository.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:terrestrial_forest_monitor/services/attachment-helper.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
-import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/services/validation_service_native.dart';
 import 'package:terrestrial_forest_monitor/services/background_sync_service.dart';
 import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
@@ -199,7 +198,7 @@ Future<void> main() async {
 
   try {
     await dotenv.load(fileName: '.env');
-  } catch (e) {}
+  } catch (_) {}
 
   // Initialize background sync service
   await BackgroundSyncService.initialize();
@@ -357,9 +356,10 @@ class _LayoutState extends State<Layout> with WindowListener {
     if (isPreventClose) {
       // Access navigator through the router delegate
       final navigator = widget.routerDelegate.navigatorKey.currentState;
-      if (navigator != null && navigator.context.mounted) {
+      final navContext = navigator?.context;
+      if (navigator != null && navContext != null && navContext.mounted) {
         showDialog(
-          context: navigator.context,
+          context: navContext,
           builder: (_) {
             return AlertDialog(
               title: Text('Bestätigung erforderlich'),
@@ -378,7 +378,7 @@ class _LayoutState extends State<Layout> with WindowListener {
                     _isClosing = true;
                     try {
                       await ValidationServiceNative.instance.dispose();
-                    } catch (e) {}
+                    } catch (_) {}
                     await windowManager.setPreventClose(false);
                     await windowManager.close();
                   },
@@ -500,7 +500,7 @@ class _LayoutState extends State<Layout> with WindowListener {
           ).copyWith(error: Colors.red.shade400),
           primaryColor: const Color(0xFFC3E399),
           appBarTheme: AppBarTheme(
-            color: const Color.fromARGB(255, 224, 241, 203),
+            backgroundColor: const Color.fromARGB(255, 224, 241, 203),
             foregroundColor: Colors.black,
           ), // color: const Color(0xFFC3E399), foregroundColor: Colors.black
           bottomNavigationBarTheme: BottomNavigationBarThemeData(

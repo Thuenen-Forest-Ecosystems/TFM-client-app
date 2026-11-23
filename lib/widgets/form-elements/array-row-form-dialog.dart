@@ -363,8 +363,8 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
         }
         _applyFieldConfig(fieldName, item, properties, modifiedProperties);
         if (item['pinned'] != null) _pinnedFields.add(fieldName);
-        final _w = (item['width'] as num?)?.toDouble();
-        if (_w != null) _fieldWidths[fieldName] = _w;
+        final w = (item['width'] as num?)?.toDouble();
+        if (w != null) _fieldWidths[fieldName] = w;
         ungroupedFields.add(fieldName);
         allIncludeProps.add(fieldName);
       }
@@ -669,7 +669,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                 childrenPadding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
                 children: [content],
               );
-            }).toList(),
+            }),
           ],
         );
       },
@@ -817,7 +817,7 @@ class _ArrayRowFormDialogState extends State<ArrayRowFormDialog> {
                             // Forward the matched previous-survey row so the
                             // legacy (non-grouped) layout shows "Vorgängererhebung"
                             // too — mirrors the grouped path's previousData wiring.
-                            previous_properties: widget.previousRowData,
+                            previousProperties: widget.previousRowData,
                             layout: 'responsive-wrap',
                             includeProperties: _includeProperties,
                             fieldOptions: _fieldOptions,

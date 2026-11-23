@@ -14,14 +14,12 @@ import 'package:terrestrial_forest_monitor/services/grid_density_service.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
 import 'package:terrestrial_forest_monitor/widgets/map/map-admin.dart';
-import 'package:terrestrial_forest_monitor/widgets/settings/gnss-test-btn.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/keyboard-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/density-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/settings/language-settings.dart';
 import 'package:terrestrial_forest_monitor/widgets/theme-settings.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:terrestrial_forest_monitor/widgets/legacy-data-banner.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -476,29 +474,5 @@ class _ProfileState extends State<Profile> {
         ),
       ),
     );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
-            ),
-          ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'N/A';
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

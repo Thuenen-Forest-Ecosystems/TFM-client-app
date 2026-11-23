@@ -46,7 +46,7 @@ class RettungspunkteLayers {
             (p) => CircleMarker(
               point: LatLng(p.lat, p.lng),
               radius: 6,
-              color: _orange.withOpacity(0.85),
+              color: _orange.withValues(alpha: 0.85),
               borderColor: Colors.white,
               borderStrokeWidth: 1.5,
             ),
@@ -73,7 +73,7 @@ class RettungspunkteLayers {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.9),
+                        color: Colors.black.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: _orange, width: 1),
                       ),

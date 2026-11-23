@@ -14,10 +14,10 @@ class EdgeLayers {
           .map<Polyline>(
             (edge) => Polyline(
               points: edge['points'] as List<LatLng>,
-              color: withOpacity ? color.withOpacity(0.3) : color,
+              color: withOpacity ? color.withValues(alpha: 0.3) : color,
               strokeWidth: 2,
               pattern: StrokePattern.dashed(segments: [5.0, 5.0]),
-              borderColor: withOpacity ? Colors.black.withOpacity(0.3) : Colors.black,
+              borderColor: withOpacity ? Colors.black.withValues(alpha: 0.3) : Colors.black,
               borderStrokeWidth: 1,
             ),
           )
@@ -38,8 +38,8 @@ class EdgeLayers {
           (p) => CircleMarker(
             point: p,
             radius: 3,
-            color: withOpacity ? Colors.white.withOpacity(0.3) : Colors.white,
-            borderColor: withOpacity ? color.withOpacity(0.3) : color,
+            color: withOpacity ? Colors.white.withValues(alpha: 0.3) : Colors.white,
+            borderColor: withOpacity ? color.withValues(alpha: 0.3) : color,
             borderStrokeWidth: 1,
           ),
         );
@@ -72,8 +72,8 @@ class EdgeLayers {
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                       color: withOpacity
-                          ? Colors.white.withOpacity(0.3)
-                          : Colors.white.withOpacity(0.9),
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -82,7 +82,7 @@ class EdgeLayers {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: withOpacity ? Colors.black.withOpacity(0.3) : Colors.black,
+                        color: withOpacity ? Colors.black.withValues(alpha: 0.3) : Colors.black,
                       ),
                     ),
                   ),

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
 
@@ -191,8 +190,7 @@ class Record {
           return {'latitude': second, 'longitude': first};
         }
       }
-    } catch (e, stackTrace) {
-    }
+    } catch (_) {}
 
     return null;
   }
@@ -223,8 +221,7 @@ class Record {
           } else if (parsed is Map) {
             return Map<String, dynamic>.from(parsed);
           }
-        } catch (e) {
-        }
+        } catch (_) {}
       }
 
       // Fallback: check properties['cluster']
@@ -246,11 +243,9 @@ class Record {
           if (parsed is Map) {
             return Map<String, dynamic>.from(parsed);
           }
-        } catch (e) {
-        }
+        } catch (_) {}
       }
-    } catch (e, stackTrace) {
-    }
+    } catch (_) {}
 
     return null;
   }
@@ -469,7 +464,7 @@ class RecordsRepository {
           );
 
       return results.map((row) => Record.fromRow(row)).toList();
-    } catch (e, stackTrace) {
+    } catch (e) {
       return [];
     }
   }
@@ -500,7 +495,7 @@ class RecordsRepository {
           );
 
       return results.map((row) => Record.fromRow(row)).toList();
-    } catch (e, stackTrace) {
+    } catch (e) {
       return [];
     }
   }
@@ -664,7 +659,7 @@ class RecordsRepository {
             },
           );
       return results.map((row) => Record.fromRow(row)).toList();
-    } catch (e, stackTrace) {
+    } catch (e) {
       return [];
     }
   }

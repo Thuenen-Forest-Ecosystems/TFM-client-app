@@ -167,7 +167,7 @@ class _HelpingPointState extends State<HelpingPoint> {
 
     var positionsToUse = _recordedPositions;
 
-    int? _parseQuality(dynamic value) {
+    int? parseQuality(dynamic value) {
       if (value == null) return null;
       if (value is int) return value;
       if (value is String) return int.tryParse(value);
@@ -175,7 +175,7 @@ class _HelpingPointState extends State<HelpingPoint> {
       return null;
     }
 
-    double? _toDouble(dynamic value) {
+    double? toDouble(dynamic value) {
       if (value == null) return null;
       if (value is double) return value;
       if (value is int) return value.toDouble();
@@ -187,7 +187,7 @@ class _HelpingPointState extends State<HelpingPoint> {
     // Filter to best available quality
     const validQualities = {1, 2, 4, 5};
     final existingQualities = _recordedPositions
-        .map((p) => _parseQuality(p['quality']))
+        .map((p) => parseQuality(p['quality']))
         .where((q) => q != null && validQualities.contains(q))
         .cast<int>()
         .toSet();
@@ -204,7 +204,7 @@ class _HelpingPointState extends State<HelpingPoint> {
         bestQuality = 1;
       }
       positionsToUse = _recordedPositions
-          .where((p) => _parseQuality(p['quality']) == bestQuality)
+          .where((p) => parseQuality(p['quality']) == bestQuality)
           .toList();
     }
 
@@ -220,17 +220,17 @@ class _HelpingPointState extends State<HelpingPoint> {
       latitudes.add(pos['latitude']);
       longitudes.add(pos['longitude']);
 
-      final satCount = _toDouble(pos['satellites_count']);
+      final satCount = toDouble(pos['satellites_count']);
       if (satCount != null) {
         sumSatellites += satCount;
         satellitesCount++;
       }
-      final pdop = _toDouble(pos['pdop']);
+      final pdop = toDouble(pos['pdop']);
       if (pdop != null) {
         sumPdop += pdop;
         pdopCount++;
       }
-      final hdop = _toDouble(pos['hdop']);
+      final hdop = toDouble(pos['hdop']);
       if (hdop != null) {
         sumHdop += hdop;
         hdopCount++;
@@ -255,7 +255,7 @@ class _HelpingPointState extends State<HelpingPoint> {
 
     return {
       'quality': existingQualities.isNotEmpty
-          ? _parseQuality(positionsToUse.first['quality'])
+          ? parseQuality(positionsToUse.first['quality'])
           : null,
       'satellites_count_mean': satellitesCount > 0 ? sumSatellites / satellitesCount : null,
       'pdop_mean': pdopCount > 0 ? sumPdop / pdopCount : null,
@@ -266,7 +266,7 @@ class _HelpingPointState extends State<HelpingPoint> {
       'total_recorded_count': _recordedPositions.length,
       'mean_accuracy': sumAccuracy / n,
       'aggregation_quality_code': existingQualities.isNotEmpty
-          ? _parseQuality(positionsToUse.first['quality'])
+          ? parseQuality(positionsToUse.first['quality'])
           : null,
       'overall_quality': overallQuality.toString().split('.').last,
       'timestamp': DateTime.now().toIso8601String(),
@@ -450,17 +450,17 @@ class _HelpingPointState extends State<HelpingPoint> {
                           if (measurement['hdop_mean'] != null)
                             _buildDetailRow(
                               'HDOP',
-                              '${(measurement['hdop_mean'] as num).toStringAsFixed(2)}',
+                              (measurement['hdop_mean'] as num).toStringAsFixed(2),
                             ),
                           if (measurement['pdop_mean'] != null)
                             _buildDetailRow(
                               'PDOP',
-                              '${(measurement['pdop_mean'] as num).toStringAsFixed(2)}',
+                              (measurement['pdop_mean'] as num).toStringAsFixed(2),
                             ),
                           if (measurement['satellites_count_mean'] != null)
                             _buildDetailRow(
                               'Satelliten',
-                              '${(measurement['satellites_count_mean'] as num).toStringAsFixed(1)}',
+                              (measurement['satellites_count_mean'] as num).toStringAsFixed(1),
                             ),
                           if (measurement['aggregation_quality_code'] != null)
                             _buildDetailRow(
@@ -499,7 +499,7 @@ class _HelpingPointState extends State<HelpingPoint> {
                   child: Row(
                     children: [
                       Text(
-                        '${_resultAzimuthGon} gon',
+                        '$_resultAzimuthGon gon',
                         style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
                       ),
                       const SizedBox(width: 16),

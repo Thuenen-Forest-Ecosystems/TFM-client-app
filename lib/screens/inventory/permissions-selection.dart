@@ -251,10 +251,6 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}.${date.month}.${date.year}';
-  }
-
   List<Widget> _buildPermissionTile(PermissionModel permission, List<TroopModel> userTroops) {
     final List<Widget> tiles = [];
 

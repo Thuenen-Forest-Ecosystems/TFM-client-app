@@ -313,21 +313,19 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
   }
 
   Widget _buildRemainingDistanceCard() {
-    return Container(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildMetricColumn(
-            label: 'Azimut',
-            value: '${_remainingAzimuth!.round()} gon',
-          ),
-          Container(width: 1, height: 40, color: Colors.green.shade300),
-          _buildMetricColumn(
-            label: 'Entfernung',
-            value: '${_remainingDistance!.toStringAsFixed(1)} m',
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildMetricColumn(
+          label: 'Azimut',
+          value: '${_remainingAzimuth!.round()} gon',
+        ),
+        Container(width: 1, height: 40, color: Colors.green.shade300),
+        _buildMetricColumn(
+          label: 'Entfernung',
+          value: '${_remainingDistance!.toStringAsFixed(1)} m',
+        ),
+      ],
     );
   }
 
@@ -419,7 +417,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
             itemBuilder: (context, index) {
               final step = _steps[index];
               return ListTile(
-                leading: CircleAvatar(child: Text('${index + 1}'), radius: 20),
+                leading: CircleAvatar(radius: 20, child: Text('${index + 1}')),
                 title: Row(
                   children: [
                     Text('${step.azimuth?.round() ?? "?"} gon'),

@@ -55,7 +55,7 @@ Future<FunctionResponse> inviteUserByEmail(String email, String organizationId) 
 Future<String> getDatabasePath({String? userId}) async {
   var config = await getServerConfig();
 
-  final base = (config['database'] ?? 'tfm') as String;
+  final base = (config['database'] ?? 'tfm');
   final suffix = userId != null ? '_$userId' : '';
   final dbFilename = '$base$suffix.db';
 
@@ -111,8 +111,7 @@ Future<bool> switchUserDatabase(String userId) async {
   // so any remaining stream listeners don't receive a ClosedException.
   try {
     await oldDb.disconnect();
-  } catch (e) {
-  }
+  } catch (_) {}
 
   return true;
 }
@@ -175,8 +174,7 @@ String? getUserIdFromContext(dynamic context) {
     if (authProvider.runtimeType.toString() == 'AuthProvider') {
       return authProvider.userId as String?;
     }
-  } catch (e) {
-  }
+  } catch (_) {}
 
   return null;
 }
@@ -296,8 +294,6 @@ Future downloadFile(fileName, {force = false}) async {
 }
 
 Future<PowerSyncDatabase> openDatabase() async {
-  bool isSyncMode = true;
-
   final dbPath = await getDatabasePath();
   final logger = LogService();
 

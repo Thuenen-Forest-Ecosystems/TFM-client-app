@@ -100,7 +100,7 @@ class TreeLayers {
 
             // Add tree number (if selected)
             if (treeLabelFields.contains('tree_number') && treeNumber != null) {
-              labelParts.add('#${treeNumber}');
+              labelParts.add('#$treeNumber');
             }
 
             // Add DBH with color logic (if selected)
@@ -177,7 +177,7 @@ class TreeLayers {
                   child: Container(
                     padding: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 2),
                     decoration: BoxDecoration(
-                      color: Colors.black45.withOpacity(0.9),
+                      color: Colors.black45.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: dbhColor, width: 1),
                     ),

@@ -235,8 +235,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
       // for the next startDiscovery() call.
       await _flutterBluetoothSerial?.cancelDiscovery();
       if (mounted) setState(() => _isScanning = false);
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _startScan() async {

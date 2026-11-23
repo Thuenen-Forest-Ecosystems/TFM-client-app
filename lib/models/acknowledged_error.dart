@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 
 /// Represents an acknowledged error or warning with an optional user note
 class AcknowledgedError {
@@ -59,7 +58,7 @@ class AcknowledgedError {
         acknowledgedAt: DateTime.parse(json['acknowledgedAt'] as String),
         rawError: rawErrorMap,
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       rethrow; // Re-throw so decodeList catches it
     }
   }
@@ -100,7 +99,7 @@ class AcknowledgedError {
       }
 
       return errors;
-    } catch (e, stackTrace) {
+    } catch (e) {
       return [];
     }
   }

@@ -102,8 +102,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
             ),
           );
           port.dispose();
-        } catch (e) {
-        }
+        } catch (_) {}
       }
 
       if (mounted) {
@@ -178,8 +177,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Connecting to GPS on $portName...')));
-        } catch (e) {
-        }
+        } catch (_) {}
       }
     } catch (e) {
       _disconnectSerialPort();
@@ -604,8 +602,7 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
             ),
           );
           port.dispose();
-        } catch (e) {
-        }
+        } catch (_) {}
       }
 
       if (mounted) {

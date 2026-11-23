@@ -374,7 +374,7 @@ class ProxyConfig {
     if (!enabled) return 'disabled';
     if (useSystemProxy) return 'system proxy';
 
-    final auth = username.isNotEmpty ? '${username}@' : '';
+    final auth = username.isNotEmpty ? '$username@' : '';
     return '$auth$host:$port';
   }
 

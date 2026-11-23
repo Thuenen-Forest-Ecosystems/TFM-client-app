@@ -39,7 +39,7 @@ class _MessagesChatState extends State<MessagesChat> {
       setState(() {
         _currentUserId = user?.id;
       });
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _watchMessages() {

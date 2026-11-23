@@ -23,7 +23,6 @@ class _GenericEnumDialogWidget extends StatefulWidget {
   final bool fullscreen;
 
   const _GenericEnumDialogWidget({
-    super.key,
     required this.fieldName,
     required this.fieldSchema,
     this.currentValue,
@@ -205,7 +204,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withValues(alpha: 0.1),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(28),
             topRight: Radius.circular(28),
@@ -396,7 +395,7 @@ class _GenericEnumDialogState extends State<_GenericEnumDialogWidget> {
           width: double.infinity,
           padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(28),
               bottomRight: Radius.circular(28),

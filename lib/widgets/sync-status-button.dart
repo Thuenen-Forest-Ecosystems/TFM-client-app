@@ -25,7 +25,6 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   late SyncStatus _connectionState;
   StreamSubscription<SyncStatus>? _syncStatusSubscription;
   StreamSubscription<bool>? _connectivitySubscription;
-  bool _isNetworkAvailable = true;
   int _unsyncedCount = 0;
   int _failedCount = 0;
   StreamSubscription<dynamic>? _unsyncedSub;
@@ -37,7 +36,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     WHERE local_updated_at IS NOT NULL
       AND (
         updated_at IS NULL
-        OR local_updated_at > datetime(updated_at, \'+10 minutes\')
+        OR local_updated_at > datetime(updated_at, '+10 minutes')
       )
   ''';
 
@@ -49,9 +48,8 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
     // Listen to network connectivity changes via the shared connectivity owner
     _connectivitySubscription = ConnectivityService.instance.onStatusChanged.listen((online) {
       if (mounted) {
-        setState(() {
-          _isNetworkAvailable = online;
-        });
+        // Rebuild on connectivity changes.
+        setState(() {});
       }
     });
 
@@ -125,11 +123,9 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   }
 
   Future<void> _checkInitialConnectivity() async {
-    final online = await ConnectivityService.instance.checkOnline();
+    await ConnectivityService.instance.checkOnline();
     if (mounted) {
-      setState(() {
-        _isNetworkAvailable = online;
-      });
+      setState(() {});
     }
   }
 
@@ -196,22 +192,6 @@ Widget _buildStatusChip(BuildContext context, SyncStatus status) {
       label: Text(statusText, overflow: TextOverflow.ellipsis, maxLines: 1),
       shape: const StadiumBorder(),
       onPressed: () => _SyncStatusDialog.show(context, status),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-    ),
-  );
-}
-
-Widget _buildOfflineStatusChip(BuildContext context, bool networkAvailable) {
-  final icon = networkAvailable ? Icons.cloud_sync_outlined : Icons.cloud_off;
-  final text = networkAvailable ? 'Upgrading...' : 'Offline';
-
-  return ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 170),
-    child: InputChip(
-      avatar: Icon(icon, size: 18),
-      label: Text(text, overflow: TextOverflow.ellipsis, maxLines: 1),
-      shape: const StadiumBorder(),
-      onPressed: () => _showOfflineDialog(context, networkAvailable),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     ),
   );
@@ -294,7 +274,7 @@ SELECT id, cluster_name, plot_name,
 FROM public.records
 WHERE local_updated_at IS NOT NULL
   AND updated_at IS NOT NULL
-  AND local_updated_at > updated_at + interval \'10 minutes\'
+  AND local_updated_at > updated_at + interval '10 minutes'
 ORDER BY lag DESC;
 
 -- Records that were never uploaded (no server timestamp):
@@ -365,7 +345,7 @@ ORDER BY local_updated_at DESC;''';
         WHERE local_updated_at IS NOT NULL
           AND (
             updated_at IS NULL
-            OR local_updated_at > datetime(updated_at, \'+10 minutes\')
+            OR local_updated_at > datetime(updated_at, '+10 minutes')
           )
         ORDER BY local_updated_at DESC
         LIMIT 50
@@ -699,81 +679,6 @@ ORDER BY local_updated_at DESC;''';
       return ts;
     }
   }
-}
-
-void _showOfflineDialog(BuildContext context, bool networkAvailable) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Row(children: [const Text('Offline-Modus')]),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (networkAvailable) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
-                  child: Row(
-                    children: [
-                      Icon(Icons.cloud_sync_outlined, size: 20),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Verbindung wird wiederhergestellt...',
-                          style: TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Die App stellt automatisch die Verbindung zum Server wieder her. '
-                  'PowerSync-Synchronisierung wird in Kürze fortgesetzt.',
-                ),
-              ] else ...[
-                const Text(
-                  'Die App funktioniert ohne Internetverbindung. '
-                  'Alle Änderungen werden lokal gespeichert und automatisch '
-                  'synchronisiert, sobald Sie wieder online sind.',
-                ),
-              ],
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.info_outline, size: 18, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Hintergrund-Synchronisierung',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Die Synchronisierung läuft auch weiter, wenn:\n'
-                '• Die App im Hintergrund ist\n'
-                '• Das Gerät schläft\n'
-                '• Eine andere App im Fokus ist\n\n'
-                'Die App muss nur geöffnet bleiben (nicht geschlossen werden).',
-                style: TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
-        ],
-      );
-    },
-  );
 }
 
 Widget _buildStatusRow(String label, String value) {

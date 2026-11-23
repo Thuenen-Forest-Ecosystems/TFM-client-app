@@ -5,27 +5,24 @@ import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/models/gps_quality_criteria.dart';
 
-/**
- * Record Position Form Element Widget
- * This widget allows users to record their current GPS position
- * it Records 100 GPS positions
- * Each position includes 
- *  - rtcm_age
-    - quality
-    - satellites_count_mean
-    - pdop_mean
-    - hdop_mean
-    - position_mean
-    - position_median
-    - measurement_count
- *  start_measurement, stop_measurement should be logged as well
- * Widget shows detailed quality information about the recorded positions
- */
-
+/// Record Position Form Element Widget
+/// This widget allows users to record their current GPS position
+/// it Records 100 GPS positions
+/// Each position includes
+///  - rtcm_age
+///    - quality
+///    - satellites_count_mean
+///    - pdop_mean
+///    - hdop_mean
+///    - position_mean
+///    - position_median
+///    - measurement_count
+///  start_measurement, stop_measurement should be logged as well
+/// Widget shows detailed quality information about the recorded positions
 class RecordPosition extends StatefulWidget {
   final Map<String, dynamic>? jsonSchema;
   final Map<String, dynamic>? data;
-  final Map<String, dynamic>? previous_properties;
+  final Map<String, dynamic>? previousProperties;
   final String? propertyName;
   final TFMValidationResult? validationResult;
   final void Function(Map<String, dynamic> newData)? onDataChanged;
@@ -34,7 +31,7 @@ class RecordPosition extends StatefulWidget {
     super.key,
     this.jsonSchema,
     this.data,
-    this.previous_properties,
+    this.previousProperties,
     this.propertyName,
     this.validationResult,
     this.onDataChanged,
@@ -49,7 +46,6 @@ class _RecordPositionState extends State<RecordPosition> {
   StreamSubscription? _gpsSubscription;
   int _targetCount = 100;
   Map<String, dynamic>? _aggregatedData;
-  Map<String, dynamic>? _savedAggregatedData; // Store previous data when recording
   Map<String, dynamic>?
   _initialSavedData; // Store initial data from form (for display in saved card)
   bool _isDataSaved = true; // Track if current aggregated data has been saved
@@ -60,7 +56,6 @@ class _RecordPositionState extends State<RecordPosition> {
   // Quality criteria
   late GpsQualityCriteria _qualityCriteria;
   QualityLevel? _currentQualityLevel;
-  Map<String, QualityLevel>? _currentDetailedQuality;
 
   @override
   void initState() {
@@ -105,7 +100,6 @@ class _RecordPositionState extends State<RecordPosition> {
     setState(() {
       isRecording = true;
       _recordedPositions.clear();
-      _savedAggregatedData = _aggregatedData; // Save previous measurement
       _aggregatedData = null;
       _isDataSaved = true;
       _startMeasurement = DateTime.now();
@@ -173,7 +167,6 @@ class _RecordPositionState extends State<RecordPosition> {
           // Update current quality state
           final quality = _getCurrentQuality(gpsProvider);
           _currentQualityLevel = quality['level'];
-          _currentDetailedQuality = quality['detailed'];
         });
 
         // Auto-stop when target reached - stop immediately, not after frame
@@ -197,23 +190,6 @@ class _RecordPositionState extends State<RecordPosition> {
         _aggregatedData = _calculateAggregatedData();
         _isDataSaved = false; // Mark as unsaved
       }
-      _savedAggregatedData = null; // Clear saved data after stopping
-    });
-  }
-
-  void _cancelRecording() {
-    _gpsSubscription?.cancel();
-    setState(() {
-      isRecording = false;
-      _recordedPositions.clear();
-      _currentQualityLevel = null;
-      _currentDetailedQuality = null;
-      _startMeasurement = null;
-      _stopMeasurement = null;
-      _lastRecordedTime = null;
-      _aggregatedData = _savedAggregatedData; // Restore previous measurement
-      _savedAggregatedData = null;
-      _isDataSaved = true; // Restored data is already saved
     });
   }
 
@@ -224,7 +200,7 @@ class _RecordPositionState extends State<RecordPosition> {
     var positionsToUse = _recordedPositions;
 
     // Helper function to safely convert quality to int
-    int? _parseQuality(dynamic value) {
+    int? parseQuality(dynamic value) {
       if (value == null) return null;
       if (value is int) return value;
       if (value is String) return int.tryParse(value);
@@ -241,7 +217,7 @@ class _RecordPositionState extends State<RecordPosition> {
     const validQualities = {1, 2, 4, 5};
 
     final existingQualities = _recordedPositions
-        .map((p) => _parseQuality(p['quality']))
+        .map((p) => parseQuality(p['quality']))
         .where((q) => q != null && validQualities.contains(q))
         .cast<int>()
         .toSet();
@@ -259,7 +235,7 @@ class _RecordPositionState extends State<RecordPosition> {
       }
 
       positionsToUse = _recordedPositions
-          .where((p) => _parseQuality(p['quality']) == bestQuality)
+          .where((p) => parseQuality(p['quality']) == bestQuality)
           .toList();
     }
 
@@ -270,7 +246,7 @@ class _RecordPositionState extends State<RecordPosition> {
     List<double> latitudes = [], longitudes = [];
 
     // Helper to safely convert to double
-    double? _toDouble(dynamic value) {
+    double? toDouble(dynamic value) {
       if (value == null) return null;
       if (value is double) return value;
       if (value is int) return value.toDouble();
@@ -287,22 +263,22 @@ class _RecordPositionState extends State<RecordPosition> {
       latitudes.add(pos['latitude']);
       longitudes.add(pos['longitude']);
 
-      final satCount = _toDouble(pos['satellites_count']);
+      final satCount = toDouble(pos['satellites_count']);
       if (satCount != null) {
         sumSatellites += satCount;
         satellitesCount++;
       }
-      final pdop = _toDouble(pos['pdop']);
+      final pdop = toDouble(pos['pdop']);
       if (pdop != null) {
         sumPdop += pdop;
         pdopCount++;
       }
-      final hdop = _toDouble(pos['hdop']);
+      final hdop = toDouble(pos['hdop']);
       if (hdop != null) {
         sumHdop += hdop;
         hdopCount++;
       }
-      final rtcmAge = _toDouble(pos['rtcm_age']);
+      final rtcmAge = toDouble(pos['rtcm_age']);
       if (rtcmAge != null) {
         sumRtcmAge += rtcmAge;
         rtcmAgeCount++;
@@ -361,7 +337,7 @@ class _RecordPositionState extends State<RecordPosition> {
       'mean_accuracy': meanAccuracy,
       // Store the quality code used for aggregation
       'aggregation_quality_code': existingQualities.isNotEmpty
-          ? _parseQuality(positionsToUse.first['quality'])
+          ? parseQuality(positionsToUse.first['quality'])
           : null,
       // Quality assessment based on criteria
       'overall_quality': overallQuality.toString().split('.').last,
@@ -370,31 +346,6 @@ class _RecordPositionState extends State<RecordPosition> {
       ),
       //'recorded_positions': _recordedPositions,
     };
-  }
-
-  void _updateCurrentQualityState(GpsPositionProvider gpsProvider) {
-    final nmea = gpsProvider.currentNMEA;
-    final position = gpsProvider.lastPosition;
-
-    if (position != null) {
-      final hdop = nmea?.hdop;
-      final pdop = nmea?.pdop;
-      final satellites = nmea?.satellites;
-
-      setState(() {
-        _currentQualityLevel = _qualityCriteria.evaluateQuality(
-          hdopValue: hdop,
-          pdopValue: pdop,
-          satellitesValue: satellites,
-        );
-
-        _currentDetailedQuality = _qualityCriteria.evaluateDetailed(
-          hdopValue: hdop,
-          pdopValue: pdop,
-          satellitesValue: satellites,
-        );
-      });
-    }
   }
 
   Map<String, dynamic> _getCurrentQuality(GpsPositionProvider gpsProvider) {
@@ -439,7 +390,6 @@ class _RecordPositionState extends State<RecordPosition> {
         _startMeasurement = null;
         _stopMeasurement = null;
         _currentQualityLevel = null;
-        _currentDetailedQuality = null;
       });
     }
   }
@@ -463,17 +413,6 @@ class _RecordPositionState extends State<RecordPosition> {
         return 'geeignet';
       case QualityLevel.notAcceptable:
         return 'nicht geeignet';
-    }
-  }
-
-  IconData _getQualityIcon(QualityLevel level) {
-    switch (level) {
-      case QualityLevel.good:
-        return Icons.check_circle;
-      case QualityLevel.ok:
-        return Icons.warning;
-      case QualityLevel.notAcceptable:
-        return Icons.error;
     }
   }
 
@@ -521,9 +460,6 @@ class _RecordPositionState extends State<RecordPosition> {
     final displayQualityLevel = isRecording
         ? _currentQualityLevel
         : currentQuality?['level'] as QualityLevel?;
-    final displayDetailedQuality = isRecording
-        ? _currentDetailedQuality
-        : currentQuality?['detailed'] as Map<String, QualityLevel>?;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -540,7 +476,7 @@ class _RecordPositionState extends State<RecordPosition> {
                 children: [
                   // Card 1: Current GPS Information
                   if (gpsProvider.lastPosition != null || gpsProvider.isConnecting)
-                    Container(
+                    SizedBox(
                       width: isWideScreen ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth,
                       child: Card(
                         elevation: 2,
@@ -679,7 +615,7 @@ class _RecordPositionState extends State<RecordPosition> {
 
                   // Card 2: Saved Measurements from form
                   if (_initialSavedData != null)
-                    Container(
+                    SizedBox(
                       width: isWideScreen ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth,
                       child: Card(
                         elevation: 2,
@@ -723,7 +659,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                               e.toString().split('.').last ==
                                               _initialSavedData!['overall_quality'],
                                         ),
-                                      ).withOpacity(0.2),
+                                      ).withValues(alpha: 0.2),
                                       visualDensity: VisualDensity.compact,
                                     ),
                                 ],
@@ -799,7 +735,7 @@ class _RecordPositionState extends State<RecordPosition> {
                     ),
 
                   // Card 3: New Measurement (Aggregierte Daten) - Always visible
-                  Container(
+                  SizedBox(
                     width: isWideScreen ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth,
                     child: Card(
                       elevation: 2,
@@ -846,7 +782,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                             e.toString().split('.').last ==
                                             _aggregatedData!['overall_quality'],
                                       ),
-                                    ).withOpacity(0.2),
+                                    ).withValues(alpha: 0.2),
                                     visualDensity: VisualDensity.compact,
                                   ),
                               ],
@@ -898,7 +834,6 @@ class _RecordPositionState extends State<RecordPosition> {
                                             _startMeasurement = null;
                                             _stopMeasurement = null;
                                             _currentQualityLevel = null;
-                                            _currentDetailedQuality = null;
                                           });
                                         }
                                       : null,
@@ -1006,25 +941,9 @@ class _RecordPositionState extends State<RecordPosition> {
                               if (!_isDataSaved && _aggregatedData!['overall_quality'] != null)
                                 Builder(
                                   builder: (context) {
-                                    // Check if required GPS metrics are available
-                                    // pdop is optional — not all receivers provide it
-                                    final hasRequiredMetrics =
-                                        _aggregatedData!['hdop_mean'] != null &&
-                                        _aggregatedData!['satellites_count_mean'] != null;
-
-                                    final overallQuality = QualityLevel.values.firstWhere(
-                                      (e) =>
-                                          e.toString().split('.').last ==
-                                          _aggregatedData!['overall_quality'],
-                                    );
-
-                                    final hasAcceptableQuality =
-                                        overallQuality == QualityLevel.good ||
-                                        overallQuality == QualityLevel.ok;
-
-                                    // Enable save only if both conditions are met
-                                    //final canSave = hasRequiredMetrics && hasAcceptableQuality;
-                                    final canSave = true;
+                                    // Save is intentionally always enabled. The former gate was:
+                                    //   hdop_mean != null && satellites_count_mean != null
+                                    //   (pdop optional) && overall_quality in {good, ok}
                                     final isOverwriting = _initialSavedData != null;
 
                                     return Padding(
@@ -1043,14 +962,13 @@ class _RecordPositionState extends State<RecordPosition> {
                                                     _startMeasurement = null;
                                                     _stopMeasurement = null;
                                                     _currentQualityLevel = null;
-                                                    _currentDetailedQuality = null;
                                                   });
                                                 },
                                                 child: const Text('Messung verwerfen'),
                                               ),
                                               const SizedBox(width: 12),
                                               ElevatedButton.icon(
-                                                onPressed: canSave ? _saveToForm : null,
+                                                onPressed: _saveToForm,
                                                 icon: Icon(
                                                   isOverwriting ? Icons.warning : Icons.save,
                                                 ),
@@ -1118,21 +1036,6 @@ class _RecordPositionState extends State<RecordPosition> {
     );
   }
 
-  String _getQualityText(int quality) {
-    switch (quality) {
-      case 1:
-        return '1 - Excellent';
-      case 2:
-        return '2 - Good';
-      case 3:
-        return '3 - Fair';
-      case 4:
-        return '4 - Poor';
-      default:
-        return 'Unknown';
-    }
-  }
-
   String _getCorrectionSignalText(dynamic fixQuality) {
     int? quality;
     if (fixQuality is int) {
@@ -1165,7 +1068,7 @@ class _RecordPositionState extends State<RecordPosition> {
     } else {
       final minutes = (ageSeconds / 60).floor();
       final seconds = (ageSeconds % 60).toStringAsFixed(0);
-      return '${minutes} min ${seconds} s';
+      return '$minutes min $seconds s';
     }
   }
 

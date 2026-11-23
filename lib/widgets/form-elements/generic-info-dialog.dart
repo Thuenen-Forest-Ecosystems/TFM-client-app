@@ -44,28 +44,12 @@ class _GenericInfoDialogWidget extends StatelessWidget {
     return fieldSchema['description'] as String?;
   }
 
-  String? _getType() {
-    final typeValue = fieldSchema['type'];
-    if (typeValue is String) return typeValue;
-    if (typeValue is List) {
-      return typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
-    }
-    return null;
-  }
-
-  String? _getUnit() {
-    final tfm = fieldSchema['\$tfm'] as Map<String, dynamic>?;
-    return tfm?['unit_short'] as String? ?? fieldSchema['unit_short'] as String?;
-  }
-
   @override
   Widget build(BuildContext context) {
     final langCode = context.select<Language, String>((l) => l.locale.languageCode);
     final isEn = langCode == 'en';
 
     final description = _getDescription(langCode);
-    final type = _getType();
-    final unit = _getUnit();
 
     final current = (currentValueLabel != null && currentValueLabel!.isNotEmpty)
         ? currentValueLabel!

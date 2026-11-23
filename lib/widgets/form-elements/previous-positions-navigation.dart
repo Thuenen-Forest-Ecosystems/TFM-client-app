@@ -58,8 +58,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           mapControllerProvider.setCenterPosition(key, coords);
         }
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   StreamSubscription? _gpsSubscription;
@@ -97,8 +96,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
           _updateNavigationPath();
         }
       });
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   void _loadPositionData() {
@@ -324,7 +322,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             // Type 2: azimuth/distance FROM SOLL Position
             // Use azimuth directly
             supportPointCoords = distance.offset(referenceCoords, distanceM, azimuthGon);
-            break;
 
           case 1:
           case 3:
@@ -338,7 +335,6 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             if (pointType == 3) {
               type3Coords = supportPointCoords;
             }
-            break;
 
           case 4:
             // Type 4: azimuth/distance TO Point type=3
@@ -351,21 +347,18 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               final reverseAzimuth = (azimuthGon + 200) % 400;
               supportPointCoords = distance.offset(referenceCoords, distanceM, reverseAzimuth);
             }
-            break;
 
           default:
             // Default fallback: use azimuth directly from SOLL Position
             supportPointCoords = distance.offset(referenceCoords, distanceM, azimuthGon);
         }
 
-        if (supportPointCoords != null) {
-          // Create label for support point
-          final label = await _getPointTypeLabel(pointType, i + 1);
-          _supportPointKeys.add(label);
-          _supportPointCoordinates[label] = supportPointCoords;
-          _supportPointNotes[label] = note;
-        }
-      }
+        // Create label for support point
+        final label = await _getPointTypeLabel(pointType, i + 1);
+        _supportPointKeys.add(label);
+        _supportPointCoordinates[label] = supportPointCoords;
+        _supportPointNotes[label] = note;
+            }
     }
   }
 
@@ -405,8 +398,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             }
           }
         }
-      } catch (e) {
-      }
+      } catch (_) {}
     }
 
     // Fallback to database lookup
@@ -414,13 +406,12 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       final result = await db.get('SELECT name_de FROM lookup_support_point_type WHERE code = ?', [
         pointType,
       ]);
-      if (result != null && result['name_de'] != null) {
+      if (result['name_de'] != null) {
         final label = result['name_de'] as String;
         _supportPointTypeLabels[pointType] = label; // Cache the result
         return label;
       }
-    } catch (e) {
-    }
+    } catch (_) {}
 
     // Fallback to generic label
     return 'Punkt $index';
@@ -445,8 +436,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       if (lat != null && lng != null) {
         return LatLng(lat, lng);
       }
-    } catch (e) {
-    }
+    } catch (_) {}
     return null;
   }
 
@@ -1007,8 +997,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       mapProvider.clearNavigationLineStrings();
       mapProvider.disableMapTapMode();
       _mapTapSubscription?.cancel();
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   @override
@@ -1019,8 +1008,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
     // Disable map tap mode if still enabled
     try {
       context.read<MapControllerProvider>().disableMapTapMode();
-    } catch (e) {
-    }
+    } catch (_) {}
 
     // Clear all navigation elements when widget is disposed
     _clearNavigationFromMap();

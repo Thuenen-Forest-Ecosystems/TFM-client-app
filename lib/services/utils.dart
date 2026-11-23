@@ -203,29 +203,6 @@ double? dmsToDecimal(String dms, String direction) {
   return decimalDegrees;
 }
 
-double? dmsToDecimal_deprecated(String dms, String direction) {
-  if (dms.isEmpty ||
-      (direction != 'N' && direction != 'S' && direction != 'E' && direction != 'W')) {
-    return null; // Invalid input
-  }
-
-  String degreesPart = dms.substring(0, 3);
-  String minutesPart = dms.substring(3);
-
-  int degrees = int.tryParse(degreesPart) ?? 0;
-  double minutes = double.tryParse(minutesPart) ?? 0.0;
-
-  double decimalDegrees = degrees + (minutes / 60.0);
-
-  if (direction.toUpperCase() == 'W' || direction.toUpperCase() == 'S') {
-    decimalDegrees = -decimalDegrees;
-  } else if (direction.toUpperCase() != 'E' && direction.toUpperCase() != 'N') {
-    // Handle invalid direction input (optional: throw error or return null)
-  }
-
-  return decimalDegrees;
-}
-
 Future<ResultSet> setDeviceSettings(String key, String value) async {
   Map<String, dynamic>? currentValue = await getDeviceSettings(key);
   if (currentValue != null && currentValue['id'] != null) {
@@ -295,18 +272,6 @@ Future<Map<String, dynamic>?> getSettings(String key) async {
   }
 }
 
-Future<Map<String, dynamic>?> getSettings_deprecated(String key) async {
-  try {
-    return await db.get('SELECT * FROM user_settings WHERE key = ? AND user_id = ?', [
-      key,
-      getUserId(),
-    ]);
-  } catch (e) {
-    // Return null if no setting found
-    return await db.get('SELECT * FROM user_settings WHERE key = ?', [key]);
-  }
-}
-
 CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
   // Allow nmeaState to be null initially
   // If nmeaState is null, create a new instance
@@ -370,7 +335,6 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
             // Check for any GGA sentence
             if (fields.length > 10) {
               // Need enough fields for altitude etc.
-              String time = fields[1];
               String latitude = fields[2];
               String latitudeDirection = fields[3];
               String longitude = fields[4];
@@ -379,7 +343,6 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
               String satellites = fields[7];
               String horizontalDilution = fields[8];
               String altitude = fields[9];
-              String altitudeUnits = fields[10]; // Usually 'M' for meters
 
               // Parse differential correction age if available (field 13)
               // GGA format: $GPGGA,...,M,geoidSep,M,dgpsAge,stationId*checksum
@@ -417,7 +380,6 @@ CurrentNMEA? parseData(List<int> data, CurrentNMEA? nmeaState) {
             // Check for any GSA sentence
             if (fields.length > 17) {
               // Need enough fields for DOPs
-              String mode = fields[1]; // M=Manual, A=Automatic
               String fixType = fields[2]; // 1=No fix, 2=2D, 3=3D
               // String satelliteIds = fields.sublist(3, 15).join(', '); // Not typically stored
               String pdop = fields[15];

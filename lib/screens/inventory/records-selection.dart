@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
 import 'package:terrestrial_forest_monitor/providers/records_list_provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/records/record_card.dart';
-import 'package:terrestrial_forest_monitor/widgets/records/filter_dialog.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -72,16 +70,14 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.addListener(_onMapBoundsChanged);
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   void _listenToGpsPositionChanges() {
     try {
       final gpsProvider = context.read<GpsPositionProvider>();
       gpsProvider.addListener(_onGpsPositionChanged);
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   DateTime? _lastMapBoundsTimestamp;
@@ -98,8 +94,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
         _lastMapBoundsTimestamp = timestamp;
         _loadInitialData();
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   void _onGpsPositionChanged() {
@@ -124,8 +119,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           _loadInitialData();
         }
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   @override
@@ -279,8 +273,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                 lng <= bounds.east;
           }).toList();
         }
-      } catch (e) {
-      }
+      } catch (_) {}
     }
 
     // Filter by completion status
@@ -419,8 +412,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
           });
         }
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -480,7 +472,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                           labelText: 'Suche Traktnummer...',
                           filled: true,
                           isDense: true,
-                          border: const OutlineInputBorder(
+                          border: OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(50)),
                           ),
                         ),
@@ -644,12 +636,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     );
   }
 
-  void _addRecord() {
-    // Navigate to properties-edit with NEW placeholders
-    // The PropertiesEdit screen will detect this and show a cluster/plot input dialog
-    Beamer.of(context).beamToNamed('/properties-edit/NEW/NEW');
-  }
-
   void _focusRecordOnMap(Record record) {
     final coords = record.getCoordinates();
     if (coords == null) {
@@ -676,35 +662,6 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
   }
 
-  void _openFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => RecordsFilterDialog(
-        currentOrderBy: _orderBy,
-        showCompleted: _showCompleted,
-        filterByMapExtent: _filterByMapExtent,
-        onOrderByChanged: (newOrderBy) {
-          setState(() {
-            _orderBy = newOrderBy;
-          });
-          _loadInitialData();
-        },
-        onShowCompletedChanged: (value) {
-          setState(() {
-            _showCompleted = value;
-          });
-          _loadInitialData();
-        },
-        onFilterByMapExtentChanged: (value) {
-          setState(() {
-            _filterByMapExtent = value;
-          });
-          _loadInitialData();
-        },
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -714,22 +671,19 @@ class _RecordsSelectionState extends State<RecordsSelection> {
     try {
       final provider = context.read<RecordsListProvider>();
       provider.removeListener(_onProviderChanged);
-    } catch (e) {
-    }
+    } catch (_) {}
 
     // Remove map controller provider listener
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.removeListener(_onMapBoundsChanged);
-    } catch (e) {
-    }
+    } catch (_) {}
 
     // Remove GPS position provider listener
     try {
       final gpsProvider = context.read<GpsPositionProvider>();
       gpsProvider.removeListener(_onGpsPositionChanged);
-    } catch (e) {
-    }
+    } catch (_) {}
 
     // Only dispose if we created the controller ourselves
     if (_createdOwnController && _scrollController != null) {

@@ -143,7 +143,7 @@ class _VersionControlState extends State<VersionControl> {
                     hasUpdate
                         ? l10n.versionNewDetail(_latestVersion!, _currentVersion!)
                         : l10n.versionCurrentDetail(_currentVersion!),
-                    style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.8)),
+                    style: TextStyle(fontSize: 14, color: textColor.withValues(alpha: 0.8)),
                   ),
                 ],
               ),

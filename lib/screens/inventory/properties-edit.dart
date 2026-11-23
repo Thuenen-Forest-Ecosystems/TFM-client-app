@@ -144,7 +144,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     if (_mapProvider == null) {
       try {
         _mapProvider = context.read<MapControllerProvider>();
-      } catch (e) {}
+      } catch (_) {}
     }
 
     // Store playground mode provider reference while context is valid
@@ -215,7 +215,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           if (_mapProvider!.focusedRecord?.id == _record!.id) {
             _mapProvider!.clearFocusedRecord();
           } else {}
-        } catch (e) {}
+        } catch (_) {}
       });
     }
 
@@ -277,9 +277,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       if (schemaIdValidatedBy != null) {
         latestSchema = await schemaRepository.getById(schemaIdValidatedBy);
 
-        if (latestSchema == null) {
-          latestSchema = await schemaRepository.getLatestForInterval(intervalName);
-        }
+        latestSchema ??= await schemaRepository.getLatestForInterval(intervalName);
       } else {
         latestSchema = await schemaRepository.getLatestForInterval(intervalName);
       }
@@ -321,7 +319,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           styleData: styleToUse,
           directory: latestSchema.directory,
         );
-      } catch (rulesError) {}
+      } catch (_) {}
 
       try {
         Map<String, dynamic>? validationSchema;
@@ -390,7 +388,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
             // Small delay to ensure WebView is fully ready
             await Future.delayed(Duration(milliseconds: 200));
-          } catch (tfmError) {}
+          } catch (_) {}
         }
 
         // Trigger initial validation
@@ -535,7 +533,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           if (freshRecord != null) {
             _record = freshRecord;
           }
-        } catch (e) {}
+        } catch (_) {}
       }
 
       // Prepare acknowledged errors JSON
@@ -660,7 +658,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record = reloadedRecord;
             });
           }
-        } catch (e) {}
+        } catch (_) {}
       }
 
       // Update initial form data snapshot so save button disables again
@@ -762,7 +760,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record = freshRecord;
             });
           }
-        } catch (e) {}
+        } catch (_) {}
       }
 
       // Show validation errors/warnings dialog
@@ -786,7 +784,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
               _record = reloadedRecord;
             });
           }
-        } catch (e) {}
+        } catch (_) {}
       }
 
       // If user didn't confirm save from dialog, return
@@ -852,7 +850,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                 if (mapProvider.focusedRecord?.id == _record!.id) {
                   mapProvider.setFocusedRecord(updatedRecord);
                 }
-              } catch (e) {}
+              } catch (_) {}
             }
 
             if (_originalJsonSchema != null) {
@@ -868,7 +866,6 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     : _originalJsonSchema!;
 
                 if (_conditionalRules.isEmpty) {}
-                ;
 
                 if (!mounted || cycle != _validationCycle) return;
 
@@ -911,7 +908,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                         .map((row) => Map<String, dynamic>.from(row))
                         .toList();
                   } else {}
-                } catch (e) {}
+                } catch (_) {}
 
                 if (!mounted || cycle != _validationCycle) return;
 
@@ -1036,7 +1033,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                     save('save');
                   }
                 }
-              } catch (e) {}
+              } catch (_) {}
             }
           })
           .catchError((_) {});
@@ -1047,7 +1044,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     try {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.setFocusedRecord(_record);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _focusRecord(BuildContext context) {
@@ -1061,7 +1058,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         final latLng = LatLng(recordCoords['latitude']!, recordCoords['longitude']!);
         mapProvider.moveToLocation(latLng, zoom: 19.0);
       } else {}
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _navigateToTabFromError(String? tabId) {

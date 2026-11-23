@@ -365,7 +365,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             key: ValueKey('row_fallback_$index'),
             jsonSchema: schemaForForm,
             data: rowData,
-            previous_properties: previousRowData,
+            previousProperties: previousRowData,
             propertyName: widget.propertyName != null
                 ? '${widget.propertyName}/$dataIndex'
                 : null,
@@ -396,7 +396,7 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
             key: ValueKey('row_${index}_fields_${fields.first}'),
             jsonSchema: schemaForForm,
             data: rowData,
-            previous_properties: previousRowData,
+            previousProperties: previousRowData,
             propertyName: widget.propertyName != null
                 ? '${widget.propertyName}/$dataIndex'
                 : null,

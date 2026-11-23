@@ -1,5 +1,4 @@
 // Stub for workmanager types on web platform
-import 'package:flutter/foundation.dart';
 
 class Workmanager {
   Future<void> initialize(Function callback, {bool isInDebugMode = false}) async {

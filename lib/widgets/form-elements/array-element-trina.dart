@@ -116,7 +116,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
   // Filter support
   List<ArrayFilterRule> _filters = [];
   Set<int> _activeFilterIndices = {};
-  bool _filtersLoaded = false;
   final Map<int, Map<String, dynamic>> _hiddenRowsByOriginalIndex = {};
 
   // Maps field name -> layout item config for calculated columns (used to pre-compute sortable cell values)
@@ -295,7 +294,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
         if (!mounted) return;
         setState(() {
           _activeFilterIndices = savedIndices.map((s) => int.parse(s)).toSet();
-          _filtersLoaded = true;
           // Grid already built (filters re-initialized after a schema switch):
           // re-apply the restored selection to the visible rows.
           if (_stateManager != null) {
@@ -306,15 +304,11 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
         });
       } else {
         if (!mounted) return;
-        setState(() {
-          _filtersLoaded = true;
-        });
+        setState(() {});
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _filtersLoaded = true;
-      });
+      setState(() {});
     }
   }
 
@@ -325,7 +319,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
       final prefs = await SharedPreferences.getInstance();
       final key = 'array_filter_${widget.propertyName}';
       await prefs.setStringList(key, _activeFilterIndices.map((i) => i.toString()).toList());
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Future<void> _showFilterDialog() async {
@@ -357,7 +351,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
       try {
         _mapControllerProvider = context.read<MapControllerProvider>();
         _mapControllerProvider!.addListener(_onMapControllerChanged);
-      } catch (e) {}
+      } catch (_) {}
     }
   }
 
@@ -385,40 +379,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
           }
         });
       }
-    } catch (e) {}
-  }
-
-  void _scrollToAndSelectRow(dynamic identifier) {
-    final stateManager = _stateManager;
-    if (stateManager == null || widget.data == null) return;
-
-    final identifierField = widget.identifierField ?? 'tree_number';
-
-    // Find the row index with matching identifier
-    int? matchingRowIndex;
-    for (int i = 0; i < widget.data!.length; i++) {
-      final rowData = widget.data![i];
-      if (rowData is Map<String, dynamic> && rowData[identifierField] == identifier) {
-        matchingRowIndex = i;
-        break;
-      }
-    }
-
-    if (matchingRowIndex == null) {
-      return;
-    }
-
-    if (matchingRowIndex < 0 || matchingRowIndex >= stateManager.rows.length) {
-      return;
-    }
-
-    // Select the row in the grid
-    try {
-      final targetRow = stateManager.rows[matchingRowIndex];
-      if (targetRow.cells.isEmpty) return;
-      stateManager.setCurrentCell(targetRow.cells.entries.first.value, matchingRowIndex);
-      stateManager.setKeepFocus(true);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   /// Open the form dialog for a row identified by its identifier value (e.g. tree_number)
@@ -963,8 +924,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
 
     // NEW STRUCTURE: Use columnItems array if provided (items with groups)
     if (widget.columnItems != null && widget.columnItems!.isNotEmpty) {
-      int frozenColumnCount = 0;
-
       // Helper function to create a column from item config
       TrinaColumn? createColumnFromItem(Map<String, dynamic> itemConfig) {
         final fieldName = itemConfig['name'] as String?;
@@ -1017,10 +976,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
             ? TrinaColumnFrozen.end
             : TrinaColumnFrozen.none;
 
-        if (frozen == TrinaColumnFrozen.start) {
-          frozenColumnCount++;
-        }
-
         // Determine type and renderer
         final typeValue = itemConfig['type'] ?? propertySchema['type'];
         String? type;
@@ -1030,8 +985,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
           type =
               typeValue.firstWhere((t) => t != 'null' && t != null, orElse: () => null) as String?;
         }
-
-        final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
 
         TrinaColumnType columnType = TrinaColumnTypeText();
         bool isEnum = false;
@@ -1193,9 +1146,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
 
     // Column order determined by position in columnConfig/properties
 
-    // Count frozen columns (pinned left)
-    int frozenColumnCount = 0;
-
     // Create columns from sorted entries
     for (final entry in columnEntries) {
       final key = entry.key;
@@ -1273,11 +1223,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
           : pinnedValue == 'right'
           ? TrinaColumnFrozen.end
           : TrinaColumnFrozen.none;
-
-      // Count frozen columns at start
-      if (frozen == TrinaColumnFrozen.start) {
-        frozenColumnCount++;
-      }
 
       // Get column width (default 150)
       final columnWidth = (entry.value['width'] as num?)?.toDouble() ?? 150.0;
@@ -1693,7 +1638,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
           margin: const EdgeInsets.symmetric(vertical: 4),
           color: bgColor,
           child: GenericTextField(
-            key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+            key: ValueKey('cell_${rowIndex}_$fieldKey'),
             autofocus: true,
             fieldName: fieldKey,
             fieldSchema: const {'type': 'string'},
@@ -1727,7 +1672,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
     String fieldKey,
   ) {
     final value = rendererContext.cell.value;
-    final rowIndex = rendererContext.rowIdx;
     final tfm = propertySchema['\$tfm'] as Map<String, dynamic>?;
     // Prefer inline name_de/name_en; fall back to lookup table cache when absent.
     final langCode = context.read<Language>().locale.languageCode;
@@ -1865,7 +1809,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
       return Container(
         color: bgColor,
         child: GenericTextField(
-          key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+          key: ValueKey('cell_${rowIndex}_$fieldKey'),
           autofocus: true,
           fieldName: fieldKey,
           fieldSchema: propertySchema,
@@ -1982,7 +1926,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
         color: bgColor,
         alignment: Alignment.center,
         child: GenericTextField(
-          key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+          key: ValueKey('cell_${rowIndex}_$fieldKey'),
           autofocus: true,
           fieldName: fieldKey,
           fieldSchema: propertySchema,
@@ -2021,7 +1965,6 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
     Map<String, dynamic> nestedArrayConfig,
   ) {
     final value = rendererContext.cell.value;
-    final rowIndex = rendererContext.rowIdx;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _getCellBackgroundColor(
       rendererContext.row,
@@ -2041,7 +1984,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
         if (decoded is List) {
           nestedData = decoded;
         }
-      } catch (e) {}
+      } catch (_) {}
     }
 
     final itemCount = nestedData?.length ?? 0;
@@ -2204,7 +2147,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
     return Container(
       color: bgColor,
       child: GenericTextField(
-        key: ValueKey('cell_${rowIndex}_${fieldKey}'),
+        key: ValueKey('cell_${rowIndex}_$fieldKey'),
         fieldName: fieldKey,
         fieldSchema: propertySchema,
         value: rendererContext.cell.value,
@@ -2621,20 +2564,15 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
         switch (type) {
           case 'string':
             newRow[key] = '';
-            break;
           case 'number':
           case 'integer':
             newRow[key] = null;
-            break;
           case 'boolean':
             newRow[key] = false;
-            break;
           case 'array':
             newRow[key] = [];
-            break;
           case 'object':
             newRow[key] = {};
-            break;
           default:
             newRow[key] = null;
         }

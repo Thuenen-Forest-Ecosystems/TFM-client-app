@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:powersync_attachments_helper/powersync_attachments_helper.dart';
-import 'package:powersync_core/powersync_core.dart';
+import 'package:powersync/powersync.dart';
 import 'package:terrestrial_forest_monitor/services/_deprecated_storage-adapter.dart';
 
 // https://github.com/powersync-ja/powersync.dart/blob/5cd42bba7c49deb9e9182ce179f9057839e1a41d/demos/supabase-todolist/lib/attachments/queue.dart

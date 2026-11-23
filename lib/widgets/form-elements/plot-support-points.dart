@@ -58,7 +58,6 @@ class PlotSupportPoints extends StatelessWidget {
           final note = point['note'] as String?;
           final azimuth = point['azimuth'];
           final distance = point['distance'];
-          final isMarked = point['is_marked'] as bool? ?? false;
 
           final parts = <String>[
             if (azimuth != null) 'Azimut: ${azimuth is num ? azimuth.round() : azimuth} gon',

@@ -113,10 +113,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       }
     }
 
-    if (savedErrors.isNotEmpty) {
-      for (var key in savedErrors.keys) {}
-    }
-
     // Initialize controllers for each issue
     for (var i = 0; i < widget.validationResult.allIssues.length; i++) {
       final issue = widget.validationResult.allIssues[i];
@@ -205,12 +201,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           : null;
 
       // Debug: Print what we're saving
-      if (validationErrors.isNotEmpty) {
-        for (var err in validationErrors) {}
-      }
-      if (plausibilityErrors.isNotEmpty) {
-        for (var err in plausibilityErrors) {}
-      }
 
       await db.execute(
         'UPDATE records SET validation_errors = ?, plausibility_errors = ? WHERE id = ?',
@@ -221,37 +211,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
     } catch (e) {
       _hasSaved = false; // Allow retry on error
       return false;
-    }
-  }
-
-  Future<void> _saveNote() async {
-    if (widget.record == null) return;
-
-    final noteText = _noteController.text.trim();
-    final note = noteText.isNotEmpty ? noteText : null;
-
-    try {
-      await db.execute('UPDATE records SET note = ? WHERE id = ?', [note, widget.record!.id]);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Trakt wurde gespeichert.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Speichern der Notiz: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
     }
   }
 
@@ -506,8 +465,6 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final errorCount = widget.validationResult.allErrors.length;
-
     // Group issues by the tab that owns them. With a layout the key is the
     // tab id (same mapping as the tab badges); without one, the first path
     // segment, so a field is never attributed to a tab by guesswork.
@@ -634,7 +591,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         // Build subtitle with additional TFM information
                         Widget? subtitle;
                         if (isTFMError) {
-                          final tfmError = issue as TFMValidationError;
+                          final tfmError = issue;
                           final subtitleParts = <String>[];
 
                           if (tfmError.note != null && tfmError.note!.isNotEmpty) {
@@ -806,7 +763,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                                         _hasSaved = true;
 
                                         //final action = errorCount == 0 ? 'complete' : 'save';
-                                        final action =
+                                        const action =
                                             'complete'; // Always complete, even if there are errors, since we require acknowledgment with notes
                                         Navigator.of(context).pop(
                                           ValidationDialogResult(

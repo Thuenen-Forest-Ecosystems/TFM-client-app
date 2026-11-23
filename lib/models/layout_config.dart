@@ -2,6 +2,7 @@
 ///
 /// These models represent the structure defined in layout JSON files (e.g., ci2027.json)
 /// They describe HOW to display data, while validation schemas describe WHAT the data is.
+library;
 
 /// Base class for all layout items
 abstract class LayoutItem {

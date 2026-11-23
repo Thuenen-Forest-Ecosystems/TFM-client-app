@@ -672,17 +672,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
           switch (iconName) {
             case 'height':
               iconData = Icons.height;
-              break;
             case 'check':
             case 'check_circle':
               iconData = Icons.check_circle;
-              break;
             case 'star':
               iconData = Icons.star;
-              break;
             case 'flag':
               iconData = Icons.flag;
-              break;
             default:
               iconData = Icons.check_circle; // Fallback
           }
@@ -717,17 +713,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
           switch (iconName) {
             case 'height':
               iconData = Icons.height;
-              break;
             case 'check':
             case 'check_circle':
               iconData = Icons.check_circle;
-              break;
             case 'star':
               iconData = Icons.star;
-              break;
             case 'flag':
               iconData = Icons.flag;
-              break;
             default:
               iconData = null;
           }
@@ -828,7 +820,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
             : BoxDecoration(
                 color: isDark ? Colors.grey[800] : Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
               ),
         child: Row(
           mainAxisAlignment: widget.compact ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -870,9 +862,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
         }
       }
       List? interval = tfmData?['interval'] as List?;
-      if (interval == null) {
-        interval = LookupService.instance.getIntervalList(lookupTable, enumValues);
-      }
+      interval ??= LookupService.instance.getIntervalList(lookupTable, enumValues);
 
       // Get display text for current value
       String getDisplayText(dynamic value) {
@@ -915,7 +905,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   ),
                   filled: true,
                   isDense: widget.dense,
-                  fillColor: Colors.grey.withOpacity(0.1),
+                  fillColor: Colors.grey.withValues(alpha: 0.1),
                 ),
           controller: _controller,
           onTap: isReadonly
@@ -988,8 +978,8 @@ class _GenericTextFieldState extends State<GenericTextField> {
                       ? null
                       : BoxDecoration(
                           color: isDark
-                              ? Colors.white.withOpacity(0.07)
-                              : Colors.black.withOpacity(0.05),
+                              ? Colors.white.withValues(alpha: 0.07)
+                              : Colors.black.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(12),
                         ),
                   child: Padding(
@@ -1028,7 +1018,9 @@ class _GenericTextFieldState extends State<GenericTextField> {
                           focusNode: _focusNode,
                           value: _boolValue,
                           activeThumbColor: Theme.of(context).colorScheme.primary,
-                          activeTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                          activeTrackColor: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.5),
                           inactiveThumbColor: Colors.grey[400],
                           onChanged: isReadonly
                               ? null
@@ -1139,7 +1131,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                           child: ExcludeFocus(
                             child: IconButton(
                               icon: const Icon(Icons.remove, size: 14),
-                              onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                              onPressed: isReadonly ? null : () => adjustValue(-upDownBtn),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                               iconSize: 14,
@@ -1162,9 +1154,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                                     ExcludeFocus(
                                       child: IconButton(
                                         icon: const Icon(Icons.add, size: 14),
-                                        onPressed: isReadonly
-                                            ? null
-                                            : () => adjustValue(upDownBtn!),
+                                        onPressed: isReadonly ? null : () => adjustValue(upDownBtn),
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(
                                           minWidth: 20,
@@ -1181,7 +1171,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                                 child: ExcludeFocus(
                                   child: IconButton(
                                     icon: const Icon(Icons.add, size: 14),
-                                    onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                                    onPressed: isReadonly ? null : () => adjustValue(upDownBtn),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                     iconSize: 14,
@@ -1199,13 +1189,13 @@ class _GenericTextFieldState extends State<GenericTextField> {
                   ),
                   filled: true,
                   isDense: widget.dense,
-                  fillColor: Colors.grey.withOpacity(0.1),
+                  fillColor: Colors.grey.withValues(alpha: 0.1),
                   suffixText: !hasSpinner && unit != null && unit.isNotEmpty ? ' $unit' : null,
                   prefixIcon: hasSpinner
                       ? ExcludeFocus(
                           child: IconButton(
                             icon: const Icon(Icons.remove),
-                            onPressed: isReadonly ? null : () => adjustValue(-upDownBtn!),
+                            onPressed: isReadonly ? null : () => adjustValue(-upDownBtn),
                           ),
                         )
                       : null,
@@ -1224,7 +1214,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                               ExcludeFocus(
                                 child: IconButton(
                                   icon: const Icon(Icons.add),
-                                  onPressed: isReadonly ? null : () => adjustValue(upDownBtn!),
+                                  onPressed: isReadonly ? null : () => adjustValue(upDownBtn),
                                 ),
                               ),
                               _buildInfoButton(langCode),
@@ -1306,7 +1296,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
                 ),
                 filled: true,
                 isDense: widget.dense,
-                fillColor: Colors.white.withOpacity(0.1),
+                fillColor: Colors.white.withValues(alpha: 0.1),
                 suffixIcon: _buildInfoButton(langCode),
                 /*suffixIcon: SpeechToTextButton(
                   controller: _controller,

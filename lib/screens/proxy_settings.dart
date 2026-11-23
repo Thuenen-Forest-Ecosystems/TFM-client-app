@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 
 class ProxySettingsScreen extends StatefulWidget {
@@ -192,34 +191,37 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
             // System-Proxy vs. Manuelle Konfiguration
             if (_proxyEnabled) ...[
               Card(
-                child: Column(
-                  children: [
-                    RadioListTile<bool>(
-                      title: const Text('System-Proxy verwenden'),
-                      subtitle: const Text(
-                        'Nutzt die Windows-Proxy-Einstellungen (EMPFOHLEN - unterstützt WebSocket)',
+                child: RadioGroup<bool>(
+                  groupValue: _useSystemProxy,
+                  onChanged: (value) {
+                    // Manuelle Konfiguration ist veraltet und nicht mehr auswählbar.
+                    if (value == true) setState(() => _useSystemProxy = true);
+                  },
+                  child: Column(
+                    children: [
+                      RadioListTile<bool>(
+                        title: const Text('System-Proxy verwenden'),
+                        subtitle: const Text(
+                          'Nutzt die Windows-Proxy-Einstellungen (EMPFOHLEN - unterstützt WebSocket)',
+                        ),
+                        value: true,
                       ),
-                      value: true,
-                      groupValue: _useSystemProxy,
-                      onChanged: (value) => setState(() => _useSystemProxy = value!),
-                    ),
-                    RadioListTile<bool>(
-                      title: Row(
-                        children: [
-                          const Text('Manuelle Konfiguration'),
-                          const SizedBox(width: 8),
-                          Icon(Icons.warning_amber, size: 20, color: Colors.orange.shade700),
-                        ],
+                      RadioListTile<bool>(
+                        title: Row(
+                          children: [
+                            const Text('Manuelle Konfiguration'),
+                            const SizedBox(width: 8),
+                            Icon(Icons.warning_amber, size: 20, color: Colors.orange.shade700),
+                          ],
+                        ),
+                        subtitle: const Text(
+                          'Veraltet: sollte nicht mehr genutzt werden.',
+                          style: TextStyle(color: Colors.deepOrange),
+                        ),
+                        value: false,
                       ),
-                      subtitle: const Text(
-                        'Veraltet: sollte nicht mehr genutzt werden.',
-                        style: TextStyle(color: Colors.deepOrange),
-                      ),
-                      value: false,
-                      groupValue: _useSystemProxy,
-                      onChanged: (value) => null, //setState(() => _useSystemProxy = value!),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
@@ -352,8 +354,8 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _testSuccess == true
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.red.withOpacity(0.1),
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.red.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: _testSuccess == true ? Colors.green : Colors.red,

@@ -19,7 +19,7 @@ class BackgroundSyncService {
     }
 
     // Initialize workmanager for mobile platforms (Android and iOS)
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
+    await Workmanager().initialize(callbackDispatcher);
   }
 
   /// Register periodic background sync
@@ -136,7 +136,7 @@ void callbackDispatcher() {
         status = db.currentStatus;
 
         return Future.value(true);
-      } catch (e, stackTrace) {
+      } catch (e) {
         return Future.value(false);
       }
     });

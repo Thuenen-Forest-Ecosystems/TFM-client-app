@@ -42,7 +42,7 @@ class SubplotLayers {
         final parentTable = subplot['parent_table'] as String?;
         final radius = subplot['radius'] as num;
 
-        final label = parentTable != null ? parentTable : 'subplot';
+        final label = parentTable ?? 'subplot';
 
         return Marker(
           point: LatLng(lat, lng),
@@ -52,7 +52,9 @@ class SubplotLayers {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: withOpacity ? Colors.white.withOpacity(0.6) : Colors.white.withOpacity(0.85),
+              color: withOpacity
+                  ? Colors.white.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: const Color.fromARGB(150, 255, 152, 0), width: 1),
             ),

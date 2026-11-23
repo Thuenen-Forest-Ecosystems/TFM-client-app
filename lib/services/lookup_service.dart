@@ -122,8 +122,7 @@ class LookupService {
         if (nameMap.isNotEmpty) newCache[tableName] = nameMap;
         if (nameEnMap.isNotEmpty) newCacheEn[tableName] = nameEnMap;
         if (intervalMap.isNotEmpty) newInterval[tableName] = intervalMap;
-      } catch (e) {
-      }
+      } catch (_) {}
     }
 
     // Merge freshly-loaded tables over the existing cache. Tables that came

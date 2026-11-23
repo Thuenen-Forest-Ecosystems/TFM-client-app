@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class SubplotsRelativePosition extends StatelessWidget {
   final Map<String, dynamic>? jsonSchema;
   final Map<String, dynamic>? data;
-  final Map<String, dynamic>? previous_properties;
+  final Map<String, dynamic>? previousProperties;
   final String? propertyName;
   final List<Widget> children;
 
@@ -11,7 +11,7 @@ class SubplotsRelativePosition extends StatelessWidget {
     super.key,
     this.jsonSchema,
     this.data,
-    this.previous_properties,
+    this.previousProperties,
     this.propertyName,
     required this.children,
   });
@@ -35,7 +35,7 @@ class SubplotsRelativePosition extends StatelessWidget {
             ),
           ),
           Text(data!['subplots_relative_position'].toString()),
-          Text(previous_properties!['subplots_relative_position'].toString()),
+          Text(previousProperties!['subplots_relative_position'].toString()),
 
           // Show Items form
           ...children,

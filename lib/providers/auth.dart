@@ -122,8 +122,7 @@ class AuthProvider extends ChangeNotifier {
               ? DateTime.fromMillisecondsSinceEpoch(data.session!.expiresAt! * 1000)
               : null,
         );
-      } catch (e) {
-      }
+      } catch (_) {}
     }
 
     // When Supabase fires signedOut while we are already in offline mode
@@ -189,8 +188,7 @@ class AuthProvider extends ChangeNotifier {
         if (didSwitch || !db.currentStatus.connected) {
           db.connect(connector: SupabaseConnector());
         }
-      } catch (e) {
-      }
+      } catch (_) {}
     }
 
     _isExplicitLogout = false;
@@ -454,8 +452,7 @@ class AuthProvider extends ChangeNotifier {
         _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
           _onAuthStateChange,
         );
-      } catch (e) {
-      }
+      } catch (_) {}
     }
     _getUser();
   }

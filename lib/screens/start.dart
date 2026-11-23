@@ -139,7 +139,7 @@ class _StartState extends State<Start> {
             );
           },
         },
-      ),
+      ).call,
       notFoundPage: BeamPage(key: const ValueKey('not-found'), child: const SchemaSelection()),
     );
   }
@@ -195,7 +195,7 @@ class _StartState extends State<Start> {
         _beamerDelegate.beamToNamed(navPath);
         mapProvider.clearNavigationRequest();
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _onPermissionChangedResubscribe(String _) {
@@ -285,7 +285,7 @@ class _StartState extends State<Start> {
     try {
       final mapProvider = context.read<MapControllerProvider>();
       mapProvider.removeListener(_onMapNavigationRequest);
-    } catch (e) {}
+    } catch (_) {}
 
     _beamerDelegate.dispose();
     _sheetController.dispose();
@@ -514,7 +514,7 @@ class _StartState extends State<Start> {
               );
               return true;
             }
-          } catch (e) {}
+          } catch (_) {}
         }
       }
 

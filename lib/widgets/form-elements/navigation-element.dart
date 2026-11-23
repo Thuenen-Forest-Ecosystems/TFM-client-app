@@ -6,7 +6,7 @@ import 'package:terrestrial_forest_monitor/widgets/form-elements/record-position
 class NavigationElement extends StatefulWidget {
   final Map<String, dynamic>? jsonSchema;
   final Map<String, dynamic>? data;
-  final Map<String, dynamic>? previous_properties;
+  final Map<String, dynamic>? previousProperties;
   final String? propertyName;
   final TFMValidationResult? validationResult;
   final Function(Map<String, dynamic>)? onDataChanged;
@@ -15,7 +15,7 @@ class NavigationElement extends StatefulWidget {
     super.key,
     this.jsonSchema,
     this.data,
-    this.previous_properties,
+    this.previousProperties,
     this.propertyName,
     this.validationResult,
     this.onDataChanged,
@@ -33,7 +33,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    /*if (widget.previous_properties?['plot_coordinates'] == null) {
+    /*if (widget.previousProperties?['plot_coordinates'] == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -50,7 +50,7 @@ class _NavigationElementState extends State<NavigationElement> with AutomaticKee
         RecordPosition(
           jsonSchema: widget.jsonSchema,
           data: widget.data,
-          previous_properties: widget.previous_properties,
+          previousProperties: widget.previousProperties,
           propertyName: widget.propertyName,
           validationResult: widget.validationResult,
           onDataChanged: widget.onDataChanged,

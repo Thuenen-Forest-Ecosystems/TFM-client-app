@@ -96,12 +96,9 @@ class _MapWidgetState extends State<MapWidget> {
   List<Map<String, dynamic>> _treePositions = [];
   List<Map<String, dynamic>> _previousTreePositions = [];
   Map<String, List<LatLng>> _clusterPolygons = {};
-  List<CircleMarker>? _cachedTreeCircles;
-  List<CircleMarker>? _cachedPreviousTreeCircles;
   List<Map<String, dynamic>> _edges = [];
   List<Map<String, dynamic>> _previousEdges = [];
   List<Map<String, dynamic>> _subplotPositions = [];
-  List<Map<String, dynamic>> _previousSubplotPositions = [];
   Map<String, Map<String, List<LatLng>>> _historicalPositionPolygons = {};
   double _treeDiameterMultiplier = 1.0;
   bool _showTreeLabels = true;
@@ -171,7 +168,7 @@ class _MapWidgetState extends State<MapWidget> {
         try {
           final mapControllerProvider = context.read<MapControllerProvider>();
           mapControllerProvider.setFlutterMapController(_mapController);
-        } catch (e) {}
+        } catch (_) {}
 
         // Set up listener for MapControllerProvider focus bounds
         final mapControllerProvider = context.read<MapControllerProvider>();
@@ -216,7 +213,7 @@ class _MapWidgetState extends State<MapWidget> {
       if (manualMoveTimestamp != null && manualMoveTimestamp != _lastManualFocusTime) {
         _lastManualFocusTime = manualMoveTimestamp;
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   /// Check if center position changed and recalculate positions
@@ -239,10 +236,6 @@ class _MapWidgetState extends State<MapWidget> {
           final edges = await _calculateEdges(_focusedRecord!);
           final previousEdges = await _calculateEdges(_focusedRecord!, usePrevious: true);
           final subplotPositions = await _calculateSubplotPositions(_focusedRecord!);
-          final previousSubplotPositions = await _calculateSubplotPositions(
-            _focusedRecord!,
-            usePrevious: true,
-          );
 
           if (!_isDisposed && mounted) {
             setState(() {
@@ -251,12 +244,11 @@ class _MapWidgetState extends State<MapWidget> {
               _edges = edges;
               _previousEdges = previousEdges;
               _subplotPositions = subplotPositions;
-              _previousSubplotPositions = previousSubplotPositions;
             });
           }
         }
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Future<void> _checkForFocusedRecord() async {
@@ -266,7 +258,6 @@ class _MapWidgetState extends State<MapWidget> {
 
       if (focusedRecord != _focusedRecord) {
         // Update focused record IMMEDIATELY to prevent re-entry during async operations
-        final previousFocusedRecord = _focusedRecord;
         _focusedRecord = focusedRecord;
 
         // Clear center position when switching plots so calculations use the new plot's default SOLL position
@@ -294,10 +285,6 @@ class _MapWidgetState extends State<MapWidget> {
             ? await _calculateSubplotPositions(focusedRecord, usePrevious: false)
             : <Map<String, dynamic>>[];
 
-        final previousSubplotPositions = focusedRecord != null
-            ? await _calculateSubplotPositions(focusedRecord, usePrevious: true)
-            : <Map<String, dynamic>>[];
-
         if (!_isDisposed && mounted) {
           setState(() {
             // _focusedRecord already updated above
@@ -306,11 +293,10 @@ class _MapWidgetState extends State<MapWidget> {
             _edges = edges;
             _previousEdges = previousEdges;
             _subplotPositions = subplotPositions;
-            _previousSubplotPositions = previousSubplotPositions;
           });
         }
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Future<List<Map<String, dynamic>>> _calculateTreePositions(
@@ -567,10 +553,10 @@ class _MapWidgetState extends State<MapWidget> {
   Color _getColorForMeasurementPeriod(String measurementKey) {
     // Define colors for different measurement periods
     final Map<String, Color> periodColors = {
-      'bwi2012': Colors.purple.withOpacity(0.6),
-      'bwi2022': Colors.orange.withOpacity(0.6),
-      'bwi2002': Colors.green.withOpacity(0.6),
-      'bwi1987': Colors.brown.withOpacity(0.6),
+      'bwi2012': Colors.purple.withValues(alpha: 0.6),
+      'bwi2022': Colors.orange.withValues(alpha: 0.6),
+      'bwi2002': Colors.green.withValues(alpha: 0.6),
+      'bwi1987': Colors.brown.withValues(alpha: 0.6),
     };
 
     // Return predefined color or generate from hash for unknown periods
@@ -661,7 +647,7 @@ class _MapWidgetState extends State<MapWidget> {
           });
         }
       }
-    } catch (e) {}
+    } catch (_) {}
 
     return positions;
   }
@@ -725,7 +711,7 @@ class _MapWidgetState extends State<MapWidget> {
           results.add({'points': currentPolyline, 'edge_number': edgeGroup['edge_number']});
         }
       }
-    } catch (e) {}
+    } catch (_) {}
 
     return results;
   }
@@ -786,7 +772,7 @@ class _MapWidgetState extends State<MapWidget> {
           });
         }
       }
-    } catch (e) {}
+    } catch (_) {}
 
     return positions;
   }
@@ -883,20 +869,23 @@ class _MapWidgetState extends State<MapWidget> {
       if (savedShowCrownCircles != null) setState(() => _showCrownCircles = savedShowCrownCircles);
 
       final savedShowClusterPolygons = prefs.getBool('show_cluster_polygons');
-      if (savedShowClusterPolygons != null)
+      if (savedShowClusterPolygons != null) {
         setState(() => _showClusterPolygons = savedShowClusterPolygons);
+      }
 
       final savedShowProbekreise = prefs.getBool('show_probekreise');
       if (savedShowProbekreise != null) setState(() => _showProbekreise = savedShowProbekreise);
 
       final savedShowVerjuengungskreis = prefs.getBool('show_verjuengungskreis');
-      if (savedShowVerjuengungskreis != null)
+      if (savedShowVerjuengungskreis != null) {
         setState(() => _showVerjuengungskreis = savedShowVerjuengungskreis);
+      }
 
       final savedShowRettungspunkte = prefs.getBool('show_rettungspunkte');
-      if (savedShowRettungspunkte != null)
+      if (savedShowRettungspunkte != null) {
         setState(() => _showRettungspunkte = savedShowRettungspunkte);
-    } catch (e) {}
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveMapSettings() async {
@@ -912,7 +901,7 @@ class _MapWidgetState extends State<MapWidget> {
       await prefs.setBool('show_probekreise', _showProbekreise);
       await prefs.setBool('show_verjuengungskreis', _showVerjuengungskreis);
       await prefs.setBool('show_rettungspunkte', _showRettungspunkte);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Future<void> _loadRettungspunkte() async {
@@ -924,7 +913,7 @@ class _MapWidgetState extends State<MapWidget> {
           _rettungspunkte = points;
         });
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Future<void> _loadTreeSpeciesLookup() async {
@@ -952,7 +941,7 @@ class _MapWidgetState extends State<MapWidget> {
           _treeSpeciesLookup = lookup;
         });
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   @override
@@ -1065,7 +1054,7 @@ class _MapWidgetState extends State<MapWidget> {
           _lastRecordsFingerprint = null;
         }
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _checkForFocusBounds() {
@@ -1093,7 +1082,7 @@ class _MapWidgetState extends State<MapWidget> {
           }
         });
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _subscribeToGPS() {
@@ -1120,7 +1109,7 @@ class _MapWidgetState extends State<MapWidget> {
         onError: (error) {},
         onDone: () {},
       );
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Future<void> _updateVisibleRecords() async {
@@ -1140,7 +1129,7 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.setCurrentMapBounds(bounds);
-    } catch (e) {}
+    } catch (_) {}
 
     // Only update if bounds changed significantly (avoid micro-updates during pan)
     if (_lastBounds != null) {
@@ -1334,7 +1323,7 @@ class _MapWidgetState extends State<MapWidget> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black87.withOpacity(0.9),
+                        color: Colors.black87.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: Colors.white, width: 1),
                       ),
@@ -1378,7 +1367,7 @@ class _MapWidgetState extends State<MapWidget> {
       final navPath =
           '/properties-edit/${Uri.encodeComponent(record.clusterId)}/${Uri.encodeComponent(record.plotName ?? '')}';
       mapControllerProvider.requestNavigation(navPath);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _onClusterTapped(List<Marker> markers) {
@@ -1393,14 +1382,14 @@ class _MapWidgetState extends State<MapWidget> {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('tree', treeNumber);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _onEdgeCircleTapped(int edgeNumber) {
     try {
       final mapControllerProvider = context.read<MapControllerProvider>();
       mapControllerProvider.selectGridRow('edges', edgeNumber);
-    } catch (e) {}
+    } catch (_) {}
   }
 
   Widget _buildClusterMarker(BuildContext context, List<Marker> markers) {
@@ -1596,7 +1585,7 @@ class _MapWidgetState extends State<MapWidget> {
 
       final recordsProvider = context.read<RecordsListProvider>();
       recordsProvider.removeListener(_onProviderChanged);
-    } catch (e) {}
+    } catch (_) {}
 
     super.dispose();
   }
@@ -1961,7 +1950,9 @@ class _MapWidgetState extends State<MapWidget> {
 
                         return Polygon(
                           points: points,
-                          color: _getColorForMeasurementPeriod(measurementKey).withOpacity(0.15),
+                          color: _getColorForMeasurementPeriod(
+                            measurementKey,
+                          ).withValues(alpha: 0.15),
                           borderColor: _getColorForMeasurementPeriod(measurementKey),
                           borderStrokeWidth: 2.0,
                         );
@@ -2055,7 +2046,7 @@ class _MapWidgetState extends State<MapWidget> {
           TreeCrownLayers.buildCrownCircleLayer(
             _treePositions,
             withOpacity: false,
-            crownColor: intervalColorCache['currentColor']!.withOpacity(0.1),
+            crownColor: intervalColorCache['currentColor']!.withValues(alpha: 0.1),
             borderColor: intervalColorCache['currentColor'],
             borderStrokeWidth: 1.0,
           ),
@@ -2131,8 +2122,8 @@ class _MapWidgetState extends State<MapWidget> {
                   point: LatLng(pos.latitude, pos.longitude),
                   radius: pos.accuracy < 5 ? 5.0 : pos.accuracy,
                   useRadiusInMeter: true,
-                  color: Colors.blue.withOpacity(0.2),
-                  borderColor: Colors.blue.withOpacity(0.5),
+                  color: Colors.blue.withValues(alpha: 0.2),
+                  borderColor: Colors.blue.withValues(alpha: 0.5),
                   borderStrokeWidth: 1,
                 ),
               ],
@@ -2191,7 +2182,7 @@ class _MapWidgetState extends State<MapWidget> {
             polylines: [
               Polyline(
                 points: navigationStepsLineString,
-                color: Colors.blue.withOpacity(0.7),
+                color: Colors.blue.withValues(alpha: 0.7),
                 strokeWidth: 3.0,
               ),
             ],
@@ -2203,7 +2194,7 @@ class _MapWidgetState extends State<MapWidget> {
             polylines: [
               Polyline(
                 points: navigationTargetLineString,
-                color: Colors.blue.withOpacity(0.7),
+                color: Colors.blue.withValues(alpha: 0.7),
                 strokeWidth: 3.0,
                 pattern: StrokePattern.dashed(segments: [10, 5]),
               ),
@@ -2219,7 +2210,7 @@ class _MapWidgetState extends State<MapWidget> {
                   (point) => CircleMarker(
                     point: point,
                     radius: 4.0,
-                    color: Colors.blue.withOpacity(0.9),
+                    color: Colors.blue.withValues(alpha: 0.9),
                     borderColor: Colors.white,
                     borderStrokeWidth: 2,
                   ),
@@ -2240,7 +2231,7 @@ class _MapWidgetState extends State<MapWidget> {
                   Icons.location_on,
                   color: Colors.blue,
                   size: 40,
-                  shadows: [Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)],
+                  shadows: [Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)],
                 ),
               ),
             ],
@@ -2259,7 +2250,7 @@ class _MapWidgetState extends State<MapWidget> {
                   Icons.where_to_vote,
                   color: Colors.blue,
                   size: 40,
-                  shadows: [Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)],
+                  shadows: [Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)],
                 ),
               ),
             ],
@@ -2384,7 +2375,7 @@ class _MapWidgetState extends State<MapWidget> {
                                 size: 20,
                                 color: _currentPosition != null
                                     ? Theme.of(ctx).colorScheme.primary
-                                    : Theme.of(ctx).colorScheme.onSurface.withOpacity(0.4),
+                                    : Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.4),
                               ),
                               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                               onPressed: _currentPosition != null

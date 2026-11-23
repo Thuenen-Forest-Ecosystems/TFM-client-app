@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:terrestrial_forest_monitor/models/layout_config.dart';
 
 /// Service for loading and managing layout configurations

@@ -58,11 +58,10 @@ class _RecordCardState extends State<RecordCard> {
       final result = await db.get('SELECT name_de FROM lookup_forest_status WHERE code = ?', [
         forestStatus,
       ]);
-      if (mounted && result != null) {
+      if (mounted) {
         setState(() => _forestStatusLabel = result['name_de'] as String?);
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadPropertyTypeLabel() async {
@@ -75,11 +74,10 @@ class _RecordCardState extends State<RecordCard> {
       final result = await db.get('SELECT name_de FROM lookup_property_type WHERE code = ?', [
         propertyType,
       ]);
-      if (mounted && result != null) {
+      if (mounted) {
         setState(() => _propertyTypeLabel = result['name_de'] as String?);
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Widget _forestStatusChip(BuildContext context) {
@@ -189,8 +187,6 @@ class _RecordCardState extends State<RecordCard> {
     final isCompleted = completedAt != null && completedAt.toString().isNotEmpty;
 
     // Get last update date
-    final updatedAt = widget.record.updatedAt;
-    final lastUpdateText = _formatDate(updatedAt);
     final localUpdatedAt = widget.record.localUpdatedAt;
     final lastLocalUpdateText = _formatDate(localUpdatedAt);
     final properties = widget.record.properties;

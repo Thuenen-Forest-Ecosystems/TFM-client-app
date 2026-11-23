@@ -132,8 +132,7 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
           }
         }
       }
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   String _formatDate(String? dateStr) {
@@ -178,7 +177,7 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.1),
+                color: theme.primaryColor.withValues(alpha: 0.1),
                 border: Border(bottom: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(

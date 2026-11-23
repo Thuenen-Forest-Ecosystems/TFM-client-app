@@ -1,10 +1,8 @@
 import 'dart:convert';
 
-/**
- * GPS Quality Criteria Configuration
- * Defines thresholds for determining GPS measurement quality
- * Can be loaded from JSON for admin configuration
- */
+/// GPS Quality Criteria Configuration
+/// Defines thresholds for determining GPS measurement quality
+/// Can be loaded from JSON for admin configuration
 
 enum QualityLevel { good, ok, notAcceptable }
 

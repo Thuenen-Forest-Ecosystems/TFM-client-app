@@ -64,7 +64,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       if (!_isDesktop) {
         try {
           await WakelockPlus.enable();
-        } catch (e) {}
+        } catch (_) {}
       }
     }
   }
@@ -76,7 +76,7 @@ class AppLifecycleManager extends WidgetsBindingObserver {
       if (!_isDesktop) {
         try {
           await WakelockPlus.disable();
-        } catch (e) {}
+        } catch (_) {}
       }
     }
   }
@@ -121,7 +121,6 @@ class AppLifecycleManager extends WidgetsBindingObserver {
         // App came back to foreground. Reconnect PowerSync if we dropped it
         // while the desktop window was hidden.
         _reconnectAfterBackground();
-        break;
 
       case AppLifecycleState.inactive:
         // App is transitioning (e.g., incoming call, switching apps)
@@ -137,13 +136,11 @@ class AppLifecycleManager extends WidgetsBindingObserver {
         ValidationServiceNative.instance.handleAppPaused();
         // Desktop: schedule dropping the idle sync connection (see method).
         _scheduleBackgroundDisconnect();
-        break;
 
       case AppLifecycleState.detached:
         // App is about to be terminated.
         _backgroundDisconnectTimer?.cancel();
         _disableWakeLock();
-        break;
 
       case AppLifecycleState.hidden:
         // App is hidden (e.g. window minimized on desktop, app hidden on iOS).
@@ -151,7 +148,6 @@ class AppLifecycleManager extends WidgetsBindingObserver {
         ValidationServiceNative.instance.handleAppPaused();
         // Desktop: schedule dropping the idle sync connection (see method).
         _scheduleBackgroundDisconnect();
-        break;
     }
   }
 

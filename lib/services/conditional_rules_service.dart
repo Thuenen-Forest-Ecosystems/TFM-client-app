@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 
 /// Service for loading and applying conditional rules to JSON schemas
 /// based on form data state
@@ -42,7 +41,7 @@ class ConditionalRulesService {
       _cachedDirectory = directory;
 
       return rules;
-    } catch (e, stackTrace) {
+    } catch (e) {
       return [];
     }
   }
@@ -159,13 +158,10 @@ class ConditionalRulesService {
       switch (action.type) {
         case 'setReadOnly':
           modifiedSchema = _applySetReadOnly(modifiedSchema, action);
-          break;
         case 'setRequired':
           modifiedSchema = _applySetRequired(modifiedSchema, action);
-          break;
         case 'setVisible':
           modifiedSchema = _applySetVisible(modifiedSchema, action);
-          break;
         default:
       }
     }

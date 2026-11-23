@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
@@ -340,7 +339,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
         await device.requestConnectionPriority(
           connectionPriorityRequest: ble.ConnectionPriority.high,
         );
-      } catch (e) {}
+      } catch (_) {}
     } catch (error) {
       connectionTimeout.cancel();
       _isConnecting = false;
@@ -388,7 +387,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (classicConnection != null && classicConnection!.isConnected) {
       try {
         await classicConnection!.finish();
-      } catch (e) {}
+      } catch (_) {}
     }
 
     _isConnecting = true;
@@ -450,7 +449,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
                     _currentNMEA!.longitude != null) {
                   _updatePositionFromNMEA();
                 }
-              } catch (e) {}
+              } catch (_) {}
             }
           }
 
@@ -500,7 +499,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (classicConnection != null && classicConnection!.isConnected) {
       try {
         classicConnection!.finish();
-      } catch (e) {}
+      } catch (_) {}
     }
     classicConnection = null;
 
@@ -721,7 +720,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
     if (classicConnection != null && classicConnection!.isConnected) {
       try {
         classicConnection!.finish();
-      } catch (e) {}
+      } catch (_) {}
     }
     classicConnection = null;
     connectedClassicDevice = null;
@@ -861,7 +860,7 @@ class GpsPositionProvider with ChangeNotifier, DiagnosticableTreeMixin {
             }
           });
         }
-      } catch (e) {}
+      } catch (_) {}
     }
 
     _isConnecting = true;
