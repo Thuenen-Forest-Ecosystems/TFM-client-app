@@ -57,26 +57,6 @@ The following permissions and configurations are set in `android/app/src/main/An
 - Wake lock keeps device awake during active sync
 - Battery optimization may need to be disabled by user for best results
 
-#### iOS
-
-Background modes are configured in `ios/Runner/Info.plist`:
-
-```xml
-<key>UIBackgroundModes</key>
-<array>
-    <string>fetch</string>
-    <string>processing</string>
-    <string>remote-notification</string>
-</array>
-```
-
-**iOS Behavior:**
-
-- iOS is more restrictive about background activity
-- Sync continues for a limited time when backgrounded
-- iOS may suspend the app after ~30 seconds in background
-- When app returns to foreground, sync automatically resumes
-
 ## Usage
 
 ### For Users
@@ -151,14 +131,6 @@ Wake lock is used conservatively:
 3. Check if power saving mode is enabled
 4. Verify network connectivity
 
-### Sync Stops When App Backgrounded (iOS)
-
-This is expected behavior on iOS. Solutions:
-
-1. Keep app in foreground during long syncs
-2. Return to app periodically to resume sync
-3. iOS Background Refresh must be enabled in settings
-
 ### High Battery Usage
 
 1. Check if sync is stuck in a loop
@@ -203,7 +175,6 @@ Potential enhancements:
 - `lib/services/background_sync_service.dart` - WorkManager tasks
 - `lib/widgets/sync-status-button.dart` - UI sync status
 - `android/app/src/main/AndroidManifest.xml` - Android config
-- `ios/Runner/Info.plist` - iOS config
 
 ## Dependencies
 

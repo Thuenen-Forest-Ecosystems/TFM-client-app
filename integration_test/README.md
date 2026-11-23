@@ -24,9 +24,8 @@ flutter pub global activate patrol_cli   # installs the `patrol` command
 patrol doctor                            # all checks green for Android
 ```
 
-> **iOS not set up yet.** Only Android is configured. iOS needs an
-> `RunnerUITests` target in Xcode (see the Patrol "iOS setup" docs) before
-> `patrol test` will run on the iOS simulator.
+> **Android only.** The app no longer has an `ios/` project (removed
+> 2026-11-23), so Patrol tests run on Android emulators/devices only.
 
 ## Running
 
