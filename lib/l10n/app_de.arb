@@ -532,6 +532,7 @@
     "recordPositionMeasurements": "Messungen",
     "recordPositionSatellitesAvg": "Satelliten (avg)",
     "recordPositionCurrentMeasurement": "Aktuelle Messung",
+    "recordPositionRecordingProgress": "Aufzeichnung: {current} / {total} Positionen",
     "recordPositionStopMeasurement": "Einmessung beenden",
     "recordPositionCompleted": "Abgeschlossen: {count} Positionen aufgezeichnet",
     "recordPositionStartNewMeasurement": "Neue Messung starten",

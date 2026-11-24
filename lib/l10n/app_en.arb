@@ -1227,6 +1227,13 @@
     "recordPositionMeasurements": "Measurements",
     "recordPositionSatellitesAvg": "Satellites (avg)",
     "recordPositionCurrentMeasurement": "Current measurement",
+    "recordPositionRecordingProgress": "Recording: {current} / {total} positions",
+    "@recordPositionRecordingProgress": {
+        "placeholders": {
+            "current": {"type": "String"},
+            "total": {"type": "String"}
+        }
+    },
     "recordPositionStopMeasurement": "Stop measurement",
     "recordPositionCompleted": "Completed: {count} positions recorded",
     "@recordPositionCompleted": {

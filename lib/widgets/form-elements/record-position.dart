@@ -509,7 +509,9 @@ class _RecordPositionState extends State<RecordPosition> {
                                     : gpsProvider.connectedClassicDevice != null
                                     ? 'Bluetooth Classic: ${gpsProvider.connectedClassicDevice!.name ?? l10n.recordPositionUnknown}'
                                     : gpsProvider.connectedSerialPortName != null
-                                    ? l10n.recordPositionSerial(gpsProvider.connectedSerialPortName ?? '')
+                                    ? l10n.recordPositionSerial(
+                                        gpsProvider.connectedSerialPortName ?? '',
+                                      )
                                     : gpsProvider.listeningPosition
                                     ? l10n.recordPositionInternalGps
                                     : l10n.recordPositionNoConnection,
@@ -798,15 +800,24 @@ class _RecordPositionState extends State<RecordPosition> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Recording: ${_recordedPositions.length} / $_targetCount positions',
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                  Expanded(
+                                    child: Text(
+                                      l10n.recordPositionRecordingProgress(
+                                        '${_recordedPositions.length}',
+                                        '$_targetCount',
+                                      ),
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
                                   ),
-                                  IconButton(
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
                                     onPressed: _toggleRecording,
                                     icon: const Icon(Icons.stop),
-                                    tooltip: l10n.recordPositionStopMeasurement,
-                                    color: Colors.red,
+                                    label: Text(l10n.recordPositionStopMeasurement),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -817,7 +828,9 @@ class _RecordPositionState extends State<RecordPosition> {
                               LinearProgressIndicator(value: 1.0),
                               const SizedBox(height: 8),
                               Text(
-                                l10n.recordPositionCompleted('${_aggregatedData!['measurement_count']}'),
+                                l10n.recordPositionCompleted(
+                                  '${_aggregatedData!['measurement_count']}',
+                                ),
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Colors.green,
                                   fontWeight: FontWeight.bold,
@@ -952,43 +965,64 @@ class _RecordPositionState extends State<RecordPosition> {
                                       padding: const EdgeInsets.only(top: 16.0),
                                       child: Column(
                                         children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              TextButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _aggregatedData = null;
-                                                    _recordedPositions.clear();
-                                                    _isDataSaved = true;
-                                                    _startMeasurement = null;
-                                                    _stopMeasurement = null;
-                                                    _currentQualityLevel = null;
-                                                  });
-                                                },
-                                                child: Text(l10n.recordPositionDiscardMeasurement),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              ElevatedButton.icon(
-                                                onPressed: _saveToForm,
-                                                icon: Icon(
-                                                  isOverwriting ? Icons.warning : Icons.save,
-                                                ),
-                                                label: Text(
-                                                  isOverwriting
-                                                      ? l10n.recordPositionReplaceMeasurement
-                                                      : l10n.recordPositionApplyMeasurement,
-                                                ),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: isOverwriting
-                                                      ? Colors.orange
-                                                      : Colors.green,
-                                                  foregroundColor: Colors.white,
-                                                  disabledBackgroundColor: Colors.grey,
-                                                  disabledForegroundColor: Colors.white70,
-                                                ),
-                                              ),
-                                            ],
+                                          LayoutBuilder(
+                                            builder: (context, rowConstraints) {
+                                              // Narrow cards: discard as icon so the apply
+                                              // button fits (issue #279 screenshot overflow).
+                                              final isNarrow = rowConstraints.maxWidth < 420;
+                                              void discard() {
+                                                setState(() {
+                                                  _aggregatedData = null;
+                                                  _recordedPositions.clear();
+                                                  _isDataSaved = true;
+                                                  _startMeasurement = null;
+                                                  _stopMeasurement = null;
+                                                  _currentQualityLevel = null;
+                                                });
+                                              }
+
+                                              return Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  if (isNarrow)
+                                                    IconButton(
+                                                      onPressed: discard,
+                                                      icon: const Icon(Icons.delete_outline),
+                                                      tooltip:
+                                                          l10n.recordPositionDiscardMeasurement,
+                                                    )
+                                                  else
+                                                    TextButton(
+                                                      onPressed: discard,
+                                                      child: Text(
+                                                        l10n.recordPositionDiscardMeasurement,
+                                                      ),
+                                                    ),
+                                                  const SizedBox(width: 12),
+                                                  Flexible(
+                                                    child: ElevatedButton.icon(
+                                                      onPressed: _saveToForm,
+                                                      icon: Icon(
+                                                        isOverwriting ? Icons.warning : Icons.save,
+                                                      ),
+                                                      label: Text(
+                                                        isOverwriting
+                                                            ? l10n.recordPositionReplaceMeasurement
+                                                            : l10n.recordPositionApplyMeasurement,
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: isOverwriting
+                                                            ? Colors.orange
+                                                            : Colors.green,
+                                                        foregroundColor: Colors.white,
+                                                        disabledBackgroundColor: Colors.grey,
+                                                        disabledForegroundColor: Colors.white70,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),

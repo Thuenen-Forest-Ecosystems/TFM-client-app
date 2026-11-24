@@ -1787,6 +1787,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recordPositionCurrentMeasurement => 'Current measurement';
 
   @override
+  String recordPositionRecordingProgress(String current, String total) {
+    return 'Recording: $current / $total positions';
+  }
+
+  @override
   String get recordPositionStopMeasurement => 'Stop measurement';
 
   @override

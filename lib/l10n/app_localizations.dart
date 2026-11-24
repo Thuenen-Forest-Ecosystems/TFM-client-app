@@ -3143,6 +3143,12 @@ abstract class AppLocalizations {
   /// **'Current measurement'**
   String get recordPositionCurrentMeasurement;
 
+  /// No description provided for @recordPositionRecordingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording: {current} / {total} positions'**
+  String recordPositionRecordingProgress(String current, String total);
+
   /// No description provided for @recordPositionStopMeasurement.
   ///
   /// In en, this message translates to:
