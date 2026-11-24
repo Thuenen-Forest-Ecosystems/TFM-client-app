@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:powersync/powersync.dart' hide Column;
 import 'package:terrestrial_forest_monitor/repositories/permissions_repository.dart';
 import 'package:terrestrial_forest_monitor/services/organization_selection_service.dart';
@@ -172,18 +173,18 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'Berechtigungen werden synchronisiert…$percentText',
+                            AppLocalizations.of(context)!.permissionsSelectionSyncing(percentText),
                             style: TextStyle(color: Colors.grey[600], fontSize: 12),
                           ),
                         ],
                       ),
                     );
                   }
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
-                      'Keine Berechtigungen gefunden',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      AppLocalizations.of(context)!.permissionsSelectionNone,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   );
                 },
@@ -268,9 +269,9 @@ class _PermissionsSelectionState extends State<PermissionsSelection> {
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(4.0)),
           child: ListTile(
             dense: true,
-            title: const Text(
-              'Trupp-Zugehörigkeit benötigt',
-              style: TextStyle(fontSize: 14, color: Colors.red),
+            title: Text(
+              AppLocalizations.of(context)!.permissionsSelectionTroopRequired,
+              style: const TextStyle(fontSize: 14, color: Colors.red),
             ),
           ),
         ),

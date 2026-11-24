@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:beamer/beamer.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -101,7 +102,10 @@ class _RecordCardState extends State<RecordCard> {
     if (accessibility != null && accessibility is int) {
       if (accessibility != 1) {
         return Chip(
-          label: Text('Nicht zugänglich', style: TextStyle(fontSize: 11)),
+          label: Text(
+            AppLocalizations.of(context)!.recordCardNotAccessible,
+            style: TextStyle(fontSize: 11),
+          ),
           padding: EdgeInsets.zero,
           labelPadding: EdgeInsets.symmetric(horizontal: 6),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -143,13 +147,13 @@ class _RecordCardState extends State<RecordCard> {
   }
 
   String _formatDate(dynamic date) {
-    if (date == null) return 'Nie';
+    if (date == null) return AppLocalizations.of(context)!.recordCardNever;
     try {
       // Parse as UTC then convert to local time for display
       final DateTime dt = DateTime.parse(date.toString()).toLocal();
       return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (e) {
-      return 'Nie';
+      return AppLocalizations.of(context)!.recordCardNever;
     }
   }
 
@@ -257,7 +261,10 @@ class _RecordCardState extends State<RecordCard> {
                               visualDensity: widget.isDense ? VisualDensity.compact : null,
                               title: !widget.isDense
                                   ? Text(
-                                      'Trakt: ${widget.record.clusterName} | Ecke: ${widget.record.plotName}',
+                                      AppLocalizations.of(context)!.recordCardTitle(
+                                        '${widget.record.clusterName}',
+                                        '${widget.record.plotName}',
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     )

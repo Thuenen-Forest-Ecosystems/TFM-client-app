@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 
 /// Download button (DB-admin only) — exports diagnostic data as a JSON file
@@ -25,6 +26,7 @@ class DiagnosticExportButton extends StatelessWidget {
   });
 
   Future<void> _export(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final payload = {
       'exported_at': DateTime.now().toIso8601String(),
       'last_synced_at': lastSyncedAt,
@@ -41,7 +43,7 @@ class DiagnosticExportButton extends StatelessWidget {
     final fileName = 'tfm-diagnostic-$timestamp.json';
 
     final path = await FilePicker.saveFile(
-      dialogTitle: 'Diagnosedaten speichern',
+      dialogTitle: l10n.diagnosticExportDialogTitle,
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: ['json'],
@@ -57,7 +59,7 @@ class DiagnosticExportButton extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gespeichert: ${path ?? fileName}'),
+            content: Text(l10n.diagnosticExportSaved(path ?? fileName)),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -65,7 +67,7 @@ class DiagnosticExportButton extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Speichern: $e'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(l10n.diagnosticExportError(e.toString())), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -76,7 +78,7 @@ class DiagnosticExportButton extends StatelessWidget {
     return IfDatabaseAdmin(
       child: IconButton(
         icon: const Icon(Icons.download_outlined),
-        tooltip: 'Diagnosedaten als JSON speichern',
+        tooltip: AppLocalizations.of(context)!.diagnosticExportTooltip,
         onPressed: () => _export(context),
       ),
     );

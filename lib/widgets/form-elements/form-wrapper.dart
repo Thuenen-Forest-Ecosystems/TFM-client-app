@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:powersync/sqlite3_common.dart' as sqlite;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
@@ -246,7 +247,7 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
       initialData: Map<String, dynamic>.from(rowData),
       columnConfig: columnConfig,
       layoutOptions: layoutOptions,
-      title: 'Zeile bearbeiten',
+      title: AppLocalizations.of(context)!.gridRowEditTitle,
     ).then((result) {
       if (result != null && rowIndex != null) {
         setState(() {
@@ -1010,10 +1011,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         // MessagesChat component - displays messages for the current record
         final recordId = widget.rawRecord?.id;
         if (recordId == null) {
-          return const Card(
+          return Card(
             child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('Nachrichtenfunktion nicht verfügbar: Kein Datensatz geladen'),
+              padding: const EdgeInsets.all(16.0),
+              child: Text(AppLocalizations.of(context)!.formWrapperMessagesUnavailable),
             ),
           );
         }
@@ -1247,10 +1248,10 @@ class FormWrapperState extends State<FormWrapper> with TickerProviderStateMixin 
         } else {
           // No validation errors at all
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Keine Validierungsfehler'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.gridNoValidationErrors),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
+              duration: const Duration(seconds: 1),
             ),
           );
         }

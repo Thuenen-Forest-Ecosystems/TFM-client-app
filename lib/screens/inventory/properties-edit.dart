@@ -44,6 +44,10 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   repo.Record? _record;
   bool _isLoading = true;
   String? _error;
+
+  /// Sentinel for [_error] set from initState (no localizations available
+  /// yet); resolved to a localized message in build.
+  static const String _errorNewRecordNotAllowed = '__new_record_not_allowed__';
   Map<String, dynamic>? _jsonSchema;
   Map<String, dynamic>? _originalJsonSchema; // Unmodified schema for applying conditional rules
   Map<String, dynamic>? _rootSchema; // Full root schema (not just plot items)
@@ -284,7 +288,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
 
       if (latestSchema == null) {
         setState(() {
-          _error = 'Kein Schema gefunden für: $intervalName';
+          _error = AppLocalizations.of(context)!.propertiesEditNoSchemaFound(intervalName);
         });
         return;
       }
@@ -305,7 +309,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       if (isControlTroop && latestSchema.styleControl == null) {
         if (mounted) {
           setState(() {
-            _error = 'Kontroll-Trupp benötigt style_control Schema, aber es ist nicht verfügbar';
+            _error = AppLocalizations.of(context)!.propertiesEditControlTroopStyleMissing;
             _isLoading = false;
           });
         }
@@ -405,7 +409,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
       }
     } catch (e) {
       setState(() {
-        _error = 'Fehler beim Laden des Schemas: $e';
+        _error = AppLocalizations.of(context)!.propertiesEditSchemaLoadError(e.toString());
       });
     }
   }
@@ -420,7 +424,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Navigating to /properties-edit/NEW/NEW is not permitted.
     if (widget.clusterId == 'NEW' && widget.plotName == 'NEW') {
       setState(() {
-        _error = 'Neue Aufnahmen können hier nicht erstellt werden.';
+        _error = _errorNewRecordNotAllowed;
         _isLoading = false;
       });
       SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -483,8 +487,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Refuse to save in playground mode
     if (context.read<PlaygroundModeProvider>().isPlaygroundMode) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🧪 Playground-Modus aktiv – Speichern nicht möglich.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.propertiesEditPlaygroundNoSave),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
         ),
@@ -495,8 +499,8 @@ class _PropertiesEditState extends State<PropertiesEdit> {
     // Refuse to save in admin view
     if (_isAdminView) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Admin-Ansicht – Speichern nicht möglich.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.propertiesEditAdminViewNoSave),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
         ),
@@ -695,7 +699,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
         final rootScaffoldMessenger = ScaffoldMessenger.of(context);
         rootScaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Fehler beim Speichern: $e'),
+            content: Text(AppLocalizations.of(context)!.propertiesEditSaveError(e.toString())),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
@@ -1371,6 +1375,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
   @override
   Widget build(BuildContext context) {
     final isPlayground = context.watch<PlaygroundModeProvider>().isPlaygroundMode;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       // This screen is hosted inside the draggable bottom sheet (see start.dart),
@@ -1388,7 +1393,11 @@ class _PropertiesEditState extends State<PropertiesEdit> {
           clipBehavior: Clip.none,
           child: Row(
             children: [
-              ClusterInfoButton(record: _record, rootSchema: _rootSchema, tooltip: 'Informationen'),
+              ClusterInfoButton(
+                record: _record,
+                rootSchema: _rootSchema,
+                tooltip: l10n.propertiesEditInformation,
+              ),
               /*IconButton(
                     icon: const Icon(Icons.map, size: 20),
                     onPressed: () => _focusRecord(context),
@@ -1401,13 +1410,13 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Trakt: ${_record?.clusterName ?? widget.clusterId}',
+                      l10n.propertiesEditCluster(_record?.clusterName ?? widget.clusterId),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (_loadedSchemaVersion != null)
                       Text(
-                        'Ecke: ${widget.plotName}',
+                        l10n.propertiesEditPlot(widget.plotName),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
@@ -1463,7 +1472,7 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                                   ? showValidationResultReadOnly
                                   : saveRecord)
                             : null,
-                        child: const Text('FERTIG'),
+                        child: Text(l10n.propertiesEditDone),
                       ),
                     ),
                   ],
@@ -1565,7 +1574,12 @@ class _PropertiesEditState extends State<PropertiesEdit> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(_error!, style: const TextStyle(color: Colors.red)),
+                          Text(
+                            _error == _errorNewRecordNotAllowed
+                                ? l10n.propertiesEditNewRecordNotAllowed
+                                : _error!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
                           const SizedBox(height: 16),
                           ElevatedButton(onPressed: _loadRecord, child: const Text('Retry')),
                         ],

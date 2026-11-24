@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 class MapAdmin extends StatefulWidget {
   const MapAdmin({super.key});
@@ -53,20 +54,21 @@ class _MapAdminState extends State<MapAdmin> {
   }
 
   Future<void> _deleteStore(String storeName) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cache löschen'),
-        content: Text('Möchten Sie alle Kacheln für "$storeName" löschen?'),
+        title: Text(l10n.mapAdminDeleteCache),
+        content: Text(l10n.mapAdminDeleteConfirm(storeName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(l10n.mapAdminCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Löschen'),
+            child: Text(l10n.mapAdminDelete),
           ),
         ],
       ),
@@ -80,14 +82,14 @@ class _MapAdminState extends State<MapAdmin> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Cache für "$storeName" gelöscht')));
+          ).showSnackBar(SnackBar(content: Text(l10n.mapAdminCacheDeleted(storeName))));
           _loadStoreStats();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Fehler beim Löschen: $e')));
+          ).showSnackBar(SnackBar(content: Text(l10n.mapAdminDeleteError(e.toString()))));
         }
       }
     }
@@ -108,7 +110,7 @@ class _MapAdminState extends State<MapAdmin> {
   String _getStoreDisplayName(String storeName) {
     switch (storeName) {
       case 'wms_dop__':
-        return 'Luftbilder (DOP)';
+        return AppLocalizations.of(context)!.mapAdminStoreAerial;
       case 'wms_dtk25__':
         return 'DTK25';
       case 'opentopomap':
@@ -126,6 +128,7 @@ class _MapAdminState extends State<MapAdmin> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.all(16.0),
@@ -143,13 +146,13 @@ class _MapAdminState extends State<MapAdmin> {
         return ListTile(
           title: Text(displayName),
           subtitle: Text(
-            tileCount > 0 ? '$tileCount Kacheln (~$storageSize)' : 'Kein Cache vorhanden',
+            tileCount > 0 ? l10n.mapAdminTileCount(tileCount, storageSize) : l10n.mapAdminNoCache,
           ),
           trailing: tileCount > 0
               ? IconButton(
                   icon: const Icon(Icons.delete),
                   onPressed: () => _deleteStore(storeName),
-                  tooltip: 'Cache löschen',
+                  tooltip: l10n.mapAdminDeleteCache,
                 )
               : null,
         );

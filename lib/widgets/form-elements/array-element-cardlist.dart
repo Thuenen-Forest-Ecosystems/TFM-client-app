@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/array-element-trina.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
@@ -264,8 +265,8 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
     // indices after rebuilds.
     if (_isRowDeleteProtected(_rows[index])) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bestehender Eintrag aus der Inventur – Löschen nicht möglich.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.arrayElementArchiveRowDeleteBlocked),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
         ),
@@ -576,8 +577,8 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
                             icon: const Icon(Icons.delete_outline, size: 18),
                             onPressed: deleteProtected ? null : () => _deleteRow(index),
                             tooltip: deleteProtected
-                                ? 'Bestehender Eintrag aus der Inventur – nicht löschbar'
-                                : 'Eintrag löschen',
+                                ? AppLocalizations.of(context)!.arrayElementCardlistDeleteProtectedTooltip
+                                : AppLocalizations.of(context)!.arrayElementCardlistDeleteEntry,
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),
                           ),
@@ -599,7 +600,11 @@ class ArrayElementCardListState extends State<ArrayElementCardList> {
               onPressed: atMax ? null : _addRow,
               icon: const Icon(Icons.add, size: 18),
               label: Text(
-                atMax ? 'Maximal $maxRows Einträge' : '${widget.label ?? 'Eintrag'} hinzufügen',
+                atMax
+                    ? AppLocalizations.of(context)!.arrayElementCardlistMaxEntries(maxRows)
+                    : AppLocalizations.of(context)!.arrayElementCardlistAddEntry(
+                        widget.label ?? AppLocalizations.of(context)!.arrayElementCardlistEntryDefault,
+                      ),
               ),
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-textfield.dart';
@@ -102,7 +103,7 @@ class CardDialog extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(label ?? 'Keine Felder verfügbar'),
+          child: Text(label ?? AppLocalizations.of(context)!.cardDialogNoFields),
         ),
       );
     }
@@ -224,7 +225,7 @@ class _EditDialogState extends State<_EditDialog> {
                 children: [
                   Expanded(
                     child: Text(
-                      widget.label ?? 'Bearbeiten',
+                      widget.label ?? AppLocalizations.of(context)!.gridNestedEdit,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -266,7 +267,7 @@ class _EditDialogState extends State<_EditDialog> {
                     onPressed: () {
                       Navigator.of(context).pop(_localData);
                     },
-                    child: const Text('Fertig'),
+                    child: Text(AppLocalizations.of(context)!.cardDialogDone),
                   ),
                 ],
               ),

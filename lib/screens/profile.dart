@@ -158,25 +158,23 @@ class _ProfileState extends State<Profile> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Auf diesem Gerät sind noch nicht übertragene Daten!',
+                      l10n.profileLogoutUnsyncedWarning,
                       style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red.shade900),
                     ),
                     const SizedBox(height: 6),
                     if (pendingUploads > 0)
                       Text(
-                        '• $pendingUploads Änderung(en) warten auf die Übertragung',
+                        l10n.profileLogoutPendingUploads(pendingUploads),
                         style: TextStyle(color: Colors.red.shade900),
                       ),
                     if (quarantined > 0)
                       Text(
-                        '• $quarantined gesicherte(r) Eintrag/Einträge unter '
-                        '„Sicherungen"',
+                        l10n.profileLogoutQuarantined(quarantined),
                         style: TextStyle(color: Colors.red.shade900),
                       ),
                     const SizedBox(height: 6),
                     Text(
-                      'Diese Daten sind danach unwiederbringlich verloren. '
-                      'Bitte zuerst synchronisieren — oder ein Backup erstellen.',
+                      l10n.profileLogoutDataLostHint,
                       style: TextStyle(color: Colors.red.shade900),
                     ),
                   ],
@@ -320,10 +318,10 @@ class _ProfileState extends State<Profile> {
                       color: n > 0 ? Colors.red : null,
                     ),
                     title: Text(
-                      n > 0 ? 'Sicherungen ($n)' : 'Sicherungen',
+                      n > 0 ? l10n.profileBackupsWithCount(n) : l10n.profileBackups,
                       style: n > 0 ? const TextStyle(color: Colors.red) : null,
                     ),
-                    subtitle: const Text('Nicht übertragene Daten wiederherstellen'),
+                    subtitle: Text(l10n.profileBackupsSubtitle),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
                       context.beamToNamed('/upload-failures');

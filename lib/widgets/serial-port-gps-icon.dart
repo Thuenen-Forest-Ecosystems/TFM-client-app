@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:get_storage/get_storage.dart';
 import 'dart:async';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 // Conditional import: use real serial port on native platforms (Windows/Linux/macOS), stub on web
 import 'package:flutter_libserialport/flutter_libserialport.dart'
@@ -260,7 +261,7 @@ class _SerialPortGpsIconState extends State<SerialPortGpsIcon> {
                           setModalState(() {});
                         },
                         icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Abbrechen'),
+                        label: Text(AppLocalizations.of(context)!.serialPortGpsCancel),
                       ),
                     if (!_isScanning)
                       IconButton(
@@ -721,7 +722,7 @@ class _SerialPortMenuSheetState extends State<SerialPortMenuSheet> {
                 TextButton.icon(
                   onPressed: _cancelScan,
                   icon: const Icon(Icons.close, size: 18),
-                  label: const Text('Abbrechen'),
+                  label: Text(AppLocalizations.of(context)!.serialPortGpsCancel),
                 ),
               if (!_isScanning)
                 IconButton(

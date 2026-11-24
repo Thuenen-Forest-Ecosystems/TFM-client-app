@@ -360,19 +360,20 @@ class _LayoutState extends State<Layout> with WindowListener {
       if (navigator != null && navContext != null && navContext.mounted) {
         showDialog(
           context: navContext,
-          builder: (_) {
+          builder: (dialogContext) {
+            final l10n = AppLocalizations.of(dialogContext)!;
             return AlertDialog(
-              title: Text('Bestätigung erforderlich'),
-              content: Text('Möchten Sie die Anwendung wirklich beenden?'),
+              title: Text(l10n.mainExitConfirmTitle),
+              content: Text(l10n.mainExitConfirmContent),
               actions: [
                 TextButton(
-                  child: Text('Nein'),
+                  child: Text(l10n.mainExitConfirmNo),
                   onPressed: () {
                     Navigator.of(navigator.context).pop();
                   },
                 ),
                 TextButton(
-                  child: Text('Ja'),
+                  child: Text(l10n.mainExitConfirmYes),
                   onPressed: () async {
                     Navigator.of(navigator.context).pop();
                     _isClosing = true;

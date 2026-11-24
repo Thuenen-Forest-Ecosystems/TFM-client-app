@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -169,6 +170,7 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
   late final bool _seals = parseBackupRecipientKey(_configuredRecipientKey()) != null;
 
   Future<void> _backup() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _busy = true);
     Directory? workDir;
     File? outputFile;
@@ -239,7 +241,7 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
       // itself there). Desktop ignores them — don't load the archive into RAM.
       final needsBytes = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
       final savedPath = await FilePicker.saveFile(
-        dialogTitle: 'Datenbank-Backup speichern',
+        dialogTitle: l10n.databaseBackupSaveDialogTitle,
         fileName: p.basename(result.path),
         type: FileType.custom,
         allowedExtensions: [result.sealed ? sealedBackupExtension : 'zip'],
@@ -255,14 +257,14 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
         await outputFile.copy(savedPath);
       }
       final sizeMb = result.size / (1024 * 1024);
-      final kind = result.sealed ? 'Backup verschlüsselt gespeichert' : 'Backup gespeichert';
+      final kind = result.sealed ? l10n.databaseBackupSavedSealed : l10n.databaseBackupSaved;
       _showSnack(
         needsBytes
             ? '$kind (${sizeMb.toStringAsFixed(1)} MB)'
             : '$kind (${sizeMb.toStringAsFixed(1)} MB): $savedPath',
       );
     } catch (e) {
-      _showSnack('Backup fehlgeschlagen: $e');
+      _showSnack(l10n.databaseBackupFailed(e.toString()));
     } finally {
       try {
         workDir?.deleteSync(recursive: true);
@@ -323,10 +325,10 @@ class _DatabaseBackupButtonState extends State<DatabaseBackupButton> {
               : const Icon(Icons.archive_outlined, size: 18),
           label: Text(
             _busy
-                ? 'Backup wird erstellt …'
+                ? AppLocalizations.of(context)!.databaseBackupInProgress
                 : _seals
-                ? 'Backup aller Datenbanken (verschlüsselt)'
-                : 'Backup aller Datenbanken (ZIP)',
+                ? AppLocalizations.of(context)!.databaseBackupAllSealed
+                : AppLocalizations.of(context)!.databaseBackupAllZip,
           ),
         ),
       ),

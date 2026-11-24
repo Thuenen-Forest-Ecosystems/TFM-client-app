@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/widgets/bluetooth-icon-combined.dart';
 import 'package:terrestrial_forest_monitor/widgets/serial-port-gps-icon.dart';
 import 'package:terrestrial_forest_monitor/screens/proxy_settings.dart';
@@ -82,9 +83,9 @@ class _LoginState extends State<Login> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.'),
-              duration: Duration(seconds: 6),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.loginSessionExpired),
+              duration: const Duration(seconds: 6),
             ),
           );
         }
@@ -169,6 +170,7 @@ class _LoginState extends State<Login> {
 
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     try {
       await _authProvider.login(email, password);
@@ -192,17 +194,16 @@ class _LoginState extends State<Login> {
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
-      String errorMessage = 'Login fehlgeschlagen';
+      String errorMessage = l10n.loginFailed;
 
       if (e is AuthException) {
         switch (e.message) {
           case 'Invalid login credentials':
-            errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.';
+            errorMessage = l10n.loginInvalidCredentials;
           case 'Email not confirmed':
-            errorMessage =
-                'E-Mail-Adresse wurde noch nicht bestätigt. Bitte überprüfen Sie Ihr Postfach.';
+            errorMessage = l10n.loginEmailNotConfirmed;
           default:
-            errorMessage = 'Anmeldefehler: ${e.message}';
+            errorMessage = l10n.loginAuthError(e.message);
         }
       } else {
         // Check for proxy-related errors
@@ -210,36 +211,23 @@ class _LoginState extends State<Login> {
             e.toString().contains('Proxy') ||
             (e.toString().contains('Failed host lookup') &&
                 (e.toString().contains('proxy') || e.toString().contains('11001')))) {
-          errorMessage =
-              'Proxy-Verbindungsfehler: Der konfigurierte Proxy-Server ist nicht erreichbar.\n\n'
-              'Bitte überprüfen Sie:\n'
-              '• Ihre Proxy-Einstellungen über "Netzwerk-Einstellungen (Proxy)" unten\n'
-              '• Ob der Proxy-Server erreichbar ist\n'
-              '• Ihre Windows System-Proxy-Einstellungen\n\n'
-              'Tipp: Wenn Sie keinen Proxy benötigen, deaktivieren Sie die Proxy-Funktion in den Netzwerk-Einstellungen.';
+          errorMessage = l10n.loginProxyError;
         }
         // Check for timeout errors
         else if (e.toString().contains('ClientException') &&
             (e.toString().contains('Zeitlimit') ||
                 e.toString().contains('Semaphore') ||
                 e.toString().contains('timeout'))) {
-          errorMessage =
-              'Verbindungszeitüberschreitung: Der Server konnte nicht rechtzeitig erreicht werden.\n\n'
-              'Bitte versuchen Sie:\n'
-              '• Eine andere Internetverbindung (z.B. WLAN statt mobile Daten)\n'
-              '• Es später erneut\n'
-              '• Kontaktieren Sie Ihren Netzwerkadministrator, falls Sie in einem Firmen-/Institutionsnetzwerk sind';
+          errorMessage = l10n.loginTimeoutError;
         }
         // Check for certificate/SSL errors
         else if (e.toString().contains('HandshakeException') ||
             e.toString().contains('CERTIFICATE_VERIFY_FAILED') ||
             e.toString().contains('unable to get local certificate') ||
             e.toString().contains('unable to get local issuer certificate')) {
-          errorMessage =
-              'Verbindungsfehler: Bitte überprüfen Sie Ihre Internetverbindung und stellen Sie sicher, dass Datum und Uhrzeit korrekt eingestellt sind.\n\n'
-              'Falls das Problem weiterhin besteht, kontaktieren Sie bwi-support@thuenen.de.';
+          errorMessage = l10n.loginCertificateError;
         } else {
-          errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
+          errorMessage = l10n.loginUnexpectedError(e.toString());
         }
       }
 
@@ -269,6 +257,7 @@ class _LoginState extends State<Login> {
 
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     try {
       await _authProvider.loginOffline(email, password);
@@ -289,12 +278,12 @@ class _LoginState extends State<Login> {
 
       // Navigation will be handled by the auth state listener
     } catch (e) {
-      String errorMessage = 'Offline-Anmeldung fehlgeschlagen';
+      String errorMessage = l10n.loginOfflineFailed;
 
       if (e is Exception) {
         errorMessage = e.toString().replaceFirst('Exception: ', '');
       } else {
-        errorMessage = 'Ein unerwarteter Fehler ist aufgetreten: $e';
+        errorMessage = l10n.loginUnexpectedError(e.toString());
       }
 
       // Show error using captured ScaffoldMessenger
@@ -309,6 +298,7 @@ class _LoginState extends State<Login> {
     // We use _authProvider for loggingIn, but still watch for rebuilds if needed
     // Since AuthProvider notifies listeners, and we have our own listener, but for UI, we can watch
     final authProvider = context.watch<AuthProvider>();
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       resizeToAvoidBottomInset: true, // Ensure keyboard resizes the view
@@ -348,19 +338,19 @@ class _LoginState extends State<Login> {
                               autofillHints: (!kIsWeb && Platform.isWindows)
                                   ? null
                                   : const [AutofillHints.email],
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icon(Icons.email),
-                                border: OutlineInputBorder(
+                              decoration: InputDecoration(
+                                labelText: l10n.loginEmail,
+                                prefixIcon: const Icon(Icons.email),
+                                border: const OutlineInputBorder(
                                   borderRadius: BorderRadius.all(Radius.circular(50.0)),
                                 ),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Bitte geben Sie Ihre E-Mail-Adresse ein';
+                                  return l10n.loginEmailRequired;
                                 }
                                 if (!value.contains('@')) {
-                                  return 'Bitte geben Sie eine gültige E-Mail-Adresse ein';
+                                  return l10n.loginEmailInvalid;
                                 }
                                 return null;
                               },
@@ -375,7 +365,7 @@ class _LoginState extends State<Login> {
                                   ? null
                                   : const [AutofillHints.password],
                               decoration: InputDecoration(
-                                labelText: 'Passworter',
+                                labelText: l10n.loginPassword,
                                 prefixIcon: const Icon(Icons.lock),
                                 border: const OutlineInputBorder(
                                   borderRadius: BorderRadius.all(Radius.circular(50.0)),
@@ -393,10 +383,10 @@ class _LoginState extends State<Login> {
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Bitte geben Sie Ihr Passwort ein';
+                                  return l10n.loginPasswordRequired;
                                 }
                                 if (value.length < 6) {
-                                  return 'Das Passwort muss mindestens 6 Zeichen lang sein';
+                                  return l10n.loginPasswordTooShort;
                                 }
                                 return null;
                               },
@@ -418,7 +408,7 @@ class _LoginState extends State<Login> {
                                         width: 20,
                                         child: CircularProgressIndicator(strokeWidth: 2),
                                       )
-                                    : const Text('Anmelden'),
+                                    : Text(l10n.loginSubmit),
                               ),
                             // Offline Login Button
                             if (_isOffline && _hasPreviousLogin)
@@ -438,14 +428,14 @@ class _LoginState extends State<Login> {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : const Row(
+                                        : Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [Text('Anmelden')],
+                                            children: [Text(l10n.loginSubmit)],
                                           ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Offline-Modus: Keine Internetverbindung',
+                                    l10n.loginOfflineMode,
                                     style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
                                   ),
                                 ],
@@ -470,7 +460,7 @@ class _LoginState extends State<Login> {
                                         ),
                                         const SizedBox(height: 12),
                                         Text(
-                                          'Keine Internetverbindung',
+                                          l10n.loginNoInternet,
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -479,7 +469,7 @@ class _LoginState extends State<Login> {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          'Bitte stellen Sie eine Internetverbindung her, um sich zum ersten Mal anzumelden.',
+                                          l10n.loginNoInternetFirstLogin,
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 14,
@@ -500,7 +490,7 @@ class _LoginState extends State<Login> {
                                   ),
                                 );
                               },
-                              child: const Text('Passwort vergessen?'),
+                              child: Text(l10n.loginForgotPassword),
                             ),
                             const Spacer(),
                             Column(
@@ -539,9 +529,9 @@ class _LoginState extends State<Login> {
                                       );
                                     },
                                     icon: const Icon(Icons.settings_ethernet, size: 16),
-                                    label: const Text(
-                                      'Netzwerk-Einstellungen (Proxy)',
-                                      style: TextStyle(fontSize: 12),
+                                    label: Text(
+                                      l10n.loginNetworkSettings,
+                                      style: const TextStyle(fontSize: 12),
                                     ),
                                     style: TextButton.styleFrom(foregroundColor: Colors.grey),
                                   ),
@@ -554,9 +544,9 @@ class _LoginState extends State<Login> {
                                       onPressed: () {
                                         launchUrl(Uri.parse('https://www.thuenen.de/de/impressum'));
                                       },
-                                      child: const Text(
-                                        'Impressum',
-                                        style: TextStyle(fontSize: 12),
+                                      child: Text(
+                                        l10n.profileImprint,
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
                                     const Text('|', style: TextStyle(color: Colors.grey)),
@@ -568,9 +558,9 @@ class _LoginState extends State<Login> {
                                           ),
                                         );
                                       },
-                                      child: const Text(
-                                        'Datenschutzbestimmungen',
-                                        style: TextStyle(fontSize: 12),
+                                      child: Text(
+                                        l10n.profilePrivacy,
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
                                   ],
@@ -583,7 +573,7 @@ class _LoginState extends State<Login> {
                                       final packageInfo = snapshot.data!;
                                       return Center(
                                         child: Text(
-                                          'App Version: ${packageInfo.version} (${packageInfo.buildNumber})',
+                                          l10n.profileAppVersion(packageInfo.version, packageInfo.buildNumber),
                                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                                         ),
                                       );

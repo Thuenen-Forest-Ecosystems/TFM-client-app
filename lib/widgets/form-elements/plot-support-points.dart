@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Read-only list of the `plot_support_points` carried over from the previous
 /// inventory. The `point_type` it shows is declared by the style as
@@ -43,6 +44,7 @@ class PlotSupportPoints extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final points = _getSupportPoints();
 
     if (points.isEmpty) return const SizedBox.shrink();
@@ -60,8 +62,8 @@ class PlotSupportPoints extends StatelessWidget {
           final distance = point['distance'];
 
           final parts = <String>[
-            if (azimuth != null) 'Azimut: ${azimuth is num ? azimuth.round() : azimuth} gon',
-            if (distance != null) 'Distanz: $distance cm',
+            if (azimuth != null) l10n.plotSupportPointsAzimuth('${azimuth is num ? azimuth.round() : azimuth}'),
+            if (distance != null) l10n.plotSupportPointsDistance('$distance'),
           ];
 
           return ListTile(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 enum ClusterOrderBy { distance, updatedAt, clusterName }
 
@@ -22,13 +23,14 @@ class _OrderClusterByState extends State<OrderClusterBy> {
   }
 
   String _getOrderLabel(ClusterOrderBy order) {
+    final l10n = AppLocalizations.of(context)!;
     switch (order) {
       case ClusterOrderBy.distance:
-        return 'Distanz (gps required)';
+        return l10n.orderClusterByDistance;
       case ClusterOrderBy.updatedAt:
-        return 'Geändert am';
+        return l10n.orderClusterByUpdatedAt;
       case ClusterOrderBy.clusterName:
-        return 'Trakt-Nummer';
+        return l10n.orderClusterByClusterName;
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
 
@@ -67,62 +68,63 @@ class _LoggerScreenState extends State<LoggerScreen> {
   @override
   Widget build(BuildContext context) {
     final logService = LogService();
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Anwendungsprotokolle'),
+        title: Text(l10n.loggerTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.science),
-            tooltip: 'Test-Log hinzufügen',
+            tooltip: l10n.loggerAddTestLog,
             onPressed: _addTestLog,
           ),
           PopupMenuButton<LogLevel>(
             icon: const Icon(Icons.filter_list),
-            tooltip: 'Filter',
+            tooltip: l10n.loggerFilter,
             onSelected: (level) {
               setState(() {
                 _filterLevel = level;
               });
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: LogLevel.debug,
                 child: Row(
                   children: [
-                    Icon(Icons.bug_report, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('Alle Logs'),
+                    const Icon(Icons.bug_report, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(l10n.loggerFilterAll),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: LogLevel.info,
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Text('Info & höher'),
+                    const Icon(Icons.info_outline, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(l10n.loggerFilterInfo),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: LogLevel.warning,
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text('Warnung & Fehler'),
+                    const Icon(Icons.warning_amber, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Text(l10n.loggerFilterWarning),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: LogLevel.error,
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Nur Fehler'),
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text(l10n.loggerFilterError),
                   ],
                 ),
               ),
@@ -130,7 +132,7 @@ class _LoggerScreenState extends State<LoggerScreen> {
           ),
           IconButton(
             icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center),
-            tooltip: _autoScroll ? 'Auto-Scroll ein' : 'Auto-Scroll aus',
+            tooltip: _autoScroll ? l10n.loggerAutoScrollOn : l10n.loggerAutoScrollOff,
             onPressed: () {
               setState(() {
                 _autoScroll = !_autoScroll;
@@ -142,7 +144,7 @@ class _LoggerScreenState extends State<LoggerScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Alle Logs kopieren',
+            tooltip: l10n.loggerCopyAll,
             onPressed: () {
               final allLogs = logService.logs
                   .map(
@@ -153,29 +155,29 @@ class _LoggerScreenState extends State<LoggerScreen> {
               Clipboard.setData(ClipboardData(text: allLogs));
               ScaffoldMessenger.of(
                 context,
-              ).showSnackBar(const SnackBar(content: Text('Logs in Zwischenablage kopiert')));
+              ).showSnackBar(SnackBar(content: Text(l10n.loggerCopiedAll)));
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: 'Logs löschen',
+            tooltip: l10n.loggerClear,
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Logs löschen?'),
-                  content: const Text('Möchten Sie alle Logs wirklich löschen?'),
+                  title: Text(l10n.loggerClearTitle),
+                  content: Text(l10n.loggerClearConfirm),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Abbrechen'),
+                      child: Text(l10n.loggerCancel),
                     ),
                     TextButton(
                       onPressed: () {
                         logService.clear();
                         Navigator.pop(context);
                       },
-                      child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+                      child: Text(l10n.loggerDelete, style: const TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
@@ -194,11 +196,11 @@ class _LoggerScreenState extends State<LoggerScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    '${logService.logs.length} Einträge',
+                    l10n.loggerEntryCount(logService.logs.length),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
-                Text('Filter: ${_filterLevel.name}', style: Theme.of(context).textTheme.bodySmall),
+                Text(l10n.loggerFilterLabel(_filterLevel.name), style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
@@ -224,7 +226,7 @@ class _LoggerScreenState extends State<LoggerScreen> {
                         Icon(Icons.article_outlined, size: 64, color: Colors.grey),
                         const SizedBox(height: 16),
                         Text(
-                          'Keine Logs vorhanden',
+                          l10n.loggerEmpty,
                           style: Theme.of(
                             context,
                           ).textTheme.titleMedium?.copyWith(color: Colors.grey),
@@ -259,7 +261,7 @@ class _LoggerScreenState extends State<LoggerScreen> {
                         Clipboard.setData(ClipboardData(text: log.message));
                         ScaffoldMessenger.of(
                           context,
-                        ).showSnackBar(const SnackBar(content: Text('Log-Eintrag kopiert')));
+                        ).showSnackBar(SnackBar(content: Text(l10n.loggerCopiedEntry)));
                       },
                     );
                   },

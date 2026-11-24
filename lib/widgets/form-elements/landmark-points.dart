@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// LandmarkPoints – widget for adding `plot_support_points` entries
 /// ("markanter Geländepunkt") to the current record. The `point_type` it owns
@@ -159,13 +160,14 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
   String? _distanceError(String text) {
     if (text.isEmpty) return null;
     final value = int.tryParse(text);
-    if (value == null || value < 1) return 'mind. 1 cm';
+    if (value == null || value < 1) return AppLocalizations.of(context)!.landmarkPointsMinDistance;
     return null;
   }
 
   // ── UI ──────────────────────────────────────────────────────────────────
 
   Widget _buildLandmarkCard(int index) {
+    final l10n = AppLocalizations.of(context)!;
     final controllers = _controllers[index];
 
     return Card.outlined(
@@ -179,14 +181,14 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
               children: [
                 Expanded(
                   child: Text(
-                    'Geländepunkt ${index + 1}',
+                    l10n.landmarkPointsTitle(index + 1),
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ),
                 IconButton(
                   onPressed: () => _removeLandmark(index),
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  tooltip: 'Geländepunkt entfernen',
+                  tooltip: l10n.landmarkPointsRemove,
                   color: Colors.red,
                 ),
               ],
@@ -202,7 +204,7 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Horizontalentfernung',
+                      labelText: l10n.landmarkPointsHorizontalDistance,
                       suffix: const Text(' cm'),
                       errorText: _distanceError(controllers.distance.text),
                       border: const OutlineInputBorder(
@@ -224,7 +226,7 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Azimut',
+                      labelText: l10n.landmarkPointsAzimuth,
                       suffix: const Text(' Gon'),
                       errorText: _azimuthError(controllers.azimuth.text),
                       border: const OutlineInputBorder(
@@ -242,10 +244,10 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
             const SizedBox(height: 12),
             TextField(
               controller: controllers.note,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                labelText: 'Beschreibung',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(40))),
+                labelText: l10n.landmarkPointsDescription,
+                border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(40))),
               ),
               onChanged: (value) => _updateLandmark(index, 'note', value.isEmpty ? null : value),
             ),
@@ -274,7 +276,7 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            'Azimut und Entfernung von der Ecke zum Geländepunkt',
+            AppLocalizations.of(context)!.landmarkPointsHint,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -285,7 +287,7 @@ class _LandmarkPointsState extends State<LandmarkPoints> {
           child: TextButton.icon(
             onPressed: _addLandmark,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Geländepunkt hinzufügen'),
+            label: Text(AppLocalizations.of(context)!.landmarkPointsAdd),
           ),
         ),
       ],

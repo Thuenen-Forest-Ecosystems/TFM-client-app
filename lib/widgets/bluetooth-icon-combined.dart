@@ -6,6 +6,7 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as class
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 // Combined device class to hold both BLE and Classic devices
 class CombinedBluetoothDevice {
@@ -292,7 +293,7 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
             debugPrint('Classic scan error: $e');
             if (mounted) {
               setState(() {
-                _classicScanError = 'Suche nach Bluetooth-Classic-Geräten fehlgeschlagen: $e';
+                _classicScanError = AppLocalizations.of(context)!.bluetoothIconClassicScanFailed(e.toString());
                 _isScanning = false;
               });
             }
@@ -345,17 +346,19 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
       final bonded = await serial.bondDeviceAtAddress(device.address) ?? false;
       if (bonded || (await serial.getBondStateForAddress(device.address)).isBonded) return true;
 
+      if (!mounted) return false;
+      final l10n = AppLocalizations.of(context)!;
       _showClassicError(
-        'Kopplung fehlgeschlagen',
-        'Gerät "$label" konnte nicht gekoppelt werden.\n\n'
-            'Bitte prüfen, ob das Gerät eingeschaltet und sichtbar ist, '
-            'und die Kopplungsanfrage auf beiden Geräten bestätigen.',
+        l10n.bluetoothIconPairingFailedTitle,
+        l10n.bluetoothIconPairingFailedHint(label),
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
+      final l10n = AppLocalizations.of(context)!;
       _showClassicError(
-        'Kopplung fehlgeschlagen',
-        'Gerät "$label" konnte nicht gekoppelt werden.\n\n$e',
+        l10n.bluetoothIconPairingFailedTitle,
+        l10n.bluetoothIconPairingFailedError(label, e.toString()),
       );
       return false;
     }
@@ -396,9 +399,9 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'erreichbare GNSS Geräte',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                AppLocalizations.of(context)!.bluetoothIconAvailableDevices,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               if (_isScanning) IconButton(icon: const Icon(Icons.stop), onPressed: _stopAllScans),
               if (!_isScanning)
@@ -618,18 +621,18 @@ class _BluetoothDeviceMenuSheetState extends State<BluetoothDeviceMenuSheet> {
                       if (!device.isBLE &&
                           device.classicDevice != null &&
                           !device.classicDevice!.isBonded)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4.0),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
                           child: Tooltip(
-                            message: 'Noch nicht gekoppelt – Kopplung startet beim Antippen',
-                            child: Icon(Icons.lock_open, size: 16, color: Colors.orange),
+                            message: AppLocalizations.of(context)!.bluetoothIconNotPairedTooltip,
+                            child: const Icon(Icons.lock_open, size: 16, color: Colors.orange),
                           ),
                         ),
                     ],
                   ),
                   subtitle: Text(
                     '${device.isBLE ? "BLE" : "Classic"} - ${device.id}'
-                    '${!device.isBLE && (device.classicDevice?.isBonded ?? false) ? " - gekoppelt" : ""}',
+                    '${!device.isBLE && (device.classicDevice?.isBonded ?? false) ? " - ${AppLocalizations.of(context)!.bluetoothIconPaired}" : ""}',
                   ),
                   trailing: device.rssi != null ? Text('${device.rssi} dBm') : null,
                   onTap: () {

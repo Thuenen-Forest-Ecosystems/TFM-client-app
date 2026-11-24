@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/proxy_service.dart';
 
 class ProxySettingsScreen extends StatefulWidget {
@@ -58,7 +59,11 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
         _passwordController.text = config.password;
       });
     } catch (e) {
-      _showSnackBar('Fehler beim Laden der Einstellungen: $e', isError: true);
+      if (!mounted) return;
+      _showSnackBar(
+        AppLocalizations.of(context)!.proxySettingsLoadError(e.toString()),
+        isError: true,
+      );
     } finally {
       setState(() => _isLoading = false);
     }
@@ -66,6 +71,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
 
   Future<void> _saveConfig() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context)!;
 
     final config = ProxyConfig(
       enabled: _proxyEnabled,
@@ -78,20 +84,21 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
 
     try {
       await _proxyService.saveProxyConfig(config);
-      _showSnackBar('Proxy-Einstellungen gespeichert');
+      _showSnackBar(l10n.proxySettingsSaved);
 
       // Show restart hint
       if (mounted) {
         _showRestartDialog();
       }
     } catch (e) {
-      _showSnackBar('Fehler beim Speichern: $e', isError: true);
+      _showSnackBar(l10n.proxySettingsSaveError(e.toString()), isError: true);
     }
   }
 
   Future<void> _testConnection() async {
+    final l10n = AppLocalizations.of(context)!;
     if (!_proxyEnabled) {
-      _showSnackBar('Proxy ist deaktiviert', isError: true);
+      _showSnackBar(l10n.proxySettingsProxyDisabled, isError: true);
       return;
     }
 
@@ -115,7 +122,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
     );
 
     try {
-      final result = await _proxyService.testProxyConnection(config);
+      final result = await _proxyService.testProxyConnection(config, l10n: l10n);
 
       setState(() {
         _testResult = result.message;
@@ -123,7 +130,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
       });
     } catch (e) {
       setState(() {
-        _testResult = 'Test fehlgeschlagen: $e';
+        _testResult = l10n.proxySettingsTestFailed(e.toString());
         _testSuccess = false;
       });
     } finally {
@@ -138,16 +145,17 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
   }
 
   void _showRestartDialog() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Neustart erforderlich'),
-        content: const Text(
-          'Die Proxy-Einstellungen werden beim nächsten Start der Anwendung wirksam.\n\n'
-          'Möchten Sie die Anwendung jetzt beenden?',
-        ),
+        title: Text(l10n.proxySettingsRestartTitle),
+        content: Text(l10n.proxySettingsRestartContent),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Später')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.proxySettingsRestartLater),
+          ),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(context).pop();
@@ -156,7 +164,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
               // Exit application - proper for desktop platforms
               exit(0);
             },
-            child: const Text('Anwendung schließen'),
+            child: Text(l10n.proxySettingsCloseApp),
           ),
         ],
       ),
@@ -168,9 +176,10 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Proxy-Einstellungen')),
+      appBar: AppBar(title: Text(l10n.profileProxySettings)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -179,8 +188,8 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
             // Proxy aktivieren/deaktivieren
             Card(
               child: SwitchListTile(
-                title: const Text('Proxy aktivieren'),
-                subtitle: const Text('Verbindung über Proxy-Server herstellen'),
+                title: Text(l10n.proxySettingsEnable),
+                subtitle: Text(l10n.proxySettingsEnableSubtitle),
                 value: _proxyEnabled,
                 onChanged: (value) => setState(() => _proxyEnabled = value),
               ),
@@ -200,23 +209,21 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                   child: Column(
                     children: [
                       RadioListTile<bool>(
-                        title: const Text('System-Proxy verwenden'),
-                        subtitle: const Text(
-                          'Nutzt die Windows-Proxy-Einstellungen (EMPFOHLEN - unterstützt WebSocket)',
-                        ),
+                        title: Text(l10n.proxySettingsUseSystemProxy),
+                        subtitle: Text(l10n.proxySettingsUseSystemProxySubtitle),
                         value: true,
                       ),
                       RadioListTile<bool>(
                         title: Row(
                           children: [
-                            const Text('Manuelle Konfiguration'),
+                            Text(l10n.proxySettingsManualConfig),
                             const SizedBox(width: 8),
                             Icon(Icons.warning_amber, size: 20, color: Colors.orange.shade700),
                           ],
                         ),
-                        subtitle: const Text(
-                          'Veraltet: sollte nicht mehr genutzt werden.',
-                          style: TextStyle(color: Colors.deepOrange),
+                        subtitle: Text(
+                          l10n.proxySettingsManualConfigDeprecated,
+                          style: const TextStyle(color: Colors.deepOrange),
                         ),
                         value: false,
                       ),
@@ -235,19 +242,19 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Proxy-Server', style: Theme.of(context).textTheme.titleMedium),
+                        Text(l10n.proxySettingsProxyServer, style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 16),
 
                         TextFormField(
                           controller: _hostController,
-                          decoration: const InputDecoration(
-                            labelText: 'Host/IP-Adresse',
-                            hintText: 'z.B. proxy.example.com oder 192.168.1.1',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.proxySettingsHostLabel,
+                            hintText: l10n.proxySettingsHostHint,
+                            border: const OutlineInputBorder(),
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Bitte Host-Adresse eingeben';
+                              return l10n.proxySettingsHostRequired;
                             }
                             return null;
                           },
@@ -257,19 +264,19 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
 
                         TextFormField(
                           controller: _portController,
-                          decoration: const InputDecoration(
-                            labelText: 'Port',
-                            hintText: 'z.B. 8080, 3128',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.proxySettingsPortLabel,
+                            hintText: l10n.proxySettingsPortHint,
+                            border: const OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Bitte Port eingeben';
+                              return l10n.proxySettingsPortRequired;
                             }
                             final port = int.tryParse(value);
                             if (port == null || port < 1 || port > 65535) {
-                              return 'Ungültiger Port (1-65535)';
+                              return l10n.proxySettingsPortInvalid;
                             }
                             return null;
                           },
@@ -289,21 +296,21 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Authentifizierung (optional)',
+                          l10n.proxySettingsAuthTitle,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Nur erforderlich, wenn der Proxy-Server Benutzername und Passwort verlangt.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        Text(
+                          l10n.proxySettingsAuthHint,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                         const SizedBox(height: 16),
 
                         TextFormField(
                           controller: _usernameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Benutzername',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.proxySettingsUsername,
+                            border: const OutlineInputBorder(),
                           ),
                         ),
 
@@ -312,7 +319,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                         TextFormField(
                           controller: _passwordController,
                           decoration: InputDecoration(
-                            labelText: 'Passwort',
+                            labelText: l10n.proxySettingsPassword,
                             border: const OutlineInputBorder(),
                             suffixIcon: IconButton(
                               icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
@@ -345,7 +352,9 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.network_check),
-                        label: Text(_isTesting ? 'Teste Verbindung...' : 'Verbindung testen'),
+                        label: Text(
+                          _isTesting ? l10n.proxySettingsTesting : l10n.proxySettingsTestConnection,
+                        ),
                       ),
 
                       if (_testResult != null) ...[
@@ -398,19 +407,15 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
                         children: [
                           Icon(Icons.info_outline, color: Colors.blue.shade700),
                           const SizedBox(width: 8),
-                          Text('Hinweise'),
+                          Text(l10n.proxySettingsNotes),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        '• Für Landesdatennetze: "System-Proxy verwenden" aktivieren\n'
-                        '• Die Windows-Proxy-Einstellungen werden automatisch erkannt\n'
-                        '• Umgebungsvariablen (HTTP_PROXY, HTTPS_PROXY) werden unterstützt',
-                      ),
+                      Text(l10n.proxySettingsNotesBody),
                       const SizedBox(height: 8),
-                      const Text(
-                        '• Nach dem Speichern ist ein Neustart der Anwendung erforderlich',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      Text(
+                        l10n.proxySettingsNotesRestart,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -425,7 +430,7 @@ class _ProxySettingsScreenState extends State<ProxySettingsScreen> {
         child: ElevatedButton.icon(
           onPressed: _saveConfig,
           icon: const Icon(Icons.save),
-          label: const Text('Einstellungen speichern'),
+          label: Text(l10n.proxySettingsSave),
           style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
         ),
       ),

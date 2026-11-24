@@ -10,6 +10,7 @@ import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/position-selector.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/manual-navigation-steps.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Widget for navigating to previous position measurements
 /// Displays a list of previous positions from previousProperties.plot_coordinates and
@@ -529,7 +530,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             gpsProvider.lastPosition!.longitude,
           );
           final mapProvider = context.read<MapControllerProvider>();
-          mapProvider.setNavigationTarget(lockedPosition, label: 'GPS Position (Gesperrt)');
+          mapProvider.setNavigationTarget(lockedPosition, label: AppLocalizations.of(context)!.previousPositionsNavigationGpsLocked);
           _updateNavigationPath();
         }
       } else {
@@ -569,7 +570,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
             gpsProvider.lastPosition!.longitude,
           );
           final lockedPosition = _startLockedGpsPosition!;
-          mapProvider.setNavigationStart(lockedPosition, label: 'GPS Position (Gesperrt)');
+          mapProvider.setNavigationStart(lockedPosition, label: AppLocalizations.of(context)!.previousPositionsNavigationGpsLocked);
         }
       } else {
         // Set navigation start - check both position types
@@ -718,6 +719,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final hasData =
         (widget.rawRecord?.previousProperties != null ||
         widget.rawRecord?.previousPositionData != null);
@@ -728,7 +730,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
-            'Keine vorherigen Positionsdaten verfügbar',
+            l10n.previousPositionsNavigationNoPreviousData,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
@@ -746,7 +748,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
-            'Keine Koordinaten in vorherigen Positionsdaten gefunden',
+            l10n.previousPositionsNavigationNoCoordinates,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
@@ -788,7 +790,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Navigation:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(l10n.previousPositionsNavigationTitle, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8.0),
           Card(
             child: PositionSelector(
@@ -851,7 +853,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
               selectedPositionKey: _selectedPositionKey,
               onPositionSelected: _selectTargetPosition,
               onFocusPosition: _focusMapOnPosition,
-              label: 'Ziel',
+              label: l10n.previousPositionsNavigationTarget,
               icon: Icons.where_to_vote,
               showGpsOptions: false,
               hasGpsPosition: gpsProvider.lastPosition != null,
@@ -872,11 +874,11 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
                       if (_calculatedNavigation != null) {
                         final calcDistance = _calculatedNavigation!['distance']!;
                         final calcBearing = _calculatedNavigation!['azimuth']!;
-                        return 'Distanz: ${_formatDistance(calcDistance)}, Azimut: ${calcBearing.round()} gon$coordStr';
+                        return l10n.previousPositionsNavigationDistanceAzimuth(_formatDistance(calcDistance), '${calcBearing.round()}', coordStr);
                       }
                       // Otherwise use direct distance/bearing
                       if (distance != null && bearing != null) {
-                        return 'Distanz: ${_formatDistance(distance)}, Azimut: ${bearing.round()} gon$coordStr';
+                        return l10n.previousPositionsNavigationDistanceAzimuth(_formatDistance(distance), '${bearing.round()}', coordStr);
                       }
                       // Only coordinates available
                       if (coordStr.isNotEmpty) return coordStr.trim();
@@ -893,7 +895,7 @@ class _PreviousPositionsNavigationState extends State<PreviousPositionsNavigatio
                 child: Column(
                   children: [
                     Text(
-                      'Keine Navigationsdaten verfügbar, verbinde ein externes GPS oder nutze das interne GPS des Geräts.',
+                      l10n.previousPositionsNavigationNoNavigationData,
                       style: TextStyle(color: Colors.grey[600], fontSize: 14),
                       textAlign: TextAlign.center,
                     ),

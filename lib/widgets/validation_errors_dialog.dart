@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -282,7 +283,9 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Alle Fehler müssen mit einer Notiz bestätigt werden (${unacknowledgedErrors.length} verbleibend)',
+              AppLocalizations.of(
+                context,
+              )!.validationErrorsDialogAllErrorsNeedNote(unacknowledgedErrors.length),
             ),
             duration: const Duration(seconds: 3),
           ),
@@ -380,26 +383,27 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
   }
 
   String _getGroupName(String? instancePath) {
-    if (instancePath == null || instancePath.isEmpty) return 'Ecke';
+    final l10n = AppLocalizations.of(context)!;
+    if (instancePath == null || instancePath.isEmpty) return l10n.validationErrorsDialogGroupCorner;
 
     final parts = instancePath.split('/').where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return 'Ecke';
+    if (parts.isEmpty) return l10n.validationErrorsDialogGroupCorner;
 
     final firstPart = parts[0];
 
     // Map field names to their tab labels from style-map.json
     final groupNames = {
       'tree': 'WZP',
-      'position': 'Position',
-      'edges': 'Ränder',
-      'structure_lt4m': 'Struktur < 4m',
-      'structure_gt4m': 'Struktur > 4m',
-      'structure': 'Bestockung', // Normalized key for grouping
-      'regeneration': 'Verjüngung',
-      'deadwood': 'Totholz',
+      'position': l10n.validationErrorsDialogGroupPosition,
+      'edges': l10n.validationErrorsDialogGroupEdges,
+      'structure_lt4m': l10n.validationErrorsDialogGroupStructureLt4m,
+      'structure_gt4m': l10n.validationErrorsDialogGroupStructureGt4m,
+      'structure': l10n.validationErrorsDialogGroupStocking, // Normalized key for grouping
+      'regeneration': l10n.validationErrorsDialogGroupRegeneration,
+      'deadwood': l10n.validationErrorsDialogGroupDeadwood,
     };
 
-    return groupNames[firstPart] ?? 'Ecke';
+    return groupNames[firstPart] ?? l10n.validationErrorsDialogGroupCorner;
   }
 
   /// Render short_info.number_object (scalar, map, or list) as a single line
@@ -452,9 +456,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Die Plausibilitätsprüfung konnte nicht ausgeführt werden '
-              '(vorübergehendes technisches Problem). Die Ecke kann trotzdem '
-              'abgeschlossen und übermittelt werden.',
+              AppLocalizations.of(context)!.validationErrorsDialogPlausibilityUnavailable,
               style: TextStyle(color: color),
             ),
           ),
@@ -465,6 +467,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Group issues by the tab that owns them. With a layout the key is the
     // tab id (same mapping as the tab badges); without one, the first path
     // segment, so a field is never attributed to a tab by guesswork.
@@ -516,7 +519,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(icon: const Icon(Icons.close), onPressed: _closeDialog),
-          title: Row(children: [const SizedBox(width: 8), const Text('Ergebnis der Prüfung')]),
+          title: Row(children: [const SizedBox(width: 8), Text(l10n.validationErrorsDialogTitle)]),
         ),
         body: Column(
           children: [
@@ -533,7 +536,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
                         const SizedBox(height: 16),
                         Text(
-                          'Keine Fehler oder Warnungen gefunden.',
+                          l10n.validationErrorsDialogNoIssues,
                           style: Theme.of(context).textTheme.titleMedium,
                           textAlign: TextAlign.center,
                         ),
@@ -565,7 +568,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                       initiallyExpanded: true,
                       title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text(
-                        '${errorCountInGroup > 0 ? '$errorCountInGroup Fehler' : ''}${errorCountInGroup > 0 && warningCountInGroup > 0 ? ', ' : ''}${warningCountInGroup > 0 ? '$warningCountInGroup Warnungen' : ''}',
+                        '${errorCountInGroup > 0 ? l10n.validationErrorsDialogErrorCount(errorCountInGroup) : ''}${errorCountInGroup > 0 && warningCountInGroup > 0 ? ', ' : ''}${warningCountInGroup > 0 ? l10n.validationErrorsDialogWarningCount(warningCountInGroup) : ''}',
                       ),
                       children: issues.asMap().entries.map((entry) {
                         final globalIndex = widget.validationResult.allIssues.indexOf(entry.value);
@@ -595,7 +598,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                           final subtitleParts = <String>[];
 
                           if (tfmError.note != null && tfmError.note!.isNotEmpty) {
-                            subtitleParts.add('Hinweis: ${tfmError.note}');
+                            subtitleParts.add(l10n.validationErrorsDialogNote(tfmError.note!));
                           }
                           if (tfmError.error?['code'] != null) {
                             final code = tfmError.error!['code'];
@@ -610,10 +613,12 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                           // nicht (stattdessen das neutrale Label 'Objekt').
                           final numberObject = tfmError.numberObject;
                           if (numberObject != null) {
-                            subtitleParts.add('Objekt: ${_formatNumberObject(numberObject)}');
+                            subtitleParts.add(
+                              l10n.validationErrorsDialogObject(_formatNumberObject(numberObject)),
+                            );
                           }
                           if (instancePath != null && instancePath.isNotEmpty) {
-                            subtitleParts.add('Pfad: $instancePath');
+                            subtitleParts.add(l10n.validationErrorsDialogPath(instancePath));
                           }
 
                           if (subtitleParts.isNotEmpty) {
@@ -622,7 +627,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                         } else if (instancePath != null && instancePath.isNotEmpty) {
                           subtitle = Padding(
                             padding: const EdgeInsets.only(top: 4.0),
-                            child: Text('Pfad: $instancePath'),
+                            child: Text(l10n.validationErrorsDialogPath(instancePath)),
                           );
                         }
 
@@ -694,9 +699,9 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                                     hintText: !widget.showActions
                                         ? null
                                         : isError
-                                        ? 'Notiz hinzufügen (erforderlich für Fehler)*'
-                                        : 'Notiz hinzufügen (optional)',
-                                    labelText: !widget.showActions ? 'Notiz' : null,
+                                        ? l10n.validationErrorsDialogAddNoteRequired
+                                        : l10n.validationErrorsDialogAddNoteOptional,
+                                    labelText: !widget.showActions ? l10n.validationErrorsDialogNoteLabel : null,
                                     border: const OutlineInputBorder(),
                                     isDense: true,
                                     errorText:
@@ -704,7 +709,7 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                                             isError &&
                                             (_issueNoteControllers[issueKey]?.text.trim().isEmpty ??
                                                 true)
-                                        ? 'Notiz erforderlich'
+                                        ? l10n.validationErrorsDialogNoteRequired
                                         : null,
                                   ),
                                   maxLines: 2,
@@ -783,8 +788,10 @@ class _ValidationErrorsDialogState extends State<ValidationErrorsDialog> {
                               ),
                               child: Text(
                                 _unacknowledgedErrorsCount == 0
-                                    ? 'AN LANDESINVENTURLEITUNG ÜBERMITTELN'
-                                    : '$_unacknowledgedErrorsCount Fehler beheben oder kommentieren',
+                                    ? l10n.validationErrorsDialogSubmit
+                                    : l10n.validationErrorsDialogFixOrComment(
+                                        _unacknowledgedErrorsCount,
+                                      ),
                               ),
                             ),
                           ),

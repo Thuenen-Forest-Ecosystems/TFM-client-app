@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:powersync/powersync.dart' hide Column;
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/connectivity_service.dart';
@@ -402,6 +403,7 @@ ORDER BY local_updated_at DESC;''';
   @override
   Widget build(BuildContext context) {
     final status = _status;
+    final l10n = AppLocalizations.of(context)!;
     // SocketException / Failed host lookup = plain offline, not actionable
     final isNetworkDownError =
         !status.connected &&
@@ -420,8 +422,8 @@ ORDER BY local_updated_at DESC;''';
             _buildStatusRow('Uploading', status.uploading ? 'Yes' : 'No'),
             const Divider(),
             _buildStatusRow(
-              'Letzte Synchronisierung',
-              status.lastSyncedAt?.toLocal().toString() ?? 'Nie',
+              l10n.syncStatusButtonLastSync,
+              status.lastSyncedAt?.toLocal().toString() ?? l10n.syncStatusButtonNever,
             ),
             //_buildStatusRow('Hat synchronisiert', (status.hasSynced ?? false) ? 'Ja' : 'Nein'),
             // ── Diagnostic ─────────────────────────────────────────
@@ -462,11 +464,10 @@ ORDER BY local_updated_at DESC;''';
                     children: [
                       Icon(Icons.lightbulb_outline, size: 20, color: Colors.orange.shade700),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Haben Sie bereits die Anwendung "Install SSL Certificates" ausgeführt? '
-                          'Wenn nicht, bitte suchen Sie die Anwendung und führen Diese aus.',
-                          style: TextStyle(fontSize: 13),
+                          l10n.syncStatusButtonCertificateHint,
+                          style: const TextStyle(fontSize: 13),
                         ),
                       ),
                     ],
@@ -512,11 +513,12 @@ ORDER BY local_updated_at DESC;''';
   }
 
   Widget _buildDiagnosticSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildStatusRow('Warteschlange', '$_pendingCrudCount ausstehend'),
+        _buildStatusRow(l10n.syncStatusButtonQueue, l10n.syncStatusButtonPending(_pendingCrudCount)),
         if (_crudBreakdown.isNotEmpty) ...[
           const SizedBox(height: 4),
           ..._crudBreakdown.map(
@@ -547,7 +549,7 @@ ORDER BY local_updated_at DESC;''';
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '⚠ ${_uploadFailures.length} Upload(s) vom Server nicht übernommen',
+                  l10n.syncStatusButtonUploadFailures(_uploadFailures.length),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
@@ -556,8 +558,7 @@ ORDER BY local_updated_at DESC;''';
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Die Daten sind lokal gesichert (upload_failures). '
-                  'Bitte Diagnose-Export erstellen und an den Support senden.',
+                  l10n.syncStatusButtonUploadFailuresHint,
                   style: TextStyle(fontSize: 11, color: Colors.red.shade900),
                 ),
                 const SizedBox(height: 4),
@@ -572,7 +573,7 @@ ORDER BY local_updated_at DESC;''';
                     ),
                 if (_uploadFailures.length > 10)
                   Text(
-                    '… und ${_uploadFailures.length - 10} weitere',
+                    l10n.syncStatusButtonAndMore(_uploadFailures.length - 10),
                     style: const TextStyle(fontSize: 11),
                   ),
               ],
@@ -580,7 +581,10 @@ ORDER BY local_updated_at DESC;''';
           ),
           const SizedBox(height: 6),
         ],
-        _buildStatusRow('Nicht synchronisiert', '${_unsyncedRecords.length} Datensätze'),
+        _buildStatusRow(
+          l10n.syncStatusButtonNotSynced,
+          l10n.syncStatusButtonRecordCount(_unsyncedRecords.length),
+        ),
         if (_unsyncedRecords.isNotEmpty) ...[
           const SizedBox(height: 6),
           ..._unsyncedRecords.take(10).map(_buildRecordRow),
@@ -588,7 +592,7 @@ ORDER BY local_updated_at DESC;''';
             Padding(
               padding: const EdgeInsets.only(left: 12, top: 2),
               child: Text(
-                '… und ${_unsyncedRecords.length - 10} weitere',
+                l10n.syncStatusButtonAndMore(_unsyncedRecords.length - 10),
                 style: const TextStyle(fontSize: 11),
               ),
             ),
@@ -601,20 +605,20 @@ ORDER BY local_updated_at DESC;''';
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Server-Diagnose SQL:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      l10n.syncStatusButtonServerSql,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.copy, size: 16),
-                    tooltip: 'SQL kopieren',
+                    tooltip: l10n.syncStatusButtonCopySql,
                     onPressed: () {
                       Clipboard.setData(const ClipboardData(text: _serverQuery));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('SQL in die Zwischenablage kopiert'),
+                        SnackBar(
+                          content: Text(l10n.syncStatusButtonSqlCopied),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -660,7 +664,12 @@ ORDER BY local_updated_at DESC;''';
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              '$cluster / $plot\nLokal: $localTs  •  Server: ${serverTs ?? '–'}',
+              AppLocalizations.of(context)!.syncStatusButtonRecordRow(
+                '$cluster',
+                '$plot',
+                '$localTs',
+                serverTs ?? '–',
+              ),
               style: const TextStyle(fontSize: 11),
             ),
           ),

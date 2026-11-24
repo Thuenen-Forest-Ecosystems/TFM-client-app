@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/providers/theme-mode.dart';
 
 class ThemeSettings extends StatefulWidget {
@@ -14,6 +15,7 @@ class _ThemeSettingsState extends State<ThemeSettings> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeModeProvider>(context);
     final currentMode = themeProvider.mode;
+    final l10n = AppLocalizations.of(context)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -21,22 +23,22 @@ class _ThemeSettingsState extends State<ThemeSettings> {
       children: [
         _ThemeOption(
           key: const Key('themeOption_light'),
-          title: 'Hell',
-          subtitle: 'Hohe kontraste an hellen Tagen',
+          title: l10n.themeSettingsLight,
+          subtitle: l10n.themeSettingsLightSubtitle,
           isSelected: currentMode == ThemeMode.light,
           onTap: () => themeProvider.setTheme(ThemeMode.light),
         ),
         _ThemeOption(
           key: const Key('themeOption_dark'),
-          title: 'Dunkel',
-          subtitle: 'Energiesparmodus für schattige Umgebungen',
+          title: l10n.themeSettingsDark,
+          subtitle: l10n.themeSettingsDarkSubtitle,
           isSelected: currentMode == ThemeMode.dark,
           onTap: () => themeProvider.setTheme(ThemeMode.dark),
         ),
         _ThemeOption(
           key: const Key('themeOption_system'),
-          title: 'System',
-          subtitle: 'Systemeinstellung folgen',
+          title: l10n.themeSettingsSystem,
+          subtitle: l10n.themeSettingsSystemSubtitle,
           isSelected: currentMode == ThemeMode.system,
           onTap: () => themeProvider.setTheme(ThemeMode.system),
         ),

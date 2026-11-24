@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/language.dart';
 import 'package:terrestrial_forest_monitor/services/lookup_service.dart';
@@ -315,7 +316,7 @@ class _GenericTextFieldState extends State<GenericTextField> {
     return ExcludeFocus(
       child: IconButton(
         icon: const Icon(Icons.info),
-        tooltip: 'Info',
+        tooltip: AppLocalizations.of(context)!.genericTextfieldInfoTooltip,
         onPressed: () async {
           // Hide floating keyboard and suppress focus-triggered auto-show while
           // the info dialog is open, to prevent it from reappearing when Flutter

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/layout-filter.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// DisplacedMarker – widget for adding a single `plot_support_points` entry
 /// ("versetzte Markierung") to the current record. The `point_type` it owns is
@@ -162,7 +163,7 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
     final text = _distanceController.text;
     if (text.isEmpty) return null;
     final value = int.tryParse(text);
-    if (value == null || value < 1) return 'mind. 1 cm';
+    if (value == null || value < 1) return AppLocalizations.of(context)!.displacedMarkerMinDistance;
     return null;
   }
 
@@ -170,6 +171,7 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final marker = _marker;
 
     if (marker == null && !_isMarkerStatusRelevant) {
@@ -182,7 +184,7 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
         child: Center(
           child: TextButton.icon(
             onPressed: _addMarker,
-            label: const Text('Versetzte Markierung anlegen'),
+            label: Text(l10n.displacedMarkerAdd),
           ),
         ),
       );
@@ -199,14 +201,14 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
               children: [
                 Expanded(
                   child: Text(
-                    'Versetzte Markierung',
+                    l10n.displacedMarkerTitle,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
                 IconButton(
                   onPressed: _removeMarker,
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  tooltip: 'Versetzte Markierung entfernen',
+                  tooltip: l10n.displacedMarkerRemove,
                   color: Colors.red,
                 ),
               ],
@@ -222,7 +224,7 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Horizontalentfernung',
+                      labelText: l10n.displacedMarkerHorizontalDistance,
                       suffix: const Text(' cm'),
                       errorText: _distanceError,
                       border: const OutlineInputBorder(
@@ -244,7 +246,7 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Azimut',
+                      labelText: l10n.displacedMarkerAzimuth,
                       suffix: const Text(' Gon'),
                       errorText: _azimuthError,
                       border: const OutlineInputBorder(
@@ -262,17 +264,17 @@ class _DisplacedMarkerState extends State<DisplacedMarker> {
             const SizedBox(height: 12),
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                labelText: 'Beschreibung',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(40))),
+                labelText: l10n.displacedMarkerDescription,
+                border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(40))),
               ),
               onChanged: (value) => _updateMarker('note', value.isEmpty ? null : value),
             ),
             SwitchListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Ist markiert'),
+              title: Text(l10n.displacedMarkerIsMarked),
               value: marker['is_marked'] == true,
               onChanged: (value) => _updateMarker('is_marked', value),
             ),

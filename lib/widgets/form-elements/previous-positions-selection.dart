@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Widget for selecting from previous position measurements
 /// Displays a list of previous positions from previous_properties and allows
@@ -73,7 +74,7 @@ class _PreviousPositionsSelectionState extends State<PreviousPositionsSelection>
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
-            'Keine vorherigen Positionsdaten verfügbar',
+            AppLocalizations.of(context)!.previousPositionsSelectionNoData,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
@@ -87,7 +88,7 @@ class _PreviousPositionsSelectionState extends State<PreviousPositionsSelection>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Vorherige Positionsmessungen', style: Theme.of(context).textTheme.titleMedium),
+            Text(AppLocalizations.of(context)!.previousPositionsSelectionTitle, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 16.0),
             ToggleButtons(
               isSelected: _selectedPositions,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Widget for selecting a position from measured values and support points
 class PositionSelector extends StatelessWidget {
@@ -57,6 +58,7 @@ class PositionSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Get coordinates for selected position
     LatLng? selectedCoordinates;
     if (selectedPositionKey != null) {
@@ -82,7 +84,7 @@ class PositionSelector extends StatelessWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.directions_car, size: 20),
-                  tooltip: 'Mit Auto navigieren',
+                  tooltip: l10n.positionSelectorNavigateByCar,
                   onPressed: () => onOpenNavigation!(selectedCoordinates!, 'd'),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -90,7 +92,7 @@ class PositionSelector extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.directions_walk, size: 20),
-                  tooltip: 'Zu Fuß navigieren',
+                  tooltip: l10n.positionSelectorNavigateOnFoot,
                   onPressed: () => onOpenNavigation!(selectedCoordinates!, 'w'),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -103,7 +105,7 @@ class PositionSelector extends StatelessWidget {
           if (selectedPositionKey != null && onFocusPosition != null && selectedCoordinates != null)
             IconButton(
               icon: Icon(icon ?? Icons.my_location, color: Colors.blue),
-              tooltip: 'Auf Karte anzeigen',
+              tooltip: l10n.positionSelectorShowOnMap,
               onPressed: () => onFocusPosition!(selectedCoordinates!),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -122,11 +124,11 @@ class PositionSelector extends StatelessWidget {
                 if (selectedPositionKey != null)
                   Text(
                     selectedPositionKey == mapTappedKey
-                        ? 'Karte Position'
+                        ? l10n.positionSelectorMapPosition
                         : selectedPositionKey == gpsLiveKey
-                        ? 'Aktuelle GPS Position'
+                        ? l10n.positionSelectorCurrentGpsPosition
                         : selectedPositionKey == gpsLockedKey
-                        ? 'Gespeichert'
+                        ? l10n.positionSelectorSaved
                         : selectedPositionKey!,
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
@@ -144,7 +146,7 @@ class PositionSelector extends StatelessWidget {
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Text(
-                'GPS Position',
+                l10n.positionSelectorGpsPosition,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -169,7 +171,7 @@ class PositionSelector extends StatelessWidget {
             title: Row(
               children: [
                 Text(
-                  'Aktuelle GPS Position',
+                  l10n.positionSelectorCurrentGpsPosition,
                   style: TextStyle(color: hasGpsPosition ? null : Colors.grey),
                 ),
               ],
@@ -180,7 +182,7 @@ class PositionSelector extends StatelessWidget {
                     'Lon: ${currentGpsPosition!.longitude.toStringAsFixed(6)}',
                     style: const TextStyle(fontSize: 11),
                   )
-                : const Text('Keine GPS-Daten verfügbar', style: TextStyle(fontSize: 11)),
+                : Text(l10n.positionSelectorNoGpsData, style: const TextStyle(fontSize: 11)),
             trailing: hasGpsPosition && selectedPositionKey == gpsLiveKey
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
@@ -188,12 +190,12 @@ class PositionSelector extends StatelessWidget {
                       if (onFocusPosition != null && currentGpsPosition != null)
                         IconButton(
                           icon: const Icon(Icons.my_location, size: 20),
-                          tooltip: 'Auf Karte anzeigen',
+                          tooltip: l10n.positionSelectorShowOnMap,
                           onPressed: () => onFocusPosition!(currentGpsPosition!),
                         ),
                       IconButton(
                         icon: const Icon(Icons.add_location, size: 20),
-                        tooltip: 'Position festlegen',
+                        tooltip: l10n.positionSelectorSetPosition,
                         onPressed: () => onPositionSelected(gpsLockedKey),
                       ),
                     ],
@@ -201,7 +203,7 @@ class PositionSelector extends StatelessWidget {
                 : (onFocusPosition != null && currentGpsPosition != null && hasGpsPosition)
                 ? IconButton(
                     icon: const Icon(Icons.my_location, size: 20),
-                    tooltip: 'Auf Karte anzeigen',
+                    tooltip: l10n.positionSelectorShowOnMap,
                     onPressed: () => onFocusPosition!(currentGpsPosition!),
                   )
                 : null,
@@ -214,7 +216,7 @@ class PositionSelector extends StatelessWidget {
             ListTile(
               selected: true,
               leading: Icon(Icons.radio_button_checked, color: Colors.blue),
-              title: Row(children: [const Text('gespeichert')]),
+              title: Row(children: [Text(l10n.positionSelectorSavedLower)]),
               subtitle: Text(
                 'Lat: ${lockedGpsPosition!.latitude.toStringAsFixed(6)}, '
                 'Lon: ${lockedGpsPosition!.longitude.toStringAsFixed(6)}',
@@ -226,12 +228,12 @@ class PositionSelector extends StatelessWidget {
                   if (onFocusPosition != null)
                     IconButton(
                       icon: const Icon(Icons.my_location, size: 20),
-                      tooltip: 'Auf Karte anzeigen',
+                      tooltip: l10n.positionSelectorShowOnMap,
                       onPressed: () => onFocusPosition!(lockedGpsPosition!),
                     ),
                   IconButton(
                     icon: const Icon(Icons.delete, size: 20),
-                    tooltip: 'Live-Tracking aktivieren',
+                    tooltip: l10n.positionSelectorEnableLiveTracking,
                     onPressed: () => onPositionSelected(gpsLiveKey),
                   ),
                 ],
@@ -251,14 +253,14 @@ class PositionSelector extends StatelessWidget {
                   : Icons.radio_button_unchecked,
               color: selectedPositionKey == mapTappedKey ? Colors.blue : null,
             ),
-            title: const Text('Position auf Karte wählen'),
+            title: Text(l10n.positionSelectorPickOnMap),
             subtitle: selectedPositionKey == mapTappedKey && mapTappedPosition != null
                 ? Text(
                     'Lat: ${mapTappedPosition!.latitude.toStringAsFixed(6)}, '
                     'Lon: ${mapTappedPosition!.longitude.toStringAsFixed(6)}',
                     style: const TextStyle(fontSize: 11),
                   )
-                : const Text('Tippe auf die Karte', style: TextStyle(fontSize: 11)),
+                : Text(l10n.positionSelectorTapOnMap, style: const TextStyle(fontSize: 11)),
             trailing: selectedPositionKey == mapTappedKey && mapTappedPosition != null
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
@@ -266,12 +268,12 @@ class PositionSelector extends StatelessWidget {
                       if (onFocusPosition != null)
                         IconButton(
                           icon: const Icon(Icons.my_location, size: 20),
-                          tooltip: 'Auf Karte anzeigen',
+                          tooltip: l10n.positionSelectorShowOnMap,
                           onPressed: () => onFocusPosition!(mapTappedPosition!),
                         ),
                       IconButton(
                         icon: const Icon(Icons.delete, size: 20),
-                        tooltip: 'Löschen',
+                        tooltip: l10n.positionSelectorDelete,
                         onPressed: () => onPositionSelected(null),
                       ),
                     ],
@@ -297,7 +299,7 @@ class PositionSelector extends StatelessWidget {
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Text(
-                'Messungen Ecken',
+                l10n.positionSelectorCornerMeasurements,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -358,9 +360,9 @@ class PositionSelector extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.orange, width: 1),
                           ),
-                          child: const Text(
-                            'Zentrum',
-                            style: TextStyle(
+                          child: Text(
+                            l10n.positionSelectorCenter,
+                            style: const TextStyle(
                               fontSize: 10,
                               color: Colors.orange,
                               fontWeight: FontWeight.bold,
@@ -383,7 +385,7 @@ class PositionSelector extends StatelessWidget {
                             if (onFocusPosition != null)
                               IconButton(
                                 icon: const Icon(Icons.my_location, size: 20),
-                                tooltip: 'Auf Karte anzeigen',
+                                tooltip: l10n.positionSelectorShowOnMap,
                                 onPressed: () => onFocusPosition!(coordinate),
                               ),
                             /*if (onOpenNavigation != null) ...[
@@ -416,7 +418,7 @@ class PositionSelector extends StatelessWidget {
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Text(
-                'Hilfspunkte',
+                l10n.positionSelectorSupportPoints,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -453,9 +455,9 @@ class PositionSelector extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.orange, width: 1),
                           ),
-                          child: const Text(
-                            'Zentrum',
-                            style: TextStyle(
+                          child: Text(
+                            l10n.positionSelectorCenter,
+                            style: const TextStyle(
                               fontSize: 10,
                               color: Colors.orange,
                               fontWeight: FontWeight.bold,
@@ -467,7 +469,7 @@ class PositionSelector extends StatelessWidget {
                   ),
                   subtitle: note.isNotEmpty
                       ? Text(note)
-                      : (isCenterPosition ? const Text('Als Zentrum gesetzt') : null),
+                      : (isCenterPosition ? Text(l10n.positionSelectorSetAsCenter) : null),
                   trailing: coordinate != null
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
@@ -475,18 +477,18 @@ class PositionSelector extends StatelessWidget {
                             if (onFocusPosition != null)
                               IconButton(
                                 icon: const Icon(Icons.my_location, size: 20),
-                                tooltip: 'Auf Karte anzeigen',
+                                tooltip: l10n.positionSelectorShowOnMap,
                                 onPressed: () => onFocusPosition!(coordinate),
                               ),
                             if (onOpenNavigation != null) ...[
                               IconButton(
                                 icon: const Icon(Icons.directions_car, size: 20),
-                                tooltip: 'Mit Auto navigieren',
+                                tooltip: l10n.positionSelectorNavigateByCar,
                                 onPressed: () => onOpenNavigation!(coordinate, 'd'),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.directions_walk, size: 20),
-                                tooltip: 'Zu Fuß navigieren',
+                                tooltip: l10n.positionSelectorNavigateOnFoot,
                                 onPressed: () => onOpenNavigation!(coordinate, 'w'),
                               ),
                             ],

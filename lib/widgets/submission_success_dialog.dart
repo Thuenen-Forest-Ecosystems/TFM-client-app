@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
@@ -155,34 +156,32 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
   }
 
   String get _stateTitle {
+    final l10n = AppLocalizations.of(context)!;
     switch (_transferState) {
       case _TransferState.delivered:
-        return 'Übermittelt und vom Server bestätigt';
+        return l10n.submissionSuccessDialogDeliveredTitle;
       case _TransferState.uploading:
-        return 'Gespeichert — wird übertragen …';
+        return l10n.submissionSuccessDialogUploadingTitle;
       case _TransferState.pendingOffline:
-        return 'Auf dem Gerät gespeichert';
+        return l10n.submissionSuccessDialogPendingOfflineTitle;
       case _TransferState.rejected:
-        return 'Übertragung nicht übernommen';
+        return l10n.submissionSuccessDialogRejectedTitle;
     }
   }
 
   String get _stateSubtitle {
+    final l10n = AppLocalizations.of(context)!;
     switch (_transferState) {
       case _TransferState.delivered:
-        return 'Die Aufnahme ist auf dem Server angekommen.';
+        return l10n.submissionSuccessDialogDeliveredSubtitle;
       case _TransferState.uploading:
         return _pendingUploads > 1
-            ? 'Noch $_pendingUploads Änderungen in der Warteschlange.'
-            : 'Die Übertragung läuft.';
+            ? l10n.submissionSuccessDialogUploadingQueue(_pendingUploads)
+            : l10n.submissionSuccessDialogUploadingSubtitle;
       case _TransferState.pendingOffline:
-        return 'Noch nicht übertragen — das geschieht automatisch, sobald wieder '
-            'eine Verbindung besteht. Bitte vor dem Abschluss des Feldtags '
-            'online gehen und den Sync-Status prüfen.';
+        return l10n.submissionSuccessDialogPendingOfflineSubtitle;
       case _TransferState.rejected:
-        return 'Der Server hat diese Änderung nicht übernommen. Die Daten sind '
-            'lokal gesichert und stehen unter „Sicherungen" im '
-            'Profil zur Wiederherstellung bereit.';
+        return l10n.submissionSuccessDialogRejectedSubtitle;
     }
   }
 
@@ -198,6 +197,7 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
       child: ConstrainedBox(
@@ -226,7 +226,10 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Trakt ${widget.submittedRecord.clusterName} · Ecke ${widget.submittedRecord.plotName}',
+                    l10n.submissionSuccessDialogTractCorner(
+                      '${widget.submittedRecord.clusterName}',
+                      '${widget.submittedRecord.plotName}',
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -250,7 +253,7 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Text(
-                  'Weitere Ecken in Trakt ${widget.submittedRecord.clusterName}:',
+                  l10n.submissionSuccessDialogOtherCorners('${widget.submittedRecord.clusterName}'),
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
@@ -272,15 +275,20 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
 
                     return ListTile(
                       title: Text(
-                        'Ecke ${record.plotName}',
+                        l10n.submissionSuccessDialogCorner('${record.plotName}'),
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                       subtitle: dateText.isNotEmpty
                           ? Text(
-                              isCompleted ? 'Abgeschlossen: $dateText' : 'Bearbeitet: $dateText',
+                              isCompleted
+                                  ? l10n.submissionSuccessDialogCompletedAt(dateText)
+                                  : l10n.submissionSuccessDialogEditedAt(dateText),
                               style: Theme.of(context).textTheme.bodySmall,
                             )
-                          : Text('Nicht bearbeitet', style: Theme.of(context).textTheme.bodySmall),
+                          : Text(
+                              l10n.submissionSuccessDialogNotEdited,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       onTap: () {
@@ -296,7 +304,7 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  'Keine weiteren Ecken in diesem Trakt.',
+                  l10n.submissionSuccessDialogNoOtherCorners,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
@@ -316,7 +324,7 @@ class _SubmissionSuccessDialogState extends State<SubmissionSuccessDialog> {
                         Navigator.of(context).pop(SubmissionSuccessResult(action: 'back'));
                       },
                       icon: const Icon(Icons.list),
-                      label: const Text('Zur Übersicht'),
+                      label: Text(l10n.submissionSuccessDialogBackToOverview),
                     ),
                   ),
                 ],

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/generic-form.dart';
 //import 'package:terrestrial_forest_monitor/services/utils.dart';
@@ -28,7 +29,10 @@ class ClusterInfoButton extends StatelessWidget {
   Future<void> _showClusterInfo(BuildContext context) async {
     if (record == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kein Datensatz verfügbar'), duration: Duration(seconds: 2)),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.clusterInfoNoRecord),
+          duration: const Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -38,9 +42,9 @@ class ClusterInfoButton extends StatelessWidget {
 
     if (clusterMap == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Keine Cluster-Informationen verfügbar'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.clusterInfoNoClusterInfo),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -66,7 +70,7 @@ class ClusterInfoButton extends StatelessWidget {
 
     return IconButton(
       icon: Icon(Icons.info_outline, color: iconColor, size: iconSize),
-      tooltip: tooltip ?? 'Cluster-Informationen anzeigen',
+      tooltip: tooltip ?? AppLocalizations.of(context)!.clusterInfoShowTooltip,
       onPressed: () => _showClusterInfo(context),
     );
   }
@@ -166,6 +170,7 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Dialog(
       child: Container(
@@ -187,10 +192,10 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Informationen', style: theme.textTheme.titleLarge),
+                        Text(l10n.clusterInfoTitle, style: theme.textTheme.titleLarge),
                         const SizedBox(height: 4),
                         Text(
-                          'Trakt: ${widget.clusterName} / Ecke: ${widget.record?.plotName ?? '-'}',
+                          l10n.clusterInfoClusterPlot(widget.clusterName, widget.record?.plotName ?? '-'),
                           style: theme.textTheme.bodyMedium,
                         ),
                         if (widget.record != null) ...[
@@ -203,7 +208,7 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
-                    tooltip: 'Schließen',
+                    tooltip: l10n.clusterInfoClose,
                   ),
                 ],
               ),
@@ -235,6 +240,7 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
       color: theme.colorScheme.onSurfaceVariant,
     );
     final valueStyle = theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500);
+    final l10n = AppLocalizations.of(context)!;
 
     Widget metaItem(String label, String? value) {
       return Column(
@@ -251,9 +257,9 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
       spacing: 16,
       runSpacing: 6,
       children: [
-        metaItem('Aktualisiert am', _formatDate(widget.record!.updatedAt)),
-        metaItem('Aktualisiert von', _updatedByName ?? '-'),
-        metaItem('Trupp', _troopName ?? (widget.record!.responsibleTroop != null ? '…' : '-')),
+        metaItem(l10n.clusterInfoUpdatedAt, _formatDate(widget.record!.updatedAt)),
+        metaItem(l10n.clusterInfoUpdatedBy, _updatedByName ?? '-'),
+        metaItem(l10n.clusterInfoTroop, _troopName ?? (widget.record!.responsibleTroop != null ? '…' : '-')),
       ],
     );
   }
@@ -306,12 +312,13 @@ class _ClusterInfoDialogState extends State<ClusterInfoDialog> {
 
   /// Format value for display
   String _formatValue(dynamic value) {
+    final l10n = AppLocalizations.of(context)!;
     if (value == null) return 'null';
     if (value is String) return value;
     if (value is num) return value.toString();
-    if (value is bool) return value ? 'Ja' : 'Nein';
-    if (value is List) return 'Liste (${value.length} Einträge)';
-    if (value is Map) return 'Objekt (${value.length} Felder)';
+    if (value is bool) return value ? l10n.clusterInfoYes : l10n.clusterInfoNo;
+    if (value is List) return l10n.clusterInfoListEntries(value.length);
+    if (value is Map) return l10n.clusterInfoObjectFields(value.length);
     return value.toString();
   }
 

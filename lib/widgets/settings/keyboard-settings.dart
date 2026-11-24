@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/floating_num_keyboard.dart';
 
 /// Settings card that lets the user choose between the system keyboard and the
@@ -29,11 +30,12 @@ class _KeyboardSettingsState extends State<KeyboardSettings> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (!_platformSupported) {
-      return const ListTile(
-        leading: Icon(Icons.keyboard_hide),
-        title: Text('Schwimmendes Nummernfeld'),
-        subtitle: Text('Nicht verfügbar auf dieser Plattform.'),
+      return ListTile(
+        leading: const Icon(Icons.keyboard_hide),
+        title: Text(l10n.keyboardSettingsFloatingNumpad),
+        subtitle: Text(l10n.keyboardSettingsNotAvailable),
         enabled: false,
       );
     }
@@ -43,9 +45,9 @@ class _KeyboardSettingsState extends State<KeyboardSettings> {
       children: [
         SwitchListTile(
           secondary: const Icon(Icons.dialpad),
-          title: const Text('Schwimmendes Nummernfeld'),
+          title: Text(l10n.keyboardSettingsFloatingNumpad),
           subtitle: Text(
-            _enabled ? 'Zahlentastatur bei Zahlenfeldern' : 'System-Tastatur bei Zahlenfeldern',
+            _enabled ? l10n.keyboardSettingsNumpadForNumbers : l10n.keyboardSettingsSystemKeyboardForNumbers,
           ),
           value: _enabled,
           onChanged: (value) async {

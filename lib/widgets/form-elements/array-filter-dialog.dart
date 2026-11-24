@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Filter rule configuration from layout
 class ArrayFilterRule {
@@ -104,13 +105,16 @@ class _ArrayFilterDialogState extends State<ArrayFilterDialog> {
         children: [
           Icon(Icons.filter_list, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          const Text('Ausblenden'),
+          Text(AppLocalizations.of(context)!.arrayFilterDialogTitle),
         ],
       ),
       content: SizedBox(
         width: 400,
         child: widget.filters.isEmpty
-            ? const Padding(padding: EdgeInsets.all(16.0), child: Text('Keine Filter verfügbar'))
+            ? Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(AppLocalizations.of(context)!.arrayFilterDialogNoFilters),
+              )
             : ListView.builder(
                 shrinkWrap: true,
                 itemCount: widget.filters.length,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Modal bottom sheet for map settings
 /// Allows user to toggle basemap layers (DTK25, OpenCycleMap, DOP/aerial imagery),
@@ -155,6 +156,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
@@ -162,7 +164,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Baumdarstellung', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.mapSettingsTreeDisplay, style: Theme.of(context).textTheme.titleMedium),
             Card.outlined(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -173,7 +175,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Durchmesser-Multiplikator: ${_treeDiameterMultiplier.toStringAsFixed(1)}x',
+                            l10n.mapSettingsDiameterMultiplier(_treeDiameterMultiplier.toStringAsFixed(1)),
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ),
@@ -194,7 +196,7 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     ),
                     const Divider(),
                     SwitchListTile(
-                      title: const Text('Beschriftungen anzeigen'),
+                      title: Text(l10n.mapSettingsShowLabels),
                       value: _showTreeLabels,
                       onChanged: (value) {
                         setState(() {
@@ -211,37 +213,37 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                           runSpacing: 8,
                           children: [
                             FilterChip(
-                              label: const Text('Baumnummer'),
+                              label: Text(l10n.mapSettingsTreeNumber),
                               selected: _treeLabelFields.contains('tree_number'),
                               onSelected: (value) => _toggleLabelField('tree_number', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
                             ),
                             FilterChip(
-                              label: const Text('BHD'),
+                              label: Text(l10n.mapSettingsDbh),
                               selected: _treeLabelFields.contains('dbh'),
                               onSelected: (value) => _toggleLabelField('dbh', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
                             ),
                             FilterChip(
-                              label: const Text('Baumart (Code)'),
+                              label: Text(l10n.mapSettingsSpeciesCode),
                               selected: _treeLabelFields.contains('tree_species_code'),
                               onSelected: (value) => _toggleLabelField('tree_species_code', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
                             ),
                             FilterChip(
-                              label: const Text('Baumart (Name)'),
+                              label: Text(l10n.mapSettingsSpeciesName),
                               selected: _treeLabelFields.contains('tree_species_name'),
                               onSelected: (value) => _toggleLabelField('tree_species_name', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
                             ),
                             FilterChip(
-                              label: const Text('Azimut'),
+                              label: Text(l10n.mapSettingsAzimuth),
                               selected: _treeLabelFields.contains('azimuth'),
                               onSelected: (value) => _toggleLabelField('azimuth', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
                             ),
                             FilterChip(
-                              label: const Text('Distanz'),
+                              label: Text(l10n.mapSettingsDistance),
                               selected: _treeLabelFields.contains('distance'),
                               onSelected: (value) => _toggleLabelField('distance', value),
                               selectedColor: Theme.of(context).colorScheme.primary,
@@ -258,14 +260,14 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('Ebenen', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(l10n.mapSettingsLayers, style: Theme.of(context).textTheme.titleMedium),
             ),
             Card.outlined(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CheckboxListTile(
-                    title: const Text('Ränder'),
+                    title: Text(l10n.mapSettingsEdges),
                     value: _showEdges,
                     onChanged: (value) {
                       setState(() => _showEdges = value ?? true);
@@ -273,8 +275,8 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     },
                   ),
                   CheckboxListTile(
-                    title: const Text('Grenzkreise'),
-                    subtitle: const Text('basierend auf BHD'),
+                    title: Text(l10n.mapSettingsBoundaryCircles),
+                    subtitle: Text(l10n.mapSettingsBoundaryCirclesSubtitle),
                     value: _showCrownCircles,
                     onChanged: (value) {
                       setState(() => _showCrownCircles = value ?? true);
@@ -282,8 +284,8 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     },
                   ),
                   CheckboxListTile(
-                    title: const Text('Trakt'),
-                    subtitle: const Text('Umrisse der Trakte'),
+                    title: Text(l10n.mapSettingsCluster),
+                    subtitle: Text(l10n.mapSettingsClusterSubtitle),
                     value: _showClusterPolygons,
                     onChanged: (value) {
                       setState(() => _showClusterPolygons = value ?? true);
@@ -291,8 +293,8 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     },
                   ),
                   CheckboxListTile(
-                    title: const Text('Probekreise'),
-                    subtitle: const Text('5 m · 10 m · 25 m Referenzkreise'),
+                    title: Text(l10n.mapSettingsSampleCircles),
+                    subtitle: Text(l10n.mapSettingsSampleCirclesSubtitle),
                     value: _showProbekreise,
                     onChanged: (value) {
                       setState(() => _showProbekreise = value ?? true);
@@ -300,8 +302,8 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     },
                   ),
                   CheckboxListTile(
-                    title: const Text('Verjüngungskreis'),
-                    subtitle: const Text('Aufnahmekreis der Verjüngung'),
+                    title: Text(l10n.mapSettingsRegenerationCircle),
+                    subtitle: Text(l10n.mapSettingsRegenerationCircleSubtitle),
                     value: _showVerjuengungskreis,
                     onChanged: (value) {
                       setState(() => _showVerjuengungskreis = value ?? true);
@@ -309,8 +311,8 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
                     },
                   ),
                   CheckboxListTile(
-                    title: const Text('Rettungspunkte'),
-                    subtitle: const Text('Nur in hohen Zoom-Stufen sichtbar'),
+                    title: Text(l10n.mapSettingsRescuePoints),
+                    subtitle: Text(l10n.mapSettingsRescuePointsSubtitle),
                     value: _showRettungspunkte,
                     onChanged: (value) {
                       setState(() => _showRettungspunkte = value ?? true);
@@ -321,26 +323,26 @@ class _MapSettingsModalState extends State<MapSettingsModal> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Basiskarten', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.mapSettingsBasemaps, style: Theme.of(context).textTheme.titleMedium),
             Card.outlined(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CheckboxListTile(
                     title: const Text('DTK25 (offline)'),
-                    subtitle: const Text('Topographische Karte des BKG'),
+                    subtitle: Text(l10n.mapSettingsDtk25Subtitle),
                     value: _selectedBasemaps.contains('dtk25'),
                     onChanged: (value) => _toggleBasemap('dtk25', value),
                   ),
                   CheckboxListTile(
                     title: const Text('OpenCycleMap'),
-                    subtitle: const Text('Online; offline nur bereits angesehene Gebiete'),
+                    subtitle: Text(l10n.mapSettingsOpenCycleMapSubtitle),
                     value: _selectedBasemaps.contains('opencycle'),
                     onChanged: (value) => _toggleBasemap('opencycle', value),
                   ),
                   CheckboxListTile(
-                    title: const Text('Luftbilder (offline)'),
-                    subtitle: const Text('nur höchste Zoomstufen'),
+                    title: Text(l10n.mapSettingsAerialImagery),
+                    subtitle: Text(l10n.mapSettingsAerialImagerySubtitle),
                     value: _selectedBasemaps.contains('dop'),
                     onChanged: (value) => _toggleBasemap('dop', value),
                   ),

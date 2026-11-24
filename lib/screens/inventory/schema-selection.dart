@@ -2,6 +2,7 @@ import 'dart:async';
 //import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:beamer/beamer.dart';
 import 'package:powersync/powersync.dart' hide Column;
@@ -91,7 +92,10 @@ class _SchemaSelectionState extends State<SchemaSelection> {
               children: [
                 Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                 const SizedBox(height: 16),
-                Text('Fehler: ${snapshot.error}', style: const TextStyle(fontSize: 16)),
+                Text(
+                  AppLocalizations.of(context)!.schemaSelectionError('${snapshot.error}'),
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
             ),
           );
@@ -169,15 +173,20 @@ class _EmptyStateWithProgress extends StatefulWidget {
 class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress>
     with SingleTickerProviderStateMixin {
   // add funny loading messages
-  List<String> loopLoadingMessage = [
-    "Bitte warten...",
-    "Es kann einen Moment dauern...",
-    "... es dauert nicht mehr lange...",
-    "Fast geschafft...",
-    "Noch ein bisschen Geduld...",
-    "Daten werden synchronisiert...",
-    "Fast fertig...",
-  ];
+  // Getter (not a field) so the messages follow the current locale; only
+  // read from build() and the mounted-guarded timer callback.
+  List<String> get loopLoadingMessage {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      l10n.schemaSelectionLoading1,
+      l10n.schemaSelectionLoading2,
+      l10n.schemaSelectionLoading3,
+      l10n.schemaSelectionLoading4,
+      l10n.schemaSelectionLoading5,
+      l10n.schemaSelectionLoading6,
+      l10n.schemaSelectionLoading7,
+    ];
+  }
 
   int _currentMessageIndex = 0;
   Timer? _messageTimer;
@@ -263,10 +272,13 @@ class _EmptyStateWithProgressState extends State<_EmptyStateWithProgress>
                 ] else ...[
                   Icon(Icons.folder_open, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  const Text('Keine Schemas verfügbar', style: TextStyle(fontSize: 12)),
+                  Text(
+                    AppLocalizations.of(context)!.schemaSelectionNoSchemas,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    'Bitte synchronisieren Sie die Daten',
+                    AppLocalizations.of(context)!.schemaSelectionPleaseSync,
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],

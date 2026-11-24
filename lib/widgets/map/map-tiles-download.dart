@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/services/map_tiles_download_runner.dart';
 import 'package:terrestrial_forest_monitor/services/map_tiles_download_service.dart';
@@ -103,6 +104,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
   }
 
   Future<void> _downloadMapTilesForBasemap(String basemapName) async {
+    final l10n = AppLocalizations.of(context)!;
     final records = await RecordsRepository().getAllRecordsUnfiltered();
     final regions = regionsForBasemap(
       basemapName,
@@ -110,7 +112,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
     );
 
     if (regions.isEmpty) {
-      _showMessage('Keine Aufnahmepunkte gefunden. Bitte laden Sie zuerst Daten.');
+      _showMessage(l10n.mapTilesDownloadNoRecords);
       return;
     }
 
@@ -119,6 +121,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Only allow download if nothing is currently downloading, not checking, and records exist
     final canStartDownload =
         _controller.activeBasemap == null && !_isCheckingTiles && _missingTilesCount == -1;
@@ -139,7 +142,10 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
           final isCompleted = hasCount && count.done >= count.total;
           final isPartial = hasCount && count.done > 0 && !isCompleted;
           final countText = hasCount
-              ? '${formatTileCount(count.done)} / ${formatTileCount(count.total)} Kacheln'
+              ? l10n.mapTilesDownloadTileProgress(
+                  formatTileCount(count.done),
+                  formatTileCount(count.total),
+                )
               : null;
 
           return Card(
@@ -184,7 +190,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                     IconButton(
                       icon: const Icon(Icons.cancel),
                       onPressed: _controller.cancel,
-                      tooltip: 'Abbrechen',
+                      tooltip: l10n.mapTilesDownloadCancel,
                     ),
                   ] else if (_isCheckingTiles) ...[
                     const SizedBox(height: 16),
@@ -194,28 +200,28 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(height: 4),
-                    Text('Prüfe Daten...', style: Theme.of(context).textTheme.bodySmall),
+                    Text(l10n.mapTilesDownloadChecking, style: Theme.of(context).textTheme.bodySmall),
                   ] else if (_checkError != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Fehler beim Laden',
+                      l10n.mapTilesDownloadLoadError,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red),
                     ),
                     TextButton(
                       onPressed: _checkMissingTiles,
-                      child: const Text('Erneut versuchen'),
+                      child: Text(l10n.mapTilesDownloadRetry),
                     ),
                   ] else if (_missingTilesCount == 0) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Keine Aufnahmepunkte vorhanden.\nBitte zuerst Daten synchronisieren.',
+                      l10n.mapTilesDownloadNoPoints,
                       style: Theme.of(context).textTheme.bodySmall,
                       textAlign: TextAlign.center,
                     ),
-                    TextButton(onPressed: _checkMissingTiles, child: const Text('Erneut prüfen')),
+                    TextButton(onPressed: _checkMissingTiles, child: Text(l10n.mapTilesDownloadRecheck)),
                   ] else if (isCompleted) ...[
                     const SizedBox(height: 16),
-                    const Text('Vollständig', style: TextStyle(color: Colors.green)),
+                    Text(l10n.mapTilesDownloadComplete, style: const TextStyle(color: Colors.green)),
                   ] else ...[
                     if (notice != null) ...[
                       const SizedBox(height: 8),
@@ -236,7 +242,7 @@ class _MapTilesDownloadState extends State<MapTilesDownload> {
                           : null,
                       child: Text(
                         isPartial || notice == mapTilesInterruptedNotice
-                            ? 'Fortsetzen'
+                            ? l10n.mapTilesDownloadResume
                             : 'Download',
                       ),
                     ),

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/log_service.dart';
 
 /// Service for managing HTTP/HTTPS proxy configuration
@@ -231,7 +232,12 @@ class ProxyService {
   }
 
   /// Test proxy connection
-  Future<ProxyTestResult> testProxyConnection(ProxyConfig config) async {
+  ///
+  /// [l10n] is used for the user-visible result messages.
+  Future<ProxyTestResult> testProxyConnection(
+    ProxyConfig config, {
+    required AppLocalizations l10n,
+  }) async {
     final client = HttpClient();
 
     try {
@@ -262,7 +268,7 @@ class ProxyService {
       final response = await request.close().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('Verbindung nach 10 Sekunden abgebrochen');
+          throw TimeoutException(l10n.proxyServiceTimeoutAfter10s);
         },
       );
 
@@ -289,13 +295,13 @@ class ProxyService {
             ).timeout(
               const Duration(seconds: 5),
               onTimeout: () {
-                throw TimeoutException('WebSocket-Verbindung Timeout');
+                throw TimeoutException(l10n.proxyServiceWebSocketTimeout);
               },
             );
 
         await ws.close();
         _logger.log('WebSocket test successful', level: LogLevel.info);
-        wsMessage = '\nWebSocket funktioniert';
+        wsMessage = '\n${l10n.proxyServiceWebSocketWorks}';
       } catch (wsError) {
         _logger.log('WebSocket test failed: $wsError', level: LogLevel.warning);
         wsMessage = '\nWebSocket: ${wsError.toString().split('\n').first}';
@@ -305,8 +311,8 @@ class ProxyService {
         success: success,
         statusCode: response.statusCode,
         message: success
-            ? 'HTTP-Verbindung erfolgreich (${response.statusCode})$wsMessage'
-            : 'Server antwortet mit Status ${response.statusCode}$wsMessage',
+            ? '${l10n.proxyServiceHttpSuccess(response.statusCode)}$wsMessage'
+            : '${l10n.proxyServiceServerStatus(response.statusCode)}$wsMessage',
       );
     } on SocketException catch (e) {
       final errorMsg = e.osError?.message ?? e.message;
@@ -318,15 +324,11 @@ class ProxyService {
 
       String userMessage;
       if (e.osError?.errorCode == 111 || errorMsg.contains('refused')) {
-        userMessage =
-            'Verbindung abgelehnt. Prüfen Sie:\n'
-            '• Läuft der Proxy auf $address:$port?\n'
-            '• Ist die Proxy-Adresse korrekt?\n'
-            '• Firewall-Einstellungen?';
+        userMessage = l10n.proxyServiceConnectionRefused(address, port);
       } else if (e.osError?.errorCode == 113 || errorMsg.contains('No route to host')) {
-        userMessage = 'Host nicht erreichbar: $address';
+        userMessage = l10n.proxyServiceHostUnreachable(address);
       } else {
-        userMessage = 'Netzwerkfehler: $errorMsg';
+        userMessage = l10n.proxyServiceNetworkError(errorMsg);
       }
 
       return ProxyTestResult(success: false, statusCode: null, message: userMessage);
@@ -336,7 +338,7 @@ class ProxyService {
       return ProxyTestResult(
         success: false,
         statusCode: null,
-        message: 'Zeitüberschreitung: ${e.message ?? "Keine Antwort nach 10 Sekunden"}',
+        message: l10n.proxyServiceTimeout(e.message ?? l10n.proxyServiceNoResponse10s),
       );
     } catch (e) {
       _logger.log('❌ Proxy test failed: $e', level: LogLevel.error);
@@ -344,7 +346,7 @@ class ProxyService {
       return ProxyTestResult(
         success: false,
         statusCode: null,
-        message: 'Unerwarteter Fehler: ${e.toString()}',
+        message: l10n.proxyServiceUnexpectedError(e.toString()),
       );
     } finally {
       client.close();

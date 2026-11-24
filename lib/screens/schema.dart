@@ -8,6 +8,7 @@ import 'package:terrestrial_forest_monitor/widgets/sync-status-button.dart';
 import 'package:beamer/beamer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:terrestrial_forest_monitor/providers/auth.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/widgets/version-control.dart';
 //import 'package:terrestrial_forest_monitor/widgets/diagnostic-button.dart';
@@ -66,6 +67,7 @@ class _SchemaState extends State<Schema> {
             itemBuilder: (context) {
               final user = Supabase.instance.client.auth.currentUser;
               final email = user?.email ?? '-';
+              final l10n = AppLocalizations.of(context)!;
 
               return [
                 PopupMenuItem(
@@ -79,10 +81,10 @@ class _SchemaState extends State<Schema> {
                   ),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
-                  key: Key('logoutMenuItem'),
+                PopupMenuItem(
+                  key: const Key('logoutMenuItem'),
                   value: 'logout',
-                  child: Row(children: [Text('Abmelden')]),
+                  child: Row(children: [Text(l10n.schemaLogout)]),
                 ),
               ];
             },

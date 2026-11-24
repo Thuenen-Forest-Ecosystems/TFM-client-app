@@ -162,5 +162,1233 @@
     "recordingReadOnlyGroup": "Read-only access: data cannot be saved.",
     "@recordingReadOnlyGroup": {
         "description": "Banner on the recording screen when a read-only group (Admin, nur Leserechte) opens a record"
-    }
+    },
+
+    "mapSettingsTreeDisplay": "Tree display",
+    "mapSettingsDiameterMultiplier": "Diameter multiplier: {value}x",
+    "@mapSettingsDiameterMultiplier": {
+      "placeholders": {
+        "value": {
+          "type": "String"
+        }
+      }
+    },
+    "mapSettingsShowLabels": "Show labels",
+    "mapSettingsTreeNumber": "Tree number",
+    "mapSettingsDbh": "DBH",
+    "mapSettingsSpeciesCode": "Tree species (code)",
+    "mapSettingsSpeciesName": "Tree species (name)",
+    "mapSettingsAzimuth": "Azimuth",
+    "mapSettingsDistance": "Distance",
+    "mapSettingsLayers": "Layers",
+    "mapSettingsEdges": "Stand edges",
+    "mapSettingsBoundaryCircles": "Boundary circles",
+    "mapSettingsBoundaryCirclesSubtitle": "based on DBH",
+    "mapSettingsCluster": "Tract",
+    "mapSettingsClusterSubtitle": "Tract outlines",
+    "mapSettingsSampleCircles": "Sample circles",
+    "mapSettingsSampleCirclesSubtitle": "5 m · 10 m · 25 m reference circles",
+    "mapSettingsRegenerationCircle": "Regeneration circle",
+    "mapSettingsRegenerationCircleSubtitle": "Sampling circle for regeneration",
+    "mapSettingsRescuePoints": "Emergency rescue points",
+    "mapSettingsRescuePointsSubtitle": "Only visible at high zoom levels",
+    "mapSettingsBasemaps": "Base maps",
+    "mapSettingsDtk25Subtitle": "Topographic map of the BKG",
+    "mapSettingsOpenCycleMapSubtitle": "Online; offline only for areas already viewed",
+    "mapSettingsAerialImagery": "Aerial imagery (offline)",
+    "mapSettingsAerialImagerySubtitle": "highest zoom levels only",
+    "mapAdminDeleteCache": "Delete cache",
+    "mapAdminDeleteConfirm": "Do you want to delete all tiles for \"{storeName}\"?",
+    "@mapAdminDeleteConfirm": {
+      "placeholders": {
+        "storeName": {
+          "type": "String"
+        }
+      }
+    },
+    "mapAdminCancel": "Cancel",
+    "mapAdminDelete": "Delete",
+    "mapAdminCacheDeleted": "Cache for \"{storeName}\" deleted",
+    "@mapAdminCacheDeleted": {
+      "placeholders": {
+        "storeName": {
+          "type": "String"
+        }
+      }
+    },
+    "mapAdminDeleteError": "Error while deleting: {error}",
+    "@mapAdminDeleteError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "mapAdminStoreAerial": "Aerial imagery (DOP)",
+    "mapAdminTileCount": "{count} tiles (~{size})",
+    "@mapAdminTileCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        },
+        "size": {
+          "type": "String"
+        }
+      }
+    },
+    "mapAdminNoCache": "No cache available",
+    "mapTilesDownloadNoRecords": "No survey points found. Please load data first.",
+    "mapTilesDownloadTileProgress": "{done} / {total} tiles",
+    "@mapTilesDownloadTileProgress": {
+      "placeholders": {
+        "done": {
+          "type": "String"
+        },
+        "total": {
+          "type": "String"
+        }
+      }
+    },
+    "mapTilesDownloadCancel": "Cancel",
+    "mapTilesDownloadChecking": "Checking data...",
+    "mapTilesDownloadLoadError": "Error while loading",
+    "mapTilesDownloadRetry": "Try again",
+    "mapTilesDownloadNoPoints": "No survey points available.\nPlease synchronize data first.",
+    "mapTilesDownloadRecheck": "Check again",
+    "mapTilesDownloadComplete": "Complete",
+    "mapTilesDownloadResume": "Resume",
+    "mainExitConfirmTitle": "Confirmation required",
+    "mainExitConfirmContent": "Do you really want to quit the application?",
+    "mainExitConfirmNo": "No",
+    "mainExitConfirmYes": "Yes",
+    "startConfirmGoBack": "Confirm going back",
+    "startLeaveRecording": "Leave survey",
+    "startChangesSaved": "Any changes have been saved automatically.",
+    "startCancel": "cancel",
+    "startToOverview": "To overview",
+    "loginSessionExpired": "Your session has expired. Please sign in again.",
+    "loginFailed": "Login failed",
+    "loginInvalidCredentials": "Invalid login credentials. Please check your email and password.",
+    "loginEmailNotConfirmed": "Email address has not been confirmed yet. Please check your inbox.",
+    "loginAuthError": "Sign-in error: {message}",
+    "@loginAuthError": {
+      "placeholders": {
+        "message": {
+          "type": "String"
+        }
+      }
+    },
+    "loginProxyError": "Proxy connection error: The configured proxy server cannot be reached.\n\nPlease check:\n• Your proxy settings via \"Network settings (proxy)\" below\n• Whether the proxy server is reachable\n• Your Windows system proxy settings\n\nTip: If you do not need a proxy, disable the proxy function in the network settings.",
+    "loginTimeoutError": "Connection timeout: The server could not be reached in time.\n\nPlease try:\n• A different internet connection (e.g. Wi-Fi instead of mobile data)\n• Again later\n• Contacting your network administrator if you are on a corporate or institutional network",
+    "loginCertificateError": "Connection error: Please check your internet connection and make sure that the date and time are set correctly.\n\nIf the problem persists, contact bwi-support@thuenen.de.",
+    "loginUnexpectedError": "An unexpected error occurred: {error}",
+    "@loginUnexpectedError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "loginOfflineFailed": "Offline sign-in failed",
+    "loginEmail": "Email",
+    "loginEmailRequired": "Please enter your email address",
+    "loginEmailInvalid": "Please enter a valid email address",
+    "loginPassword": "Password",
+    "loginPasswordRequired": "Please enter your password",
+    "loginPasswordTooShort": "The password must be at least 6 characters long",
+    "loginSubmit": "Sign in",
+    "loginOfflineMode": "Offline mode: No internet connection",
+    "loginNoInternet": "No internet connection",
+    "loginNoInternetFirstLogin": "Please connect to the internet to sign in for the first time.",
+    "loginForgotPassword": "Forgot password?",
+    "loginNetworkSettings": "Network settings (proxy)",
+    "schemaLogout": "Sign out",
+    "orderClusterByDistance": "Distance (GPS required)",
+    "orderClusterByUpdatedAt": "Modified on",
+    "orderClusterByClusterName": "Tract number",
+    "clusterInfoNoRecord": "No record available",
+    "clusterInfoNoClusterInfo": "No tract information available",
+    "clusterInfoShowTooltip": "Show tract information",
+    "clusterInfoTitle": "Information",
+    "clusterInfoClusterPlot": "Tract: {clusterName} / Corner: {plotName}",
+    "@clusterInfoClusterPlot": {
+      "placeholders": {
+        "clusterName": {
+          "type": "String"
+        },
+        "plotName": {
+          "type": "String"
+        }
+      }
+    },
+    "clusterInfoClose": "Close",
+    "clusterInfoUpdatedAt": "Updated on",
+    "clusterInfoUpdatedBy": "Updated by",
+    "clusterInfoTroop": "Crew",
+    "clusterInfoYes": "Yes",
+    "clusterInfoNo": "No",
+    "clusterInfoListEntries": "List ({count} entries)",
+    "@clusterInfoListEntries": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "clusterInfoObjectFields": "Object ({count} fields)",
+    "@clusterInfoObjectFields": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "recordsSelectionSearchCluster": "Search tract number...",
+    "recordsSelectionTitle": "Plot corners",
+    "recordsSelectionNoneAssigned": "No plot corner has been assigned to you yet.",
+    "schemaSelectionError": "Error: {error}",
+    "@schemaSelectionError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "schemaSelectionLoading1": "Please wait...",
+    "schemaSelectionLoading2": "This may take a moment...",
+    "schemaSelectionLoading3": "... not much longer now...",
+    "schemaSelectionLoading4": "Almost there...",
+    "schemaSelectionLoading5": "Just a little more patience...",
+    "schemaSelectionLoading6": "Synchronizing data...",
+    "schemaSelectionLoading7": "Nearly done...",
+    "schemaSelectionNoSchemas": "No schemas available",
+    "schemaSelectionPleaseSync": "Please synchronize the data",
+    "loggerTitle": "Application logs",
+    "loggerAddTestLog": "Add test log",
+    "loggerFilter": "Filter",
+    "loggerFilterAll": "All logs",
+    "loggerFilterInfo": "Info & higher",
+    "loggerFilterWarning": "Warnings & errors",
+    "loggerFilterError": "Errors only",
+    "loggerAutoScrollOn": "Auto-scroll on",
+    "loggerAutoScrollOff": "Auto-scroll off",
+    "loggerCopyAll": "Copy all logs",
+    "loggerCopiedAll": "Logs copied to clipboard",
+    "loggerClear": "Clear logs",
+    "loggerClearTitle": "Clear logs?",
+    "loggerClearConfirm": "Do you really want to delete all logs?",
+    "loggerCancel": "Cancel",
+    "loggerDelete": "Delete",
+    "loggerEntryCount": "{count} entries",
+    "@loggerEntryCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "loggerFilterLabel": "Filter: {level}",
+    "@loggerFilterLabel": {
+      "placeholders": {
+        "level": {
+          "type": "String"
+        }
+      }
+    },
+    "loggerEmpty": "No logs available",
+    "loggerCopiedEntry": "Log entry copied",
+    "recordsRawColCluster": "Tract",
+    "recordsRawColPlot": "Corner",
+    "recordsRawColValidatedBy": "Validated with schema",
+    "recordsRawColValid": "Valid",
+    "recordsRawColPlotId": "Corner ID",
+    "recordsRawColClusterId": "Tract ID",
+    "recordsRawColAdministration": "Administration",
+    "recordsRawColProvider": "Provider",
+    "recordsRawColState": "Federal state",
+    "recordsRawColTroop": "Team",
+    "recordsRawColUpdatedAt": "Updated",
+    "recordsRawColLocalUpdatedAt": "Updated locally",
+    "recordsRawColCompletedState": "Completed (federal state)",
+    "recordsRawColCompletedTroop": "Completed (team)",
+    "recordsRawColCompletedAdministration": "Completed (administration)",
+    "recordsRawColToBeRecorded": "To be recorded",
+    "recordsRawColNote": "Note",
+    "recordsRawColProperties": "Properties (JSON)",
+    "recordsRawColPreviousProperties": "Previous properties (JSON)",
+    "recordsRawColPreviousPosition": "Previous position (JSON)",
+    "recordsRawTitle": "Raw data - records",
+    "recordsRawRefresh": "Refresh",
+    "recordsRawTotal": "Total: {count} records",
+    "@recordsRawTotal": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "recordsRawPageOf": "Page {page} of {total}",
+    "@recordsRawPageOf": {
+      "placeholders": {
+        "page": {
+          "type": "int"
+        },
+        "total": {
+          "type": "int"
+        }
+      }
+    },
+    "recordsRawLoadError": "Error loading records: {error}",
+    "@recordsRawLoadError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "recordsRawRetry": "Try again",
+    "recordsRawEmpty": "No records found",
+    "recordsRawFirstPage": "First page",
+    "recordsRawPreviousPage": "Previous page",
+    "recordsRawNextPage": "Next page",
+    "recordsRawLastPage": "Last page",
+    "syncedTablesReload": "Reload",
+    "syncedTablesError": "Error: {error}",
+    "@syncedTablesError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "syncedTablesRetry": "Retry",
+    "syncedTablesEmpty": "No tables found.",
+    "uploadFailuresRestoreTitle": "Restore upload?",
+    "uploadFailuresRestoreContent": "The saved state of {title} will be applied locally (overwriting the current local state of this record) and uploaded again with the next sync.\n\nIf the upload fails again, the entry will reappear in this list.",
+    "@uploadFailuresRestoreContent": {
+      "placeholders": {
+        "title": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresCancel": "Cancel",
+    "uploadFailuresRestore": "Restore",
+    "uploadFailuresRestoredSnack": "Restored — will be uploaded again with the next sync.",
+    "uploadFailuresRestoreFailed": "Restore failed: {error}",
+    "@uploadFailuresRestoreFailed": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresRestoreAllTitle": "Restore all {count} entries?",
+    "@uploadFailuresRestoreAllTitle": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresRestoreAllContent": "All saved states will be applied locally (oldest first) and uploaded again with the next sync. The current local state of the affected records will be overwritten.",
+    "uploadFailuresRestoreAll": "Restore all",
+    "uploadFailuresRestoreAllSuccess": "All entries restored — upload will follow with the next sync.",
+    "uploadFailuresRestoreAllErrors": "{count} entries could not be applied:\n{errors}",
+    "@uploadFailuresRestoreAllErrors": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        },
+        "errors": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresDiscardTitle": "Permanently discard entry?",
+    "uploadFailuresDiscardContent": "The saved data of {title} will be deleted and can no longer be restored afterwards.",
+    "@uploadFailuresDiscardContent": {
+      "placeholders": {
+        "title": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresDiscard": "Discard",
+    "uploadFailuresDeleteFailed": "Delete failed: {error}",
+    "@uploadFailuresDeleteFailed": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresTractTitle": "Tract {cluster} / {plot}",
+    "@uploadFailuresTractTitle": {
+      "placeholders": {
+        "cluster": {
+          "type": "String"
+        },
+        "plot": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresReasonIgnored": "Ignored by the server (no write permission for this record)",
+    "uploadFailuresReasonRejected": "Rejected by the server",
+    "uploadFailuresReasonUnattempted": "Not attempted (a previous upload of the same transfer was rejected)",
+    "uploadFailuresReasonUnknown": "Unknown",
+    "uploadFailuresTitle": "Backups",
+    "uploadFailuresActiveDbTab": "Active DB",
+    "uploadFailuresActiveDbTabCount": "Active DB ({count})",
+    "@uploadFailuresActiveDbTabCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresActiveDatabase": "Active database",
+    "uploadFailuresNotAppliedSuffix": " · {count} not applied",
+    "@uploadFailuresNotAppliedSuffix": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresQuarantineExplanation": "The server did not accept these changes. The data is saved locally and can be transferred again.",
+    "uploadFailuresAllAccepted": "All uploads of this database were accepted by the server.",
+    "uploadFailuresRestoreAllCount": "Restore all {count}",
+    "@uploadFailuresRestoreAllCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresEmpty": "No entries — all uploads were accepted.",
+    "uploadFailuresRecoverTitle": "Restore record?",
+    "uploadFailuresRecoverContent": "The state of {title} from \"{fileName}\" will be copied into the active database (overwriting the state there) and uploaded with the next sync.\n\nIf the server rejects the upload, it will appear in the \"Active DB\" tab. The source file remains unchanged.",
+    "@uploadFailuresRecoverContent": {
+      "placeholders": {
+        "title": {
+          "type": "String"
+        },
+        "fileName": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresRecoveredSnack": "Copied into the active database — upload will follow with the next sync.",
+    "uploadFailuresRecordNotFound": "Record no longer found in \"{fileName}\".",
+    "@uploadFailuresRecordNotFound": {
+      "placeholders": {
+        "fileName": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresRecoverAllTitle": "Restore {count} records that were never uploaded?",
+    "@uploadFailuresRecoverAllTitle": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresRecoverAllContent": "All records with changes that were never uploaded will be copied into the active database (overwriting the state there) and uploaded with the next sync.",
+    "uploadFailuresRecoverAllSuccess": "{count} records copied — upload will follow with the next sync.",
+    "@uploadFailuresRecoverAllSuccess": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresRecoverAllPartial": "{recovered} copied, {failed} failed:\n{errors}",
+    "@uploadFailuresRecoverAllPartial": {
+      "placeholders": {
+        "recovered": {
+          "type": "int"
+        },
+        "failed": {
+          "type": "int"
+        },
+        "errors": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresTractLabel": "Tract {title}",
+    "@uploadFailuresTractLabel": {
+      "placeholders": {
+        "title": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresReadError": "Error reading \"{fileName}\": {error}",
+    "@uploadFailuresReadError": {
+      "placeholders": {
+        "fileName": {
+          "type": "String"
+        },
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "uploadFailuresFileSummary": "{fileName} · {count} records",
+    "@uploadFailuresFileSummary": {
+      "placeholders": {
+        "fileName": {
+          "type": "String"
+        },
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresNeverUploadedSuffix": " · {count} never uploaded",
+    "@uploadFailuresNeverUploadedSuffix": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "uploadFailuresPendingExplanation": "Records marked \"Not uploaded\" exist ONLY in this file — the server never received them.",
+    "uploadFailuresAllUploadedExplanation": "All records in this file have also been uploaded to the server or originate from it.",
+    "uploadFailuresReload": "Reload",
+    "uploadFailuresNoRecords": "No records in this file.",
+    "uploadFailuresNotUploaded": "Not uploaded",
+    "diagnosticExportDialogTitle": "Save diagnostic data",
+    "diagnosticExportSaved": "Saved: {path}",
+    "@diagnosticExportSaved": {
+      "placeholders": {
+        "path": {
+          "type": "String"
+        }
+      }
+    },
+    "diagnosticExportError": "Error while saving: {error}",
+    "@diagnosticExportError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "diagnosticExportTooltip": "Save diagnostic data as JSON",
+    "playgroundModeButtonExit": "Exit playground mode",
+    "playgroundModeButtonLabel": "Playground",
+    "playgroundModeButtonActivate": "Activate playground mode (saving not possible)",
+    "recordsExportDialogTitle": "Save records",
+    "recordsExportSaved": "{count} records saved:\n{path}",
+    "@recordsExportSaved": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        },
+        "path": {
+          "type": "String"
+        }
+      }
+    },
+    "recordsExportError": "Error while exporting: {error}",
+    "@recordsExportError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "recordsExportTooltip": "Export all records as JSON",
+    "recordCardNotAccessible": "Not accessible",
+    "recordCardNever": "Never",
+    "recordCardTitle": "Tract: {cluster} | Corner: {plot}",
+    "@recordCardTitle": {
+      "placeholders": {
+        "cluster": {
+          "type": "String"
+        },
+        "plot": {
+          "type": "String"
+        }
+      }
+    },
+    "submissionSuccessDialogDeliveredTitle": "Submitted and confirmed by the server",
+    "submissionSuccessDialogUploadingTitle": "Saved — uploading …",
+    "submissionSuccessDialogPendingOfflineTitle": "Saved on the device",
+    "submissionSuccessDialogRejectedTitle": "Transfer not accepted",
+    "submissionSuccessDialogDeliveredSubtitle": "The recording has arrived on the server.",
+    "submissionSuccessDialogUploadingQueue": "{count} changes still in the queue.",
+    "@submissionSuccessDialogUploadingQueue": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "submissionSuccessDialogUploadingSubtitle": "The transfer is in progress.",
+    "submissionSuccessDialogPendingOfflineSubtitle": "Not yet transferred — this happens automatically as soon as a connection is available again. Please go online and check the sync status before finishing the field day.",
+    "submissionSuccessDialogRejectedSubtitle": "The server did not accept this change. The data is saved locally and can be restored under \"Backups\" in the profile.",
+    "submissionSuccessDialogTractCorner": "Tract {cluster} · Corner {plot}",
+    "@submissionSuccessDialogTractCorner": {
+      "placeholders": {
+        "cluster": {
+          "type": "String"
+        },
+        "plot": {
+          "type": "String"
+        }
+      }
+    },
+    "submissionSuccessDialogOtherCorners": "Other corners in tract {cluster}:",
+    "@submissionSuccessDialogOtherCorners": {
+      "placeholders": {
+        "cluster": {
+          "type": "String"
+        }
+      }
+    },
+    "submissionSuccessDialogCorner": "Corner {plot}",
+    "@submissionSuccessDialogCorner": {
+      "placeholders": {
+        "plot": {
+          "type": "String"
+        }
+      }
+    },
+    "submissionSuccessDialogCompletedAt": "Completed: {date}",
+    "@submissionSuccessDialogCompletedAt": {
+      "placeholders": {
+        "date": {
+          "type": "String"
+        }
+      }
+    },
+    "submissionSuccessDialogEditedAt": "Edited: {date}",
+    "@submissionSuccessDialogEditedAt": {
+      "placeholders": {
+        "date": {
+          "type": "String"
+        }
+      }
+    },
+    "submissionSuccessDialogNotEdited": "Not edited",
+    "submissionSuccessDialogNoOtherCorners": "No other corners in this tract.",
+    "submissionSuccessDialogBackToOverview": "Back to overview",
+    "syncStatusButtonLastSync": "Last sync",
+    "syncStatusButtonNever": "Never",
+    "syncStatusButtonCertificateHint": "Have you already run the \"Install SSL Certificates\" application? If not, please find the application and run it.",
+    "syncStatusButtonQueue": "Queue",
+    "syncStatusButtonPending": "{count} pending",
+    "@syncStatusButtonPending": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "syncStatusButtonUploadFailures": "⚠ {count} upload(s) not accepted by the server",
+    "@syncStatusButtonUploadFailures": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "syncStatusButtonUploadFailuresHint": "The data is saved locally (upload_failures). Please create a diagnostic export and send it to support.",
+    "syncStatusButtonAndMore": "… and {count} more",
+    "@syncStatusButtonAndMore": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "syncStatusButtonNotSynced": "Not synced",
+    "syncStatusButtonRecordCount": "{count} records",
+    "@syncStatusButtonRecordCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "syncStatusButtonServerSql": "Server diagnostic SQL:",
+    "syncStatusButtonCopySql": "Copy SQL",
+    "syncStatusButtonSqlCopied": "SQL copied to clipboard",
+    "syncStatusButtonRecordRow": "{cluster} / {plot}\nLocal: {localTs}  •  Server: {serverTs}",
+    "@syncStatusButtonRecordRow": {
+      "placeholders": {
+        "cluster": {
+          "type": "String"
+        },
+        "plot": {
+          "type": "String"
+        },
+        "localTs": {
+          "type": "String"
+        },
+        "serverTs": {
+          "type": "String"
+        }
+      }
+    },
+    "densitySettingsCompactTable": "Compact table mode",
+    "densitySettingsReducedRowHeight": "Reduced row height (for stylus/tablet)",
+    "densitySettingsStandardRowHeight": "Standard row height",
+    "keyboardSettingsFloatingNumpad": "Floating number pad",
+    "keyboardSettingsNotAvailable": "Not available on this platform.",
+    "keyboardSettingsNumpadForNumbers": "Number pad for numeric fields",
+    "keyboardSettingsSystemKeyboardForNumbers": "System keyboard for numeric fields",
+    "profileLogoutUnsyncedWarning": "There is data on this device that has not been uploaded yet!",
+    "profileLogoutPendingUploads": "• {count} change(s) waiting to be uploaded",
+    "@profileLogoutPendingUploads": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "profileLogoutQuarantined": "• {count} saved entry/entries under \"Backups\"",
+    "@profileLogoutQuarantined": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "profileLogoutDataLostHint": "This data will then be irretrievably lost. Please synchronize first — or create a backup.",
+    "profileBackupsWithCount": "Backups ({count})",
+    "@profileBackupsWithCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "profileBackups": "Backups",
+    "profileBackupsSubtitle": "Restore data that has not been uploaded",
+    "propertiesEditNoSchemaFound": "No schema found for: {intervalName}",
+    "@propertiesEditNoSchemaFound": {
+      "placeholders": {
+        "intervalName": {
+          "type": "String"
+        }
+      }
+    },
+    "propertiesEditControlTroopStyleMissing": "Control troop requires the style_control schema, but it is not available",
+    "propertiesEditSchemaLoadError": "Error loading the schema: {error}",
+    "@propertiesEditSchemaLoadError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "propertiesEditNewRecordNotAllowed": "New records cannot be created here.",
+    "propertiesEditPlaygroundNoSave": "🧪 Playground mode active – saving not possible.",
+    "propertiesEditAdminViewNoSave": "Admin view – saving not possible.",
+    "propertiesEditSaveError": "Error saving: {error}",
+    "@propertiesEditSaveError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "propertiesEditInformation": "Information",
+    "propertiesEditCluster": "Tract: {cluster}",
+    "@propertiesEditCluster": {
+      "placeholders": {
+        "cluster": {
+          "type": "String"
+        }
+      }
+    },
+    "propertiesEditPlot": "Corner: {plot}",
+    "@propertiesEditPlot": {
+      "placeholders": {
+        "plot": {
+          "type": "String"
+        }
+      }
+    },
+    "propertiesEditDone": "DONE",
+    "proxyServiceTimeoutAfter10s": "Connection aborted after 10 seconds",
+    "proxyServiceWebSocketTimeout": "WebSocket connection timeout",
+    "proxyServiceWebSocketWorks": "WebSocket is working",
+    "proxyServiceHttpSuccess": "HTTP connection successful ({statusCode})",
+    "@proxyServiceHttpSuccess": {
+      "placeholders": {
+        "statusCode": {
+          "type": "int"
+        }
+      }
+    },
+    "proxyServiceServerStatus": "Server responded with status {statusCode}",
+    "@proxyServiceServerStatus": {
+      "placeholders": {
+        "statusCode": {
+          "type": "int"
+        }
+      }
+    },
+    "proxyServiceConnectionRefused": "Connection refused. Please check:\n• Is the proxy running on {address}:{port}?\n• Is the proxy address correct?\n• Firewall settings?",
+    "@proxyServiceConnectionRefused": {
+      "placeholders": {
+        "address": {
+          "type": "String"
+        },
+        "port": {
+          "type": "int"
+        }
+      }
+    },
+    "proxyServiceHostUnreachable": "Host unreachable: {address}",
+    "@proxyServiceHostUnreachable": {
+      "placeholders": {
+        "address": {
+          "type": "String"
+        }
+      }
+    },
+    "proxyServiceNetworkError": "Network error: {error}",
+    "@proxyServiceNetworkError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "proxyServiceTimeout": "Timeout: {message}",
+    "@proxyServiceTimeout": {
+      "placeholders": {
+        "message": {
+          "type": "String"
+        }
+      }
+    },
+    "proxyServiceNoResponse10s": "No response after 10 seconds",
+    "proxyServiceUnexpectedError": "Unexpected error: {error}",
+    "@proxyServiceUnexpectedError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "proxySettingsLoadError": "Error loading settings: {error}",
+    "@proxySettingsLoadError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "proxySettingsSaved": "Proxy settings saved",
+    "proxySettingsSaveError": "Error saving: {error}",
+    "@proxySettingsSaveError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "proxySettingsProxyDisabled": "Proxy is disabled",
+    "proxySettingsTestFailed": "Test failed: {error}",
+    "@proxySettingsTestFailed": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "proxySettingsRestartTitle": "Restart required",
+    "proxySettingsRestartContent": "The proxy settings will take effect the next time the application starts.\n\nDo you want to close the application now?",
+    "proxySettingsRestartLater": "Later",
+    "proxySettingsCloseApp": "Close application",
+    "proxySettingsEnable": "Enable proxy",
+    "proxySettingsEnableSubtitle": "Connect via proxy server",
+    "proxySettingsUseSystemProxy": "Use system proxy",
+    "proxySettingsUseSystemProxySubtitle": "Uses the Windows proxy settings (RECOMMENDED - supports WebSocket)",
+    "proxySettingsManualConfig": "Manual configuration",
+    "proxySettingsManualConfigDeprecated": "Deprecated: should no longer be used.",
+    "proxySettingsProxyServer": "Proxy server",
+    "proxySettingsHostLabel": "Host/IP address",
+    "proxySettingsHostHint": "e.g. proxy.example.com or 192.168.1.1",
+    "proxySettingsHostRequired": "Please enter a host address",
+    "proxySettingsPortLabel": "Port",
+    "proxySettingsPortHint": "e.g. 8080, 3128",
+    "proxySettingsPortRequired": "Please enter a port",
+    "proxySettingsPortInvalid": "Invalid port (1-65535)",
+    "proxySettingsAuthTitle": "Authentication (optional)",
+    "proxySettingsAuthHint": "Only required if the proxy server asks for a username and password.",
+    "proxySettingsUsername": "Username",
+    "proxySettingsPassword": "Password",
+    "proxySettingsTesting": "Testing connection...",
+    "proxySettingsTestConnection": "Test connection",
+    "proxySettingsNotes": "Notes",
+    "proxySettingsNotesBody": "• For state data networks: enable \"Use system proxy\"\n• The Windows proxy settings are detected automatically\n• Environment variables (HTTP_PROXY, HTTPS_PROXY) are supported",
+    "proxySettingsNotesRestart": "• A restart of the application is required after saving",
+    "proxySettingsSave": "Save settings",
+    "themeSettingsLight": "Light",
+    "themeSettingsDark": "Dark",
+    "themeSettingsSystem": "System",
+    "themeSettingsLightSubtitle": "High contrast for bright days",
+    "themeSettingsDarkSubtitle": "Energy-saving mode for shady surroundings",
+    "themeSettingsSystemSubtitle": "Follow system setting",
+    "validationErrorsDialogAllErrorsNeedNote": "All errors must be acknowledged with a note ({count} remaining)",
+    "@validationErrorsDialogAllErrorsNeedNote": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "validationErrorsDialogGroupCorner": "Plot corner",
+    "validationErrorsDialogGroupPosition": "Position",
+    "validationErrorsDialogGroupEdges": "Edges",
+    "validationErrorsDialogGroupStructureLt4m": "Structure < 4m",
+    "validationErrorsDialogGroupStructureGt4m": "Structure > 4m",
+    "validationErrorsDialogGroupStocking": "Stocking",
+    "validationErrorsDialogGroupRegeneration": "Regeneration",
+    "validationErrorsDialogGroupDeadwood": "Deadwood",
+    "validationErrorsDialogPlausibilityUnavailable": "The plausibility check could not be run (temporary technical problem). The plot corner can still be completed and submitted.",
+    "validationErrorsDialogTitle": "Check results",
+    "validationErrorsDialogNoIssues": "No errors or warnings found.",
+    "validationErrorsDialogErrorCount": "{count} errors",
+    "@validationErrorsDialogErrorCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "validationErrorsDialogWarningCount": "{count} warnings",
+    "@validationErrorsDialogWarningCount": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "validationErrorsDialogNote": "Note: {note}",
+    "@validationErrorsDialogNote": {
+      "placeholders": {
+        "note": {
+          "type": "String"
+        }
+      }
+    },
+    "validationErrorsDialogObject": "Object: {object}",
+    "@validationErrorsDialogObject": {
+      "placeholders": {
+        "object": {
+          "type": "String"
+        }
+      }
+    },
+    "validationErrorsDialogPath": "Path: {path}",
+    "@validationErrorsDialogPath": {
+      "placeholders": {
+        "path": {
+          "type": "String"
+        }
+      }
+    },
+    "validationErrorsDialogAddNoteRequired": "Add note (required for errors)*",
+    "validationErrorsDialogAddNoteOptional": "Add note (optional)",
+    "validationErrorsDialogNoteLabel": "Note",
+    "validationErrorsDialogNoteRequired": "Note required",
+    "validationErrorsDialogSubmit": "SUBMIT TO STATE INVENTORY MANAGEMENT",
+    "validationErrorsDialogFixOrComment": "Fix or comment on {count} errors",
+    "@validationErrorsDialogFixOrComment": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+    "serialPortGpsCancel": "Cancel",
+    "bluetoothIconClassicScanFailed": "Search for Bluetooth Classic devices failed: {error}",
+    "@bluetoothIconClassicScanFailed": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "bluetoothIconPairingFailedTitle": "Pairing failed",
+    "bluetoothIconPairingFailedHint": "Device \"{label}\" could not be paired.\n\nPlease check that the device is switched on and discoverable, and confirm the pairing request on both devices.",
+    "@bluetoothIconPairingFailedHint": {
+      "placeholders": {
+        "label": {
+          "type": "String"
+        }
+      }
+    },
+    "bluetoothIconPairingFailedError": "Device \"{label}\" could not be paired.\n\n{error}",
+    "@bluetoothIconPairingFailedError": {
+      "placeholders": {
+        "label": {
+          "type": "String"
+        },
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "bluetoothIconAvailableDevices": "Available GNSS devices",
+    "bluetoothIconNotPairedTooltip": "Not paired yet – pairing starts when tapped",
+    "bluetoothIconPaired": "paired",
+    "positionSelectorNavigateByCar": "Navigate by car",
+    "positionSelectorNavigateOnFoot": "Navigate on foot",
+    "positionSelectorShowOnMap": "Show on map",
+    "positionSelectorMapPosition": "Map position",
+    "positionSelectorCurrentGpsPosition": "Current GPS position",
+    "positionSelectorSaved": "Saved",
+    "positionSelectorGpsPosition": "GPS position",
+    "positionSelectorNoGpsData": "No GPS data available",
+    "positionSelectorSetPosition": "Set position",
+    "positionSelectorSavedLower": "saved",
+    "positionSelectorEnableLiveTracking": "Enable live tracking",
+    "positionSelectorPickOnMap": "Select position on map",
+    "positionSelectorTapOnMap": "Tap on the map",
+    "positionSelectorDelete": "Delete",
+    "positionSelectorCornerMeasurements": "Corner measurements",
+    "positionSelectorCenter": "Center",
+    "positionSelectorSupportPoints": "Support points",
+    "positionSelectorSetAsCenter": "Set as center",
+    "manuellRelativePositionInvalidValues": "Please enter valid values for azimuth and distance",
+    "manuellRelativePositionAzimuthRange": "Azimuth must be between 0 and 400 gon",
+    "manuellRelativePositionNothingToFocus": "No {label} available to focus on",
+    "@manuellRelativePositionNothingToFocus": {
+      "placeholders": {
+        "label": {
+          "type": "String"
+        }
+      }
+    },
+    "manuellRelativePositionSelectedPosition": "Selected position",
+    "manuellRelativePositionGpsPosition": "GPS position",
+    "manuellRelativePositionStartPosition": "Start position: {label}",
+    "@manuellRelativePositionStartPosition": {
+      "placeholders": {
+        "label": {
+          "type": "String"
+        }
+      }
+    },
+    "manuellRelativePositionNoData": "No data",
+    "manuellRelativePositionPosition": "position",
+    "manuellRelativePositionDestination": "Target position",
+    "manuellRelativePositionSetDestination": "Set target",
+    "manuellRelativePositionAzimuth": "Azimuth",
+    "manuellRelativePositionDistance": "Distance",
+    "manuellRelativePositionAzimuthGon": "Azimuth (gon)",
+    "manuellRelativePositionDistanceMeters": "Distance (m)",
+    "manuellRelativePositionMetersHint": "Meters",
+    "manuellRelativePositionAfterStep": "position after step {step}",
+    "@manuellRelativePositionAfterStep": {
+      "placeholders": {
+        "step": {
+          "type": "int"
+        }
+      }
+    },
+    "recordPositionQualityGood": "good",
+    "recordPositionQualityOk": "suitable",
+    "recordPositionQualityNotAcceptable": "not suitable",
+    "recordPositionLastGpsInfo": "Last measured GPS information",
+    "recordPositionConnection": "Connection",
+    "recordPositionUnknown": "Unknown",
+    "recordPositionSerial": "Serial: {port}",
+    "@recordPositionSerial": {
+      "placeholders": {
+        "port": {
+          "type": "String"
+        }
+      }
+    },
+    "recordPositionInternalGps": "Internal GPS",
+    "recordPositionNoConnection": "No connection",
+    "recordPositionTimestamp": "Time",
+    "recordPositionCorrectionSignal": "Correction signal",
+    "recordPositionCorrectionSignalAge": "Correction signal age",
+    "recordPositionSatellites": "Satellites",
+    "recordPositionAltitude": "Altitude",
+    "recordPositionNoGpsData": "No GPS data available",
+    "recordPositionSavedMeasurement": "Saved measurement",
+    "recordPositionMeasurements": "Measurements",
+    "recordPositionSatellitesAvg": "Satellites (avg)",
+    "recordPositionCurrentMeasurement": "Current measurement",
+    "recordPositionStopMeasurement": "Stop measurement",
+    "recordPositionCompleted": "Completed: {count} positions recorded",
+    "@recordPositionCompleted": {
+      "placeholders": {
+        "count": {
+          "type": "String"
+        }
+      }
+    },
+    "recordPositionStartNewMeasurement": "Start new measurement",
+    "recordPositionStartMeasurement": "Start measurement",
+    "recordPositionWaitingForValidGps": "Waiting for a valid GPS signal...",
+    "recordPositionDiscardMeasurement": "Discard measurement",
+    "recordPositionReplaceMeasurement": "Replace measurement",
+    "recordPositionApplyMeasurement": "Apply measurement",
+    "recordPositionNotSuitable": "Not suitable",
+    "recordPositionDgpsAvailable": "DGPS available",
+    "recordPositionRtkFixedAvailable": "RTK Fixed available",
+    "recordPositionRtkFloatAvailable": "RTK Float available",
+    "displacedMarkerMinDistance": "at least 1 cm",
+    "displacedMarkerAdd": "Add displaced marker",
+    "displacedMarkerTitle": "Displaced marker",
+    "displacedMarkerRemove": "Remove displaced marker",
+    "displacedMarkerHorizontalDistance": "Horizontal distance",
+    "displacedMarkerAzimuth": "Azimuth",
+    "displacedMarkerDescription": "Description",
+    "displacedMarkerIsMarked": "Is marked",
+    "previousPositionsNavigationGpsLocked": "GPS position (locked)",
+    "previousPositionsNavigationNoPreviousData": "No previous position data available",
+    "previousPositionsNavigationNoCoordinates": "No coordinates found in previous position data",
+    "previousPositionsNavigationTitle": "Navigation:",
+    "previousPositionsNavigationTarget": "Target",
+    "previousPositionsNavigationDistanceAzimuth": "Distance: {distance}, azimuth: {azimuth} gon{coordinates}",
+    "@previousPositionsNavigationDistanceAzimuth": {
+      "placeholders": {
+        "distance": {
+          "type": "String"
+        },
+        "azimuth": {
+          "type": "String"
+        },
+        "coordinates": {
+          "type": "String"
+        }
+      }
+    },
+    "previousPositionsNavigationNoNavigationData": "No navigation data available. Connect an external GPS or use the device's internal GPS.",
+    "previousPositionsSelectionNoData": "No previous position data available",
+    "previousPositionsSelectionTitle": "Previous position measurements",
+    "manualNavigationStepsAzimuthRange": "Azimuth must be between 0 and 400 gon",
+    "manualNavigationStepsTooltip": "Manual navigation",
+    "manualNavigationStepsSelectStartAndTarget": "Select start and target",
+    "manualNavigationStepsDistance": "Distance",
+    "manualNavigationStepsAzimuth": "Azimuth",
+    "landmarkPointsMinDistance": "at least 1 cm",
+    "landmarkPointsTitle": "Landmark point {number}",
+    "@landmarkPointsTitle": {
+      "placeholders": {
+        "number": {
+          "type": "int"
+        }
+      }
+    },
+    "landmarkPointsRemove": "Remove landmark point",
+    "landmarkPointsHorizontalDistance": "Horizontal distance",
+    "landmarkPointsAzimuth": "Azimuth",
+    "landmarkPointsDescription": "Description",
+    "landmarkPointsHint": "Azimuth and distance from the plot corner to the landmark point",
+    "landmarkPointsAdd": "Add landmark point",
+    "helpingPointUnknown": "Unknown",
+    "helpingPointRecordingProgress": "Measuring... {current}/{total}",
+    "@helpingPointRecordingProgress": {
+      "placeholders": {
+        "current": {
+          "type": "int"
+        },
+        "total": {
+          "type": "int"
+        }
+      }
+    },
+    "helpingPointCancel": "Cancel",
+    "helpingPointMeasurementCountShort": "{count} meas.",
+    "@helpingPointMeasurementCountShort": {
+      "placeholders": {
+        "count": {
+          "type": "String"
+        }
+      }
+    },
+    "helpingPointNewMeasurement": "new measurement",
+    "helpingPointMeasurements": "Measurements",
+    "helpingPointAccuracy": "Accuracy",
+    "helpingPointSatellites": "Satellites",
+    "helpingPointCorrectionSignal": "Correction signal",
+    "helpingPointTimestamp": "Time",
+    "helpingPointStartMeasurement": "Start measurement",
+    "plotSupportPointsAzimuth": "Azimuth: {azimuth} gon",
+    "@plotSupportPointsAzimuth": {
+      "placeholders": {
+        "azimuth": {
+          "type": "String"
+        }
+      }
+    },
+    "plotSupportPointsDistance": "Distance: {distance} cm",
+    "@plotSupportPointsDistance": {
+      "placeholders": {
+        "distance": {
+          "type": "String"
+        }
+      }
+    },
+    "formWrapperMessagesUnavailable": "Messages not available: no record loaded",
+    "arrayElementArchiveRowDeleteBlocked": "Existing entry from the inventory – cannot be deleted.",
+    "arrayElementTrinaFilterTooltip": "Filter",
+    "arrayElementCardlistDeleteProtectedTooltip": "Existing entry from the inventory – cannot be deleted",
+    "arrayElementCardlistDeleteEntry": "Delete entry",
+    "arrayElementCardlistMaxEntries": "Maximum {maxRows} entries",
+    "@arrayElementCardlistMaxEntries": {
+      "placeholders": {
+        "maxRows": {
+          "type": "int"
+        }
+      }
+    },
+    "arrayElementCardlistAddEntry": "Add {label}",
+    "@arrayElementCardlistAddEntry": {
+      "placeholders": {
+        "label": {
+          "type": "String"
+        }
+      }
+    },
+    "arrayElementCardlistEntryDefault": "entry",
+    "arrayFilterDialogTitle": "Hide",
+    "arrayFilterDialogNoFilters": "No filters available",
+    "cardDialogNoFields": "No fields available",
+    "cardDialogDone": "Done",
+    "genericTextfieldInfoTooltip": "Info",
+    "permissionsSelectionSyncing": "Synchronising permissions…{percent}",
+    "@permissionsSelectionSyncing": {
+      "placeholders": {
+        "percent": {
+          "type": "String"
+        }
+      }
+    },
+    "permissionsSelectionNone": "No permissions found",
+    "permissionsSelectionTroopRequired": "Troop membership required",
+    "databaseBackupSaveDialogTitle": "Save database backup",
+    "databaseBackupSavedSealed": "Backup saved (encrypted)",
+    "databaseBackupSaved": "Backup saved",
+    "databaseBackupFailed": "Backup failed: {error}",
+    "@databaseBackupFailed": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "databaseBackupInProgress": "Creating backup …",
+    "databaseBackupAllSealed": "Backup of all databases (encrypted)",
+    "databaseBackupAllZip": "Backup of all databases (ZIP)"
 }

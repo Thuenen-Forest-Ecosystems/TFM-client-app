@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 import 'package:terrestrial_forest_monitor/services/legacy_database_service.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
@@ -89,21 +90,17 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
   }
 
   Future<void> _restore(UploadFailure failure) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Upload wiederherstellen?'),
-        content: Text(
-          'Der gesicherte Stand von ${_title(failure)} wird lokal übernommen '
-          '(überschreibt den aktuellen lokalen Stand dieses Datensatzes) und '
-          'beim nächsten Sync erneut hochgeladen.\n\n'
-          'Schlägt der Upload wieder fehl, erscheint der Eintrag erneut in dieser Liste.',
-        ),
+        title: Text(l10n.uploadFailuresRestoreTitle),
+        content: Text(l10n.uploadFailuresRestoreContent(_title(failure))),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.uploadFailuresCancel)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Wiederherstellen'),
+            child: Text(l10n.uploadFailuresRestore),
           ),
         ],
       ),
@@ -113,29 +110,26 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
     setState(() => _busy = true);
     try {
       await UploadFailureService.restore(failure);
-      _showSnack('Wiederhergestellt — wird beim nächsten Sync erneut hochgeladen.');
+      _showSnack(l10n.uploadFailuresRestoredSnack);
     } catch (e) {
-      _showSnack('Wiederherstellen fehlgeschlagen: $e');
+      _showSnack(l10n.uploadFailuresRestoreFailed(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _restoreAll() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Alle ${_failures.length} Einträge wiederherstellen?'),
-        content: const Text(
-          'Alle gesicherten Stände werden lokal übernommen (älteste zuerst) und '
-          'beim nächsten Sync erneut hochgeladen. Aktuelle lokale Stände der '
-          'betroffenen Datensätze werden überschrieben.',
-        ),
+        title: Text(l10n.uploadFailuresRestoreAllTitle(_failures.length)),
+        content: Text(l10n.uploadFailuresRestoreAllContent),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.uploadFailuresCancel)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Alle wiederherstellen'),
+            child: Text(l10n.uploadFailuresRestoreAll),
           ),
         ],
       ),
@@ -147,8 +141,8 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
       final errors = await UploadFailureService.restoreAll(_failures);
       _showSnack(
         errors.isEmpty
-            ? 'Alle Einträge wiederhergestellt — Upload folgt beim nächsten Sync.'
-            : '${errors.length} Einträge konnten nicht übernommen werden:\n${errors.join('\n')}',
+            ? l10n.uploadFailuresRestoreAllSuccess
+            : l10n.uploadFailuresRestoreAllErrors(errors.length, errors.join('\n')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -156,21 +150,19 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
   }
 
   Future<void> _discard(UploadFailure failure) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
-        title: const Text('Eintrag endgültig verwerfen?'),
-        content: Text(
-          'Die gesicherten Daten von ${_title(failure)} werden gelöscht und '
-          'können danach nicht mehr wiederhergestellt werden.',
-        ),
+        title: Text(l10n.uploadFailuresDiscardTitle),
+        content: Text(l10n.uploadFailuresDiscardContent(_title(failure))),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.uploadFailuresCancel)),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Verwerfen'),
+            child: Text(l10n.uploadFailuresDiscard),
           ),
         ],
       ),
@@ -180,7 +172,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
     try {
       await UploadFailureService.discard(failure);
     } catch (e) {
-      _showSnack('Löschen fehlgeschlagen: $e');
+      _showSnack(l10n.uploadFailuresDeleteFailed(e.toString()));
     }
   }
 
@@ -195,21 +187,25 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
 
   String _title(UploadFailure f) {
     if (f.tableName == 'records' && (f.clusterName != null || f.plotName != null)) {
-      return 'Trakt ${f.clusterName ?? '?'} / ${f.plotName ?? '?'}';
+      return AppLocalizations.of(context)!.uploadFailuresTractTitle(
+        f.clusterName ?? '?',
+        f.plotName ?? '?',
+      );
     }
     return '${f.tableName} ${f.recordId}';
   }
 
   String _reasonText(UploadFailure f) {
+    final l10n = AppLocalizations.of(context)!;
     switch (f.reason) {
       case 'rls_zero_rows':
-        return 'Vom Server ignoriert (keine Schreibberechtigung für diesen Datensatz)';
+        return l10n.uploadFailuresReasonIgnored;
       case 'fatal_error':
-        return 'Vom Server abgelehnt${f.errorCode != null ? ' [${f.errorCode}]' : ''}';
+        return '${l10n.uploadFailuresReasonRejected}${f.errorCode != null ? ' [${f.errorCode}]' : ''}';
       case 'unattempted_after_fatal':
-        return 'Nicht versucht (vorheriger Upload derselben Übertragung wurde abgelehnt)';
+        return l10n.uploadFailuresReasonUnattempted;
       default:
-        return f.reason ?? 'Unbekannt';
+        return f.reason ?? l10n.uploadFailuresReasonUnknown;
     }
   }
 
@@ -226,17 +222,22 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Without inactive database files there is nothing to tab — plain page.
     if (_dbsLoading || _otherDbs.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Sicherungen')),
+        appBar: AppBar(title: Text(l10n.uploadFailuresTitle)),
         body: _buildQuarantineBody(context),
         bottomNavigationBar: const DatabaseBackupButton(),
       );
     }
 
     final tabs = <Tab>[
-      Tab(text: _failures.isEmpty ? 'Aktive DB' : 'Aktive DB (${_failures.length})'),
+      Tab(
+        text: _failures.isEmpty
+            ? l10n.uploadFailuresActiveDbTab
+            : l10n.uploadFailuresActiveDbTabCount(_failures.length),
+      ),
       ..._otherDbs.map(
         (info) => Tab(
           text: info.pendingUploadCount > 0
@@ -261,7 +262,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
       length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Sicherungen'),
+          title: Text(l10n.uploadFailuresTitle),
           bottom: TabBar(
             isScrollable: true,
             labelColor: onAppBar,
@@ -285,6 +286,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
 
   Widget _buildQuarantineBody(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    final l10n = AppLocalizations.of(context)!;
 
     // Mirrors the layout of _DatabaseFileTab: bold summary line, explanation,
     // actions on the right, list (or centered message) below.
@@ -303,19 +305,16 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${_activeDbName ?? 'Aktive Datenbank'}'
-                          '${_failures.isNotEmpty ? ' · ${_failures.length} nicht übernommen' : ''}',
+                          '${_activeDbName ?? l10n.uploadFailuresActiveDatabase}'
+                          '${_failures.isNotEmpty ? l10n.uploadFailuresNotAppliedSuffix(_failures.length) : ''}',
                           style: Theme.of(
                             context,
                           ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
                           _failures.isNotEmpty
-                              ? 'Diese Änderungen hat der Server nicht übernommen. Die '
-                                    'Daten sind lokal gesichert und können erneut '
-                                    'übertragen werden.'
-                              : 'Alle Uploads dieser Datenbank wurden vom Server '
-                                    'übernommen.',
+                              ? l10n.uploadFailuresQuarantineExplanation
+                              : l10n.uploadFailuresAllAccepted,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -326,7 +325,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
                     FilledButton.icon(
                       onPressed: _busy ? null : _restoreAll,
                       icon: const Icon(Icons.restore, size: 18),
-                      label: Text('Alle ${_failures.length} wiederherstellen'),
+                      label: Text(l10n.uploadFailuresRestoreAllCount(_failures.length)),
                     ),
                   ],
                 ],
@@ -334,8 +333,8 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
             ),
             Expanded(
               child: _failures.isEmpty
-                  ? const Center(
-                      child: Text('Keine Einträge — alle Uploads wurden übernommen.'),
+                  ? Center(
+                      child: Text(l10n.uploadFailuresEmpty),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 24),
@@ -350,6 +349,7 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
   }
 
   Widget _buildEntry(BuildContext context, UploadFailure failure) {
+    final l10n = AppLocalizations.of(context)!;
     // Quarantined entries are by definition not in sync — every card gets the
     // restore icon. The op payload is not shown here; it stays available via
     // the diagnostic export.
@@ -371,12 +371,12 @@ class _UploadFailuresScreenState extends State<UploadFailuresScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              tooltip: 'Wiederherstellen',
+              tooltip: l10n.uploadFailuresRestore,
               onPressed: _busy ? null : () => _restore(failure),
               icon: const Icon(Icons.restore),
             ),
             IconButton(
-              tooltip: 'Verwerfen',
+              tooltip: l10n.uploadFailuresDiscard,
               onPressed: _busy ? null : () => _discard(failure),
               icon: const Icon(Icons.delete_outline, color: Colors.red),
             ),
@@ -453,22 +453,17 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
   }
 
   Future<void> _recover(LegacyRecord record) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Datensatz wiederherstellen?'),
-        content: Text(
-          'Der Stand von ${_recordTitle(record)} aus „${info.fileName}“ wird in '
-          'die aktive Datenbank übernommen (überschreibt den dortigen Stand) und '
-          'beim nächsten Sync hochgeladen.\n\n'
-          'Lehnt der Server den Upload ab, erscheint er im Tab „Aktive DB“. '
-          'Die Quelldatei bleibt unverändert.',
-        ),
+        title: Text(l10n.uploadFailuresRecoverTitle),
+        content: Text(l10n.uploadFailuresRecoverContent(_recordTitle(record), info.fileName)),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.uploadFailuresCancel)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Wiederherstellen'),
+            child: Text(l10n.uploadFailuresRestore),
           ),
         ],
       ),
@@ -480,12 +475,12 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
       final ok = await LegacyDatabaseService.instance.recoverRecord(record.id, path: info.path);
       if (ok) {
         setState(() => _recovered.add(record.id));
-        _showSnack('In aktive Datenbank übernommen — Upload folgt beim nächsten Sync.');
+        _showSnack(l10n.uploadFailuresRecoveredSnack);
       } else {
-        _showSnack('Datensatz nicht mehr in „${info.fileName}“ gefunden.');
+        _showSnack(l10n.uploadFailuresRecordNotFound(info.fileName));
       }
     } catch (e) {
-      _showSnack('Wiederherstellen fehlgeschlagen: $e');
+      _showSnack(l10n.uploadFailuresRestoreFailed(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -497,20 +492,17 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
         .toList();
     if (pendingRecords.isEmpty) return;
 
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('${pendingRecords.length} nicht hochgeladene Datensätze wiederherstellen?'),
-        content: const Text(
-          'Alle Datensätze mit nie hochgeladenen Änderungen werden in die '
-          'aktive Datenbank übernommen (überschreiben den dortigen Stand) und '
-          'beim nächsten Sync hochgeladen.',
-        ),
+        title: Text(l10n.uploadFailuresRecoverAllTitle(pendingRecords.length)),
+        content: Text(l10n.uploadFailuresRecoverAllContent),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.uploadFailuresCancel)),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Alle wiederherstellen'),
+            child: Text(l10n.uploadFailuresRestoreAll),
           ),
         ],
       ),
@@ -540,8 +532,8 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
     }
     _showSnack(
       errors.isEmpty
-          ? '$recoveredCount Datensätze übernommen — Upload folgt beim nächsten Sync.'
-          : '$recoveredCount übernommen, ${errors.length} fehlgeschlagen:\n${errors.join('\n')}',
+          ? l10n.uploadFailuresRecoverAllSuccess(recoveredCount)
+          : l10n.uploadFailuresRecoverAllPartial(recoveredCount, errors.length, errors.join('\n')),
     );
   }
 
@@ -559,7 +551,7 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
       if (record.clusterName?.isNotEmpty ?? false) record.clusterName,
       if (record.plotName?.isNotEmpty ?? false) record.plotName,
     ].whereType<String>().join(' / ');
-    return title.isEmpty ? record.id : 'Trakt $title';
+    return title.isEmpty ? record.id : AppLocalizations.of(context)!.uploadFailuresTractLabel(title);
   }
 
   @override
@@ -567,11 +559,12 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
     super.build(context);
 
     if (_loading) return const Center(child: CircularProgressIndicator());
+    final l10n = AppLocalizations.of(context)!;
     if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Fehler beim Lesen von „${info.fileName}“: $_error'),
+          child: Text(l10n.uploadFailuresReadError(info.fileName, _error!)),
         ),
       );
     }
@@ -593,8 +586,8 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${info.fileName} · ${_records.length} Datensätze'
-                          '${pendingCount > 0 ? ' · $pendingCount nie hochgeladen' : ''}',
+                          '${l10n.uploadFailuresFileSummary(info.fileName, _records.length)}'
+                          '${pendingCount > 0 ? l10n.uploadFailuresNeverUploadedSuffix(pendingCount) : ''}',
                           style: Theme.of(
                             context,
                           ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
@@ -611,17 +604,15 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
                           ),
                         Text(
                           pendingCount > 0
-                              ? 'Datensätze mit „Nicht hochgeladen“ existieren NUR in dieser '
-                                    'Datei — der Server hat sie nie erhalten.'
-                              : 'Alle Datensätze dieser Datei wurden auch auf den Server '
-                                    'hochgeladen oder stammen von dort.',
+                              ? l10n.uploadFailuresPendingExplanation
+                              : l10n.uploadFailuresAllUploadedExplanation,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Neu laden',
+                    tooltip: l10n.uploadFailuresReload,
                     onPressed: _busy ? null : _load,
                     icon: const Icon(Icons.refresh, size: 20),
                   ),
@@ -630,7 +621,7 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
                     FilledButton.icon(
                       onPressed: _busy ? null : _recoverAllPending,
                       icon: const Icon(Icons.restore, size: 18),
-                      label: Text('Alle $pendingCount wiederherstellen'),
+                      label: Text(l10n.uploadFailuresRestoreAllCount(pendingCount)),
                     ),
                   ],
                 ],
@@ -638,7 +629,7 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
             ),
             Expanded(
               child: _records.isEmpty
-                  ? const Center(child: Text('Keine Datensätze in dieser Datei.'))
+                  ? Center(child: Text(l10n.uploadFailuresNoRecords))
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 24),
                       itemCount: _records.length,
@@ -652,6 +643,7 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
   }
 
   Widget _buildRecordTile(BuildContext context, LegacyRecord record) {
+    final l10n = AppLocalizations.of(context)!;
     final isPending = _pendingIds.contains(record.id);
     final isRecovered = _recovered.contains(record.id);
 
@@ -676,7 +668,7 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
             if (isPending) ...[
               const SizedBox(width: 8),
               Chip(
-                label: const Text('Nicht hochgeladen', style: TextStyle(fontSize: 10)),
+                label: Text(l10n.uploadFailuresNotUploaded, style: const TextStyle(fontSize: 10)),
                 backgroundColor: Colors.orange.shade100,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -698,7 +690,7 @@ class _DatabaseFileTabState extends State<_DatabaseFileTab>
             ? const Icon(Icons.check_circle, color: Colors.green)
             : isPending
             ? IconButton(
-                tooltip: 'Wiederherstellen',
+                tooltip: l10n.uploadFailuresRestore,
                 onPressed: _busy ? null : () => _recover(record),
                 icon: const Icon(Icons.restore),
               )

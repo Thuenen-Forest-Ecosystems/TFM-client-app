@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/playground_mode_provider.dart';
 
@@ -11,12 +12,13 @@ class PlaygroundModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<PlaygroundModeProvider>();
     final isActive = provider.isPlaygroundMode;
+    final l10n = AppLocalizations.of(context)!;
 
     if (isActive) {
       // Narrow devices: drop the label, keep the orange avatar + close.
       if (MediaQuery.sizeOf(context).width < 600) {
         return Tooltip(
-          message: 'Playground-Modus beenden',
+          message: l10n.playgroundModeButtonExit,
           child: IconButton(
             icon: const Icon(Icons.science, color: Colors.white),
             style: IconButton.styleFrom(backgroundColor: Colors.orange),
@@ -28,7 +30,7 @@ class PlaygroundModeButton extends StatelessWidget {
         onTap: () => provider.toggle(),
         child: Chip(
           avatar: const Icon(Icons.science, size: 18, color: Colors.white),
-          label: const Text('Playground', style: TextStyle(color: Colors.white)),
+          label: Text(l10n.playgroundModeButtonLabel, style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.orange,
           shape: const StadiumBorder(),
           deleteIcon: const Icon(Icons.close, size: 18, color: Colors.white),
@@ -39,7 +41,7 @@ class PlaygroundModeButton extends StatelessWidget {
     }
 
     return Tooltip(
-      message: 'Playground-Modus aktivieren (kein Speichern möglich)',
+      message: l10n.playgroundModeButtonActivate,
       child: IconButton(icon: const Icon(Icons.science), onPressed: () => provider.toggle()),
     );
   }

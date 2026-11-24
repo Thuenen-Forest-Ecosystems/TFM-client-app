@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 class ManuellRelativePosition extends StatefulWidget {
   final Map<String, dynamic>? formData;
@@ -136,7 +137,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
 
     if (azimuth == null || distanceValue == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bitte gültige Werte für Azimut und Entfernung eingeben')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.manuellRelativePositionInvalidValues)),
       );
       return;
     }
@@ -144,7 +145,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
     if (azimuth < 0 || azimuth >= 400) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Azimut muss zwischen 0 und 400 Gon liegen')));
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.manuellRelativePositionAzimuthRange)));
       return;
     }
 
@@ -178,7 +179,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
     if (position == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Keine $positionLabel zum Fokussieren verfügbar')));
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.manuellRelativePositionNothingToFocus(positionLabel))));
       return;
     }
 
@@ -240,9 +241,10 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
   Widget _buildStartPositionSection(GpsPositionProvider gpsProvider) {
     final mapProvider = Provider.of<MapControllerProvider>(context, listen: false);
     final hasNavigationStart = mapProvider.navigationStart != null;
+    final l10n = AppLocalizations.of(context)!;
     final startLabel = hasNavigationStart
-        ? mapProvider.navigationStartLabel ?? 'Gewählte Position'
-        : 'GPS Position';
+        ? mapProvider.navigationStartLabel ?? l10n.manuellRelativePositionSelectedPosition
+        : l10n.manuellRelativePositionGpsPosition;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -255,12 +257,12 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
               Icon(_startPosition != null ? Icons.check_circle : Icons.warning, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Startposition: ${_startPosition != null ? startLabel : "Keine Daten"}',
+                l10n.manuellRelativePositionStartPosition(_startPosition != null ? startLabel : l10n.manuellRelativePositionNoData),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Spacer(),
               IconButton(
-                onPressed: () => _focusLocation(_currentCalculatedPosition, 'Position'),
+                onPressed: () => _focusLocation(_currentCalculatedPosition, l10n.manuellRelativePositionPosition),
                 icon: const Icon(Icons.my_location, size: 20),
               ),
             ],
@@ -289,12 +291,12 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
             children: [
               Icon(_destinationPosition != null ? Icons.check_circle : Icons.warning, size: 20),
               const SizedBox(width: 8),
-              Text('Zielposition', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(AppLocalizations.of(context)!.manuellRelativePositionDestination, style: const TextStyle(fontWeight: FontWeight.bold)),
               Spacer(),
               _destinationPosition == null
-                  ? Chip(label: const Text('Ziel festlegen'))
+                  ? Chip(label: Text(AppLocalizations.of(context)!.manuellRelativePositionSetDestination))
                   : IconButton(
-                      onPressed: () => _focusLocation(_destinationPosition, 'Zielposition'),
+                      onPressed: () => _focusLocation(_destinationPosition, AppLocalizations.of(context)!.manuellRelativePositionDestination),
                       icon: const Icon(Icons.my_location, size: 20),
                     ),
             ],
@@ -317,12 +319,12 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _buildMetricColumn(
-          label: 'Azimut',
+          label: AppLocalizations.of(context)!.manuellRelativePositionAzimuth,
           value: '${_remainingAzimuth!.round()} gon',
         ),
         Container(width: 1, height: 40, color: Colors.green.shade300),
         _buildMetricColumn(
-          label: 'Entfernung',
+          label: AppLocalizations.of(context)!.manuellRelativePositionDistance,
           value: '${_remainingDistance!.toStringAsFixed(1)} m',
         ),
       ],
@@ -354,11 +356,11 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
               child: TextField(
                 controller: _azimuthController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  labelText: 'Azimut (gon)',
+                  labelText: AppLocalizations.of(context)!.manuellRelativePositionAzimuthGon,
                   hintText: '0-400',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -367,11 +369,11 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
               child: TextField(
                 controller: _distanceController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
-                  labelText: 'Entfernung (m)',
-                  hintText: 'Meter',
-                  border: OutlineInputBorder(),
+                  labelText: AppLocalizations.of(context)!.manuellRelativePositionDistanceMeters,
+                  hintText: AppLocalizations.of(context)!.manuellRelativePositionMetersHint,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -431,7 +433,7 @@ class _ManuellRelativePositionState extends State<ManuellRelativePosition> {
                     IconButton(
                       onPressed: () => _focusLocation(
                         _calculatePositionFromSteps(_startPosition!, _steps.sublist(0, index + 1)),
-                        'Position nach Schritt ${index + 1}',
+                        AppLocalizations.of(context)!.manuellRelativePositionAfterStep(index + 1),
                       ),
                       icon: const Icon(Icons.my_location, size: 20),
                     ),

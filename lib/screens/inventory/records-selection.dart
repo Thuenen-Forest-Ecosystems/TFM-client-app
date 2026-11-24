@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart';
 import 'package:terrestrial_forest_monitor/widgets/cluster/order-cluster-by.dart';
@@ -445,6 +446,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       // The bottom sheet in start.dart already pads for the keyboard; letting
       // this Scaffold shrink its body as well subtracts the inset twice and
@@ -468,11 +470,11 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                     ? TextField(
                         controller: _searchController,
                         autofocus: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Suche Traktnummer...',
+                        decoration: InputDecoration(
+                          labelText: l10n.recordsSelectionSearchCluster,
                           filled: true,
                           isDense: true,
-                          border: OutlineInputBorder(
+                          border: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(50)),
                           ),
                         ),
@@ -489,9 +491,9 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                       )
                     : Container(
                         padding: const EdgeInsets.only(top: 10, bottom: 9),
-                        child: const Text(
-                          'Ecken',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        child: Text(
+                          l10n.recordsSelectionTitle,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                       ),
                 trailing: Row(
@@ -571,7 +573,7 @@ class _RecordsSelectionState extends State<RecordsSelection> {
                           Icon(Icons.inbox, color: Colors.grey[400]),
                           const SizedBox(height: 8),
                           Text(
-                            'Dir wurde bisher noch keine Ecke zugewiesen.',
+                            l10n.recordsSelectionNoneAssigned,
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],

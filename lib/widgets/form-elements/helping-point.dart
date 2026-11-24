@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/models/gps_quality_criteria.dart';
 import 'package:terrestrial_forest_monitor/widgets/form-elements/manual-navigation-steps.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// HelpingPoint – widget rendered inside each cardlist row
 /// for the `plot_support_points_grid` array.
@@ -334,7 +335,7 @@ class _HelpingPointState extends State<HelpingPoint> {
       case 5:
         return 'RTK Float';
       default:
-        return 'Unbekannt';
+        return AppLocalizations.of(context)!.helpingPointUnknown;
     }
   }
 
@@ -350,6 +351,7 @@ class _HelpingPointState extends State<HelpingPoint> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final hasGps = _capturedPosition != null;
     final measurement = widget.rowData?['gps_measurement'] as Map<String, dynamic>?;
     final overallQuality = measurement?['overall_quality'] as String?;
@@ -372,7 +374,7 @@ class _HelpingPointState extends State<HelpingPoint> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Einmessung... ${_recordedPositions.length}/$_targetCount',
+                                l10n.helpingPointRecordingProgress(_recordedPositions.length, _targetCount),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -389,7 +391,7 @@ class _HelpingPointState extends State<HelpingPoint> {
                         TextButton.icon(
                           onPressed: _cancelRecording,
                           icon: const Icon(Icons.close, size: 18),
-                          label: const Text('Abbrechen'),
+                          label: Text(l10n.helpingPointCancel),
                           style: TextButton.styleFrom(foregroundColor: Colors.red),
                         ),
                       ],
@@ -419,7 +421,7 @@ class _HelpingPointState extends State<HelpingPoint> {
                                 child: Text(
                                   'GPS: ${_capturedPosition!.latitude.toStringAsFixed(6)}, '
                                   '${_capturedPosition!.longitude.toStringAsFixed(6)}'
-                                  '${measurement != null ? ' (${measurement['measurement_count']} Mess.)' : ''}',
+                                  '${measurement != null ? ' (${l10n.helpingPointMeasurementCountShort('${measurement['measurement_count']}')})' : ''}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -434,17 +436,17 @@ class _HelpingPointState extends State<HelpingPoint> {
                                 ),
                               TextButton.icon(
                                 onPressed: _startRecording,
-                                label: const Text('neue Einmessung'),
+                                label: Text(l10n.helpingPointNewMeasurement),
                               ),
                             ],
                           ),
                         ),
                         if (_isGpsExpanded && measurement != null) ...[
                           const Divider(height: 16),
-                          _buildDetailRow('Messungen', '${measurement['measurement_count']}'),
+                          _buildDetailRow(l10n.helpingPointMeasurements, '${measurement['measurement_count']}'),
                           if (measurement['mean_accuracy'] != null)
                             _buildDetailRow(
-                              'Genauigkeit',
+                              l10n.helpingPointAccuracy,
                               '${(measurement['mean_accuracy'] as num).toStringAsFixed(2)} m',
                             ),
                           if (measurement['hdop_mean'] != null)
@@ -459,17 +461,17 @@ class _HelpingPointState extends State<HelpingPoint> {
                             ),
                           if (measurement['satellites_count_mean'] != null)
                             _buildDetailRow(
-                              'Satelliten',
+                              l10n.helpingPointSatellites,
                               (measurement['satellites_count_mean'] as num).toStringAsFixed(1),
                             ),
                           if (measurement['aggregation_quality_code'] != null)
                             _buildDetailRow(
-                              'Korrektursignal',
+                              l10n.helpingPointCorrectionSignal,
                               _correctionSignalText(measurement['aggregation_quality_code']),
                             ),
                           if (measurement['timestamp'] != null)
                             _buildDetailRow(
-                              'Zeitpunkt',
+                              l10n.helpingPointTimestamp,
                               _formatTimestamp(measurement['timestamp'] as String),
                             ),
                         ],
@@ -479,7 +481,7 @@ class _HelpingPointState extends State<HelpingPoint> {
                       child: TextButton.icon(
                         onPressed: _startRecording,
                         icon: const Icon(Icons.gps_not_fixed),
-                        label: const Text('Einmessung starten'),
+                        label: Text(l10n.helpingPointStartMeasurement),
                       ),
                     ),
             ),

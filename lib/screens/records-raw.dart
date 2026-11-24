@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:trina_grid/trina_grid.dart';
 import 'package:terrestrial_forest_monitor/repositories/records_repository.dart' as repo;
 
@@ -44,7 +45,7 @@ class _RecordsRawScreenState extends State<RecordsRawScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Fehler beim Laden der Datensätze: $e';
+        _error = e.toString();
         _isLoading = false;
       });
     }
@@ -83,45 +84,46 @@ class _RecordsRawScreenState extends State<RecordsRawScreen> {
 
     // Get the first record to determine available fields
     final sampleMap = _records.first.toMap();
+    final l10n = AppLocalizations.of(context)!;
 
     // Define column metadata for better display
     final columnConfig = {
       'id': {'title': 'ID', 'width': 280.0, 'frozen': false},
-      'cluster_name': {'title': 'Trakt', 'width': 120.0, 'frozen': true},
-      'plot_name': {'title': 'Ecke', 'width': 100.0, 'frozen': true},
+      'cluster_name': {'title': l10n.recordsRawColCluster, 'width': 120.0, 'frozen': true},
+      'plot_name': {'title': l10n.recordsRawColPlot, 'width': 100.0, 'frozen': true},
       'schema_name': {'title': 'Schema', 'width': 150.0, 'frozen': false},
       'schema_id': {'title': 'Schema ID', 'width': 280.0, 'frozen': false},
-      'schema_id_validated_by': {'title': 'Validiert mit Schema', 'width': 280.0, 'frozen': false},
-      'is_valid': {'title': 'Gültig', 'width': 80.0, 'frozen': false},
-      'plot_id': {'title': 'Ecke ID', 'width': 280.0, 'frozen': false},
-      'cluster_id': {'title': 'Trakt ID', 'width': 280.0, 'frozen': false},
-      'responsible_administration': {'title': 'Verwaltung', 'width': 200.0, 'frozen': false},
-      'responsible_provider': {'title': 'Anbieter', 'width': 200.0, 'frozen': false},
-      'responsible_state': {'title': 'Bundesland', 'width': 200.0, 'frozen': false},
-      'responsible_troop': {'title': 'Trupp', 'width': 200.0, 'frozen': false},
-      'updated_at': {'title': 'Aktualisiert', 'width': 180.0, 'frozen': false},
-      'local_updated_at': {'title': 'Lokal aktualisiert', 'width': 180.0, 'frozen': false},
+      'schema_id_validated_by': {'title': l10n.recordsRawColValidatedBy, 'width': 280.0, 'frozen': false},
+      'is_valid': {'title': l10n.recordsRawColValid, 'width': 80.0, 'frozen': false},
+      'plot_id': {'title': l10n.recordsRawColPlotId, 'width': 280.0, 'frozen': false},
+      'cluster_id': {'title': l10n.recordsRawColClusterId, 'width': 280.0, 'frozen': false},
+      'responsible_administration': {'title': l10n.recordsRawColAdministration, 'width': 200.0, 'frozen': false},
+      'responsible_provider': {'title': l10n.recordsRawColProvider, 'width': 200.0, 'frozen': false},
+      'responsible_state': {'title': l10n.recordsRawColState, 'width': 200.0, 'frozen': false},
+      'responsible_troop': {'title': l10n.recordsRawColTroop, 'width': 200.0, 'frozen': false},
+      'updated_at': {'title': l10n.recordsRawColUpdatedAt, 'width': 180.0, 'frozen': false},
+      'local_updated_at': {'title': l10n.recordsRawColLocalUpdatedAt, 'width': 180.0, 'frozen': false},
       'completed_at_state': {
-        'title': 'Abgeschlossen (Bundesland)',
+        'title': l10n.recordsRawColCompletedState,
         'width': 180.0,
         'frozen': false,
       },
-      'completed_at_troop': {'title': 'Abgeschlossen (Trupp)', 'width': 180.0, 'frozen': false},
+      'completed_at_troop': {'title': l10n.recordsRawColCompletedTroop, 'width': 180.0, 'frozen': false},
       'completed_at_administration': {
-        'title': 'Abgeschlossen (Verwaltung)',
+        'title': l10n.recordsRawColCompletedAdministration,
         'width': 180.0,
         'frozen': false,
       },
-      'is_to_be_recorded': {'title': 'Aufzuzeichnen', 'width': 120.0, 'frozen': false},
-      'note': {'title': 'Notiz', 'width': 300.0, 'frozen': false},
-      'properties': {'title': 'Eigenschaften (JSON)', 'width': 400.0, 'frozen': false},
+      'is_to_be_recorded': {'title': l10n.recordsRawColToBeRecorded, 'width': 120.0, 'frozen': false},
+      'note': {'title': l10n.recordsRawColNote, 'width': 300.0, 'frozen': false},
+      'properties': {'title': l10n.recordsRawColProperties, 'width': 400.0, 'frozen': false},
       'previous_properties': {
-        'title': 'Vorherige Eigenschaften (JSON)',
+        'title': l10n.recordsRawColPreviousProperties,
         'width': 400.0,
         'frozen': false,
       },
       'previous_position_data': {
-        'title': 'Vorherige Position (JSON)',
+        'title': l10n.recordsRawColPreviousPosition,
         'width': 400.0,
         'frozen': false,
       },
@@ -176,15 +178,16 @@ class _RecordsRawScreenState extends State<RecordsRawScreen> {
   @override
   Widget build(BuildContext context) {
     final totalPages = (_totalRecords / _pageSize).ceil();
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rohdaten - Datensätze'),
+        title: Text(l10n.recordsRawTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadRecords,
-            tooltip: 'Aktualisieren',
+            tooltip: l10n.recordsRawRefresh,
           ),
         ],
       ),
@@ -198,12 +201,12 @@ class _RecordsRawScreenState extends State<RecordsRawScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Gesamt: $_totalRecords Datensätze',
+                    l10n.recordsRawTotal(_totalRecords),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Text(
-                  'Seite ${_currentPage + 1} von $totalPages',
+                  l10n.recordsRawPageOf(_currentPage + 1, totalPages),
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
               ],
@@ -221,23 +224,23 @@ class _RecordsRawScreenState extends State<RecordsRawScreen> {
                       children: [
                         const Icon(Icons.error_outline, size: 48, color: Colors.red),
                         const SizedBox(height: 16),
-                        Text(_error!, textAlign: TextAlign.center),
+                        Text(l10n.recordsRawLoadError(_error!), textAlign: TextAlign.center),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _loadRecords,
-                          child: const Text('Erneut versuchen'),
+                          child: Text(l10n.recordsRawRetry),
                         ),
                       ],
                     ),
                   )
                 : _records.isEmpty
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inbox, size: 48, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('Keine Datensätze gefunden'),
+                        const Icon(Icons.inbox, size: 48, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        Text(l10n.recordsRawEmpty),
                       ],
                     ),
                   )
@@ -268,28 +271,28 @@ class _RecordsRawScreenState extends State<RecordsRawScreen> {
                 IconButton(
                   icon: const Icon(Icons.first_page),
                   onPressed: _currentPage > 0 ? () => _goToPage(0) : null,
-                  tooltip: 'Erste Seite',
+                  tooltip: l10n.recordsRawFirstPage,
                 ),
                 IconButton(
                   icon: const Icon(Icons.chevron_left),
                   onPressed: _currentPage > 0 ? _previousPage : null,
-                  tooltip: 'Vorherige Seite',
+                  tooltip: l10n.recordsRawPreviousPage,
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  'Seite ${_currentPage + 1} von $totalPages',
+                  l10n.recordsRawPageOf(_currentPage + 1, totalPages),
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 16),
                 IconButton(
                   icon: const Icon(Icons.chevron_right),
                   onPressed: _currentPage < totalPages - 1 ? _nextPage : null,
-                  tooltip: 'Nächste Seite',
+                  tooltip: l10n.recordsRawNextPage,
                 ),
                 IconButton(
                   icon: const Icon(Icons.last_page),
                   onPressed: _currentPage < totalPages - 1 ? () => _goToPage(totalPages - 1) : null,
-                  tooltip: 'Letzte Seite',
+                  tooltip: l10n.recordsRawLastPage,
                 ),
               ],
             ),

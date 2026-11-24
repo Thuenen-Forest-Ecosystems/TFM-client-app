@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/providers/map_controller_provider.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 class ManualNavigationSteps extends StatefulWidget {
   final LatLng? startPosition;
@@ -174,7 +175,7 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
     if (azimuth < 0 || azimuth >= 400) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Azimut muss zwischen 0 und 400 Gon liegen')));
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.manualNavigationStepsAzimuthRange)));
       return;
     }
 
@@ -289,7 +290,9 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
               _isExpanded ? Icons.expand_less : Icons.add_outlined,
               color: canNavigate ? null : Colors.grey,
             ),
-            tooltip: canNavigate ? 'Manuelle Navigation' : 'Start und Ziel auswählen',
+            tooltip: canNavigate
+                ? AppLocalizations.of(context)!.manualNavigationStepsTooltip
+                : AppLocalizations.of(context)!.manualNavigationStepsSelectStartAndTarget,
           ),
         ),
 
@@ -337,12 +340,12 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                           controller: _distanceController,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.right,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             isDense: true,
-                            labelText: 'Entfernung',
+                            labelText: AppLocalizations.of(context)!.manualNavigationStepsDistance,
                             //hintText: 'Meter',
-                            suffix: Text(' cm'),
-                            border: OutlineInputBorder(
+                            suffix: const Text(' cm'),
+                            border: const OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(40)),
                             ),
                           ),
@@ -356,12 +359,12 @@ class _ManualNavigationStepsState extends State<ManualNavigationSteps> {
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.right,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             isDense: true,
-                            labelText: 'Azimut',
+                            labelText: AppLocalizations.of(context)!.manualNavigationStepsAzimuth,
                             //hintText: '0-400',
-                            suffix: Text(' Gon'),
-                            border: OutlineInputBorder(
+                            suffix: const Text(' Gon'),
+                            border: const OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(40)),
                             ),
                           ),

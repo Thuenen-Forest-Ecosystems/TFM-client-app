@@ -2633,8 +2633,8 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
     if (_isRowDeleteProtected(rowData)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bestehender Eintrag aus der Inventur – Löschen nicht möglich.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.arrayElementArchiveRowDeleteBlocked),
             backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
           ),
@@ -3208,7 +3208,7 @@ class ArrayElementTrinaState extends State<ArrayElementTrina>
                           ? Theme.of(context).colorScheme.primary
                           : (isDark ? Colors.white70 : Colors.black54),
                     ),
-                    tooltip: 'Filter',
+                    tooltip: AppLocalizations.of(context)!.arrayElementTrinaFilterTooltip,
                     onPressed: _showFilterDialog,
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),

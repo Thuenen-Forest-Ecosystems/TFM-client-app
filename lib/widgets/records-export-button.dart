@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 import 'package:terrestrial_forest_monitor/widgets/auth/if-database-admin.dart';
 
@@ -19,6 +20,7 @@ class _RecordsExportButtonState extends State<RecordsExportButton> {
   bool _exporting = false;
 
   Future<void> _export() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _exporting = true);
     try {
       final rows = await db.execute('SELECT * FROM records ORDER BY cluster_name, plot_name');
@@ -35,7 +37,7 @@ class _RecordsExportButtonState extends State<RecordsExportButton> {
       final fileName = 'tfm-records-$timestamp.json';
 
       final path = await FilePicker.saveFile(
-        dialogTitle: 'Datensätze speichern',
+        dialogTitle: l10n.recordsExportDialogTitle,
         fileName: fileName,
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -52,7 +54,7 @@ class _RecordsExportButtonState extends State<RecordsExportButton> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${records.length} Datensätze gespeichert:\n${path ?? fileName}'),
+            content: Text(l10n.recordsExportSaved(records.length, path ?? fileName)),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -61,7 +63,7 @@ class _RecordsExportButtonState extends State<RecordsExportButton> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Fehler beim Exportieren: $e'),
+            content: Text(l10n.recordsExportError(e.toString())),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -85,7 +87,7 @@ class _RecordsExportButtonState extends State<RecordsExportButton> {
             )
           : IconButton(
               icon: const Icon(Icons.download_outlined),
-              tooltip: 'Alle Datensätze als JSON exportieren',
+              tooltip: AppLocalizations.of(context)!.recordsExportTooltip,
               onPressed: _export,
             ),
     );

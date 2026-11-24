@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:beamer/beamer.dart';
 import 'package:provider/provider.dart';
@@ -463,27 +464,28 @@ class _StartState extends State<Start> {
 
     final currentPath = _beamerDelegate.currentBeamLocation.state.routeInformation.uri.path;
 
-    String title = 'Zurückgehen bestätigen';
+    final l10n = AppLocalizations.of(context)!;
+    String title = l10n.startConfirmGoBack;
     bool? shouldNavigate = true;
 
     if (currentPath.startsWith('/properties-edit')) {
-      title = 'Aufnahme verlassen';
+      title = l10n.startLeaveRecording;
 
       shouldNavigate = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(title),
-          content: const Text('Mögliche Änderungen wurden automatisch gespeichert.'),
+          content: Text(l10n.startChangesSaved),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
               style: TextButton.styleFrom(foregroundColor: Colors.grey),
-              child: const Text('abbrechen'),
+              child: Text(l10n.startCancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Zur Übersicht'),
+              child: Text(l10n.startToOverview),
             ),
           ],
         ),

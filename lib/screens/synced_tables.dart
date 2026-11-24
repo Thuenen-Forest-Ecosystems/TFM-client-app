@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 import 'package:terrestrial_forest_monitor/services/powersync.dart';
 
 class SyncedTablesScreen extends StatefulWidget {
@@ -48,7 +49,7 @@ class _SyncedTablesScreenState extends State<SyncedTablesScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Fehler: $e';
+        _error = e.toString();
         _isLoading = false;
       });
     }
@@ -56,11 +57,12 @@ class _SyncedTablesScreenState extends State<SyncedTablesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Synced Tables'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Neu laden', onPressed: _loadTables),
+          IconButton(icon: const Icon(Icons.refresh), tooltip: l10n.syncedTablesReload, onPressed: _loadTables),
         ],
       ),
       body: _buildBody(),
@@ -71,22 +73,23 @@ class _SyncedTablesScreenState extends State<SyncedTablesScreen> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+    final l10n = AppLocalizations.of(context)!;
 
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(l10n.syncedTablesError(_error!), style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 12),
-            ElevatedButton(onPressed: _loadTables, child: const Text('Wiederholen')),
+            ElevatedButton(onPressed: _loadTables, child: Text(l10n.syncedTablesRetry)),
           ],
         ),
       );
     }
 
     if (_tables.isEmpty) {
-      return const Center(child: Text('Keine Tabellen gefunden.'));
+      return Center(child: Text(l10n.syncedTablesEmpty));
     }
 
     return ListView.separated(

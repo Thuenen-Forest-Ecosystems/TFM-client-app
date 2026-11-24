@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:terrestrial_forest_monitor/services/validation_types.dart';
 import 'package:terrestrial_forest_monitor/providers/gps-position.dart';
 import 'package:terrestrial_forest_monitor/models/gps_quality_criteria.dart';
+import 'package:terrestrial_forest_monitor/l10n/app_localizations.dart';
 
 /// Record Position Form Element Widget
 /// This widget allows users to record their current GPS position
@@ -408,11 +409,11 @@ class _RecordPositionState extends State<RecordPosition> {
   String _getQualityLabel(QualityLevel level) {
     switch (level) {
       case QualityLevel.good:
-        return 'gut';
+        return AppLocalizations.of(context)!.recordPositionQualityGood;
       case QualityLevel.ok:
-        return 'geeignet';
+        return AppLocalizations.of(context)!.recordPositionQualityOk;
       case QualityLevel.notAcceptable:
-        return 'nicht geeignet';
+        return AppLocalizations.of(context)!.recordPositionQualityNotAcceptable;
     }
   }
 
@@ -450,6 +451,7 @@ class _RecordPositionState extends State<RecordPosition> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final progress = _recordedPositions.length / _targetCount;
     final gpsProvider = context.watch<GpsPositionProvider>();
     final hasGpsDevice = gpsProvider.lastPosition != null;
@@ -492,7 +494,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     const SizedBox(width: 8),
                                   ],
                                   Text(
-                                    'Zuletzt gemessene GPS-Information',
+                                    l10n.recordPositionLastGpsInfo,
                                     style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                 ],
@@ -501,16 +503,16 @@ class _RecordPositionState extends State<RecordPosition> {
 
                               // Connection status
                               _buildDataRow(
-                                'Verbindung',
+                                l10n.recordPositionConnection,
                                 gpsProvider.connectedDevice != null
                                     ? 'Bluetooth: ${gpsProvider.connectedDevice!.platformName}'
                                     : gpsProvider.connectedClassicDevice != null
-                                    ? 'Bluetooth Classic: ${gpsProvider.connectedClassicDevice!.name ?? "Unbekannt"}'
+                                    ? 'Bluetooth Classic: ${gpsProvider.connectedClassicDevice!.name ?? l10n.recordPositionUnknown}'
                                     : gpsProvider.connectedSerialPortName != null
-                                    ? 'Seriell: ${gpsProvider.connectedSerialPortName}'
+                                    ? l10n.recordPositionSerial(gpsProvider.connectedSerialPortName ?? '')
                                     : gpsProvider.listeningPosition
-                                    ? 'Internes GPS'
-                                    : 'Keine Verbindung',
+                                    ? l10n.recordPositionInternalGps
+                                    : l10n.recordPositionNoConnection,
                               ),
 
                               // Current position
@@ -539,7 +541,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                       freshnessLevel = QualityLevel.good;
                                     }
                                     return _buildDataRow(
-                                      'Zeitpunkt',
+                                      l10n.recordPositionTimestamp,
                                       _formatDateTime(gpsProvider.lastPosition!.timestamp),
                                       qualityLevel: freshnessLevel,
                                     );
@@ -549,7 +551,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               // NMEA data if available
                               if (gpsProvider.currentNMEA != null) ...[
                                 _buildDataRow(
-                                  'Korrektursignal',
+                                  l10n.recordPositionCorrectionSignal,
                                   _getCorrectionSignalText(gpsProvider.currentNMEA!.fixQuality),
                                   qualityLevel: GpsQualityCriteria.evaluateCorrectionSignal(
                                     gpsProvider.currentNMEA!.fixQuality,
@@ -558,7 +560,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                 // Display RTCM age if available (only for DGPS/RTK fixes)
                                 if (gpsProvider.currentNMEA!.dgpsAge != null)
                                   _buildDataRow(
-                                    'Alter Korrektursignal',
+                                    l10n.recordPositionCorrectionSignalAge,
                                     _formatRtcmAge(gpsProvider.currentNMEA!.dgpsAge!),
                                     qualityLevel: _evaluateRtcmAge(
                                       gpsProvider.currentNMEA!.dgpsAge!,
@@ -566,7 +568,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   ),
                                 if (gpsProvider.currentNMEA!.satellites != null)
                                   _buildDataRow(
-                                    'Satelliten',
+                                    l10n.recordPositionSatellites,
                                     gpsProvider.currentNMEA!.satellites.toString(),
                                     qualityLevel: _qualityCriteria.satellites.evaluate(
                                       gpsProvider.currentNMEA!.satellites!,
@@ -590,7 +592,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   ),
                                 if (gpsProvider.currentNMEA!.altitude != null)
                                   _buildDataRow(
-                                    'Höhe',
+                                    l10n.recordPositionAltitude,
                                     '${gpsProvider.currentNMEA!.altitude!.toStringAsFixed(1)} m',
                                   ),
                               ],
@@ -600,7 +602,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Text(
-                                    'Keine GPS-Daten verfügbar',
+                                    l10n.recordPositionNoGpsData,
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Colors.orange,
                                       fontStyle: FontStyle.italic,
@@ -637,7 +639,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     const SizedBox(width: 8),
                                   ],
                                   Text(
-                                    'Gespeicherte Messung',
+                                    l10n.recordPositionSavedMeasurement,
                                     style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                   const SizedBox(width: 8),
@@ -667,7 +669,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               const SizedBox(height: 12),
                               if (_initialSavedData!['measurement_count'] != null)
                                 _buildDataRow(
-                                  'Messungen',
+                                  l10n.recordPositionMeasurements,
                                   '${_initialSavedData!['measurement_count']}',
                                   qualityLevel: _qualityCriteria.measurementCount.evaluate(
                                     _initialSavedData!['measurement_count'] as int,
@@ -679,7 +681,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   '${_initialSavedData!['position_mean']['latitude'] ?? "?"}, ${_initialSavedData!['position_mean']['longitude'] ?? "?"}',
                                 ),
                               _buildDataRow(
-                                'Korrektursignal',
+                                l10n.recordPositionCorrectionSignal,
                                 _getCorrectionSignalText(
                                   _initialSavedData!['aggregation_quality_code'],
                                 ),
@@ -691,7 +693,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               ),
                               if (_initialSavedData!['satellites_count_mean'] != null)
                                 _buildDataRow(
-                                  'Satelliten (avg)',
+                                  l10n.recordPositionSatellitesAvg,
                                   '${_initialSavedData!['satellites_count_mean'].toStringAsFixed(1)}',
                                   qualityLevel: _qualityCriteria.satellites.evaluate(
                                     (_initialSavedData!['satellites_count_mean'] as num).round(),
@@ -758,7 +760,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Aktuelle Messung',
+                                    l10n.recordPositionCurrentMeasurement,
                                     style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                   const SizedBox(width: 8),
@@ -803,7 +805,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   IconButton(
                                     onPressed: _toggleRecording,
                                     icon: const Icon(Icons.stop),
-                                    tooltip: 'Einmessung beenden',
+                                    tooltip: l10n.recordPositionStopMeasurement,
                                     color: Colors.red,
                                   ),
                                 ],
@@ -815,7 +817,7 @@ class _RecordPositionState extends State<RecordPosition> {
                               LinearProgressIndicator(value: 1.0),
                               const SizedBox(height: 8),
                               Text(
-                                'Abgeschlossen: ${_aggregatedData!['measurement_count']} Positionen aufgezeichnet',
+                                l10n.recordPositionCompleted('${_aggregatedData!['measurement_count']}'),
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Colors.green,
                                   fontWeight: FontWeight.bold,
@@ -837,7 +839,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                           });
                                         }
                                       : null,
-                                  child: const Text('Neue Messung starten'),
+                                  child: Text(l10n.recordPositionStartNewMeasurement),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -851,7 +853,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     ElevatedButton.icon(
                                       onPressed: hasValidFix ? _toggleRecording : null,
                                       icon: const Icon(Icons.gps_fixed),
-                                      label: const Text('Einmessung starten'),
+                                      label: Text(l10n.recordPositionStartMeasurement),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.green,
                                         foregroundColor: Colors.white,
@@ -860,7 +862,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                     if (hasGpsDevice && !hasValidFix) ...[
                                       const SizedBox(height: 8),
                                       Text(
-                                        'Warte auf gültiges GPS-Signal...',
+                                        l10n.recordPositionWaitingForValidGps,
                                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                           color: Colors.orange,
                                           fontStyle: FontStyle.italic,
@@ -876,7 +878,7 @@ class _RecordPositionState extends State<RecordPosition> {
                             if (_aggregatedData != null) ...[
                               if (_aggregatedData!['measurement_count'] != null)
                                 _buildDataRow(
-                                  'Messungen',
+                                  l10n.recordPositionMeasurements,
                                   '${_aggregatedData!['measurement_count']}',
                                   qualityLevel: _qualityCriteria.measurementCount.evaluate(
                                     _aggregatedData!['measurement_count'] as int,
@@ -888,7 +890,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                   '${_aggregatedData!['position_mean']['latitude'] ?? "?"}, ${_aggregatedData!['position_mean']['longitude'] ?? "?"}',
                                 ),
                               _buildDataRow(
-                                'Korrektursignal',
+                                l10n.recordPositionCorrectionSignal,
                                 _getCorrectionSignalText(
                                   _aggregatedData!['aggregation_quality_code'],
                                 ),
@@ -901,7 +903,7 @@ class _RecordPositionState extends State<RecordPosition> {
 
                               if (_aggregatedData!['satellites_count_mean'] != null)
                                 _buildDataRow(
-                                  'Satelliten (avg)',
+                                  l10n.recordPositionSatellitesAvg,
                                   '${_aggregatedData!['satellites_count_mean'].toStringAsFixed(1)}',
                                   qualityLevel: _qualityCriteria.satellites.evaluate(
                                     (_aggregatedData!['satellites_count_mean'] as num).round(),
@@ -964,7 +966,7 @@ class _RecordPositionState extends State<RecordPosition> {
                                                     _currentQualityLevel = null;
                                                   });
                                                 },
-                                                child: const Text('Messung verwerfen'),
+                                                child: Text(l10n.recordPositionDiscardMeasurement),
                                               ),
                                               const SizedBox(width: 12),
                                               ElevatedButton.icon(
@@ -974,8 +976,8 @@ class _RecordPositionState extends State<RecordPosition> {
                                                 ),
                                                 label: Text(
                                                   isOverwriting
-                                                      ? 'Messung ersetzen'
-                                                      : 'Messung übernehmen',
+                                                      ? l10n.recordPositionReplaceMeasurement
+                                                      : l10n.recordPositionApplyMeasurement,
                                                 ),
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor: isOverwriting
@@ -1046,17 +1048,17 @@ class _RecordPositionState extends State<RecordPosition> {
 
     // Valid NMEA quality codes: 1, 2, 4, 5
     if (quality == null) {
-      return 'Nicht geeignet';
+      return AppLocalizations.of(context)!.recordPositionNotSuitable;
     } else if (quality == 1) {
       return 'Standard GPS';
     } else if (quality == 2) {
-      return 'DGPS verfügbar';
+      return AppLocalizations.of(context)!.recordPositionDgpsAvailable;
     } else if (quality == 4) {
-      return 'RTK Fixed verfügbar';
+      return AppLocalizations.of(context)!.recordPositionRtkFixedAvailable;
     } else if (quality == 5) {
-      return 'RTK Float verfügbar';
+      return AppLocalizations.of(context)!.recordPositionRtkFloatAvailable;
     } else {
-      return 'Nicht geeignet';
+      return AppLocalizations.of(context)!.recordPositionNotSuitable;
     }
   }
 
